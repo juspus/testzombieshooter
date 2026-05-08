@@ -5,7 +5,7 @@ const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
 
 export const useGameStore = create((set, get) => ({
-  phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over'
+  phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over' | 'dead'
   wave: 1,
   kills: 0,
   timeLeft: WAVE_DURATION,
@@ -56,6 +56,11 @@ export const useGameStore = create((set, get) => ({
     } else {
       set({ timeLeft: next })
     }
+  },
+
+  die: () => {
+    if (get().phase !== 'playing') return
+    set({ phase: 'dead' })
   },
 
   getZombieSpeed: () => speedForWave(get().wave),

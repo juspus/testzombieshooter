@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useGameStore } from '../store'
 
 export default function Screens() {
@@ -36,6 +37,10 @@ export default function Screens() {
         <Btn onClick={nextWave}>NEXT WAVE →</Btn>
       </Overlay>
     )
+  }
+
+  if (phase === 'dead') {
+    return <YouDied onRestart={startGame} wave={wave} kills={kills} />
   }
 
   if (phase === 'game_over') {
@@ -119,6 +124,98 @@ function Controls({ children }) {
       margin: '8px 0',
       letterSpacing: 1,
     }}>{children}</p>
+  )
+}
+
+function YouDied({ onRestart, wave, kills }) {
+  const [opacity, setOpacity] = useState(0)
+  const [btnVisible, setBtnVisible] = useState(false)
+
+  useEffect(() => {
+    // Fade in text over 1.5s, then show button
+    let start = null
+    const fade = (ts) => {
+      if (!start) start = ts
+      const t = Math.min((ts - start) / 1500, 1)
+      setOpacity(t)
+      if (t < 1) requestAnimationFrame(fade)
+      else setTimeout(() => setBtnVisible(true), 400)
+    }
+    const raf = requestAnimationFrame(fade)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: `rgba(0,0,0,${0.3 + opacity * 0.55})`,
+      gap: 0,
+      fontFamily: 'Garamond, Georgia, serif',
+      transition: 'background 0.1s',
+    }}>
+      <h1 style={{
+        color: `rgba(180,0,0,${opacity})`,
+        fontSize: 'clamp(60px, 12vw, 120px)',
+        fontWeight: 'bold',
+        letterSpacing: '0.15em',
+        margin: 0,
+        textShadow: `0 0 60px rgba(200,0,0,${opacity * 0.9}), 0 0 120px rgba(140,0,0,${opacity * 0.5})`,
+        userSelect: 'none',
+      }}>
+        YOU DIED
+      </h1>
+
+      <div style={{
+        opacity: opacity * 0.6,
+        color: '#888',
+        fontSize: 14,
+        letterSpacing: 4,
+        marginTop: 16,
+        fontFamily: 'Courier New, monospace',
+        textTransform: 'uppercase',
+      }}>
+        Wave {wave} &nbsp;·&nbsp; {kills} kill{kills !== 1 ? 's' : ''}
+      </div>
+
+      <div style={{
+        marginTop: 56,
+        opacity: btnVisible ? 1 : 0,
+        transition: 'opacity 0.8s ease',
+      }}>
+        <button
+          onClick={onRestart}
+          style={{
+            padding: '14px 52px',
+            background: 'transparent',
+            border: '1px solid rgba(180,0,0,0.7)',
+            color: 'rgba(200,200,200,0.9)',
+            fontSize: 15,
+            letterSpacing: 5,
+            fontFamily: 'Courier New, monospace',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            transition: 'all 0.3s',
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = 'rgba(140,0,0,0.4)'
+            e.target.style.borderColor = 'rgba(200,0,0,1)'
+            e.target.style.color = '#fff'
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = 'transparent'
+            e.target.style.borderColor = 'rgba(180,0,0,0.7)'
+            e.target.style.color = 'rgba(200,200,200,0.9)'
+          }}
+        >
+          Start New Game
+        </button>
+      </div>
+    </div>
   )
 }
 
