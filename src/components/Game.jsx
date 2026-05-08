@@ -2,7 +2,9 @@ import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Arena from './Arena'
 import Player from './Player'
+import Gun from './Gun'
 import ZombieManager from './ZombieManager'
+import BulletTrails from './BulletTrails'
 import HUD from './HUD'
 import Screens from './Screens'
 
@@ -20,7 +22,9 @@ export default function Game() {
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         <Arena />
         {isPlaying && <Player />}
+        {isPlaying && <Gun />}
         <ZombieManager />
+        <BulletTrails />
       </Canvas>
 
       {isPlaying && <HUD />}

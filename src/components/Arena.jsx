@@ -33,10 +33,10 @@ export default function Arena() {
       )}
 
       {/* Lighting */}
-      <ambientLight intensity={0.3} />
-      <pointLight position={[0, 8, 0]} intensity={2} color="#ff6633" castShadow />
-      <pointLight position={[-10, 4, -10]} intensity={1} color="#003366" />
-      <pointLight position={[10, 4, 10]} intensity={1} color="#003366" />
+      <ambientLight intensity={0.36} />
+      <pointLight position={[0, 8, 0]} intensity={2.4} color="#ff6633" castShadow />
+      <pointLight position={[-10, 4, -10]} intensity={1.2} color="#003366" />
+      <pointLight position={[10, 4, 10]} intensity={1.2} color="#003366" />
     </group>
   )
 }
