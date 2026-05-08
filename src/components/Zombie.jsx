@@ -6,12 +6,14 @@ import * as THREE from 'three'
 
 const ZOMBIE_HEIGHT = 1.8
 const ARENA_BOUND = 18.5
+const KILL_DISTANCE = 1.2
 
 export default function Zombie({ id, startX, startZ }) {
   const ref = useRef()
   const { camera } = useThree()
   const speed = useGameStore((s) => s.getZombieSpeed())
   const phase = useGameStore((s) => s.phase)
+  const die = useGameStore((s) => s.die)
 
   useEffect(() => {
     if (ref.current) {
@@ -34,6 +36,11 @@ export default function Zombie({ id, startX, startZ }) {
 
     // Face player
     ref.current.lookAt(camera.position.x, pos.y, camera.position.z)
+
+    // Kill player on contact
+    const dx = camera.position.x - pos.x
+    const dz = camera.position.z - pos.z
+    if (Math.sqrt(dx * dx + dz * dz) < KILL_DISTANCE) die()
   })
 
   return (
