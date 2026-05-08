@@ -25,9 +25,17 @@ export default function Player() {
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
   useEffect(() => {
-    camera.position.set(0, PLAYER_HEIGHT, 0)
     camera.rotation.order = 'YXZ'
   }, [camera])
+
+  // Reset player position and look direction at the start of every wave/game
+  useEffect(() => {
+    if (phase === 'playing') {
+      camera.position.set(0, PLAYER_HEIGHT, 0)
+      yaw.current = 0
+      pitch.current = 0
+    }
+  }, [phase, camera])
 
   useEffect(() => {
     if (phase !== 'playing' && document.pointerLockElement) {

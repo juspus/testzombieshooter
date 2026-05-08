@@ -30,8 +30,8 @@ export default function Game() {
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         <Arena />
-        {isPlaying && <Player />}
-        {isPlaying && <Gun />}
+        <Player />
+        <Gun />
         <ZombieManager />
         <BulletTrails />
       </Canvas>
