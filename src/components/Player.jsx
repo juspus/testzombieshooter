@@ -29,6 +29,13 @@ export default function Player() {
     camera.rotation.order = 'YXZ'
   }, [camera])
 
+  // Release pointer lock whenever the game leaves the playing state
+  useEffect(() => {
+    if (phase !== 'playing' && document.pointerLockElement) {
+      document.exitPointerLock()
+    }
+  }, [phase])
+
   const requestLock = useCallback(() => {
     if (phase === 'playing') gl.domElement.requestPointerLock()
   }, [phase, gl])
