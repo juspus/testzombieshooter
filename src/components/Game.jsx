@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Arena from './Arena'
@@ -11,6 +12,14 @@ import Screens from './Screens'
 export default function Game() {
   const phase = useGameStore((s) => s.phase)
   const isPlaying = phase === 'playing'
+
+  // Release pointer lock whenever the game leaves playing — must live here
+  // because Player unmounts on phase change and its effects won't fire.
+  useEffect(() => {
+    if (!isPlaying && document.pointerLockElement) {
+      document.exitPointerLock()
+    }
+  }, [isPlaying])
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
