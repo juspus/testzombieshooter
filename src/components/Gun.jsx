@@ -56,46 +56,49 @@ export default function Gun() {
     // Gun group lives in camera space: right, down, forward
     <group ref={groupRef} position={[0.22, -0.22, -0.38]}>
 
+      {/* Dedicated gun light — always on, illuminates the gun regardless of scene */}
+      <pointLight position={[0, 0.1, 0.2]} intensity={1.5} color="#ffffff" distance={1.2} />
+
       {/* Slide / upper receiver */}
       <mesh position={[0, 0.04, -0.04]}>
         <boxGeometry args={[0.065, 0.055, 0.26]} />
-        <meshStandardMaterial color="#1c1c1c" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color="#555" metalness={0.7} roughness={0.3} />
       </mesh>
 
       {/* Lower frame / body */}
       <mesh position={[0, -0.01, 0.02]}>
         <boxGeometry args={[0.06, 0.045, 0.18]} />
-        <meshStandardMaterial color="#252525" metalness={0.6} roughness={0.4} />
+        <meshStandardMaterial color="#606060" metalness={0.5} roughness={0.4} />
       </mesh>
 
       {/* Barrel */}
       <mesh position={[0, 0.02, -0.22]}>
         <boxGeometry args={[0.032, 0.032, 0.18]} />
-        <meshStandardMaterial color="#111" metalness={0.95} roughness={0.15} />
+        <meshStandardMaterial color="#444" metalness={0.9} roughness={0.15} />
       </mesh>
 
       {/* Grip */}
       <mesh position={[0, -0.1, 0.06]} rotation={[0.15, 0, 0]}>
         <boxGeometry args={[0.058, 0.13, 0.082]} />
-        <meshStandardMaterial color="#1a1a1a" metalness={0.2} roughness={0.9} />
+        <meshStandardMaterial color="#3a3a3a" metalness={0.1} roughness={0.95} />
       </mesh>
 
       {/* Trigger guard */}
       <mesh position={[0, -0.035, 0.02]}>
         <boxGeometry args={[0.045, 0.014, 0.075]} />
-        <meshStandardMaterial color="#222" metalness={0.5} roughness={0.5} />
+        <meshStandardMaterial color="#555" metalness={0.4} roughness={0.5} />
       </mesh>
 
       {/* Sight (rear) */}
       <mesh position={[0, 0.075, 0.08]}>
         <boxGeometry args={[0.05, 0.018, 0.014]} />
-        <meshStandardMaterial color="#333" metalness={0.7} roughness={0.3} />
+        <meshStandardMaterial color="#666" metalness={0.6} roughness={0.3} />
       </mesh>
 
       {/* Sight (front) */}
       <mesh position={[0, 0.075, -0.14]}>
         <boxGeometry args={[0.01, 0.018, 0.01]} />
-        <meshStandardMaterial color="#333" metalness={0.7} roughness={0.3} />
+        <meshStandardMaterial color="#666" metalness={0.6} roughness={0.3} />
       </mesh>
 
       {/* Muzzle flash light */}
