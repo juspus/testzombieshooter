@@ -1,6 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
+import Gun from './Gun'
+import BulletTrails from './BulletTrails'
 import * as THREE from 'three'
 
 const PLAYER_HEIGHT = 1.7
@@ -12,7 +14,6 @@ export default function Player() {
   const { camera, gl } = useThree()
   const killZombie = useGameStore((s) => s.killZombie)
   const phase = useGameStore((s) => s.phase)
-  const zombies = useGameStore((s) => s.zombies)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -20,7 +21,6 @@ export default function Player() {
   const locked = useRef(false)
   const zombieRefs = useRef({})
 
-  // Expose zombie ref registration
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
@@ -29,7 +29,6 @@ export default function Player() {
     camera.rotation.order = 'YXZ'
   }, [camera])
 
-  // Release pointer lock whenever the game leaves the playing state
   useEffect(() => {
     if (phase !== 'playing' && document.pointerLockElement) {
       document.exitPointerLock()
@@ -65,13 +64,9 @@ export default function Player() {
     }
   }, [gl])
 
-  // Click to shoot
   useEffect(() => {
     const onClick = () => {
-      if (!locked.current) {
-        requestLock()
-        return
-      }
+      if (!locked.current) { requestLock(); return }
       shoot()
     }
     gl.domElement.addEventListener('click', onClick)
@@ -84,32 +79,33 @@ export default function Player() {
 
     let closest = null
     let closestDist = Infinity
+    let hitPoint = null
 
     for (const [id, ref] of Object.entries(zombieRefs.current)) {
       if (!ref) continue
-      const box = new THREE.Box3().setFromObject(ref)
-      const target = new THREE.Vector3()
-      box.getCenter(target)
       const intersects = raycaster.intersectObject(ref, true)
       if (intersects.length > 0 && intersects[0].distance < closestDist) {
         closestDist = intersects[0].distance
         closest = id
+        hitPoint = intersects[0].point
       }
     }
 
-    if (closest !== null) {
-      killZombie(Number(closest))
-    }
+    // Trail from gun muzzle to hit point (or 50 units out)
+    const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
+    const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+    BulletTrails.add(muzzle, trailEnd)
+    Gun.fire?.()
+
+    if (closest !== null) killZombie(Number(closest))
   }, [camera, killZombie])
 
   useFrame((_, delta) => {
     if (phase !== 'playing') return
 
-    // Apply rotation
     camera.rotation.y = yaw.current
     camera.rotation.x = pitch.current
 
-    // Movement
     const dir = new THREE.Vector3()
     const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
     const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
