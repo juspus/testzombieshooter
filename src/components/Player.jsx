@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
+import BulletTrails from './BulletTrails'
 import * as THREE from 'three'
 
 const PLAYER_HEIGHT = 1.7
@@ -84,18 +85,22 @@ export default function Player() {
 
     let closest = null
     let closestDist = Infinity
+    let hitPoint = null
 
     for (const [id, ref] of Object.entries(zombieRefs.current)) {
       if (!ref) continue
-      const box = new THREE.Box3().setFromObject(ref)
-      const target = new THREE.Vector3()
-      box.getCenter(target)
       const intersects = raycaster.intersectObject(ref, true)
       if (intersects.length > 0 && intersects[0].distance < closestDist) {
         closestDist = intersects[0].distance
         closest = id
+        hitPoint = intersects[0].point
       }
     }
+
+    // Trail: start slightly in front of camera, end at hit or 50 units out
+    const trailStart = camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
+    const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+    BulletTrails.add(trailStart, trailEnd)
 
     if (closest !== null) {
       killZombie(Number(closest))

@@ -3,6 +3,7 @@ import { useGameStore } from '../store'
 import Arena from './Arena'
 import Player from './Player'
 import ZombieManager from './ZombieManager'
+import BulletTrails from './BulletTrails'
 import HUD from './HUD'
 import Screens from './Screens'
 
@@ -21,6 +22,7 @@ export default function Game() {
         <Arena />
         {isPlaying && <Player />}
         <ZombieManager />
+        <BulletTrails />
       </Canvas>
 
       {isPlaying && <HUD />}
