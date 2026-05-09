@@ -1,5 +1,6 @@
 import { useGameStore, CLIP_SIZE } from '../store'
 
+
 export default function HUD() {
   const wave = useGameStore((s) => s.wave)
   const kills = useGameStore((s) => s.kills)
@@ -45,9 +46,8 @@ export default function HUD() {
               ...styles.ammoCount,
               color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
             }}>
-              {bulletsInClip}<span style={styles.ammoSep}>/</span>{CLIP_SIZE}
+              {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
             </div>
-            <div style={styles.reserve}>{reserveBullets} left</div>
           </>
         )}
         <div style={styles.reloadHint}>R — reload</div>

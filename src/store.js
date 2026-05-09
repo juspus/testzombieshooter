@@ -67,6 +67,10 @@ export const useGameStore = create((set, get) => ({
     return true
   },
 
+  addBullets: (count) => {
+    set({ reserveBullets: get().reserveBullets + count })
+  },
+
   finishReload: () => {
     const { bulletsInClip, reserveBullets } = get()
     const toLoad = Math.min(CLIP_SIZE - bulletsInClip, reserveBullets)
