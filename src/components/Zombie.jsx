@@ -4,6 +4,7 @@ import { useGameStore } from '../store'
 import Player from './Player'
 import { findPath, hasLineOfSight, isBlocked } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
+import { playZombieFootstep, playPlankHit } from '../sounds'
 import * as THREE from 'three'
 
 const ZOMBIE_HEIGHT = 1.8
@@ -39,6 +40,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const targetWindowRef  = useRef(-1)
   const attackTimerRef   = useRef(0)
   const windowPlanksRef  = useRef(windowPlanks)
+  const stepTimerRef     = useRef(Math.random() * 0.6)
 
   useEffect(() => {
     if (ref.current) {
@@ -126,6 +128,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
           if (attackTimerRef.current <= 0) {
             attackTimerRef.current = ATTACK_INTERVAL
             hitPlank(win.id)
+            playPlankHit()
           }
           ref.current.lookAt(win.winX, pos.y, win.winZ)
         }
@@ -161,6 +164,16 @@ export default function ZombieComponent({ id, startX, startZ }) {
       pos.addScaledVector(moveDir, speed * delta)
       pos.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x))
       pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z))
+
+      // Footstep sound — only when close enough for player to hear
+      const sdx = px - pos.x, sdz = pz - pos.z
+      if (sdx * sdx + sdz * sdz < 144) {  // within 12 units
+        stepTimerRef.current -= delta
+        if (stepTimerRef.current <= 0) {
+          stepTimerRef.current = 0.55 + Math.random() * 0.1
+          playZombieFootstep()
+        }
+      }
     }
 
     if (modeRef.current !== 'attack_window') {
