@@ -87,8 +87,10 @@ export const useGameStore = create((set, get) => ({
         ? { zombies: remaining, kills: newKills, phase: 'wave_clear' }
         : { zombies: remaining, kills: newKills }
       )
+      return true
     } else {
       set({ zombies: zombies.map((z) => z.id === id ? { ...z, health: newHealth } : z) })
+      return false
     }
   },
 

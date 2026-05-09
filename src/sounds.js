@@ -133,3 +133,49 @@ export function playReload() {
 
   mechanicalClick(ac, t + 1.0, 0.6)
 }
+
+export function playZombieDie() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Low guttural groan — descending sawtooth through a throat formant
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(180, t)
+  osc.frequency.exponentialRampToValueAtTime(55, t + 0.5)
+
+  const formant = ac.createBiquadFilter()
+  formant.type = 'bandpass'
+  formant.frequency.setValueAtTime(400, t)
+  formant.frequency.exponentialRampToValueAtTime(150, t + 0.5)
+  formant.Q.value = 2.5
+
+  const groanGain = ac.createGain()
+  groanGain.gain.setValueAtTime(0.6, t)
+  groanGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5)
+
+  osc.connect(formant)
+  formant.connect(groanGain)
+  groanGain.connect(ac.destination)
+  osc.start(t)
+  osc.stop(t + 0.5)
+
+  // Body thud as they fall
+  const thudBuf = noiseBuffer(ac, 0.18)
+  playNoise(ac, thudBuf, t + 0.1, 0.15, 0.5, 'lowpass', 220, 0.8)
+  playTone(ac, t + 0.1, 90, 30, 0.15, 0.4)
+
+  // Trailing wheeze
+  const wheezeBuf = noiseBuffer(ac, 0.3)
+  playNoise(ac, wheezeBuf, t + 0.25, 0.28, 0.25, 'bandpass', 700, 2)
+}
+
+export function playFootstep() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Dull floor thud
+  const buf = noiseBuffer(ac, 0.12)
+  playNoise(ac, buf, t, 0.1, 0.55, 'lowpass', 180, 0.7)
+  playTone(ac, t, 100, 40, 0.08, 0.3)
+}

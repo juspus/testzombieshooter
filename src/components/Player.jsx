@@ -4,13 +4,14 @@ import { useGameStore } from '../store'
 import Gun from './Gun'
 import BulletTrails from './BulletTrails'
 import { Zombie } from './Zombie'
-import { playGunshot, playEmptyClick, playReload } from '../sounds'
+import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep } from '../sounds'
 import * as THREE from 'three'
 
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
 const LOOK_SENSITIVITY = 0.002
 const ARENA_BOUND = 18.5
+const STEP_INTERVAL = 0.42
 
 export default function Player() {
   const { camera, gl } = useThree()
@@ -26,6 +27,7 @@ export default function Player() {
   const locked = useRef(false)
   const zombieRefs = useRef({})
   const reloadTimer = useRef(0)
+  const stepTimer = useRef(0)
   const RELOAD_TIME = 1.5
 
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
@@ -130,7 +132,8 @@ export default function Player() {
         Zombie.addBulletHole(id, localPos, hitFaceNormal)
       }
 
-      hitZombie(id, isHeadshot)
+      const killed = hitZombie(id, isHeadshot)
+      if (killed) playZombieDie()
     }
   }, [camera, hitZombie, consumeBullet])
 
@@ -165,6 +168,15 @@ export default function Player() {
       next.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, next.z))
       camera.position.copy(next)
       camera.position.y = PLAYER_HEIGHT
+
+      // Footstep rhythm
+      stepTimer.current -= delta
+      if (stepTimer.current <= 0) {
+        playFootstep()
+        stepTimer.current = STEP_INTERVAL
+      }
+    } else {
+      stepTimer.current = 0
     }
   })
 
