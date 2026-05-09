@@ -4,6 +4,7 @@ import { useGameStore } from '../store'
 import Gun from './Gun'
 import BulletTrails from './BulletTrails'
 import { Zombie } from './Zombie'
+import { playGunshot, playEmptyClick, playReload } from '../sounds'
 import * as THREE from 'three'
 
 const PLAYER_HEIGHT = 1.7
@@ -61,6 +62,7 @@ export default function Player() {
       keys.current[e.code] = true
       if (e.code === 'KeyR' && beginReload()) {
         reloadTimer.current = RELOAD_TIME
+        playReload()
       }
     }
     const onKeyUp = (e) => { keys.current[e.code] = false }
@@ -108,12 +110,13 @@ export default function Player() {
       }
     }
 
-    if (!consumeBullet()) return  // empty clip or reloading
+    if (!consumeBullet()) { playEmptyClick(); return }  // empty clip or reloading
 
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
     BulletTrails.add(muzzle, trailEnd)
     Gun.fire?.()
+    playGunshot()
 
     if (closest !== null) {
       const id = Number(closest)
