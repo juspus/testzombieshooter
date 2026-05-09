@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Arena from './Arena'
@@ -12,6 +13,13 @@ export default function Game() {
   const phase = useGameStore((s) => s.phase)
   const isPlaying = phase === 'playing'
 
+  // Player unmounts on phase change so we release the lock here instead
+  useEffect(() => {
+    if (!isPlaying && document.pointerLockElement) {
+      document.exitPointerLock()
+    }
+  }, [isPlaying])
+
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
       <Canvas
@@ -21,8 +29,8 @@ export default function Game() {
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         <Arena />
-        {isPlaying && <Player />}
-        {isPlaying && <Gun />}
+        <Player />
+        <Gun />
         <ZombieManager />
         <BulletTrails />
       </Canvas>
