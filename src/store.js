@@ -12,6 +12,7 @@ export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over' | 'dead'
   wave: 1,
   kills: 0,
+  waveKills: 0,
   timeLeft: WAVE_DURATION,
   zombies: [],
   nextId: 0,
@@ -27,6 +28,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'playing',
       wave,
       kills: 0,
+      waveKills: 0,
       timeLeft: WAVE_DURATION,
       zombies: spawnZombies(wave, 0),
       nextId: zombiesForWave(wave),
@@ -44,6 +46,7 @@ export const useGameStore = create((set, get) => ({
     set({
       phase: 'playing',
       wave,
+      waveKills: 0,
       timeLeft: WAVE_DURATION,
       zombies: spawnZombies(wave, nextId),
       nextId: nextId + zombiesForWave(wave),
@@ -78,7 +81,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   hitZombie: (id, isHeadshot) => {
-    const { zombies, kills } = get()
+    const { zombies, kills, waveKills } = get()
     const zombie = zombies.find((z) => z.id === id)
     if (!zombie) return
 
@@ -87,9 +90,10 @@ export const useGameStore = create((set, get) => ({
     if (newHealth <= 0) {
       const remaining = zombies.filter((z) => z.id !== id)
       const newKills = kills + 1
+      const newWaveKills = waveKills + 1
       set(remaining.length === 0
-        ? { zombies: remaining, kills: newKills, phase: 'wave_clear' }
-        : { zombies: remaining, kills: newKills }
+        ? { zombies: remaining, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
+        : { zombies: remaining, kills: newKills, waveKills: newWaveKills }
       )
       return true
     } else {

@@ -5,6 +5,7 @@ export default function Screens() {
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const kills = useGameStore((s) => s.kills)
+  const waveKills = useGameStore((s) => s.waveKills)
   const startGame = useGameStore((s) => s.startGame)
   const nextWave = useGameStore((s) => s.nextWave)
   const zombies = useGameStore((s) => s.zombies)
@@ -30,7 +31,8 @@ export default function Screens() {
       <Overlay>
         <Badge style={{ color: '#00ff88' }}>WAVE {wave} CLEARED</Badge>
         <Title style={{ fontSize: 48 }}>NICE SHOT!</Title>
-        <Sub>Kills this wave: {kills}</Sub>
+        <Sub>Kills this wave: {waveKills}</Sub>
+        <Sub style={{ marginTop: 4, color: '#888' }}>Total kills: {kills}</Sub>
         <Sub style={{ marginTop: 8, color: '#aaa' }}>
           Next wave: <strong style={{ color: '#fff' }}>{nextCount} zombies</strong>
         </Sub>
