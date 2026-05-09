@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { generateWalls, buildGrid } from './walls'
 
 const WAVE_DURATION = 30
 const CLIP_SIZE = 10
@@ -10,6 +11,7 @@ export { CLIP_SIZE }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over' | 'dead'
+  walls: [],
   wave: 1,
   kills: 0,
   waveKills: 0,
@@ -24,8 +26,11 @@ export const useGameStore = create((set, get) => ({
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
+    const walls = generateWalls()
+    buildGrid(walls)
     set({
       phase: 'playing',
+      walls,
       wave,
       kills: 0,
       waveKills: 0,

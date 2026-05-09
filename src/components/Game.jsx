@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Arena from './Arena'
+import Walls from './Walls'
 import Player from './Player'
 import Gun from './Gun'
 import ZombieManager from './ZombieManager'
@@ -30,6 +31,7 @@ export default function Game() {
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         <Arena />
+        <Walls />
         <Player />
         <Gun />
         <ZombieManager />

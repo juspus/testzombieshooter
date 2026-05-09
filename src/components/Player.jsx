@@ -5,6 +5,7 @@ import Gun from './Gun'
 import BulletTrails from './BulletTrails'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep } from '../sounds'
+import { collidesWithWalls } from '../walls'
 import * as THREE from 'three'
 
 const PLAYER_HEIGHT = 1.7
@@ -20,6 +21,8 @@ export default function Player() {
   const consumeBullet = useGameStore((s) => s.consumeBullet)
   const beginReload = useGameStore((s) => s.beginReload)
   const finishReload = useGameStore((s) => s.finishReload)
+  const walls = useGameStore((s) => s.walls)
+  const wallsRef = useRef(walls)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -32,6 +35,8 @@ export default function Player() {
 
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
+
+  useEffect(() => { wallsRef.current = walls }, [walls])
 
   useEffect(() => {
     camera.rotation.order = 'YXZ'
@@ -163,10 +168,24 @@ export default function Player() {
 
     if (dir.lengthSq() > 0) {
       dir.normalize().multiplyScalar(MOVE_SPEED * delta)
-      const next = camera.position.clone().add(dir)
-      next.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, next.x))
-      next.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, next.z))
-      camera.position.copy(next)
+      const R = 0.35
+      const ws = wallsRef.current
+      const cx = camera.position.x
+      const cz = camera.position.z
+
+      let nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, cx + dir.x))
+      let nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, cz + dir.z))
+
+      if (collidesWithWalls(nx, nz, R, ws)) {
+        // try sliding on each axis separately
+        const slideX = !collidesWithWalls(nx, cz, R, ws)
+        const slideZ = !collidesWithWalls(cx, nz, R, ws)
+        nx = slideX ? nx : cx
+        nz = slideZ ? nz : cz
+      }
+
+      camera.position.x = nx
+      camera.position.z = nz
       camera.position.y = PLAYER_HEIGHT
 
       // Footstep rhythm
