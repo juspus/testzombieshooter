@@ -2,11 +2,14 @@ import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Player from './Player'
+import { findPath, hasLineOfSight } from '../walls'
 import * as THREE from 'three'
 
 const ZOMBIE_HEIGHT = 1.8
 const ARENA_BOUND = 18.5
 const KILL_DISTANCE = 1.2
+const PATH_INTERVAL = 0.12   // seconds between A* recalculations
+const WAYPOINT_REACH = 0.6   // distance to advance to next waypoint
 
 // Module-level registry so Player can push holes into any zombie instance
 const _holeAdders = {}
@@ -21,7 +24,12 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const die = useGameStore((s) => s.die)
   const health = useGameStore((s) => s.zombies.find((z) => z.id === id)?.health ?? 2)
 
-  const [holes, setHoles] = useState([]) // {pos: Vector3, quat: Quaternion}[]
+  const [holes, setHoles] = useState([])
+
+  // Pathfinding state
+  const pathRef     = useRef([])
+  const wpIdxRef    = useRef(0)
+  const pathTimer   = useRef(Math.random() * PATH_INTERVAL) // stagger initial calc
 
   useEffect(() => {
     if (ref.current) {
@@ -44,14 +52,65 @@ export default function ZombieComponent({ id, startX, startZ }) {
   useFrame((_, delta) => {
     if (phase !== 'playing' || !ref.current) return
     const pos = ref.current.position
-    const target = new THREE.Vector3(camera.position.x, pos.y, camera.position.z)
-    const dir = target.clone().sub(pos).normalize()
-    pos.addScaledVector(dir, speed * delta)
-    pos.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x))
-    pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z))
-    ref.current.lookAt(camera.position.x, pos.y, camera.position.z)
-    const dx = camera.position.x - pos.x
-    const dz = camera.position.z - pos.z
+    const px = camera.position.x, pz = camera.position.z
+
+    let moveDir = null
+
+    if (hasLineOfSight(pos.x, pos.z, px, pz)) {
+      // Clear line to player — move directly, discard stale path
+      pathRef.current = []
+      wpIdxRef.current = 0
+      const dx = px - pos.x, dz = pz - pos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+    } else {
+      // Wall in the way — use A*
+      pathTimer.current -= delta
+      if (pathTimer.current <= 0) {
+        pathTimer.current = PATH_INTERVAL
+        const newPath = findPath(pos.x, pos.z, px, pz)
+        if (newPath && newPath.length > 1) {
+          pathRef.current = newPath
+          wpIdxRef.current = 1
+        }
+      }
+
+      const path = pathRef.current
+      if (path.length > 0 && wpIdxRef.current < path.length) {
+        // Path smoothing: skip ahead to the furthest visible waypoint
+        while (
+          wpIdxRef.current < path.length - 1 &&
+          hasLineOfSight(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z)
+        ) {
+          wpIdxRef.current++
+        }
+        const wp = path[wpIdxRef.current]
+        const dx = wp.x - pos.x, dz = wp.z - pos.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist < WAYPOINT_REACH) {
+          wpIdxRef.current++
+        } else {
+          moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+        }
+      }
+
+      // Fallback if path is empty or exhausted
+      if (!moveDir) {
+        const dx = px - pos.x, dz = pz - pos.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+      }
+    }
+
+    if (moveDir) {
+      pos.addScaledVector(moveDir, speed * delta)
+      pos.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x))
+      pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z))
+    }
+
+    ref.current.lookAt(px, pos.y, pz)
+
+    const dx = px - pos.x, dz = pz - pos.z
     if (Math.sqrt(dx * dx + dz * dz) < KILL_DISTANCE) die()
   })
 
@@ -61,19 +120,19 @@ export default function ZombieComponent({ id, startX, startZ }) {
 
   return (
     <group ref={ref}>
-      {/* Body — tagged for torso hit detection */}
+      {/* Body */}
       <mesh position={[0, 0, 0]} castShadow userData={{ zombieId: id, isHead: false }}>
         <boxGeometry args={[0.6, 1.2, 0.3]} />
         <meshStandardMaterial color={bodyColor} roughness={0.8} />
       </mesh>
 
-      {/* Head — tagged for headshot detection */}
+      {/* Head */}
       <mesh position={[0, 0.85, 0]} castShadow userData={{ zombieId: id, isHead: true }}>
         <boxGeometry args={[0.5, 0.5, 0.5]} />
         <meshStandardMaterial color={headColor} roughness={0.7} />
       </mesh>
 
-      {/* Eyes — count as headshot */}
+      {/* Eyes */}
       <mesh position={[-0.12, 0.88, 0.26]} userData={{ zombieId: id, isHead: true }}>
         <boxGeometry args={[0.1, 0.08, 0.02]} />
         <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={1} />
@@ -103,7 +162,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
         <meshStandardMaterial color="#1a3a0e" roughness={0.9} />
       </mesh>
 
-      {/* Bullet holes — parented to zombie group so they move with it */}
+      {/* Bullet holes */}
       {holes.map((h, i) => (
         <mesh key={i} position={h.pos} quaternion={h.quat} renderOrder={1}>
           <circleGeometry args={[0.045, 8]} />
@@ -116,5 +175,4 @@ export default function ZombieComponent({ id, startX, startZ }) {
   )
 }
 
-// Re-export the hole adder so Player can call it
 export { Zombie }
