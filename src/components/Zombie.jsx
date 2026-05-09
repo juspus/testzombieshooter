@@ -73,12 +73,12 @@ export default function ZombieComponent({ id, startX, startZ }) {
         <meshStandardMaterial color={headColor} roughness={0.7} />
       </mesh>
 
-      {/* Eyes */}
-      <mesh position={[-0.12, 0.88, 0.26]}>
+      {/* Eyes — count as headshot */}
+      <mesh position={[-0.12, 0.88, 0.26]} userData={{ zombieId: id, isHead: true }}>
         <boxGeometry args={[0.1, 0.08, 0.02]} />
         <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={1} />
       </mesh>
-      <mesh position={[0.12, 0.88, 0.26]}>
+      <mesh position={[0.12, 0.88, 0.26]} userData={{ zombieId: id, isHead: true }}>
         <boxGeometry args={[0.1, 0.08, 0.02]} />
         <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={1} />
       </mesh>
