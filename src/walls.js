@@ -63,13 +63,14 @@ export function generateWalls() {
   return shuffled.slice(0, count).map((t, i) => {
     const halfLen = t.len / 2
     const halfThick = WALL_THICKNESS / 2
+    const hasWindow = Math.random() < 0.45   // ~45% of walls get a window
     const winSize = 1.5
     // random window position (not too close to either end)
     const margin = 0.8
     const range = t.len - winSize - margin * 2
     const wOff = range > 0 ? (Math.random() - 0.5) * range : 0
-    const wStart = wOff - winSize / 2
-    const wEnd   = wOff + winSize / 2
+    const wStart = hasWindow ? wOff - winSize / 2 : null
+    const wEnd   = hasWindow ? wOff + winSize / 2 : null
 
     // slight random jitter on position
     const jx = (Math.random() - 0.5) * 2

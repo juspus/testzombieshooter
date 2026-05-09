@@ -16,12 +16,27 @@ function WallSegment({ x, y, z, w, h, d }) {
 function WallMesh({ wall }) {
   const { x, z, axis, halfLen, wStart, wEnd } = wall
   const T = WALL_THICKNESS
+  const fullW = halfLen * 2
 
-  const winH  = WIN_TOP - WIN_BOTTOM
-  const topH  = WALL_HEIGHT - WIN_TOP
-  const midW  = wEnd - wStart           // width of window opening
-  const leftL = wStart + halfLen        // length of left solid section
-  const rightL = halfLen - wEnd         // length of right solid section
+  // Solid wall — no window
+  if (wStart === null) {
+    return (
+      <group position={[x, 0, z]}>
+        <WallSegment
+          x={0} y={WALL_HEIGHT / 2} z={0}
+          w={axis === 'x' ? fullW : T}
+          h={WALL_HEIGHT}
+          d={axis === 'z' ? fullW : T}
+        />
+      </group>
+    )
+  }
+
+  // Wall with window opening
+  const topH   = WALL_HEIGHT - WIN_TOP
+  const midW   = wEnd - wStart
+  const leftL  = wStart + halfLen
+  const rightL = halfLen - wEnd
 
   if (axis === 'x') {
     const lCX = (-halfLen + wStart) / 2
@@ -29,9 +44,9 @@ function WallMesh({ wall }) {
     const mCX = (wStart + wEnd) / 2
     return (
       <group position={[x, 0, z]}>
-        {leftL > 0.05 && <WallSegment x={lCX} y={WALL_HEIGHT / 2} z={0} w={leftL} h={WALL_HEIGHT} d={T} />}
+        {leftL  > 0.05 && <WallSegment x={lCX} y={WALL_HEIGHT / 2} z={0} w={leftL}  h={WALL_HEIGHT} d={T} />}
         {rightL > 0.05 && <WallSegment x={rCX} y={WALL_HEIGHT / 2} z={0} w={rightL} h={WALL_HEIGHT} d={T} />}
-        <WallSegment x={mCX} y={WIN_BOTTOM / 2}        z={0} w={midW} h={WIN_BOTTOM} d={T} />
+        <WallSegment x={mCX} y={WIN_BOTTOM / 2}       z={0} w={midW} h={WIN_BOTTOM} d={T} />
         {topH > 0 && <WallSegment x={mCX} y={WIN_TOP + topH / 2} z={0} w={midW} h={topH} d={T} />}
       </group>
     )
@@ -41,9 +56,9 @@ function WallMesh({ wall }) {
     const mCZ = (wStart + wEnd) / 2
     return (
       <group position={[x, 0, z]}>
-        {leftL > 0.05 && <WallSegment x={0} y={WALL_HEIGHT / 2} z={lCZ} w={T} h={WALL_HEIGHT} d={leftL} />}
+        {leftL  > 0.05 && <WallSegment x={0} y={WALL_HEIGHT / 2} z={lCZ} w={T} h={WALL_HEIGHT} d={leftL}  />}
         {rightL > 0.05 && <WallSegment x={0} y={WALL_HEIGHT / 2} z={rCZ} w={T} h={WALL_HEIGHT} d={rightL} />}
-        <WallSegment x={0} y={WIN_BOTTOM / 2}        z={mCZ} w={T} h={WIN_BOTTOM} d={midW} />
+        <WallSegment x={0} y={WIN_BOTTOM / 2}       z={mCZ} w={T} h={WIN_BOTTOM} d={midW} />
         {topH > 0 && <WallSegment x={0} y={WIN_TOP + topH / 2} z={mCZ} w={T} h={topH} d={midW} />}
       </group>
     )
