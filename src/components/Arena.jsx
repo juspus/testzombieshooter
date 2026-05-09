@@ -165,10 +165,10 @@ export default function Arena() {
   return (
     <group>
       {/* Lighting */}
-      <ambientLight intensity={0.25} color="#223344" />
-      <pointLight position={[0, WH - 0.5, 0]} intensity={12} color="#ff8833" castShadow distance={28} decay={2} />
-      <pointLight position={[-5, 1.5, -5]} intensity={1.8} color="#ff7722" distance={10} decay={2} />
-      <pointLight position={[ 5, 1.5,  5]} intensity={1.8} color="#ff7722" distance={10} decay={2} />
+      <ambientLight intensity={1.2} />
+      <pointLight position={[0, WH - 0.5, 0]} intensity={20} color="#ffe0aa" castShadow distance={35} decay={2} />
+      <pointLight position={[-5, 1.5, -5]} intensity={4} color="#ffcc88" distance={14} decay={2} />
+      <pointLight position={[ 5, 1.5,  5]} intensity={4} color="#ffcc88" distance={14} decay={2} />
 
       <Lantern position={[0, WH - 0.1, 0]} />
 
