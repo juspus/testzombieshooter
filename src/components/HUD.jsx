@@ -1,4 +1,4 @@
-import { useGameStore } from '../store'
+import { useGameStore, CLIP_SIZE } from '../store'
 
 export default function HUD() {
   const wave = useGameStore((s) => s.wave)
@@ -6,6 +6,9 @@ export default function HUD() {
   const timeLeft = useGameStore((s) => s.timeLeft)
   const zombies = useGameStore((s) => s.zombies)
   const total = useGameStore((s) => s.getZombiesForWave())
+  const bulletsInClip = useGameStore((s) => s.bulletsInClip)
+  const reserveBullets = useGameStore((s) => s.reserveBullets)
+  const isReloading = useGameStore((s) => s.isReloading)
 
   const time = Math.ceil(timeLeft)
   const danger = time <= 10
@@ -29,6 +32,33 @@ export default function HUD() {
         <div style={styles.stat}>
           <span style={styles.label}>KILLS</span>
           <span style={styles.value}>{kills} / {total}</span>
+        </div>
+      </div>
+
+      {/* Ammo — bottom right */}
+      <div style={styles.ammoBox}>
+        {isReloading ? (
+          <div style={styles.reloading}>RELOADING…</div>
+        ) : (
+          <>
+            <div style={{
+              ...styles.ammoCount,
+              color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
+            }}>
+              {bulletsInClip}<span style={styles.ammoSep}>/</span>{CLIP_SIZE}
+            </div>
+            <div style={styles.reserve}>{reserveBullets} left</div>
+          </>
+        )}
+        <div style={styles.reloadHint}>R — reload</div>
+        {/* Bullet pip row */}
+        <div style={styles.pips}>
+          {Array.from({ length: CLIP_SIZE }).map((_, i) => (
+            <div key={i} style={{
+              ...styles.pip,
+              background: i < bulletsInClip ? '#ffe066' : '#333',
+            }} />
+          ))}
         </div>
       </div>
 
@@ -126,5 +156,55 @@ const styles = {
     background: '#00ff88',
     transition: 'width 0.2s',
     borderRadius: 3,
+  },
+  ammoBox: {
+    position: 'absolute',
+    bottom: 40,
+    right: 40,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 4,
+    fontFamily: 'Courier New, monospace',
+  },
+  ammoCount: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    lineHeight: 1,
+  },
+  ammoSep: {
+    color: '#555',
+    margin: '0 2px',
+    fontSize: 24,
+  },
+  reserve: {
+    color: '#888',
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  reloading: {
+    color: '#ffaa00',
+    fontSize: 18,
+    letterSpacing: 4,
+    fontWeight: 'bold',
+    animation: 'none',
+  },
+  reloadHint: {
+    color: '#444',
+    fontSize: 11,
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  pips: {
+    display: 'flex',
+    gap: 3,
+    marginTop: 4,
+  },
+  pip: {
+    width: 6,
+    height: 14,
+    borderRadius: 2,
+    transition: 'background 0.1s',
   },
 }
