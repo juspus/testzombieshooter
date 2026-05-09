@@ -93,7 +93,7 @@ export function generateWalls() {
 // ─── grid ────────────────────────────────────────────────────────────────────
 
 export function buildGrid(walls) {
-  const PAD = 0.45   // zombie half-width padding
+  const PAD = 0   // no extra padding — keeps window gaps navigable
   _grid.fill(0)
 
   for (let row = 0; row < GRID_SIZE; row++) {
