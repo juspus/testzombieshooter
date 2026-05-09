@@ -35,6 +35,36 @@ export function cabinWallSegments() {
 }
 
 // Zombie spawn clusters — one per window, positioned outside the cabin.
+// Window definitions — used for boarding interaction, visuals, and grid blocking.
+// ix/iz: interior interaction point (player stands here to board).
+// winX/winZ: wall-center of the window opening (for plank placement).
+export const WINDOW_DEFS = [
+  { id: 0, wall: 'N', winX: -4,        winZ: -CABIN_HD, ix: -4,               iz: -CABIN_HD + 1.5 },
+  { id: 1, wall: 'N', winX:  4,        winZ: -CABIN_HD, ix:  4,               iz: -CABIN_HD + 1.5 },
+  { id: 2, wall: 'E', winX:  CABIN_HW, winZ:  0,        ix:  CABIN_HW - 1.5,  iz:  0              },
+  { id: 3, wall: 'W', winX: -CABIN_HW, winZ: -3,        ix: -CABIN_HW + 1.5,  iz: -3              },
+  { id: 4, wall: 'S', winX:  4,        winZ:  CABIN_HD, ix:  4,               iz:  CABIN_HD - 1.5 },
+]
+
+// AABB segment added to the grid when a window is boarded (≥1 plank).
+export function windowBlockSegment(id) {
+  const HT = WALL_HT, W = WIN_HALF
+  const win = WINDOW_DEFS[id]
+  const isNS = win.wall === 'N' || win.wall === 'S'
+  return isNS
+    ? { x: win.winX, z: win.winZ, halfW: W,  halfD: HT }
+    : { x: win.winX, z: win.winZ, halfW: HT, halfD: W  }
+}
+
+// Full wall segment list including boarded windows.
+export function allWallSegments(windowPlanks = {}) {
+  const base = cabinWallSegments()
+  const extra = Object.entries(windowPlanks)
+    .filter(([, count]) => count > 0)
+    .map(([id]) => windowBlockSegment(Number(id)))
+  return [...base, ...extra]
+}
+
 export const SPAWN_CLUSTERS = [
   { x: -4, z: -13 },   // near north window 1 (x=-4)
   { x:  4, z: -13 },   // near north window 2 (x=+4)

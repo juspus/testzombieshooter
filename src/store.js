@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { buildGrid } from './walls'
-import { cabinWallSegments, SPAWN_CLUSTERS } from './cabin'
+import { cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
 
 const WAVE_DURATION = 30
 const CLIP_SIZE = 10
@@ -13,6 +13,8 @@ export { CLIP_SIZE }
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over' | 'dead'
   walls: [],
+  windowPlanks: {},  // { [windowId]: 1 | 2 }
+  nearWindowId: -1,  // window the player is currently standing near (-1 = none)
   wave: 1,
   kills: 0,
   waveKills: 0,
@@ -32,6 +34,7 @@ export const useGameStore = create((set, get) => ({
     set({
       phase: 'playing',
       walls,
+      windowPlanks: {},
       wave,
       kills: 0,
       waveKills: 0,
@@ -45,12 +48,16 @@ export const useGameStore = create((set, get) => ({
   },
 
   nextWave: () => {
-    const wave = get().wave + 1
-    const nextId = get().nextId
+    const { wave: prevWave, nextId, windowPlanks } = get()
+    const wave = prevWave + 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
+    // Rebuild grid preserving any boarded windows from prior waves
+    const walls = allWallSegments(windowPlanks)
+    buildGrid(walls)
     set({
       phase: 'playing',
+      walls,
       wave,
       waveKills: 0,
       timeLeft: WAVE_DURATION,
@@ -123,6 +130,19 @@ export const useGameStore = create((set, get) => ({
     if (get().phase !== 'playing') return
     set({ phase: 'dead' })
   },
+
+  addPlank: (id) => {
+    const { windowPlanks } = get()
+    const current = windowPlanks[id] ?? 0
+    if (current >= 2) return false
+    const newPlanks = { ...windowPlanks, [id]: current + 1 }
+    const walls = allWallSegments(newPlanks)
+    buildGrid(walls)
+    set({ windowPlanks: newPlanks, walls })
+    return true
+  },
+
+  setNearWindowId: (id) => set({ nearWindowId: id }),
 
   getZombieSpeed: () => speedForWave(get().wave),
   getZombiesForWave: () => zombiesForWave(get().wave),

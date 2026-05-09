@@ -10,6 +10,10 @@ export default function HUD() {
   const bulletsInClip = useGameStore((s) => s.bulletsInClip)
   const reserveBullets = useGameStore((s) => s.reserveBullets)
   const isReloading = useGameStore((s) => s.isReloading)
+  const nearWindowId = useGameStore((s) => s.nearWindowId)
+  const windowPlanks = useGameStore((s) => s.windowPlanks)
+  const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
+  const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2
 
   const time = Math.ceil(timeLeft)
   const danger = time <= 10
@@ -61,6 +65,13 @@ export default function HUD() {
           ))}
         </div>
       </div>
+
+      {/* Window board prompt */}
+      {showBoardPrompt && (
+        <div style={styles.boardPrompt}>
+          E — board window ({nearPlankCount}/2)
+        </div>
+      )}
 
       {/* Bottom hint */}
       <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>
@@ -195,6 +206,18 @@ const styles = {
     fontSize: 11,
     letterSpacing: 2,
     marginTop: 2,
+  },
+  boardPrompt: {
+    position: 'absolute',
+    bottom: 90,
+    background: 'rgba(0,0,0,0.6)',
+    color: '#ffe066',
+    fontSize: 14,
+    letterSpacing: 3,
+    fontFamily: 'Courier New, monospace',
+    padding: '6px 18px',
+    borderRadius: 4,
+    border: '1px solid #554400',
   },
   pips: {
     display: 'flex',
