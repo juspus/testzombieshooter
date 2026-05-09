@@ -1,8 +1,12 @@
 import { create } from 'zustand'
 
 const WAVE_DURATION = 30
+const CLIP_SIZE = 10
+const bulletsForWave = (wave) => zombiesForWave(wave) * 2
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
+
+export { CLIP_SIZE }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over' | 'dead'
@@ -11,9 +15,14 @@ export const useGameStore = create((set, get) => ({
   timeLeft: WAVE_DURATION,
   zombies: [],
   nextId: 0,
+  bulletsInClip: CLIP_SIZE,
+  reserveBullets: 0,
+  isReloading: false,
 
   startGame: () => {
     const wave = 1
+    const total = bulletsForWave(wave)
+    const clip = Math.min(CLIP_SIZE, total)
     set({
       phase: 'playing',
       wave,
@@ -21,19 +30,47 @@ export const useGameStore = create((set, get) => ({
       timeLeft: WAVE_DURATION,
       zombies: spawnZombies(wave, 0),
       nextId: zombiesForWave(wave),
+      bulletsInClip: clip,
+      reserveBullets: total - clip,
+      isReloading: false,
     })
   },
 
   nextWave: () => {
     const wave = get().wave + 1
     const nextId = get().nextId
+    const total = bulletsForWave(wave)
+    const clip = Math.min(CLIP_SIZE, total)
     set({
       phase: 'playing',
       wave,
       timeLeft: WAVE_DURATION,
       zombies: spawnZombies(wave, nextId),
       nextId: nextId + zombiesForWave(wave),
+      bulletsInClip: clip,
+      reserveBullets: total - clip,
+      isReloading: false,
     })
+  },
+
+  consumeBullet: () => {
+    const { bulletsInClip, isReloading } = get()
+    if (isReloading || bulletsInClip <= 0) return false
+    set({ bulletsInClip: bulletsInClip - 1 })
+    return true
+  },
+
+  beginReload: () => {
+    const { bulletsInClip, reserveBullets, isReloading } = get()
+    if (isReloading || reserveBullets === 0 || bulletsInClip === CLIP_SIZE) return false
+    set({ isReloading: true })
+    return true
+  },
+
+  finishReload: () => {
+    const { bulletsInClip, reserveBullets } = get()
+    const toLoad = Math.min(CLIP_SIZE - bulletsInClip, reserveBullets)
+    set({ bulletsInClip: bulletsInClip + toLoad, reserveBullets: reserveBullets - toLoad, isReloading: false })
   },
 
   hitZombie: (id, isHeadshot) => {

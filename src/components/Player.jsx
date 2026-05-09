@@ -15,12 +15,17 @@ export default function Player() {
   const { camera, gl } = useThree()
   const hitZombie = useGameStore((s) => s.hitZombie)
   const phase = useGameStore((s) => s.phase)
+  const consumeBullet = useGameStore((s) => s.consumeBullet)
+  const beginReload = useGameStore((s) => s.beginReload)
+  const finishReload = useGameStore((s) => s.finishReload)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
   const keys = useRef({})
   const locked = useRef(false)
   const zombieRefs = useRef({})
+  const reloadTimer = useRef(0)
+  const RELOAD_TIME = 1.5
 
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
@@ -52,7 +57,12 @@ export default function Player() {
       pitch.current -= e.movementY * LOOK_SENSITIVITY
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
     }
-    const onKeyDown = (e) => { keys.current[e.code] = true }
+    const onKeyDown = (e) => {
+      keys.current[e.code] = true
+      if (e.code === 'KeyR' && beginReload()) {
+        reloadTimer.current = RELOAD_TIME
+      }
+    }
     const onKeyUp = (e) => { keys.current[e.code] = false }
 
     document.addEventListener('pointerlockchange', onLockChange)
@@ -98,6 +108,8 @@ export default function Player() {
       }
     }
 
+    if (!consumeBullet()) return  // empty clip or reloading
+
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
     BulletTrails.add(muzzle, trailEnd)
@@ -117,10 +129,19 @@ export default function Player() {
 
       hitZombie(id, isHeadshot)
     }
-  }, [camera, hitZombie])
+  }, [camera, hitZombie, consumeBullet])
 
   useFrame((_, delta) => {
     if (phase !== 'playing') return
+
+    // Reload countdown
+    if (reloadTimer.current > 0) {
+      reloadTimer.current -= delta
+      if (reloadTimer.current <= 0) {
+        reloadTimer.current = 0
+        finishReload()
+      }
+    }
 
     camera.rotation.y = yaw.current
     camera.rotation.x = pitch.current
