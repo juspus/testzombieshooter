@@ -1,24 +1,28 @@
-import { useRef, useEffect } from 'react'
-import { useThree, useFrame } from '@react-three/fiber'
+import { useRef, useMemo } from 'react'
+import { useThree, useFrame, createPortal } from '@react-three/fiber'
 import * as THREE from 'three'
 
-// Muzzle world position, updated every frame
 const _muzzleWorld = new THREE.Vector3()
-// Local muzzle tip offset inside the gun group
-const MUZZLE_LOCAL = new THREE.Vector3(0, 0.02, -0.31)
 
 export default function Gun() {
   const { camera } = useThree()
+
+  // Dedicated scene + camera for the weapon — rendered in a second pass
+  const weaponScene = useMemo(() => {
+    const s = new THREE.Scene()
+    s.add(new THREE.AmbientLight('#ffffff', 3))
+    return s
+  }, [])
+
+  const weaponCamera = useMemo(
+    () => new THREE.PerspectiveCamera(60, 1, 0.01, 10),
+    []
+  )
+
   const groupRef = useRef()
   const flashRef = useRef()
   const recoil = useRef(0)
   const flashLife = useRef(0)
-
-  useEffect(() => {
-    if (!groupRef.current) return
-    camera.add(groupRef.current)
-    return () => camera.remove(groupRef.current)
-  }, [camera])
 
   Gun.fire = () => {
     recoil.current = 1
@@ -27,88 +31,92 @@ export default function Gun() {
 
   Gun.getMuzzlePosition = () => _muzzleWorld.clone()
 
-  useFrame((_, delta) => {
-    if (!groupRef.current) return
+  // Priority 1 = runs after all priority-0 useFrames; taking priority > 0
+  // halts R3F's own render so we drive both passes manually.
+  useFrame(({ gl, scene, size }, delta) => {
+    weaponCamera.aspect = size.width / size.height
+    weaponCamera.updateProjectionMatrix()
 
-    // Recoil: kick back then spring forward
-    if (recoil.current > 0) {
-      recoil.current = Math.max(0, recoil.current - delta * 10)
-      groupRef.current.position.z = -0.38 + recoil.current * 0.06
-      groupRef.current.rotation.x = recoil.current * 0.18
-    } else {
-      groupRef.current.position.z = -0.38
-      groupRef.current.rotation.x = 0
-    }
-
-    // Muzzle flash
+    if (recoil.current > 0) recoil.current = Math.max(0, recoil.current - delta * 10)
     if (flashRef.current) {
       flashLife.current = Math.max(0, flashLife.current - delta * 20)
-      flashRef.current.intensity = flashLife.current * 3
+      flashRef.current.intensity = flashLife.current * 4
     }
 
-    // Update muzzle world position
-    const tip = MUZZLE_LOCAL.clone()
-    groupRef.current.localToWorld(tip)
-    _muzzleWorld.copy(tip)
-  })
+    if (groupRef.current) {
+      const recoilZ = recoil.current * 0.06
+      const recoilAngle = recoil.current * 0.18
+      groupRef.current.position.set(0.22, -0.22, -(0.38 - recoilZ))
+      groupRef.current.rotation.set(recoilAngle, 0, 0)
+      groupRef.current.updateMatrixWorld()
+    }
 
-  return (
-    // Gun group lives in camera space: right, down, forward
-    <group ref={groupRef} position={[0.22, -0.22, -0.38]}>
+    // Muzzle world position: weapon-cam-local → world via main camera
+    const muzzleLocal = new THREE.Vector3(0.22, -0.20, -0.69)
+    muzzleLocal.applyMatrix4(camera.matrixWorld)
+    _muzzleWorld.copy(muzzleLocal)
 
-      {/* Dedicated gun light — always on, illuminates the gun regardless of scene */}
-      <pointLight position={[0, 0.1, 0.2]} intensity={1.5} color="#ffffff" distance={1.2} />
+    // Pass 1: main scene
+    gl.render(scene, camera)
 
+    // Pass 2: weapon on top — clear depth so it is never occluded
+    gl.autoClear = false
+    gl.clearDepth()
+    gl.render(weaponScene, weaponCamera)
+    gl.autoClear = true
+  }, 1)
+
+  const gunMat = (color, metalness = 0.7, roughness = 0.3) => (
+    <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
+  )
+
+  return createPortal(
+    <group ref={groupRef}>
       {/* Slide / upper receiver */}
       <mesh position={[0, 0.04, -0.04]}>
         <boxGeometry args={[0.065, 0.055, 0.26]} />
-        <meshStandardMaterial color="#555" metalness={0.7} roughness={0.3} />
+        {gunMat('#585858')}
       </mesh>
 
-      {/* Lower frame / body */}
+      {/* Lower frame */}
       <mesh position={[0, -0.01, 0.02]}>
         <boxGeometry args={[0.06, 0.045, 0.18]} />
-        <meshStandardMaterial color="#606060" metalness={0.5} roughness={0.4} />
+        {gunMat('#636363', 0.5, 0.4)}
       </mesh>
 
       {/* Barrel */}
       <mesh position={[0, 0.02, -0.22]}>
         <boxGeometry args={[0.032, 0.032, 0.18]} />
-        <meshStandardMaterial color="#444" metalness={0.9} roughness={0.15} />
+        {gunMat('#444', 0.9, 0.15)}
       </mesh>
 
       {/* Grip */}
       <mesh position={[0, -0.1, 0.06]} rotation={[0.15, 0, 0]}>
         <boxGeometry args={[0.058, 0.13, 0.082]} />
-        <meshStandardMaterial color="#3a3a3a" metalness={0.1} roughness={0.95} />
+        {gunMat('#3a3a3a', 0.1, 0.95)}
       </mesh>
 
       {/* Trigger guard */}
       <mesh position={[0, -0.035, 0.02]}>
         <boxGeometry args={[0.045, 0.014, 0.075]} />
-        <meshStandardMaterial color="#555" metalness={0.4} roughness={0.5} />
+        {gunMat('#555', 0.4, 0.5)}
       </mesh>
 
-      {/* Sight (rear) */}
+      {/* Sight rear */}
       <mesh position={[0, 0.075, 0.08]}>
         <boxGeometry args={[0.05, 0.018, 0.014]} />
-        <meshStandardMaterial color="#666" metalness={0.6} roughness={0.3} />
+        {gunMat('#666', 0.6, 0.3)}
       </mesh>
 
-      {/* Sight (front) */}
+      {/* Sight front */}
       <mesh position={[0, 0.075, -0.14]}>
         <boxGeometry args={[0.01, 0.018, 0.01]} />
-        <meshStandardMaterial color="#666" metalness={0.6} roughness={0.3} />
+        {gunMat('#666', 0.6, 0.3)}
       </mesh>
 
-      {/* Muzzle flash light */}
-      <pointLight
-        ref={flashRef}
-        position={[0, 0.02, -0.31]}
-        intensity={0}
-        color="#ff9900"
-        distance={4}
-      />
-    </group>
+      {/* Muzzle flash */}
+      <pointLight ref={flashRef} position={[0, 0.02, -0.31]} intensity={0} color="#ff9900" distance={4} />
+    </group>,
+    weaponScene
   )
 }

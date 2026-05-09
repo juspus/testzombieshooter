@@ -13,8 +13,7 @@ export default function Game() {
   const phase = useGameStore((s) => s.phase)
   const isPlaying = phase === 'playing'
 
-  // Release pointer lock whenever the game leaves playing — must live here
-  // because Player unmounts on phase change and its effects won't fire.
+  // Player unmounts on phase change so we release the lock here instead
   useEffect(() => {
     if (!isPlaying && document.pointerLockElement) {
       document.exitPointerLock()
@@ -30,8 +29,8 @@ export default function Game() {
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         <Arena />
-        {isPlaying && <Player />}
-        {isPlaying && <Gun />}
+        <Player />
+        <Gun />
         <ZombieManager />
         <BulletTrails />
       </Canvas>
