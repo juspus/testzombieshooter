@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { buildGrid } from './walls'
-import { cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
+import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
 
 const WAVE_DURATION = 30
 const CLIP_SIZE = 10
@@ -32,8 +32,8 @@ export const useGameStore = create((set, get) => ({
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    const walls = cabinWallSegments()
-    buildGrid(walls)
+    buildGrid(cabinWallSegments())           // grid: no windows blocked initially
+    const walls = playerCollisionWalls()    // player: all windows always blocked
     set({
       phase: 'playing',
       walls,
@@ -56,9 +56,8 @@ export const useGameStore = create((set, get) => ({
     const wave = prevWave + 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    // Rebuild grid preserving any boarded windows from prior waves
-    const walls = allWallSegments(windowPlanks)
-    buildGrid(walls)
+    buildGrid(allWallSegments(windowPlanks)) // grid: preserve boarded windows
+    const walls = playerCollisionWalls()    // player: all windows always blocked
     set({
       phase: 'playing',
       walls,
@@ -141,9 +140,8 @@ export const useGameStore = create((set, get) => ({
     const current = windowPlanks[id] ?? 0
     if (current >= 2) return false
     const newPlanks = { ...windowPlanks, [id]: current + 1 }
-    const walls = allWallSegments(newPlanks)
-    buildGrid(walls)
-    set({ windowPlanks: newPlanks, walls })
+    buildGrid(allWallSegments(newPlanks))  // update grid only; player walls unchanged
+    set({ windowPlanks: newPlanks })
     return true
   },
 
@@ -153,9 +151,8 @@ export const useGameStore = create((set, get) => ({
     const hits = (plankHits[id] ?? 0) + 1
     if (hits >= HITS_PER_PLANK) {
       const newPlanks = { ...windowPlanks, [id]: windowPlanks[id] - 1 }
-      const walls = allWallSegments(newPlanks)
-      buildGrid(walls)
-      set({ windowPlanks: newPlanks, plankHits: { ...plankHits, [id]: 0 }, walls })
+      buildGrid(allWallSegments(newPlanks))  // update grid only; player walls unchanged
+      set({ windowPlanks: newPlanks, plankHits: { ...plankHits, [id]: 0 } })
     } else {
       set({ plankHits: { ...plankHits, [id]: hits } })
     }

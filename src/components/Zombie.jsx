@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Player from './Player'
-import { findPath, hasLineOfSight } from '../walls'
+import { findPath, hasLineOfSight, isBlocked } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import * as THREE from 'three'
 
@@ -97,8 +97,8 @@ export default function ZombieComponent({ id, startX, startZ }) {
           wpIdxRef.current = 1
           modeRef.current = 'chase'
           targetWindowRef.current = -1
-        } else if (modeRef.current !== 'attack_window') {
-          // No navigable entry — find nearest boarded window to attack
+        } else if (modeRef.current !== 'attack_window' && !isBlocked(px, pz)) {
+          // No path AND player cell is reachable → windows are genuinely all blocked
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
             if ((planks[win.id] ?? 0) === 0) continue

@@ -65,6 +65,15 @@ export function allWallSegments(windowPlanks = {}) {
   return [...base, ...extra]
 }
 
+// Player collision walls: cabin structure + every window opening always blocked.
+// Windows are for zombies only — player cannot climb through them.
+export function playerCollisionWalls() {
+  return [
+    ...cabinWallSegments(),
+    ...WINDOW_DEFS.map((win) => windowBlockSegment(win.id)),
+  ]
+}
+
 export const SPAWN_CLUSTERS = [
   { x: -4, z: -13 },   // near north window 1 (x=-4)
   { x:  4, z: -13 },   // near north window 2 (x=+4)
