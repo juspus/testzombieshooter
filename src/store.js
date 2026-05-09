@@ -8,12 +8,14 @@ const bulletsForWave = (wave) => zombiesForWave(wave) * 2
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
 
-export { CLIP_SIZE }
+const HITS_PER_PLANK = 5   // zombie hits to break one plank
+export { CLIP_SIZE, HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over' | 'dead'
   walls: [],
   windowPlanks: {},  // { [windowId]: 1 | 2 }
+  plankHits: {},     // { [windowId]: hitCount } toward next plank break
   nearWindowId: -1,  // window the player is currently standing near (-1 = none)
   boardingProgress: 0,  // 0–1, fraction of 2s hold complete
   wave: 1,
@@ -36,6 +38,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'playing',
       walls,
       windowPlanks: {},
+      plankHits: {},
       wave,
       kills: 0,
       waveKills: 0,
@@ -60,6 +63,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'playing',
       walls,
       wave,
+      plankHits: {},
       waveKills: 0,
       timeLeft: WAVE_DURATION,
       zombies: spawnZombies(wave, nextId),
@@ -141,6 +145,20 @@ export const useGameStore = create((set, get) => ({
     buildGrid(walls)
     set({ windowPlanks: newPlanks, walls })
     return true
+  },
+
+  hitPlank: (id) => {
+    const { plankHits, windowPlanks } = get()
+    if ((windowPlanks[id] ?? 0) === 0) return
+    const hits = (plankHits[id] ?? 0) + 1
+    if (hits >= HITS_PER_PLANK) {
+      const newPlanks = { ...windowPlanks, [id]: windowPlanks[id] - 1 }
+      const walls = allWallSegments(newPlanks)
+      buildGrid(walls)
+      set({ windowPlanks: newPlanks, plankHits: { ...plankHits, [id]: 0 }, walls })
+    } else {
+      set({ plankHits: { ...plankHits, [id]: hits } })
+    }
   },
 
   setNearWindowId: (id) => set({ nearWindowId: id }),
