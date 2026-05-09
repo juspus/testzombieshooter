@@ -36,14 +36,22 @@ export const useGameStore = create((set, get) => ({
     })
   },
 
-  killZombie: (id) => {
-    const { zombies, kills, wave } = get()
-    const remaining = zombies.filter((z) => z.id !== id)
-    const newKills = kills + 1
-    if (remaining.length === 0) {
-      set({ zombies: remaining, kills: newKills, phase: 'wave_clear' })
+  hitZombie: (id, isHeadshot) => {
+    const { zombies, kills } = get()
+    const zombie = zombies.find((z) => z.id === id)
+    if (!zombie) return
+
+    const newHealth = isHeadshot ? 0 : zombie.health - 1
+
+    if (newHealth <= 0) {
+      const remaining = zombies.filter((z) => z.id !== id)
+      const newKills = kills + 1
+      set(remaining.length === 0
+        ? { zombies: remaining, kills: newKills, phase: 'wave_clear' }
+        : { zombies: remaining, kills: newKills }
+      )
     } else {
-      set({ zombies: remaining, kills: newKills })
+      set({ zombies: zombies.map((z) => z.id === id ? { ...z, health: newHealth } : z) })
     }
   },
 
@@ -78,6 +86,7 @@ function spawnZombies(wave, startId) {
       id: startId + i,
       x: Math.cos(angle) * r,
       z: Math.sin(angle) * r,
+      health: 2,
     })
   }
   return zombies

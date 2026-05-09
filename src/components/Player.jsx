@@ -3,6 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Gun from './Gun'
 import BulletTrails from './BulletTrails'
+import { Zombie } from './Zombie'
 import * as THREE from 'three'
 
 const PLAYER_HEIGHT = 1.7
@@ -12,7 +13,7 @@ const ARENA_BOUND = 18.5
 
 export default function Player() {
   const { camera, gl } = useThree()
-  const killZombie = useGameStore((s) => s.killZombie)
+  const hitZombie = useGameStore((s) => s.hitZombie)
   const phase = useGameStore((s) => s.phase)
 
   const yaw = useRef(0)
@@ -82,6 +83,8 @@ export default function Player() {
     let closest = null
     let closestDist = Infinity
     let hitPoint = null
+    let isHeadshot = false
+    let hitFaceNormal = null
 
     for (const [id, ref] of Object.entries(zombieRefs.current)) {
       if (!ref) continue
@@ -89,18 +92,32 @@ export default function Player() {
       if (intersects.length > 0 && intersects[0].distance < closestDist) {
         closestDist = intersects[0].distance
         closest = id
-        hitPoint = intersects[0].point
+        hitPoint = intersects[0].point.clone()
+        isHeadshot = intersects[0].object.userData.isHead === true
+        hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
       }
     }
 
-    // Trail from gun muzzle to hit point (or 50 units out)
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
     BulletTrails.add(muzzle, trailEnd)
     Gun.fire?.()
 
-    if (closest !== null) killZombie(Number(closest))
-  }, [camera, killZombie])
+    if (closest !== null) {
+      const id = Number(closest)
+      const zombieRef = zombieRefs.current[closest]
+
+      // Place bullet hole on torso hits only
+      if (!isHeadshot && hitPoint && zombieRef && hitFaceNormal) {
+        const localPos = zombieRef.worldToLocal(hitPoint)
+        // Nudge slightly along normal to avoid z-fighting
+        localPos.addScaledVector(hitFaceNormal, 0.012)
+        Zombie.addBulletHole(id, localPos, hitFaceNormal)
+      }
+
+      hitZombie(id, isHeadshot)
+    }
+  }, [camera, hitZombie])
 
   useFrame((_, delta) => {
     if (phase !== 'playing') return
