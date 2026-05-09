@@ -3,7 +3,7 @@ import { useGameStore, CLIP_SIZE } from '../store'
 
 export default function HUD() {
   const wave = useGameStore((s) => s.wave)
-  const kills = useGameStore((s) => s.kills)
+  const waveKills = useGameStore((s) => s.waveKills)
   const timeLeft = useGameStore((s) => s.timeLeft)
   const zombies = useGameStore((s) => s.zombies)
   const total = useGameStore((s) => s.getZombiesForWave())
@@ -32,7 +32,7 @@ export default function HUD() {
         </div>
         <div style={styles.stat}>
           <span style={styles.label}>KILLS</span>
-          <span style={styles.value}>{kills} / {total}</span>
+          <span style={styles.value}>{waveKills} / {total}</span>
         </div>
       </div>
 
