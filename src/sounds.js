@@ -211,6 +211,27 @@ export function playPlankHit() {
   playTone(ac, t + 0.02, 370, 190, 0.08, 0.13)
 }
 
+export function playPlankBreak() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Main splintering crack — loud highpass burst
+  const crackBuf = noiseBuffer(ac, 0.25)
+  playNoise(ac, crackBuf, t, 0.22, 0.9, 'highpass', 1800, 0.8)
+
+  // Low wood body breaking — bandpass thud
+  const thudBuf = noiseBuffer(ac, 0.3)
+  playNoise(ac, thudBuf, t, 0.25, 0.7, 'bandpass', 220, 1.0)
+  playTone(ac, t, 130, 40, 0.2, 0.55)
+
+  // Secondary splinter scatter — short mid crackle
+  const splinterBuf = noiseBuffer(ac, 0.15)
+  playNoise(ac, splinterBuf, t + 0.05, 0.12, 0.35, 'bandpass', 900, 2.5)
+
+  // Resonant wood ring — decaying tone
+  playTone(ac, t + 0.03, 320, 140, 0.18, 0.2)
+}
+
 // ─── background music ────────────────────────────────────────────────────────
 
 let _masterGain = null
