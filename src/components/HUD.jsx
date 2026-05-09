@@ -12,6 +12,7 @@ export default function HUD() {
   const isReloading = useGameStore((s) => s.isReloading)
   const nearWindowId = useGameStore((s) => s.nearWindowId)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
+  const boardingProgress = useGameStore((s) => s.boardingProgress)
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2
 
@@ -69,7 +70,10 @@ export default function HUD() {
       {/* Window board prompt */}
       {showBoardPrompt && (
         <div style={styles.boardPrompt}>
-          E — board window ({nearPlankCount}/2)
+          <span>HOLD E — board window ({nearPlankCount}/2)</span>
+          <div style={styles.boardBar}>
+            <div style={{ ...styles.boardBarFill, width: `${boardingProgress * 100}%` }} />
+          </div>
         </div>
       )}
 
@@ -215,9 +219,26 @@ const styles = {
     fontSize: 14,
     letterSpacing: 3,
     fontFamily: 'Courier New, monospace',
-    padding: '6px 18px',
+    padding: '8px 18px 10px',
     borderRadius: 4,
     border: '1px solid #554400',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    minWidth: 220,
+  },
+  boardBar: {
+    width: '100%',
+    height: 5,
+    background: 'rgba(255,255,255,0.12)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  boardBarFill: {
+    height: '100%',
+    background: '#ffe066',
+    borderRadius: 3,
+    transition: 'width 0.05s linear',
   },
   pips: {
     display: 'flex',

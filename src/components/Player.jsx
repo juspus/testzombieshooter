@@ -24,9 +24,14 @@ export default function Player() {
   const finishReload = useGameStore((s) => s.finishReload)
   const addPlank = useGameStore((s) => s.addPlank)
   const setNearWindowId = useGameStore((s) => s.setNearWindowId)
+  const setBoardingProgress = useGameStore((s) => s.setBoardingProgress)
+  const windowPlanks = useGameStore((s) => s.windowPlanks)
   const walls = useGameStore((s) => s.walls)
   const wallsRef = useRef(walls)
+  const windowPlanksRef = useRef(windowPlanks)
   const prevNearWindowRef = useRef(-1)
+  const boardTimerRef = useRef(0)
+  const boardingWindowRef = useRef(-1)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -41,6 +46,7 @@ export default function Player() {
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
   useEffect(() => { wallsRef.current = walls }, [walls])
+  useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
 
   useEffect(() => {
     camera.rotation.order = 'YXZ'
@@ -74,16 +80,6 @@ export default function Player() {
       if (e.code === 'KeyR' && beginReload()) {
         reloadTimer.current = RELOAD_TIME
         playReload()
-      }
-      if (e.code === 'KeyE') {
-        const px = camera.position.x, pz = camera.position.z
-        let nearId = -1, nearDist = 2.5
-        for (const win of WINDOW_DEFS) {
-          const dx = px - win.ix, dz = pz - win.iz
-          const d = Math.sqrt(dx * dx + dz * dz)
-          if (d < nearDist) { nearDist = d; nearId = win.id }
-        }
-        if (nearId >= 0) addPlank(nearId)
       }
     }
     const onKeyUp = (e) => { keys.current[e.code] = false }
@@ -180,6 +176,36 @@ export default function Player() {
       if (nearId !== prevNearWindowRef.current) {
         prevNearWindowRef.current = nearId
         setNearWindowId(nearId)
+      }
+    }
+
+    // Hold E to board window (2 seconds per plank)
+    {
+      const BOARD_TIME = 2.0
+      const nearId = prevNearWindowRef.current
+      const eHeld = keys.current['KeyE']
+      const canBoard = eHeld && nearId >= 0 && (windowPlanksRef.current[nearId] ?? 0) < 2
+
+      if (canBoard) {
+        if (boardingWindowRef.current !== nearId) {
+          // Switched to a different window — reset timer
+          boardingWindowRef.current = nearId
+          boardTimerRef.current = 0
+        }
+        boardTimerRef.current += delta
+        const progress = Math.min(boardTimerRef.current / BOARD_TIME, 1)
+        setBoardingProgress(progress)
+        if (boardTimerRef.current >= BOARD_TIME) {
+          addPlank(nearId)
+          boardTimerRef.current = 0
+          setBoardingProgress(0)
+        }
+      } else {
+        if (boardTimerRef.current > 0 || boardingWindowRef.current !== -1) {
+          boardTimerRef.current = 0
+          boardingWindowRef.current = -1
+          setBoardingProgress(0)
+        }
       }
     }
 
