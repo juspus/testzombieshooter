@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { buildGrid } from './walls'
 import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
+import { playPlankBreak } from './sounds'
 
 const WAVE_DURATION = 30
 const CLIP_SIZE = 10
@@ -152,6 +153,7 @@ export const useGameStore = create((set, get) => ({
     if (hits >= HITS_PER_PLANK) {
       const newPlanks = { ...windowPlanks, [id]: windowPlanks[id] - 1 }
       buildGrid(allWallSegments(newPlanks))  // update grid only; player walls unchanged
+      playPlankBreak()
       set({ windowPlanks: newPlanks, plankHits: { ...plankHits, [id]: 0 } })
     } else {
       set({ plankHits: { ...plankHits, [id]: hits } })

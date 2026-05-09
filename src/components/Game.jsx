@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { useGameStore } from '../store'
+import { startEerieMusic, stopEerieMusic } from '../sounds'
 import Arena from './Arena'
 import Player from './Player'
 import Gun from './Gun'
@@ -20,6 +21,14 @@ export default function Game() {
       document.exitPointerLock()
     }
   }, [isPlaying])
+
+  useEffect(() => {
+    if (phase === 'playing') {
+      startEerieMusic()
+    } else {
+      stopEerieMusic()
+    }
+  }, [phase])
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
