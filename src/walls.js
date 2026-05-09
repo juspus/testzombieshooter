@@ -131,6 +131,24 @@ export function collidesWithWalls(x, z, radius, walls) {
   return false
 }
 
+// ─── line-of-sight ───────────────────────────────────────────────────────────
+
+export function hasLineOfSight(x1, z1, x2, z2) {
+  const dx = x2 - x1, dz = z2 - z1
+  const dist = Math.sqrt(dx * dx + dz * dz)
+  if (dist < 0.01) return true
+  // sample at half-cell intervals along the segment
+  const steps = Math.ceil(dist / (CELL * 0.5)) + 1
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps
+    const col = Math.floor((x1 + dx * t - GRID_ORIGIN) / CELL)
+    const row = Math.floor((z1 + dz * t - GRID_ORIGIN) / CELL)
+    if (col < 0 || col >= GRID_SIZE || row < 0 || row >= GRID_SIZE) continue
+    if (_grid[row * GRID_SIZE + col]) return false
+  }
+  return true
+}
+
 // ─── A* pathfinding ──────────────────────────────────────────────────────────
 
 export function findPath(fromX, fromZ, toX, toZ) {

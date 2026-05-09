@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Player from './Player'
-import { findPath } from '../walls'
+import { findPath, hasLineOfSight } from '../walls'
 import * as THREE from 'three'
 
 const ZOMBIE_HEIGHT = 1.8
@@ -52,40 +52,54 @@ export default function ZombieComponent({ id, startX, startZ }) {
   useFrame((_, delta) => {
     if (phase !== 'playing' || !ref.current) return
     const pos = ref.current.position
+    const px = camera.position.x, pz = camera.position.z
 
-    // ── Recompute A* path periodically ──────────────────────────────────────
-    pathTimer.current -= delta
-    if (pathTimer.current <= 0) {
-      pathTimer.current = PATH_INTERVAL
-      const newPath = findPath(pos.x, pos.z, camera.position.x, camera.position.z)
-      if (newPath && newPath.length > 1) {
-        pathRef.current = newPath
-        wpIdxRef.current = 1   // index 0 is the zombie's current cell
-      }
-    }
-
-    // ── Follow path waypoints ────────────────────────────────────────────────
-    const path = pathRef.current
     let moveDir = null
 
-    if (path.length > 0 && wpIdxRef.current < path.length) {
-      const wp = path[wpIdxRef.current]
-      const dx = wp.x - pos.x
-      const dz = wp.z - pos.z
-      const dist = Math.sqrt(dx * dx + dz * dz)
-      if (dist < WAYPOINT_REACH) {
-        wpIdxRef.current++
-      } else {
-        moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
-      }
-    }
-
-    // Fallback: head directly toward player if no path
-    if (!moveDir) {
-      const dx = camera.position.x - pos.x
-      const dz = camera.position.z - pos.z
+    if (hasLineOfSight(pos.x, pos.z, px, pz)) {
+      // Clear line to player — move directly, discard stale path
+      pathRef.current = []
+      wpIdxRef.current = 0
+      const dx = px - pos.x, dz = pz - pos.z
       const dist = Math.sqrt(dx * dx + dz * dz)
       if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+    } else {
+      // Wall in the way — use A*
+      pathTimer.current -= delta
+      if (pathTimer.current <= 0) {
+        pathTimer.current = PATH_INTERVAL
+        const newPath = findPath(pos.x, pos.z, px, pz)
+        if (newPath && newPath.length > 1) {
+          pathRef.current = newPath
+          wpIdxRef.current = 1
+        }
+      }
+
+      const path = pathRef.current
+      if (path.length > 0 && wpIdxRef.current < path.length) {
+        // Path smoothing: skip ahead to the furthest visible waypoint
+        while (
+          wpIdxRef.current < path.length - 1 &&
+          hasLineOfSight(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z)
+        ) {
+          wpIdxRef.current++
+        }
+        const wp = path[wpIdxRef.current]
+        const dx = wp.x - pos.x, dz = wp.z - pos.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist < WAYPOINT_REACH) {
+          wpIdxRef.current++
+        } else {
+          moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+        }
+      }
+
+      // Fallback if path is empty or exhausted
+      if (!moveDir) {
+        const dx = px - pos.x, dz = pz - pos.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+      }
     }
 
     if (moveDir) {
@@ -94,10 +108,9 @@ export default function ZombieComponent({ id, startX, startZ }) {
       pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z))
     }
 
-    ref.current.lookAt(camera.position.x, pos.y, camera.position.z)
+    ref.current.lookAt(px, pos.y, pz)
 
-    const dx = camera.position.x - pos.x
-    const dz = camera.position.z - pos.z
+    const dx = px - pos.x, dz = pz - pos.z
     if (Math.sqrt(dx * dx + dz * dz) < KILL_DISTANCE) die()
   })
 
