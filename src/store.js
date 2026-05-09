@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { generateWalls, buildGrid } from './walls'
+import { buildGrid } from './walls'
+import { cabinWallSegments, SPAWN_CLUSTERS } from './cabin'
 
 const WAVE_DURATION = 30
 const CLIP_SIZE = 10
@@ -26,7 +27,7 @@ export const useGameStore = create((set, get) => ({
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    const walls = generateWalls()
+    const walls = cabinWallSegments()
     buildGrid(walls)
     set({
       phase: 'playing',
@@ -130,14 +131,14 @@ export const useGameStore = create((set, get) => ({
 function spawnZombies(wave, startId) {
   const count = zombiesForWave(wave)
   const zombies = []
-  const radius = 18
   for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5
-    const r = radius + Math.random() * 4
+    const cluster = SPAWN_CLUSTERS[i % SPAWN_CLUSTERS.length]
+    const angle = Math.random() * Math.PI * 2
+    const r = 1.0 + Math.random() * 3.0
     zombies.push({
       id: startId + i,
-      x: Math.cos(angle) * r,
-      z: Math.sin(angle) * r,
+      x: cluster.x + Math.cos(angle) * r,
+      z: cluster.z + Math.sin(angle) * r,
       health: 2,
     })
   }

@@ -6,13 +6,12 @@ import * as THREE from 'three'
 const SPAWN_INTERVAL = 10   // seconds between spawns
 const PICKUP_AMOUNT = 10
 const PICKUP_RADIUS = 1.8   // collection distance
-const CORNER_OFFSET = 15    // distance from center to corner spawn
-
+// Inside the cabin at the four interior corners
 const CORNERS = [
-  new THREE.Vector3(-CORNER_OFFSET, 0, -CORNER_OFFSET),
-  new THREE.Vector3( CORNER_OFFSET, 0, -CORNER_OFFSET),
-  new THREE.Vector3(-CORNER_OFFSET, 0,  CORNER_OFFSET),
-  new THREE.Vector3( CORNER_OFFSET, 0,  CORNER_OFFSET),
+  new THREE.Vector3(-5.5, 0, -7.5),
+  new THREE.Vector3( 5.5, 0, -7.5),
+  new THREE.Vector3(-5.5, 0,  7.5),
+  new THREE.Vector3( 5.5, 0,  7.5),
 ]
 
 let _nextId = 0
