@@ -1,8 +1,10 @@
 import * as THREE from 'three'
+import { useGameStore } from '../store'
 import {
   CABIN_HW, CABIN_HD, WALL_H, WALL_T,
   WIN_Y0, WIN_Y1, WIN_HALF,
   DOOR_CX, DOOR_HALF,
+  WINDOW_DEFS,
 } from '../cabin'
 
 const HW = CABIN_HW   // 7
@@ -144,6 +146,44 @@ function BarricadedDoor() {
   )
 }
 
+const PLANK_CLR_BOARD = '#6b4a1a'
+const PLANK_W = WIN_HALF * 2   // 2.0 units wide
+const PLANK_H = 0.13
+const PLANK_D = 0.09
+
+function WindowPlankMesh({ win, count }) {
+  const isNS = win.wall === 'N' || win.wall === 'S'
+  // Interior face of the wall, slightly proud of the surface
+  const offset = WALL_T / 2 + 0.01
+  const px = win.wall === 'E' ? win.winX - offset : win.wall === 'W' ? win.winX + offset : win.winX
+  const pz = win.wall === 'N' ? win.winZ + offset : win.wall === 'S' ? win.winZ - offset : win.winZ
+  const args = isNS ? [PLANK_W, PLANK_H, PLANK_D] : [PLANK_D, PLANK_H, PLANK_W]
+  const ys = count === 1 ? [1.25] : [0.85, 1.65]
+  return (
+    <>
+      {ys.map((y, i) => (
+        <mesh key={i} position={[px, y, pz]} castShadow>
+          <boxGeometry args={args} />
+          <meshStandardMaterial color={PLANK_CLR_BOARD} roughness={0.9} />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+function WindowPlanks() {
+  const windowPlanks = useGameStore((s) => s.windowPlanks)
+  return (
+    <>
+      {WINDOW_DEFS.map((win) => {
+        const count = windowPlanks[win.id] ?? 0
+        if (count === 0) return null
+        return <WindowPlankMesh key={win.id} win={win} count={count} />
+      })}
+    </>
+  )
+}
+
 function Lantern({ position }) {
   return (
     <group position={position}>
@@ -192,6 +232,7 @@ export default function Arena() {
       <SouthWall />
       <EastWall />
       <WestWall />
+      <WindowPlanks />
     </group>
   )
 }

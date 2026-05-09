@@ -6,6 +6,7 @@ import BulletTrails from './BulletTrails'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep } from '../sounds'
 import { collidesWithWalls } from '../walls'
+import { WINDOW_DEFS } from '../cabin'
 import * as THREE from 'three'
 
 const PLAYER_HEIGHT = 1.7
@@ -21,8 +22,11 @@ export default function Player() {
   const consumeBullet = useGameStore((s) => s.consumeBullet)
   const beginReload = useGameStore((s) => s.beginReload)
   const finishReload = useGameStore((s) => s.finishReload)
+  const addPlank = useGameStore((s) => s.addPlank)
+  const setNearWindowId = useGameStore((s) => s.setNearWindowId)
   const walls = useGameStore((s) => s.walls)
   const wallsRef = useRef(walls)
+  const prevNearWindowRef = useRef(-1)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -70,6 +74,16 @@ export default function Player() {
       if (e.code === 'KeyR' && beginReload()) {
         reloadTimer.current = RELOAD_TIME
         playReload()
+      }
+      if (e.code === 'KeyE') {
+        const px = camera.position.x, pz = camera.position.z
+        let nearId = -1, nearDist = 2.5
+        for (const win of WINDOW_DEFS) {
+          const dx = px - win.ix, dz = pz - win.iz
+          const d = Math.sqrt(dx * dx + dz * dz)
+          if (d < nearDist) { nearDist = d; nearId = win.id }
+        }
+        if (nearId >= 0) addPlank(nearId)
       }
     }
     const onKeyUp = (e) => { keys.current[e.code] = false }
@@ -151,6 +165,21 @@ export default function Player() {
       if (reloadTimer.current <= 0) {
         reloadTimer.current = 0
         finishReload()
+      }
+    }
+
+    // Update nearest window for HUD prompt (only set store when value changes)
+    {
+      const px = camera.position.x, pz = camera.position.z
+      let nearId = -1, nearDist = 2.5
+      for (const win of WINDOW_DEFS) {
+        const dx = px - win.ix, dz = pz - win.iz
+        const d = Math.sqrt(dx * dx + dz * dz)
+        if (d < nearDist) { nearDist = d; nearId = win.id }
+      }
+      if (nearId !== prevNearWindowRef.current) {
+        prevNearWindowRef.current = nearId
+        setNearWindowId(nearId)
       }
     }
 
