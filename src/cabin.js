@@ -39,11 +39,11 @@ export function cabinWallSegments() {
 // ix/iz: interior interaction point (player stands here to board).
 // winX/winZ: wall-center of the window opening (for plank placement).
 export const WINDOW_DEFS = [
-  { id: 0, wall: 'N', winX: -4,        winZ: -CABIN_HD, ix: -4,               iz: -CABIN_HD + 1.5 },
-  { id: 1, wall: 'N', winX:  4,        winZ: -CABIN_HD, ix:  4,               iz: -CABIN_HD + 1.5 },
-  { id: 2, wall: 'E', winX:  CABIN_HW, winZ:  0,        ix:  CABIN_HW - 1.5,  iz:  0              },
-  { id: 3, wall: 'W', winX: -CABIN_HW, winZ: -3,        ix: -CABIN_HW + 1.5,  iz: -3              },
-  { id: 4, wall: 'S', winX:  4,        winZ:  CABIN_HD, ix:  4,               iz:  CABIN_HD - 1.5 },
+  { id: 0, wall: 'N', winX: -4,        winZ: -CABIN_HD, ix: -4,               iz: -CABIN_HD + 1.5, ax: -4,               az: -CABIN_HD - 0.5 },
+  { id: 1, wall: 'N', winX:  4,        winZ: -CABIN_HD, ix:  4,               iz: -CABIN_HD + 1.5, ax:  4,               az: -CABIN_HD - 0.5 },
+  { id: 2, wall: 'E', winX:  CABIN_HW, winZ:  0,        ix:  CABIN_HW - 1.5,  iz:  0,              ax:  CABIN_HW + 0.5,  az:  0              },
+  { id: 3, wall: 'W', winX: -CABIN_HW, winZ: -3,        ix: -CABIN_HW + 1.5,  iz: -3,              ax: -CABIN_HW - 0.5,  az: -3              },
+  { id: 4, wall: 'S', winX:  4,        winZ:  CABIN_HD, ix:  4,               iz:  CABIN_HD - 1.5, ax:  4,               az:  CABIN_HD + 0.5 },
 ]
 
 // AABB segment added to the grid when a window is boarded (≥1 plank).
@@ -63,6 +63,15 @@ export function allWallSegments(windowPlanks = {}) {
     .filter(([, count]) => count > 0)
     .map(([id]) => windowBlockSegment(Number(id)))
   return [...base, ...extra]
+}
+
+// Player collision walls: cabin structure + every window opening always blocked.
+// Windows are for zombies only — player cannot climb through them.
+export function playerCollisionWalls() {
+  return [
+    ...cabinWallSegments(),
+    ...WINDOW_DEFS.map((win) => windowBlockSegment(win.id)),
+  ]
 }
 
 export const SPAWN_CLUSTERS = [

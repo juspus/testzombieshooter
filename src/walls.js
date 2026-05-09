@@ -29,6 +29,12 @@ export function worldToCell(x, z) {
   }
 }
 
+export function isBlocked(x, z) {
+  const col = Math.max(0, Math.min(GRID_SIZE - 1, Math.floor((x - GRID_ORIGIN) / CELL)))
+  const row = Math.max(0, Math.min(GRID_SIZE - 1, Math.floor((z - GRID_ORIGIN) / CELL)))
+  return _grid[row * GRID_SIZE + col] !== 0
+}
+
 export function cellToWorld(col, row) {
   return {
     x: GRID_ORIGIN + (col + 0.5) * CELL,
