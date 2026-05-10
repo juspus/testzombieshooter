@@ -5,18 +5,25 @@ import { playPlankBreak } from './sounds'
 
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
+const AK_CLIP = 30
+const AK_COST = 20
+const AMMO_PACK_COST = 10
+const AMMO_PACK_AMOUNT = 20
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
 
-const HITS_PER_PLANK = 5   // zombie hits to break one plank
+const HITS_PER_PLANK = 5
 const PLANK_COST = 2.5
 const WAVE_REWARD = 15
-export { CLIP_SIZE, HITS_PER_PLANK, PLANK_COST }
+export { CLIP_SIZE, AK_CLIP, AK_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
+  weapon: 'pistol',   // 'pistol' | 'ak47'
+  shopOpen: false,
+  nearChest: false,
   walls: [],
   windowPlanks: {},  // { [windowId]: 1 | 2 }
   plankHits: {},     // { [windowId]: hitCount } toward next plank break
@@ -43,6 +50,8 @@ export const useGameStore = create((set, get) => ({
     set({
       phase: 'intermission',
       money: 10,
+      weapon: 'pistol',
+      shopOpen: false,
       walls,
       windowPlanks: {},
       plankHits: {},
@@ -60,15 +69,17 @@ export const useGameStore = create((set, get) => ({
   },
 
   nextWave: () => {
-    const { wave: prevWave, nextId, windowPlanks, money } = get()
+    const { wave: prevWave, nextId, windowPlanks, money, weapon } = get()
     const wave = prevWave + 1
+    const clipSize = weapon === 'ak47' ? AK_CLIP : CLIP_SIZE
     const total = bulletsForWave(wave)
-    const clip = Math.min(CLIP_SIZE, total)
+    const clip = Math.min(clipSize, total)
     buildGrid(allWallSegments(windowPlanks))
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
       money: money + WAVE_REWARD,
+      shopOpen: false,
       walls,
       wave,
       plankHits: {},
@@ -90,28 +101,27 @@ export const useGameStore = create((set, get) => ({
   },
 
   beginReload: () => {
-    const { bulletsInClip, reserveBullets, isReloading } = get()
-    if (isReloading || reserveBullets === 0 || bulletsInClip === CLIP_SIZE) return false
+    const { bulletsInClip, reserveBullets, isReloading, weapon } = get()
+    const clipSize = weapon === 'ak47' ? AK_CLIP : CLIP_SIZE
+    if (isReloading || reserveBullets === 0 || bulletsInClip === clipSize) return false
     set({ isReloading: true })
     return true
   },
 
-  addBullets: (count) => {
-    set({ reserveBullets: get().reserveBullets + count })
-  },
-
   finishReload: () => {
-    const { bulletsInClip, reserveBullets } = get()
-    const toLoad = Math.min(CLIP_SIZE - bulletsInClip, reserveBullets)
+    const { bulletsInClip, reserveBullets, weapon } = get()
+    const clipSize = weapon === 'ak47' ? AK_CLIP : CLIP_SIZE
+    const toLoad = Math.min(clipSize - bulletsInClip, reserveBullets)
     set({ bulletsInClip: bulletsInClip + toLoad, reserveBullets: reserveBullets - toLoad, isReloading: false })
   },
 
   hitZombie: (id, isHeadshot) => {
-    const { zombies, pendingSpawns, kills, waveKills } = get()
+    const { zombies, pendingSpawns, kills, waveKills, weapon } = get()
     const zombie = zombies.find((z) => z.id === id)
     if (!zombie) return
 
-    const newHealth = isHeadshot ? 0 : zombie.health - 1
+    const damage = weapon === 'ak47' ? 2 : 1
+    const newHealth = isHeadshot ? 0 : zombie.health - damage
 
     if (newHealth <= 0) {
       const remaining = zombies.filter((z) => z.id !== id)
@@ -183,6 +193,24 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
+  openShop: () => set({ shopOpen: true }),
+  closeShop: () => set({ shopOpen: false }),
+
+  buyItem: (itemId) => {
+    const { money, weapon, reserveBullets } = get()
+    if (itemId === 'ak47') {
+      if (weapon === 'ak47' || money < AK_COST) return false
+      set({ money: money - AK_COST, weapon: 'ak47', bulletsInClip: AK_CLIP, reserveBullets: 0 })
+      return true
+    }
+    if (itemId === 'ammo_pack') {
+      if (money < AMMO_PACK_COST) return false
+      set({ money: money - AMMO_PACK_COST, reserveBullets: reserveBullets + AMMO_PACK_AMOUNT })
+      return true
+    }
+    return false
+  },
+
   skipIntermission: () => {
     if (get().phase !== 'intermission') return
     set({ intermissionLeft: 0 })
@@ -191,6 +219,7 @@ export const useGameStore = create((set, get) => ({
   setNearWindowId: (id) => set({ nearWindowId: id }),
   setBoardingProgress: (v) => set({ boardingProgress: v }),
   setSkipProgress: (v) => set({ skipProgress: v }),
+  setNearChest: (v) => set({ nearChest: v }),
 
   getZombieSpeed: () => speedForWave(get().wave),
   getZombiesForWave: () => zombiesForWave(get().wave),

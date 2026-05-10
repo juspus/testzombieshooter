@@ -1,4 +1,4 @@
-import { useGameStore, CLIP_SIZE, PLANK_COST } from '../store'
+import { useGameStore, CLIP_SIZE, AK_CLIP, PLANK_COST } from '../store'
 
 
 export default function HUD() {
@@ -13,8 +13,11 @@ export default function HUD() {
   const windowPlanks = useGameStore((s) => s.windowPlanks)
   const boardingProgress = useGameStore((s) => s.boardingProgress)
   const money = useGameStore((s) => s.money)
+  const weapon = useGameStore((s) => s.weapon)
+  const nearChest = useGameStore((s) => s.nearChest)
+  const clipSize = weapon === 'ak47' ? AK_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
-  const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2
+  const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2 && !nearChest
   const canAfford = money >= PLANK_COST
 
   return (
@@ -43,22 +46,21 @@ export default function HUD() {
 
       {/* Ammo — bottom right */}
       <div style={styles.ammoBox}>
+        <div style={styles.weaponLabel}>{weapon === 'ak47' ? 'AK-47' : 'PISTOL'}</div>
         {isReloading ? (
           <div style={styles.reloading}>RELOADING…</div>
         ) : (
-          <>
-            <div style={{
-              ...styles.ammoCount,
-              color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
-            }}>
-              {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
-            </div>
-          </>
+          <div style={{
+            ...styles.ammoCount,
+            color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
+          }}>
+            {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
+          </div>
         )}
         <div style={styles.reloadHint}>R — reload</div>
         {/* Bullet pip row */}
-        <div style={styles.pips}>
-          {Array.from({ length: CLIP_SIZE }).map((_, i) => (
+        <div style={{ ...styles.pips, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
+          {Array.from({ length: clipSize }).map((_, i) => (
             <div key={i} style={{
               ...styles.pip,
               background: i < bulletsInClip ? '#ffe066' : '#333',
@@ -66,6 +68,13 @@ export default function HUD() {
           ))}
         </div>
       </div>
+
+      {/* Chest prompt */}
+      {nearChest && !showBoardPrompt && (
+        <div style={{ ...styles.boardPrompt, borderColor: '#5a3a10', bottom: 90 }}>
+          <span style={{ color: '#c8801a' }}>E — open supply chest</span>
+        </div>
+      )}
 
       {/* Window board prompt */}
       {showBoardPrompt && (
@@ -186,6 +195,12 @@ const styles = {
     alignItems: 'flex-end',
     gap: 4,
     fontFamily: 'Courier New, monospace',
+  },
+  weaponLabel: {
+    color: '#888',
+    fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 2,
   },
   ammoCount: {
     fontSize: 36,

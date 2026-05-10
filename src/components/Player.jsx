@@ -7,7 +7,10 @@ import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep } from '../sounds'
 import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
+import { CHEST_POS } from './Arena'
 import * as THREE from 'three'
+
+const CHEST_RADIUS_SQ = 2.2 * 2.2
 
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
@@ -28,6 +31,10 @@ export default function Player() {
   const setNearWindowId = useGameStore((s) => s.setNearWindowId)
   const setBoardingProgress = useGameStore((s) => s.setBoardingProgress)
   const setSkipProgress = useGameStore((s) => s.setSkipProgress)
+  const openShop = useGameStore((s) => s.openShop)
+  const closeShop = useGameStore((s) => s.closeShop)
+  const setNearChest = useGameStore((s) => s.setNearChest)
+  const shopOpen = useGameStore((s) => s.shopOpen)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
   const walls = useGameStore((s) => s.walls)
   const wallsRef = useRef(walls)
@@ -36,6 +43,8 @@ export default function Player() {
   const boardTimerRef = useRef(0)
   const boardingWindowRef = useRef(-1)
   const skipTimerRef = useRef(0)
+  const shopOpenRef = useRef(false)
+  const nearChestRef = useRef(false)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -65,8 +74,16 @@ export default function Player() {
     }
   }, [phase, wave, camera])
 
+  // Sync shopOpen ref and manage pointer lock
+  useEffect(() => {
+    shopOpenRef.current = shopOpen
+    if (shopOpen) document.exitPointerLock()
+  }, [shopOpen])
+
   const requestLock = useCallback(() => {
-    if (phase === 'playing' || phase === 'intermission') gl.domElement.requestPointerLock()
+    if ((phase === 'playing' || phase === 'intermission') && !shopOpenRef.current) {
+      gl.domElement.requestPointerLock()
+    }
   }, [phase, gl])
 
   useEffect(() => {
@@ -81,7 +98,12 @@ export default function Player() {
     }
     const onKeyDown = (e) => {
       keys.current[e.code] = true
-      if (e.code === 'KeyR' && beginReload()) {
+      if (e.code === 'Escape' && shopOpenRef.current) { closeShop(); return }
+      if (e.code === 'KeyE') {
+        if (shopOpenRef.current) { closeShop(); return }
+        if (nearChestRef.current) { openShop(); return }
+      }
+      if (e.code === 'KeyR' && !shopOpenRef.current && beginReload()) {
         reloadTimer.current = RELOAD_TIME
         playReload()
       }
@@ -102,6 +124,7 @@ export default function Player() {
 
   useEffect(() => {
     const onClick = () => {
+      if (shopOpenRef.current) return
       if (!locked.current) { requestLock(); return }
       if (phase === 'playing') shoot()
     }
@@ -158,6 +181,18 @@ export default function Player() {
 
   useFrame((_, delta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
+    if (shopOpen) return
+
+    // Chest proximity
+    {
+      const px = camera.position.x, pz = camera.position.z
+      const cdx = px - CHEST_POS.x, cdz = pz - CHEST_POS.z
+      const near = cdx * cdx + cdz * cdz < CHEST_RADIUS_SQ
+      if (near !== nearChestRef.current) {
+        nearChestRef.current = near
+        setNearChest(near)
+      }
+    }
 
     // Reload countdown
     if (reloadTimer.current > 0) {
@@ -188,7 +223,7 @@ export default function Player() {
       const BOARD_TIME = 2.0
       const nearId = prevNearWindowRef.current
       const eHeld = keys.current['KeyE']
-      const canBoard = eHeld && nearId >= 0 && (windowPlanksRef.current[nearId] ?? 0) < 2
+      const canBoard = eHeld && nearId >= 0 && (windowPlanksRef.current[nearId] ?? 0) < 2 && !nearChestRef.current
 
       if (canBoard) {
         if (boardingWindowRef.current !== nearId) {
