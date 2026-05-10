@@ -193,7 +193,7 @@ function DeagleModel({ gunMat }) {
   )
 }
 
-function ShotgunModel({ gunMat }) {
+function ShotgunModel({ gunMat, pumpRef }) {
   const metal = (c) => gunMat(c, 0.75, 0.3)
   const wood  = (c) => gunMat(c, 0.0,  0.9)
   return (
@@ -222,8 +222,8 @@ function ShotgunModel({ gunMat }) {
         {metal('#303030')}
       </mesh>
 
-      {/* Pump / forend — chunky wood grip */}
-      <mesh position={[0, -0.012, -0.24]}>
+      {/* Pump / forend — chunky wood grip, animated on shot */}
+      <mesh ref={pumpRef} position={[0, -0.012, -0.24]}>
         <boxGeometry args={[0.095, 0.075, 0.20]} />
         {wood('#5a3010')}
       </mesh>
@@ -286,13 +286,17 @@ export default function Gun() {
 
   const groupRef = useRef()
   const flashRef = useRef()
+  const pumpRef = useRef()
   const recoil = useRef(0)
   const flashLife = useRef(0)
+  const pumpAnim = useRef(0)
 
   Gun.fire = () => {
     recoil.current = 1
     flashLife.current = 1
   }
+
+  Gun.pump = () => { pumpAnim.current = 1 }
 
   Gun.getMuzzlePosition = () => _muzzleWorld.clone()
 
@@ -304,6 +308,15 @@ export default function Gun() {
     if (flashRef.current) {
       flashLife.current = Math.max(0, flashLife.current - delta * 20)
       flashRef.current.intensity = flashLife.current * 4
+    }
+
+    // Pump animation: sine arc so forend slides back then snaps forward
+    if (pumpAnim.current > 0) {
+      pumpAnim.current = Math.max(0, pumpAnim.current - delta / 0.42)
+      if (pumpRef.current) {
+        const t = 1 - pumpAnim.current
+        pumpRef.current.position.z = -0.24 + Math.sin(t * Math.PI) * 0.14
+      }
     }
 
     if (groupRef.current) {
@@ -356,7 +369,7 @@ export default function Gun() {
 
   return createPortal(
     <group ref={groupRef}>
-      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : isShotgun ? <ShotgunModel gunMat={gunMat} /> : <PistolModel gunMat={gunMat} />}
+      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} /> : <PistolModel gunMat={gunMat} />}
       <pointLight ref={flashRef} position={[0, 0.03, flashZ]} intensity={0} color="#ff9900" distance={4} />
     </group>,
     weaponScene

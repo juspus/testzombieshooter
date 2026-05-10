@@ -251,6 +251,51 @@ export function playPlankBreak() {
   playTone(ac, t + 0.03, 320, 140, 0.18, 0.2)
 }
 
+export function playPumpAction() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // First stroke — pulling slide back: sharp bandpass snap + woody thud
+  const buf1 = noiseBuffer(ac, 0.06)
+  playNoise(ac, buf1, t, 0.055, 0.9, 'bandpass', 2200, 4)
+  playTone(ac, t, 160, 55, 0.05, 0.55)
+
+  // Slight scrape mid-stroke
+  const scrape = noiseBuffer(ac, 0.08)
+  playNoise(ac, scrape, t + 0.04, 0.06, 0.25, 'bandpass', 900, 2)
+
+  // Second stroke — slamming forward: harder crack + lower body thud
+  const buf2 = noiseBuffer(ac, 0.06)
+  playNoise(ac, buf2, t + 0.13, 0.055, 1.1, 'bandpass', 2600, 5)
+  playTone(ac, t + 0.13, 200, 65, 0.05, 0.7)
+  // Locking click at end of forward stroke
+  mechanicalClick(ac, t + 0.18, 0.55)
+}
+
+export function playShellClink() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Hard metallic ping — shell hitting concrete/floor
+  const osc = ac.createOscillator()
+  osc.frequency.setValueAtTime(2200 + Math.random() * 300, t)
+  osc.frequency.exponentialRampToValueAtTime(700, t + 0.09)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.35, t)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+  osc.connect(g)
+  g.connect(ac.destination)
+  osc.start(t)
+  osc.stop(t + 0.18)
+
+  // Transient click on impact
+  const buf = noiseBuffer(ac, 0.03)
+  playNoise(ac, buf, t, 0.025, 0.5, 'highpass', 3000, 1)
+  // Short roll/settle
+  const buf2 = noiseBuffer(ac, 0.06)
+  playNoise(ac, buf2, t + 0.02, 0.05, 0.12, 'bandpass', 1400, 3)
+}
+
 // ─── background music ────────────────────────────────────────────────────────
 
 let _masterGain = null

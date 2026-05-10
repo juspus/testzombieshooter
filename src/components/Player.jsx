@@ -5,7 +5,7 @@ import Gun from './Gun'
 import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
-import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep } from '../sounds'
+import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellClink } from '../sounds'
 import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
@@ -142,15 +142,28 @@ export default function Player() {
     playGunshot()
 
     if (weaponRef.current === 'shotgun') {
-      shotgunCooldownRef.current = 0.2
+      shotgunCooldownRef.current = 0.5
 
-      // Eject shell casing to the right of the camera
+      // Pump animation + sounds
+      Gun.pump?.()
+      setTimeout(playPumpAction, 40)
+      setTimeout(playShellClink, 100)
+
+      // Eject shell casing — spawn ahead and right of camera so it's visible
       const right = new THREE.Vector3(
         camera.matrixWorld.elements[0],
         camera.matrixWorld.elements[1],
         camera.matrixWorld.elements[2],
       )
-      const ejectPos = camera.position.clone().addScaledVector(right, 0.18).add(new THREE.Vector3(0, -0.12, 0))
+      const fwd = new THREE.Vector3(
+        -camera.matrixWorld.elements[8],
+        -camera.matrixWorld.elements[9],
+        -camera.matrixWorld.elements[10],
+      )
+      const ejectPos = camera.position.clone()
+        .addScaledVector(fwd, 0.45)
+        .addScaledVector(right, 0.28)
+        .add(new THREE.Vector3(0, -0.10, 0))
       ShellCasings.eject?.(ejectPos, right)
 
       // 12 pellets spread in a cone — each raycasted independently

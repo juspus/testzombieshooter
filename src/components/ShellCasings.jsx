@@ -22,16 +22,16 @@ export default function ShellCasings() {
     slot.active = true
     slot.pos.copy(origin)
     slot.vel.set(
-      right.x * 2.5 + (Math.random() - 0.5) * 0.4,
-      1.2 + Math.random() * 0.6,
-      right.z * 2.5 + (Math.random() - 0.5) * 0.4,
+      right.x * 3.5 + (Math.random() - 0.5) * 0.6,
+      2.0 + Math.random() * 0.8,
+      right.z * 3.5 + (Math.random() - 0.5) * 0.6,
     )
     slot.rotVel.set(
-      (Math.random() - 0.5) * 24,
-      (Math.random() - 0.5) * 24,
-      (Math.random() - 0.5) * 24,
+      (Math.random() - 0.5) * 30,
+      (Math.random() - 0.5) * 30,
+      (Math.random() - 0.5) * 30,
     )
-    slot.life = 1.8
+    slot.life = 2.0
     const mesh = meshRefs.current[i]
     if (mesh) {
       mesh.position.copy(origin)
