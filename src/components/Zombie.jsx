@@ -43,6 +43,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const attackTimerRef   = useRef(0)
   const windowPlanksRef  = useRef(windowPlanks)
   const stepTimerRef     = useRef(Math.random() * 0.6)
+  const isAggressorRef   = useRef(Math.random() < 0.2)  // rolled once at spawn
 
   useEffect(() => {
     if (ref.current) {
@@ -102,7 +103,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
           const dx = op.x - nearWin.ax, dz = op.z - nearWin.az
           if (dx * dx + dz * dz < nearDist) { isClosest = false; break }
         }
-        if (isClosest && Math.random() < 0.05) {
+        if (isClosest && isAggressorRef.current) {
           modeRef.current = 'attack_window'
           targetWindowRef.current = nearWin.id
           pathRef.current = []
