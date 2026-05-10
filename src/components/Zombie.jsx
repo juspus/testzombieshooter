@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Player from './Player'
-import { findPath, hasLineOfSight, isBlocked } from '../walls'
+import { findPath, hasLineOfSight, isBlocked, isBlockedRadius } from '../walls'
 import { WINDOW_DEFS, CABIN_HW, CABIN_HD } from '../cabin'
 import { playZombieFootstep, playPlankHit } from '../sounds'
 import * as THREE from 'three'
@@ -198,12 +198,13 @@ export default function ZombieComponent({ id, startX, startZ }) {
       const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + dx))
       const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + dz))
 
-      if (!isBlocked(nx, nz)) {
+      const R = 0.28
+      if (!isBlockedRadius(nx, nz, R)) {
         pos.x = nx
         pos.z = nz
-      } else if (!isBlocked(nx, pos.z)) {
+      } else if (!isBlockedRadius(nx, pos.z, R)) {
         pos.x = nx
-      } else if (!isBlocked(pos.x, nz)) {
+      } else if (!isBlockedRadius(pos.x, nz, R)) {
         pos.z = nz
       }
 

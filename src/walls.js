@@ -38,6 +38,12 @@ export function isBlocked(x, z) {
   return _grid[row * GRID_SIZE + col] !== 0
 }
 
+// Check if any point within radius r of (x,z) is blocked — used for zombie movement.
+export function isBlockedRadius(x, z, r) {
+  return isBlocked(x - r, z) || isBlocked(x + r, z) ||
+         isBlocked(x, z - r) || isBlocked(x, z + r)
+}
+
 export function cellToWorld(col, row) {
   return {
     x: GRID_ORIGIN + (col + 0.5) * CELL,
