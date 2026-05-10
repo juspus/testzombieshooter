@@ -127,28 +127,6 @@ export default function Player() {
     }
   }, [gl])
 
-  useEffect(() => {
-    const onMouseDown = (e) => {
-      if (e.button !== 0) return
-      if (shopOpenRef.current) return
-      if (!locked.current) { requestLock(); return }
-      if (phase !== 'playing') return
-      shoot()
-      mouseHeldRef.current = true
-      akFireTimerRef.current = 0.1  // next AK shot in 0.1s
-    }
-    const onMouseUp = (e) => {
-      if (e.button !== 0) return
-      mouseHeldRef.current = false
-    }
-    gl.domElement.addEventListener('mousedown', onMouseDown)
-    document.addEventListener('mouseup', onMouseUp)
-    return () => {
-      gl.domElement.removeEventListener('mousedown', onMouseDown)
-      document.removeEventListener('mouseup', onMouseUp)
-    }
-  }, [gl, phase, requestLock, shoot])
-
   const shoot = useCallback(() => {
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera({ x: 0, y: 0 }, camera)
@@ -195,6 +173,28 @@ export default function Player() {
       if (killed) playZombieDie()
     }
   }, [camera, hitZombie, consumeBullet])
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (e.button !== 0) return
+      if (shopOpenRef.current) return
+      if (!locked.current) { requestLock(); return }
+      if (phase !== 'playing') return
+      shoot()
+      mouseHeldRef.current = true
+      akFireTimerRef.current = 0.1  // next AK shot in 0.1s
+    }
+    const onMouseUp = (e) => {
+      if (e.button !== 0) return
+      mouseHeldRef.current = false
+    }
+    gl.domElement.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      gl.domElement.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [gl, phase, requestLock, shoot])
 
   useFrame((_, delta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
