@@ -6,8 +6,8 @@ export default function ZombieManager() {
   const zombies = useGameStore((s) => s.zombies)
   const tick = useGameStore((s) => s.tick)
 
-  useFrame((_, delta) => {
-    tick(delta)
+  useFrame((_, rawDelta) => {
+    tick(Math.min(rawDelta, 0.05))
   })
 
   return (

@@ -223,7 +223,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
     }
 
     const dx = px - pos.x, dz = pz - pos.z
-    if (Math.sqrt(dx * dx + dz * dz) < KILL_DISTANCE) die()
+    if (Math.sqrt(dx * dx + dz * dz) < KILL_DISTANCE && hasLineOfSight(pos.x, pos.z, px, pz)) die()
   })
 
   const damaged = health === 1
