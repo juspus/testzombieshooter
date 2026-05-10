@@ -180,18 +180,37 @@ export function playFootstep() {
   playTone(ac, t, 100, 40, 0.08, 0.3)
 }
 
+// Pooled noise buffers for zombie footsteps — created once, reused every call.
+// AudioBuffer is read-only sample data; multiple BufferSource nodes can reference it safely.
+let _zStepBuf1 = null   // main thud (~0.18 s of noise)
+let _zStepBuf2 = null   // scrape (~0.10 s of noise)
+
+// Global throttle: cap simultaneous zombie footstep sounds and minimum gap between plays.
+const Z_STEP_MAX  = 3      // max concurrent footstep sounds across all zombies
+const Z_STEP_GAP  = 100    // ms minimum between any two global zombie footstep plays
+let _zStepActive  = 0
+let _zStepLastMs  = 0
+
 export function playZombieFootstep() {
+  const now = performance.now()
+  if (_zStepActive >= Z_STEP_MAX || now - _zStepLastMs < Z_STEP_GAP) return
+  _zStepActive++
+  _zStepLastMs = now
+
   const ac = ctx()
   const t = ac.currentTime
 
+  if (!_zStepBuf1) _zStepBuf1 = noiseBuffer(ac, 0.18)
+  if (!_zStepBuf2) _zStepBuf2 = noiseBuffer(ac, 0.10)
+
   // Heavy dead-weight shuffle — lower and duller than player footstep
-  const buf = noiseBuffer(ac, 0.18)
-  playNoise(ac, buf, t, 0.13, 0.28, 'lowpass', 120, 0.5)
+  playNoise(ac, _zStepBuf1, t, 0.13, 0.28, 'lowpass', 120, 0.5)
   playTone(ac, t, 80, 35, 0.1, 0.18)
 
   // Slight scrape / drag
-  const scrapeBuf = noiseBuffer(ac, 0.1)
-  playNoise(ac, scrapeBuf, t + 0.03, 0.08, 0.07, 'bandpass', 750, 4)
+  playNoise(ac, _zStepBuf2, t + 0.03, 0.08, 0.07, 'bandpass', 750, 4)
+
+  setTimeout(() => { _zStepActive-- }, 200)
 }
 
 export function playPlankHit() {
