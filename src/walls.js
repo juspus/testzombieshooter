@@ -13,12 +13,15 @@ export const CELL = 1.0
 let _grid = new Uint8Array(GRID_SIZE * GRID_SIZE)
 
 // Pre-allocated A* scratch buffers (single-threaded JS – safe).
-const _g     = new Float32Array(GRID_SIZE * GRID_SIZE)
-const _f     = new Float32Array(GRID_SIZE * GRID_SIZE)
-const _par   = new Int32Array(GRID_SIZE * GRID_SIZE)
-const _vis   = new Uint8Array(GRID_SIZE * GRID_SIZE)
-const _inOp  = new Uint8Array(GRID_SIZE * GRID_SIZE)
-const _openQ = new Int32Array(GRID_SIZE * GRID_SIZE)
+const _g       = new Float32Array(GRID_SIZE * GRID_SIZE)
+const _f       = new Float32Array(GRID_SIZE * GRID_SIZE)
+const _par     = new Int32Array(GRID_SIZE * GRID_SIZE)
+const _vis     = new Uint8Array(GRID_SIZE * GRID_SIZE)
+// Binary min-heap open set: _heap[0..heapLen) holds cell indices ordered by _f.
+// _heapPos[cell] = position in _heap, or -1 when not in the open set.
+const _heap    = new Int32Array(GRID_SIZE * GRID_SIZE)
+const _heapPos = new Int32Array(GRID_SIZE * GRID_SIZE)
+let   _heapLen = 0
 
 // ─── coordinate helpers ──────────────────────────────────────────────────────
 
@@ -165,27 +168,25 @@ export function findPath(fromX, fromZ, toX, toZ) {
 }
 
 function aStar(sc, sr, gc, gr) {
-  const N = GRID_SIZE * GRID_SIZE
   _g.fill(Infinity)
   _f.fill(Infinity)
   _par.fill(-1)
   _vis.fill(0)
-  _inOp.fill(0)
+  _heapPos.fill(-1)
+  _heapLen = 0
 
   const si = sr * GRID_SIZE + sc
   _g[si] = 0
   _f[si] = h(sc, sr, gc, gr)
-  _inOp[si] = 1
-  let openLen = 0
-  _openQ[openLen++] = si
+  heapPush(si)
 
-  while (openLen > 0) {
-    // find min-f node
-    let minF = Infinity, minI = -1, minPos = -1
-    for (let i = 0; i < openLen; i++) {
-      if (_f[_openQ[i]] < minF) { minF = _f[_openQ[i]]; minI = _openQ[i]; minPos = i }
-    }
+  const DIRS = [
+    [-1, 0, 1], [1, 0, 1], [0, -1, 1], [0, 1, 1],
+    [-1, -1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [1, 1, 1.414],
+  ]
 
+  while (_heapLen > 0) {
+    const minI = heapPop()
     const cc = minI % GRID_SIZE
     const cr = (minI / GRID_SIZE) | 0
 
@@ -200,21 +201,13 @@ function aStar(sc, sr, gc, gr) {
       return path
     }
 
-    // remove from open
-    _openQ[minPos] = _openQ[--openLen]
-    _inOp[minI] = 0
     _vis[minI] = 1
 
-    const DIRS = [
-      [-1, 0, 1], [1, 0, 1], [0, -1, 1], [0, 1, 1],
-      [-1, -1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [1, 1, 1.414],
-    ]
     for (const [dc, dr, cost] of DIRS) {
       const nc = cc + dc, nr = cr + dr
       if (nc < 0 || nc >= GRID_SIZE || nr < 0 || nr >= GRID_SIZE) continue
       const ni = nr * GRID_SIZE + nc
       if (_grid[ni] || _vis[ni]) continue
-      // no diagonal corner-cutting
       if (dc !== 0 && dr !== 0 && (_grid[cr * GRID_SIZE + cc + dc] || _grid[(cr + dr) * GRID_SIZE + cc])) continue
 
       const tg = _g[minI] + cost
@@ -222,11 +215,68 @@ function aStar(sc, sr, gc, gr) {
         _par[ni] = minI
         _g[ni] = tg
         _f[ni] = tg + h(nc, nr, gc, gr)
-        if (!_inOp[ni]) { _inOp[ni] = 1; _openQ[openLen++] = ni }
+        if (_heapPos[ni] >= 0) {
+          heapSiftUp(_heapPos[ni])   // decrease-key: already in heap, bubble up
+        } else {
+          heapPush(ni)
+        }
       }
     }
   }
   return null
+}
+
+// ─── min-heap helpers ────────────────────────────────────────────────────────
+
+function heapPush(ci) {
+  const pos = _heapLen++
+  _heap[pos] = ci
+  _heapPos[ci] = pos
+  heapSiftUp(pos)
+}
+
+function heapPop() {
+  const top = _heap[0]
+  _heapPos[top] = -1
+  const last = _heap[--_heapLen]
+  if (_heapLen > 0) {
+    _heap[0] = last
+    _heapPos[last] = 0
+    heapSiftDown(0)
+  }
+  return top
+}
+
+function heapSiftUp(pos) {
+  const ci = _heap[pos]
+  const f  = _f[ci]
+  while (pos > 0) {
+    const parent = (pos - 1) >> 1
+    const pci = _heap[parent]
+    if (_f[pci] <= f) break
+    _heap[pos] = pci
+    _heapPos[pci] = pos
+    pos = parent
+  }
+  _heap[pos] = ci
+  _heapPos[ci] = pos
+}
+
+function heapSiftDown(pos) {
+  const ci = _heap[pos]
+  const f  = _f[ci]
+  while (true) {
+    const left = (pos << 1) + 1
+    if (left >= _heapLen) break
+    const right = left + 1
+    const child = (right < _heapLen && _f[_heap[right]] < _f[_heap[left]]) ? right : left
+    if (_f[_heap[child]] >= f) break
+    _heap[pos] = _heap[child]
+    _heapPos[_heap[pos]] = pos
+    pos = child
+  }
+  _heap[pos] = ci
+  _heapPos[ci] = pos
 }
 
 function h(c, r, gc, gr) {
