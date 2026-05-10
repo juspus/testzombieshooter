@@ -198,68 +198,68 @@ function ShotgunModel({ gunMat }) {
   const wood  = (c) => gunMat(c, 0.0,  0.9)
   return (
     <>
-      {/* Receiver / action block */}
-      <mesh position={[0, 0.02, 0.02]}>
-        <boxGeometry args={[0.088, 0.072, 0.18]} />
+      {/* Receiver / action block — wide and tall */}
+      <mesh position={[0, 0.022, 0.02]}>
+        <boxGeometry args={[0.120, 0.100, 0.22]} />
         {metal('#2e2e2e')}
       </mesh>
 
-      {/* Main barrel — long and round-ish (box approximation) */}
-      <mesh position={[0, 0.024, -0.33]}>
-        <boxGeometry args={[0.042, 0.042, 0.52]} />
+      {/* Main barrel — thick */}
+      <mesh position={[0, 0.028, -0.36]}>
+        <boxGeometry args={[0.058, 0.058, 0.54]} />
         {metal('#252525')}
       </mesh>
 
-      {/* Muzzle end cap */}
-      <mesh position={[0, 0.024, -0.595]}>
-        <boxGeometry args={[0.050, 0.050, 0.030]} />
+      {/* Muzzle end cap — pronounced flare */}
+      <mesh position={[0, 0.028, -0.640]}>
+        <boxGeometry args={[0.072, 0.072, 0.036]} />
         {metal('#333')}
       </mesh>
 
-      {/* Tubular magazine under barrel */}
-      <mesh position={[0, -0.016, -0.28]}>
-        <boxGeometry args={[0.034, 0.034, 0.44]} />
+      {/* Tubular magazine under barrel — thick */}
+      <mesh position={[0, -0.024, -0.30]}>
+        <boxGeometry args={[0.048, 0.048, 0.46]} />
         {metal('#303030')}
       </mesh>
 
-      {/* Pump / forend — wood sliding grip */}
-      <mesh position={[0, -0.010, -0.22]}>
-        <boxGeometry args={[0.068, 0.055, 0.16]} />
+      {/* Pump / forend — chunky wood grip */}
+      <mesh position={[0, -0.012, -0.24]}>
+        <boxGeometry args={[0.095, 0.075, 0.20]} />
         {wood('#5a3010')}
       </mesh>
 
-      {/* Wood stock */}
-      <mesh position={[0, -0.004, 0.185]} rotation={[-0.05, 0, 0]}>
-        <boxGeometry args={[0.065, 0.075, 0.22]} />
+      {/* Wood stock — wide and solid */}
+      <mesh position={[0, -0.004, 0.205]} rotation={[-0.05, 0, 0]}>
+        <boxGeometry args={[0.090, 0.100, 0.25]} />
         {wood('#5a3010')}
       </mesh>
       {/* Stock toe */}
-      <mesh position={[0, -0.018, 0.295]} rotation={[-0.14, 0, 0]}>
-        <boxGeometry args={[0.062, 0.055, 0.07]} />
+      <mesh position={[0, -0.022, 0.330]} rotation={[-0.14, 0, 0]}>
+        <boxGeometry args={[0.086, 0.075, 0.08]} />
         {wood('#4e2a0c')}
       </mesh>
 
-      {/* Pistol grip area (wrist of stock) */}
-      <mesh position={[0, -0.048, 0.095]} rotation={[0.08, 0, 0]}>
-        <boxGeometry args={[0.060, 0.052, 0.09]} />
+      {/* Pistol grip wrist */}
+      <mesh position={[0, -0.058, 0.105]} rotation={[0.08, 0, 0]}>
+        <boxGeometry args={[0.082, 0.068, 0.10]} />
         {wood('#4a2808')}
       </mesh>
 
       {/* Trigger guard */}
-      <mesh position={[0, -0.038, 0.02]}>
-        <boxGeometry args={[0.050, 0.014, 0.09]} />
+      <mesh position={[0, -0.050, 0.022]}>
+        <boxGeometry args={[0.068, 0.016, 0.10]} />
         {metal('#3a3a3a')}
       </mesh>
 
       {/* Front bead sight */}
-      <mesh position={[0, 0.050, -0.56]}>
-        <boxGeometry args={[0.010, 0.014, 0.010]} />
+      <mesh position={[0, 0.063, -0.60]}>
+        <boxGeometry args={[0.014, 0.018, 0.012]} />
         {gunMat('#aaa', 0.9, 0.2)}
       </mesh>
 
-      {/* Shell ejection port detail */}
-      <mesh position={[0.046, 0.022, 0.01]}>
-        <boxGeometry args={[0.006, 0.028, 0.06]} />
+      {/* Shell ejection port */}
+      <mesh position={[0.063, 0.024, 0.01]}>
+        <boxGeometry args={[0.008, 0.038, 0.08]} />
         {metal('#1a1a1a')}
       </mesh>
     </>
