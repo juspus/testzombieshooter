@@ -26,7 +26,7 @@ export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SH
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
-  money: 10,
+  money: 5000,
   weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
   shopOpen: false,
   nearChest: false,
@@ -55,7 +55,7 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
-      money: 10,
+      money: 5000,
       weapon: 'pistol',
       shopOpen: false,
       walls,
