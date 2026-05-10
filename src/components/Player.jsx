@@ -137,7 +137,35 @@ export default function Player() {
     Gun.fire?.()
     playGunshot()
 
-    if (weaponRef.current === 'deagle') {
+    if (weaponRef.current === 'shotgun') {
+      // 12 pellets spread in a cone — each raycasted independently
+      const PELLETS = 12
+      const SPREAD = 0.10  // NDC half-width of cone
+      const killed = new Set()
+      for (let i = 0; i < PELLETS; i++) {
+        const angle = Math.random() * Math.PI * 2
+        const r = Math.sqrt(Math.random()) * SPREAD  // sqrt for even circular distribution
+        const pelletRC = new THREE.Raycaster()
+        pelletRC.setFromCamera({ x: Math.cos(angle) * r, y: Math.sin(angle) * r }, camera)
+        let bestId = null, bestDist = Infinity, bestPoint = null, bestHead = false
+        for (const [id, ref] of Object.entries(zombieRefs.current)) {
+          if (!ref) continue
+          const hits = pelletRC.intersectObject(ref, true)
+          if (hits.length > 0 && hits[0].distance < bestDist) {
+            bestDist = hits[0].distance
+            bestId = Number(id)
+            bestPoint = hits[0].point.clone()
+            bestHead = hits[0].object.userData.isHead === true
+          }
+        }
+        const trailEnd = bestPoint ?? camera.position.clone().addScaledVector(pelletRC.ray.direction, 30)
+        BulletTrails.add(muzzle, trailEnd)
+        if (bestId !== null) {
+          const died = hitZombie(bestId, bestHead)
+          if (died && !killed.has(bestId)) { killed.add(bestId); playZombieDie() }
+        }
+      }
+    } else if (weaponRef.current === 'deagle') {
       // Pierce up to 3 enemies, instant kill each
       const hits = []
       for (const [id, ref] of Object.entries(zombieRefs.current)) {

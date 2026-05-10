@@ -193,11 +193,85 @@ function DeagleModel({ gunMat }) {
   )
 }
 
+function ShotgunModel({ gunMat }) {
+  const metal = (c) => gunMat(c, 0.75, 0.3)
+  const wood  = (c) => gunMat(c, 0.0,  0.9)
+  return (
+    <>
+      {/* Receiver / action block */}
+      <mesh position={[0, 0.02, 0.02]}>
+        <boxGeometry args={[0.088, 0.072, 0.18]} />
+        {metal('#2e2e2e')}
+      </mesh>
+
+      {/* Main barrel — long and round-ish (box approximation) */}
+      <mesh position={[0, 0.024, -0.33]}>
+        <boxGeometry args={[0.042, 0.042, 0.52]} />
+        {metal('#252525')}
+      </mesh>
+
+      {/* Muzzle end cap */}
+      <mesh position={[0, 0.024, -0.595]}>
+        <boxGeometry args={[0.050, 0.050, 0.030]} />
+        {metal('#333')}
+      </mesh>
+
+      {/* Tubular magazine under barrel */}
+      <mesh position={[0, -0.016, -0.28]}>
+        <boxGeometry args={[0.034, 0.034, 0.44]} />
+        {metal('#303030')}
+      </mesh>
+
+      {/* Pump / forend — wood sliding grip */}
+      <mesh position={[0, -0.010, -0.22]}>
+        <boxGeometry args={[0.068, 0.055, 0.16]} />
+        {wood('#5a3010')}
+      </mesh>
+
+      {/* Wood stock */}
+      <mesh position={[0, -0.004, 0.185]} rotation={[-0.05, 0, 0]}>
+        <boxGeometry args={[0.065, 0.075, 0.22]} />
+        {wood('#5a3010')}
+      </mesh>
+      {/* Stock toe */}
+      <mesh position={[0, -0.018, 0.295]} rotation={[-0.14, 0, 0]}>
+        <boxGeometry args={[0.062, 0.055, 0.07]} />
+        {wood('#4e2a0c')}
+      </mesh>
+
+      {/* Pistol grip area (wrist of stock) */}
+      <mesh position={[0, -0.048, 0.095]} rotation={[0.08, 0, 0]}>
+        <boxGeometry args={[0.060, 0.052, 0.09]} />
+        {wood('#4a2808')}
+      </mesh>
+
+      {/* Trigger guard */}
+      <mesh position={[0, -0.038, 0.02]}>
+        <boxGeometry args={[0.050, 0.014, 0.09]} />
+        {metal('#3a3a3a')}
+      </mesh>
+
+      {/* Front bead sight */}
+      <mesh position={[0, 0.050, -0.56]}>
+        <boxGeometry args={[0.010, 0.014, 0.010]} />
+        {gunMat('#aaa', 0.9, 0.2)}
+      </mesh>
+
+      {/* Shell ejection port detail */}
+      <mesh position={[0.046, 0.022, 0.01]}>
+        <boxGeometry args={[0.006, 0.028, 0.06]} />
+        {metal('#1a1a1a')}
+      </mesh>
+    </>
+  )
+}
+
 export default function Gun() {
   const { camera } = useThree()
   const weapon = useGameStore((s) => s.weapon)
   const isAK = weapon === 'ak47'
   const isDeagle = weapon === 'deagle'
+  const isShotgun = weapon === 'shotgun'
 
   const weaponScene = useMemo(() => {
     const s = new THREE.Scene()
@@ -243,6 +317,11 @@ export default function Gun() {
         const recoilAngle = recoil.current * 0.22
         groupRef.current.position.set(0.21, -0.21, -(0.36 - recoilZ))
         groupRef.current.rotation.set(recoilAngle, 0, 0)
+      } else if (isShotgun) {
+        const recoilZ = recoil.current * 0.05
+        const recoilAngle = recoil.current * 0.14
+        groupRef.current.position.set(0.11, -0.27, -(0.28 - recoilZ))
+        groupRef.current.rotation.set(recoilAngle, 0, 0)
       } else {
         const recoilZ = recoil.current * 0.06
         const recoilAngle = recoil.current * 0.18
@@ -256,7 +335,9 @@ export default function Gun() {
       ? new THREE.Vector3(0.10, -0.237, -0.82)
       : isDeagle
         ? new THREE.Vector3(0.21, -0.195, -0.73)
-        : new THREE.Vector3(0.22, -0.20, -0.69)
+        : isShotgun
+          ? new THREE.Vector3(0.11, -0.245, -0.75)
+          : new THREE.Vector3(0.22, -0.20, -0.69)
     muzzleLocal.applyMatrix4(camera.matrixWorld)
     _muzzleWorld.copy(muzzleLocal)
 
@@ -271,11 +352,11 @@ export default function Gun() {
     <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
   )
 
-  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : -0.31
+  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : -0.31
 
   return createPortal(
     <group ref={groupRef}>
-      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : <PistolModel gunMat={gunMat} />}
+      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : isShotgun ? <ShotgunModel gunMat={gunMat} /> : <PistolModel gunMat={gunMat} />}
       <pointLight ref={flashRef} position={[0, 0.03, flashZ]} intensity={0} color="#ff9900" distance={4} />
     </group>,
     weaponScene
