@@ -24,6 +24,7 @@ export const useGameStore = create((set, get) => ({
   waveKills: 0,
   intermissionLeft: INTERMISSION_DURATION,
   zombies: [],
+  pendingSpawns: [],  // zombies queued to enter 10-per-frame
   nextId: 0,
   bulletsInClip: CLIP_SIZE,
   reserveBullets: 0,
@@ -45,6 +46,7 @@ export const useGameStore = create((set, get) => ({
       waveKills: 0,
       intermissionLeft: INTERMISSION_DURATION,
       zombies: [],
+      pendingSpawns: [],
       nextId: 0,
       bulletsInClip: clip,
       reserveBullets: total - clip,
@@ -67,6 +69,7 @@ export const useGameStore = create((set, get) => ({
       waveKills: 0,
       intermissionLeft: INTERMISSION_DURATION,
       zombies: [],
+      pendingSpawns: [],
       bulletsInClip: clip,
       reserveBullets: total - clip,
       isReloading: false,
@@ -98,7 +101,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   hitZombie: (id, isHeadshot) => {
-    const { zombies, kills, waveKills } = get()
+    const { zombies, pendingSpawns, kills, waveKills } = get()
     const zombie = zombies.find((z) => z.id === id)
     if (!zombie) return
 
@@ -108,7 +111,8 @@ export const useGameStore = create((set, get) => ({
       const remaining = zombies.filter((z) => z.id !== id)
       const newKills = kills + 1
       const newWaveKills = waveKills + 1
-      set(remaining.length === 0
+      const waveOver = remaining.length === 0 && pendingSpawns.length === 0
+      set(waveOver
         ? { zombies: remaining, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
         : { zombies: remaining, kills: newKills, waveKills: newWaveKills }
       )
@@ -120,19 +124,26 @@ export const useGameStore = create((set, get) => ({
   },
 
   tick: (delta) => {
-    const { phase, intermissionLeft, wave, nextId } = get()
+    const { phase, intermissionLeft, wave, nextId, zombies, pendingSpawns } = get()
     if (phase === 'intermission') {
       const next = intermissionLeft - delta
       if (next <= 0) {
+        const all = spawnZombies(wave, nextId)
         set({
           phase: 'playing',
           intermissionLeft: 0,
-          zombies: spawnZombies(wave, nextId),
-          nextId: nextId + zombiesForWave(wave),
+          zombies: all.slice(0, 10),
+          pendingSpawns: all.slice(10),
+          nextId: nextId + all.length,
         })
       } else {
         set({ intermissionLeft: next })
       }
+    } else if (phase === 'playing' && pendingSpawns.length > 0) {
+      set({
+        zombies: [...zombies, ...pendingSpawns.slice(0, 10)],
+        pendingSpawns: pendingSpawns.slice(10),
+      })
     }
   },
 
