@@ -19,6 +19,7 @@ export default function Player() {
   const { camera, gl } = useThree()
   const hitZombie = useGameStore((s) => s.hitZombie)
   const phase = useGameStore((s) => s.phase)
+  const wave = useGameStore((s) => s.wave)
   const consumeBullet = useGameStore((s) => s.consumeBullet)
   const beginReload = useGameStore((s) => s.beginReload)
   const finishReload = useGameStore((s) => s.finishReload)
@@ -52,17 +53,17 @@ export default function Player() {
     camera.rotation.order = 'YXZ'
   }, [camera])
 
-  // Reset position + look direction at the start of every wave/game
+  // Reset position + look direction only when starting a fresh game (wave 1)
   useEffect(() => {
-    if (phase === 'playing') {
+    if (phase === 'intermission' && wave === 1) {
       camera.position.set(0, PLAYER_HEIGHT, 0)
       yaw.current = 0
       pitch.current = 0
     }
-  }, [phase, camera])
+  }, [phase, wave, camera])
 
   const requestLock = useCallback(() => {
-    if (phase === 'playing') gl.domElement.requestPointerLock()
+    if (phase === 'playing' || phase === 'intermission') gl.domElement.requestPointerLock()
   }, [phase, gl])
 
   useEffect(() => {
@@ -99,7 +100,7 @@ export default function Player() {
   useEffect(() => {
     const onClick = () => {
       if (!locked.current) { requestLock(); return }
-      shoot()
+      if (phase === 'playing') shoot()
     }
     gl.domElement.addEventListener('click', onClick)
     return () => gl.domElement.removeEventListener('click', onClick)
@@ -153,7 +154,7 @@ export default function Player() {
   }, [camera, hitZombie, consumeBullet])
 
   useFrame((_, delta) => {
-    if (phase !== 'playing') return
+    if (phase !== 'playing' && phase !== 'intermission') return
 
     // Reload countdown
     if (reloadTimer.current > 0) {
