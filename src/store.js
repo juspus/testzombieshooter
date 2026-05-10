@@ -26,7 +26,7 @@ export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SH
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
-  money: 5000,
+  money: 10,
   weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
   shopOpen: false,
   nearChest: false,
