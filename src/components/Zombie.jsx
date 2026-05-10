@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Player from './Player'
 import { findPath, hasLineOfSight, isBlocked } from '../walls'
-import { WINDOW_DEFS } from '../cabin'
+import { WINDOW_DEFS, CABIN_HW, CABIN_HD } from '../cabin'
 import { playZombieFootstep, playPlankHit } from '../sounds'
 import * as THREE from 'three'
 
@@ -73,9 +73,10 @@ export default function ZombieComponent({ id, startX, startZ }) {
     const px = camera.position.x, pz = camera.position.z
     const planks = windowPlanksRef.current
 
-    // Revert attack mode if the target plank was destroyed
+    // Revert attack mode if the target plank was destroyed or zombie entered the cabin
     if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
-      if ((planks[targetWindowRef.current] ?? 0) === 0) {
+      const insideCabin = Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD
+      if ((planks[targetWindowRef.current] ?? 0) === 0 || insideCabin) {
         modeRef.current = 'chase'
         targetWindowRef.current = -1
         pathRef.current = []
@@ -103,7 +104,8 @@ export default function ZombieComponent({ id, startX, startZ }) {
           const dx = op.x - nearWin.ax, dz = op.z - nearWin.az
           if (dx * dx + dz * dz < nearDist) { isClosest = false; break }
         }
-        if (isClosest && isAggressorRef.current) {
+        const insideCabin = Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD
+        if (isClosest && isAggressorRef.current && !insideCabin) {
           modeRef.current = 'attack_window'
           targetWindowRef.current = nearWin.id
           pathRef.current = []
