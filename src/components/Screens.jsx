@@ -11,6 +11,7 @@ export default function Screens() {
   const intermissionLeft = useGameStore((s) => s.intermissionLeft)
   const zombies = useGameStore((s) => s.zombies)
   const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
+  const money = useGameStore((s) => s.money)
 
   if (phase === 'start') {
     return (
@@ -31,7 +32,7 @@ export default function Screens() {
 
   if (phase === 'intermission') {
     const nextCount = getZombiesForWave()
-    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} />
+    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} money={money} />
   }
 
   if (phase === 'dead') {
@@ -57,7 +58,7 @@ function WaveClearScreen({ wave, waveKills, kills, nextWave }) {
   )
 }
 
-function IntermissionScreen({ wave, intermissionLeft, zombieCount }) {
+function IntermissionScreen({ wave, intermissionLeft, zombieCount, money }) {
   const seconds = Math.ceil(intermissionLeft)
   const urgent = seconds <= 3
 
@@ -92,8 +93,13 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount }) {
       }}>
         {seconds}s
       </div>
-      <div style={{ fontSize: 11, letterSpacing: 2, color: '#555' }}>
-        HOLD E NEAR WINDOWS TO BOARD
+      {wave > 1 && (
+        <div style={{ fontSize: 12, letterSpacing: 3, color: '#88cc44', marginTop: 2 }}>
+          +€15.00 WAVE REWARD
+        </div>
+      )}
+      <div style={{ fontSize: 11, letterSpacing: 2, color: '#555', marginTop: 2 }}>
+        HOLD E NEAR WINDOWS TO BOARD · €2.50 PER PLANK
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { useGameStore, CLIP_SIZE } from '../store'
+import { useGameStore, CLIP_SIZE, PLANK_COST } from '../store'
 
 
 export default function HUD() {
@@ -12,8 +12,10 @@ export default function HUD() {
   const nearWindowId = useGameStore((s) => s.nearWindowId)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
   const boardingProgress = useGameStore((s) => s.boardingProgress)
+  const money = useGameStore((s) => s.money)
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2
+  const canAfford = money >= PLANK_COST
 
   return (
     <div style={styles.hud}>
@@ -30,6 +32,12 @@ export default function HUD() {
         <div style={styles.stat}>
           <span style={styles.label}>KILLS</span>
           <span style={styles.value}>{waveKills} / {total}</span>
+        </div>
+        <div style={styles.stat}>
+          <span style={styles.label}>MONEY</span>
+          <span style={{ ...styles.value, color: canAfford ? '#ffe066' : '#ff6644' }}>
+            €{money.toFixed(2)}
+          </span>
         </div>
       </div>
 
@@ -61,11 +69,17 @@ export default function HUD() {
 
       {/* Window board prompt */}
       {showBoardPrompt && (
-        <div style={styles.boardPrompt}>
-          <span>HOLD E — board window ({nearPlankCount}/2)</span>
-          <div style={styles.boardBar}>
-            <div style={{ ...styles.boardBarFill, width: `${boardingProgress * 100}%` }} />
-          </div>
+        <div style={{ ...styles.boardPrompt, borderColor: canAfford ? '#554400' : '#552200' }}>
+          <span style={{ color: canAfford ? '#ffe066' : '#ff6644' }}>
+            {canAfford
+              ? `HOLD E — board window (€${PLANK_COST.toFixed(2)}) [${nearPlankCount}/2]`
+              : `NOT ENOUGH MONEY — €${PLANK_COST.toFixed(2)} needed`}
+          </span>
+          {canAfford && (
+            <div style={styles.boardBar}>
+              <div style={{ ...styles.boardBarFill, width: `${boardingProgress * 100}%` }} />
+            </div>
+          )}
         </div>
       )}
 

@@ -10,10 +10,13 @@ const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
 
 const HITS_PER_PLANK = 5   // zombie hits to break one plank
-export { CLIP_SIZE, HITS_PER_PLANK }
+const PLANK_COST = 2.5
+const WAVE_REWARD = 15
+export { CLIP_SIZE, HITS_PER_PLANK, PLANK_COST }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
+  money: 10,
   walls: [],
   windowPlanks: {},  // { [windowId]: 1 | 2 }
   plankHits: {},     // { [windowId]: hitCount } toward next plank break
@@ -38,6 +41,7 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
+      money: 10,
       walls,
       windowPlanks: {},
       plankHits: {},
@@ -55,7 +59,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   nextWave: () => {
-    const { wave: prevWave, nextId, windowPlanks } = get()
+    const { wave: prevWave, nextId, windowPlanks, money } = get()
     const wave = prevWave + 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
@@ -63,6 +67,7 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
+      money: money + WAVE_REWARD,
       walls,
       wave,
       plankHits: {},
@@ -153,12 +158,13 @@ export const useGameStore = create((set, get) => ({
   },
 
   addPlank: (id) => {
-    const { windowPlanks } = get()
+    const { windowPlanks, money } = get()
     const current = windowPlanks[id] ?? 0
     if (current >= 2) return false
+    if (money < PLANK_COST) return false
     const newPlanks = { ...windowPlanks, [id]: current + 1 }
     buildGrid(allWallSegments(newPlanks))
-    set({ windowPlanks: newPlanks })
+    set({ windowPlanks: newPlanks, money: money - PLANK_COST })
     return true
   },
 
