@@ -19,6 +19,8 @@ const WIN_SILL_H   = WY0               // 0.5
 const WIN_LINTEL_H = WH - WY1          // 1.2
 const WIN_LINTEL_Y = WY1 + WIN_LINTEL_H / 2  // 2.6
 
+export const CHEST_POS = { x: -5, z: -7.5 }
+
 const WALL_CLR  = '#7c5c38'
 const FLOOR_CLR = '#4a3018'
 const CEIL_CLR  = '#3d2814'
@@ -184,6 +186,41 @@ function WindowPlanks() {
   )
 }
 
+function Chest() {
+  const x = CHEST_POS.x, z = CHEST_POS.z
+  return (
+    <group position={[x, 0, z]}>
+      {/* Base */}
+      <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.9, 0.44, 0.55]} />
+        <meshStandardMaterial color="#3d2008" roughness={0.9} />
+      </mesh>
+      {/* Lid */}
+      <mesh position={[0, 0.49, -0.04]} castShadow>
+        <boxGeometry args={[0.9, 0.13, 0.5]} />
+        <meshStandardMaterial color="#4a2a0a" roughness={0.85} />
+      </mesh>
+      {/* Front metal band */}
+      <mesh position={[0, 0.22, 0.278]}>
+        <boxGeometry args={[0.92, 0.44, 0.02]} />
+        <meshStandardMaterial color="#666" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {/* Back metal band */}
+      <mesh position={[0, 0.22, -0.278]}>
+        <boxGeometry args={[0.92, 0.44, 0.02]} />
+        <meshStandardMaterial color="#666" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {/* Lock hasp */}
+      <mesh position={[0, 0.3, 0.285]}>
+        <boxGeometry args={[0.13, 0.11, 0.04]} />
+        <meshStandardMaterial color="#999" metalness={0.9} roughness={0.2} />
+      </mesh>
+      {/* Glow */}
+      <pointLight position={[0, 0.8, 0]} color="#ffcc66" intensity={2} distance={4} />
+    </group>
+  )
+}
+
 function Lantern({ position }) {
   return (
     <group position={position}>
@@ -233,6 +270,7 @@ export default function Arena() {
       <EastWall />
       <WestWall />
       <WindowPlanks />
+      <Chest />
     </group>
   )
 }
