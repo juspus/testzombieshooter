@@ -5,7 +5,7 @@ import { playPlankBreak } from './sounds'
 
 const INTERMISSION_DURATION = 10
 const CLIP_SIZE = 10
-const bulletsForWave = (wave) => zombiesForWave(wave) + 5
+const bulletsForWave = (wave) => zombiesForWave(wave) * 2
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
 
