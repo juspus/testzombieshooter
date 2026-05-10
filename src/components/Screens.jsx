@@ -62,26 +62,40 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount }) {
   const urgent = seconds <= 3
 
   return (
-    <Overlay dim={0.6}>
-      <Badge style={{ color: '#aaa', letterSpacing: 8 }}>INCOMING</Badge>
-      <Title>WAVE {wave}</Title>
-      <Sub style={{ marginTop: 4 }}>{zombieCount} zombie{zombieCount !== 1 ? 's' : ''} approaching</Sub>
+    <div style={{
+      position: 'absolute',
+      top: 80,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 4,
+      background: 'rgba(0,0,0,0.65)',
+      border: `1px solid ${urgent ? 'rgba(255,50,0,0.6)' : 'rgba(255,200,0,0.3)'}`,
+      borderRadius: 6,
+      padding: '10px 28px 14px',
+      fontFamily: 'Courier New, monospace',
+      pointerEvents: 'none',
+      transition: 'border-color 0.3s',
+    }}>
+      <div style={{ fontSize: 11, letterSpacing: 6, color: '#888', fontWeight: 'bold' }}>
+        WAVE {wave} INCOMING — {zombieCount} ZOMBIES
+      </div>
       <div style={{
-        marginTop: 24,
-        fontSize: 72,
+        fontSize: 48,
         fontWeight: 'bold',
-        fontFamily: 'Courier New, monospace',
         color: urgent ? '#ff3300' : '#ffe066',
-        textShadow: urgent ? '0 0 30px rgba(255,50,0,0.8)' : '0 0 20px rgba(255,200,0,0.5)',
+        textShadow: urgent ? '0 0 20px rgba(255,50,0,0.8)' : '0 0 12px rgba(255,200,0,0.5)',
         lineHeight: 1,
-        minWidth: 80,
-        textAlign: 'center',
         transition: 'color 0.3s, text-shadow 0.3s',
       }}>
-        {seconds}
+        {seconds}s
       </div>
-      <Sub style={{ marginTop: 8, color: '#555', fontSize: 13 }}>Board up windows while you can</Sub>
-    </Overlay>
+      <div style={{ fontSize: 11, letterSpacing: 2, color: '#555' }}>
+        HOLD E NEAR WINDOWS TO BOARD
+      </div>
+    </div>
   )
 }
 

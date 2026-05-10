@@ -14,14 +14,15 @@ import Screens from './Screens'
 export default function Game() {
   const phase = useGameStore((s) => s.phase)
   const isPlaying = phase === 'playing'
+  const isActive = phase === 'playing' || phase === 'intermission'
   const inGame = phase === 'playing' || phase === 'wave_clear' || phase === 'intermission'
 
-  // Player unmounts on phase change so we release the lock here instead
+  // Release pointer lock only when leaving active gameplay entirely
   useEffect(() => {
-    if (!isPlaying && document.pointerLockElement) {
+    if (!isActive && document.pointerLockElement) {
       document.exitPointerLock()
     }
-  }, [isPlaying])
+  }, [isActive])
 
   useEffect(() => {
     if (inGame) {
@@ -47,7 +48,7 @@ export default function Game() {
         <BulletPickups />
       </Canvas>
 
-      {isPlaying && <HUD />}
+      {isActive && <HUD />}
       <Screens />
     </div>
   )
