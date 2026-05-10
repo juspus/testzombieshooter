@@ -131,46 +131,53 @@ export default function Player() {
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera({ x: 0, y: 0 }, camera)
 
-    let closest = null
-    let closestDist = Infinity
-    let hitPoint = null
-    let isHeadshot = false
-    let hitFaceNormal = null
-
-    for (const [id, ref] of Object.entries(zombieRefs.current)) {
-      if (!ref) continue
-      const intersects = raycaster.intersectObject(ref, true)
-      if (intersects.length > 0 && intersects[0].distance < closestDist) {
-        closestDist = intersects[0].distance
-        closest = id
-        hitPoint = intersects[0].point.clone()
-        isHeadshot = intersects[0].object.userData.isHead === true
-        hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
-      }
-    }
-
-    if (!consumeBullet()) { playEmptyClick(); return }  // empty clip or reloading
+    if (!consumeBullet()) { playEmptyClick(); return }
 
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
-    const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
-    BulletTrails.add(muzzle, trailEnd)
     Gun.fire?.()
     playGunshot()
 
-    if (closest !== null) {
-      const id = Number(closest)
-      const zombieRef = zombieRefs.current[closest]
-
-      // Place bullet hole on torso hits only
-      if (!isHeadshot && hitPoint && zombieRef && hitFaceNormal) {
-        const localPos = zombieRef.worldToLocal(hitPoint)
-        // Nudge slightly along normal to avoid z-fighting
-        localPos.addScaledVector(hitFaceNormal, 0.012)
-        Zombie.addBulletHole(id, localPos, hitFaceNormal)
+    if (weaponRef.current === 'deagle') {
+      // Pierce up to 3 enemies, instant kill each
+      const hits = []
+      for (const [id, ref] of Object.entries(zombieRefs.current)) {
+        if (!ref) continue
+        const intersects = raycaster.intersectObject(ref, true)
+        if (intersects.length > 0) hits.push({ id: Number(id), dist: intersects[0].distance, point: intersects[0].point.clone() })
       }
-
-      const killed = hitZombie(id, isHeadshot)
-      if (killed) playZombieDie()
+      hits.sort((a, b) => a.dist - b.dist)
+      const targets = hits.slice(0, 3)
+      const trailEnd = targets.length > 0 ? targets[targets.length - 1].point : camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+      BulletTrails.add(muzzle, trailEnd)
+      for (const target of targets) {
+        if (hitZombie(target.id, true)) playZombieDie()
+      }
+    } else {
+      // Single target
+      let closest = null, closestDist = Infinity, hitPoint = null, isHeadshot = false, hitFaceNormal = null
+      for (const [id, ref] of Object.entries(zombieRefs.current)) {
+        if (!ref) continue
+        const intersects = raycaster.intersectObject(ref, true)
+        if (intersects.length > 0 && intersects[0].distance < closestDist) {
+          closestDist = intersects[0].distance
+          closest = id
+          hitPoint = intersects[0].point.clone()
+          isHeadshot = intersects[0].object.userData.isHead === true
+          hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
+        }
+      }
+      const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+      BulletTrails.add(muzzle, trailEnd)
+      if (closest !== null) {
+        const id = Number(closest)
+        const zombieRef = zombieRefs.current[closest]
+        if (!isHeadshot && hitPoint && zombieRef && hitFaceNormal) {
+          const localPos = zombieRef.worldToLocal(hitPoint)
+          localPos.addScaledVector(hitFaceNormal, 0.012)
+          Zombie.addBulletHole(id, localPos, hitFaceNormal)
+        }
+        if (hitZombie(id, isHeadshot)) playZombieDie()
+      }
     }
   }, [camera, hitZombie, consumeBullet])
 
@@ -265,7 +272,7 @@ export default function Player() {
       }
     }
 
-    // AK-47 auto-fire at 10 rounds/s while mouse held
+    // AK-47 auto-fire at 10 rounds/s while mouse held (deagle is semi-auto only)
     if (phase === 'playing' && weaponRef.current === 'ak47' && mouseHeldRef.current && locked.current) {
       akFireTimerRef.current -= delta
       if (akFireTimerRef.current <= 0) {

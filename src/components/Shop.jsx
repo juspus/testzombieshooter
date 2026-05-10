@@ -1,16 +1,23 @@
-import { useGameStore, AK_COST, AK_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT } from '../store'
+import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT } from '../store'
 
 const ITEMS = [
   {
     id: 'ak47',
     name: 'AK-47',
-    desc: `Full-auto rifle. Kills in 1 body shot. ${AK_CLIP}-round magazine.`,
+    desc: `Full-auto rifle. 2 body shots to kill. ${AK_CLIP}-round magazine.`,
     price: AK_COST,
     oneTime: true,
   },
   {
+    id: 'deagle',
+    name: 'Desert Eagle',
+    desc: `Semi-auto hand cannon. Pierces up to 3 enemies. Instant kill. ${DEAGLE_CLIP}-round magazine.`,
+    price: DEAGLE_COST,
+    oneTime: true,
+  },
+  {
     id: 'ammo_pack',
-    name: '9mm Ammo Pack',
+    name: 'Ammo Pack',
     desc: `${AMMO_PACK_AMOUNT} rounds added to reserve.`,
     price: AMMO_PACK_COST,
     oneTime: false,
@@ -36,7 +43,7 @@ export default function Shop() {
 
         <div style={styles.items}>
           {ITEMS.map((item) => {
-            const owned = item.oneTime && weapon === 'ak47'
+            const owned = item.oneTime && weapon === item.id
             const canAfford = money >= item.price
             const disabled = owned || !canAfford
             return (

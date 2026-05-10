@@ -129,10 +129,75 @@ function AKModel({ gunMat }) {
   )
 }
 
+function DeagleModel({ gunMat }) {
+  const chrome = (r = 0.15) => gunMat('#aaaaaa', 0.9, r)
+  const dark   = ()         => gunMat('#2e2e2e', 0.8, 0.2)
+  return (
+    <>
+      {/* Main slide — large and boxy */}
+      <mesh position={[0, 0.04, -0.06]}>
+        <boxGeometry args={[0.085, 0.075, 0.32]} />
+        {chrome()}
+      </mesh>
+
+      {/* Slide top rib */}
+      <mesh position={[0, 0.085, -0.06]}>
+        <boxGeometry args={[0.030, 0.014, 0.32]} />
+        {chrome(0.3)}
+      </mesh>
+
+      {/* Barrel — extends prominently past slide */}
+      <mesh position={[0, 0.025, -0.30]}>
+        <boxGeometry args={[0.038, 0.038, 0.22]} />
+        {dark()}
+      </mesh>
+
+      {/* Frame / lower receiver */}
+      <mesh position={[0, -0.01, 0.00]}>
+        <boxGeometry args={[0.078, 0.052, 0.20]} />
+        {chrome(0.25)}
+      </mesh>
+
+      {/* Trigger guard — large loop */}
+      <mesh position={[0, -0.042, 0.01]}>
+        <boxGeometry args={[0.058, 0.016, 0.095]} />
+        {chrome(0.3)}
+      </mesh>
+
+      {/* Grip — chunky, checkered */}
+      <mesh position={[0, -0.125, 0.08]} rotation={[0.12, 0, 0]}>
+        <boxGeometry args={[0.075, 0.155, 0.105]} />
+        {gunMat('#1a1a1a', 0.1, 0.95)}
+      </mesh>
+
+      {/* Rear sight — wide notch block */}
+      <mesh position={[0, 0.098, 0.08]}>
+        <boxGeometry args={[0.065, 0.022, 0.018]} />
+        {dark()}
+      </mesh>
+
+      {/* Front sight — tall post */}
+      <mesh position={[0, 0.098, -0.22]}>
+        <boxGeometry args={[0.014, 0.026, 0.012]} />
+        {dark()}
+      </mesh>
+
+      {/* Rear serrations on slide (3 thin slabs) */}
+      {[-0.02, 0.02, 0.06].map((z, i) => (
+        <mesh key={i} position={[0.044, 0.04, z]}>
+          <boxGeometry args={[0.006, 0.065, 0.012]} />
+          {chrome(0.4)}
+        </mesh>
+      ))}
+    </>
+  )
+}
+
 export default function Gun() {
   const { camera } = useThree()
   const weapon = useGameStore((s) => s.weapon)
   const isAK = weapon === 'ak47'
+  const isDeagle = weapon === 'deagle'
 
   const weaponScene = useMemo(() => {
     const s = new THREE.Scene()
@@ -173,6 +238,11 @@ export default function Gun() {
         const recoilAngle = recoil.current * 0.10
         groupRef.current.position.set(0.10, -0.26, -(0.30 - recoilZ))
         groupRef.current.rotation.set(recoilAngle, 0, 0)
+      } else if (isDeagle) {
+        const recoilZ = recoil.current * 0.05
+        const recoilAngle = recoil.current * 0.22
+        groupRef.current.position.set(0.21, -0.21, -(0.36 - recoilZ))
+        groupRef.current.rotation.set(recoilAngle, 0, 0)
       } else {
         const recoilZ = recoil.current * 0.06
         const recoilAngle = recoil.current * 0.18
@@ -184,7 +254,9 @@ export default function Gun() {
 
     const muzzleLocal = isAK
       ? new THREE.Vector3(0.10, -0.237, -0.82)
-      : new THREE.Vector3(0.22, -0.20, -0.69)
+      : isDeagle
+        ? new THREE.Vector3(0.21, -0.195, -0.73)
+        : new THREE.Vector3(0.22, -0.20, -0.69)
     muzzleLocal.applyMatrix4(camera.matrixWorld)
     _muzzleWorld.copy(muzzleLocal)
 
@@ -199,11 +271,11 @@ export default function Gun() {
     <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
   )
 
-  const flashZ = isAK ? -0.65 : -0.31
+  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : -0.31
 
   return createPortal(
     <group ref={groupRef}>
-      {isAK ? <AKModel gunMat={gunMat} /> : <PistolModel gunMat={gunMat} />}
+      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : <PistolModel gunMat={gunMat} />}
       <pointLight ref={flashRef} position={[0, 0.03, flashZ]} intensity={0} color="#ff9900" distance={4} />
     </group>,
     weaponScene
