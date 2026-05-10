@@ -186,9 +186,19 @@ export default function ZombieComponent({ id, startX, startZ }) {
     }
 
     if (moveDir) {
-      pos.addScaledVector(moveDir, speed * delta)
-      pos.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x))
-      pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z))
+      const dx = moveDir.x * speed * delta
+      const dz = moveDir.z * speed * delta
+      const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + dx))
+      const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + dz))
+
+      if (!isBlocked(nx, nz)) {
+        pos.x = nx
+        pos.z = nz
+      } else if (!isBlocked(nx, pos.z)) {
+        pos.x = nx
+      } else if (!isBlocked(pos.x, nz)) {
+        pos.z = nz
+      }
 
       // Footstep sound — only when close enough for player to hear
       const sdx = px - pos.x, sdz = pz - pos.z
