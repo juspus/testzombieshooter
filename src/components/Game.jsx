@@ -7,6 +7,7 @@ import Player from './Player'
 import Gun from './Gun'
 import ZombieManager from './ZombieManager'
 import BulletTrails from './BulletTrails'
+import ShellCasings from './ShellCasings'
 import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
@@ -45,6 +46,7 @@ export default function Game() {
         <Gun />
         <ZombieManager />
         <BulletTrails />
+        <ShellCasings />
       </Canvas>
 
       {isActive && <HUD />}

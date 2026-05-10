@@ -1,4 +1,4 @@
-import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, PLANK_COST } from '../store'
+import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST } from '../store'
 
 
 export default function HUD() {
@@ -15,7 +15,7 @@ export default function HUD() {
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
   const nearChest = useGameStore((s) => s.nearChest)
-  const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : CLIP_SIZE
+  const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2 && !nearChest
   const canAfford = money >= PLANK_COST
@@ -46,7 +46,7 @@ export default function HUD() {
 
       {/* Ammo — bottom right */}
       <div style={styles.ammoBox}>
-        <div style={styles.weaponLabel}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : 'PISTOL'}</div>
+        <div style={styles.weaponLabel}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
         {isReloading ? (
           <div style={styles.reloading}>RELOADING…</div>
         ) : (

@@ -193,11 +193,85 @@ function DeagleModel({ gunMat }) {
   )
 }
 
+function ShotgunModel({ gunMat, pumpRef }) {
+  const metal = (c) => gunMat(c, 0.75, 0.3)
+  const wood  = (c) => gunMat(c, 0.0,  0.9)
+  return (
+    <>
+      {/* Receiver / action block — wide and tall */}
+      <mesh position={[0, 0.022, 0.02]}>
+        <boxGeometry args={[0.120, 0.100, 0.22]} />
+        {metal('#2e2e2e')}
+      </mesh>
+
+      {/* Main barrel — thick */}
+      <mesh position={[0, 0.028, -0.36]}>
+        <boxGeometry args={[0.058, 0.058, 0.54]} />
+        {metal('#252525')}
+      </mesh>
+
+      {/* Muzzle end cap — pronounced flare */}
+      <mesh position={[0, 0.028, -0.640]}>
+        <boxGeometry args={[0.072, 0.072, 0.036]} />
+        {metal('#333')}
+      </mesh>
+
+      {/* Tubular magazine under barrel — thick */}
+      <mesh position={[0, -0.024, -0.30]}>
+        <boxGeometry args={[0.048, 0.048, 0.46]} />
+        {metal('#303030')}
+      </mesh>
+
+      {/* Pump / forend — chunky wood grip, animated on shot */}
+      <mesh ref={pumpRef} position={[0, -0.012, -0.24]}>
+        <boxGeometry args={[0.095, 0.075, 0.20]} />
+        {wood('#5a3010')}
+      </mesh>
+
+      {/* Wood stock — wide and solid */}
+      <mesh position={[0, -0.004, 0.205]} rotation={[-0.05, 0, 0]}>
+        <boxGeometry args={[0.090, 0.100, 0.25]} />
+        {wood('#5a3010')}
+      </mesh>
+      {/* Stock toe */}
+      <mesh position={[0, -0.022, 0.330]} rotation={[-0.14, 0, 0]}>
+        <boxGeometry args={[0.086, 0.075, 0.08]} />
+        {wood('#4e2a0c')}
+      </mesh>
+
+      {/* Pistol grip wrist */}
+      <mesh position={[0, -0.058, 0.105]} rotation={[0.08, 0, 0]}>
+        <boxGeometry args={[0.082, 0.068, 0.10]} />
+        {wood('#4a2808')}
+      </mesh>
+
+      {/* Trigger guard */}
+      <mesh position={[0, -0.050, 0.022]}>
+        <boxGeometry args={[0.068, 0.016, 0.10]} />
+        {metal('#3a3a3a')}
+      </mesh>
+
+      {/* Front bead sight */}
+      <mesh position={[0, 0.063, -0.60]}>
+        <boxGeometry args={[0.014, 0.018, 0.012]} />
+        {gunMat('#aaa', 0.9, 0.2)}
+      </mesh>
+
+      {/* Shell ejection port */}
+      <mesh position={[0.063, 0.024, 0.01]}>
+        <boxGeometry args={[0.008, 0.038, 0.08]} />
+        {metal('#1a1a1a')}
+      </mesh>
+    </>
+  )
+}
+
 export default function Gun() {
   const { camera } = useThree()
   const weapon = useGameStore((s) => s.weapon)
   const isAK = weapon === 'ak47'
   const isDeagle = weapon === 'deagle'
+  const isShotgun = weapon === 'shotgun'
 
   const weaponScene = useMemo(() => {
     const s = new THREE.Scene()
@@ -212,13 +286,17 @@ export default function Gun() {
 
   const groupRef = useRef()
   const flashRef = useRef()
+  const pumpRef = useRef()
   const recoil = useRef(0)
   const flashLife = useRef(0)
+  const pumpAnim = useRef(0)
 
   Gun.fire = () => {
     recoil.current = 1
     flashLife.current = 1
   }
+
+  Gun.pump = () => { pumpAnim.current = 1 }
 
   Gun.getMuzzlePosition = () => _muzzleWorld.clone()
 
@@ -232,6 +310,15 @@ export default function Gun() {
       flashRef.current.intensity = flashLife.current * 4
     }
 
+    // Pump animation: sine arc so forend slides back then snaps forward
+    if (pumpAnim.current > 0) {
+      pumpAnim.current = Math.max(0, pumpAnim.current - delta / 0.42)
+      if (pumpRef.current) {
+        const t = 1 - pumpAnim.current
+        pumpRef.current.position.z = -0.24 + Math.sin(t * Math.PI) * 0.14
+      }
+    }
+
     if (groupRef.current) {
       if (isAK) {
         const recoilZ = recoil.current * 0.04
@@ -242,6 +329,11 @@ export default function Gun() {
         const recoilZ = recoil.current * 0.05
         const recoilAngle = recoil.current * 0.22
         groupRef.current.position.set(0.21, -0.21, -(0.36 - recoilZ))
+        groupRef.current.rotation.set(recoilAngle, 0, 0)
+      } else if (isShotgun) {
+        const recoilZ = recoil.current * 0.05
+        const recoilAngle = recoil.current * 0.14
+        groupRef.current.position.set(0.11, -0.27, -(0.28 - recoilZ))
         groupRef.current.rotation.set(recoilAngle, 0, 0)
       } else {
         const recoilZ = recoil.current * 0.06
@@ -256,7 +348,9 @@ export default function Gun() {
       ? new THREE.Vector3(0.10, -0.237, -0.82)
       : isDeagle
         ? new THREE.Vector3(0.21, -0.195, -0.73)
-        : new THREE.Vector3(0.22, -0.20, -0.69)
+        : isShotgun
+          ? new THREE.Vector3(0.11, -0.245, -0.75)
+          : new THREE.Vector3(0.22, -0.20, -0.69)
     muzzleLocal.applyMatrix4(camera.matrixWorld)
     _muzzleWorld.copy(muzzleLocal)
 
@@ -271,11 +365,11 @@ export default function Gun() {
     <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
   )
 
-  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : -0.31
+  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : -0.31
 
   return createPortal(
     <group ref={groupRef}>
-      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : <PistolModel gunMat={gunMat} />}
+      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} /> : <PistolModel gunMat={gunMat} />}
       <pointLight ref={flashRef} position={[0, 0.03, flashZ]} intensity={0} color="#ff9900" distance={4} />
     </group>,
     weaponScene
