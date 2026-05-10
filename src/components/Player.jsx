@@ -5,7 +5,7 @@ import Gun from './Gun'
 import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
-import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellClink } from '../sounds'
+import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk } from '../sounds'
 import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
@@ -147,7 +147,7 @@ export default function Player() {
       // Pump animation + sounds
       Gun.pump?.()
       setTimeout(playPumpAction, 40)
-      setTimeout(playShellClink, 100)
+      setTimeout(playShellThonk, 140)  // 0.1s after pump starts
 
       // Eject shell casing — spawn ahead and right of camera so it's visible
       const right = new THREE.Vector3(

@@ -272,28 +272,26 @@ export function playPumpAction() {
   mechanicalClick(ac, t + 0.18, 0.55)
 }
 
-export function playShellClink() {
+export function playShellThonk() {
   const ac = ctx()
   const t = ac.currentTime
 
-  // Hard metallic ping — shell hitting concrete/floor
+  // Hollow plastic thud — empty shell tube hitting floor
+  const thud = noiseBuffer(ac, 0.08)
+  playNoise(ac, thud, t, 0.07, 0.6, 'bandpass', 420, 2.5)
+  playTone(ac, t, 320, 140, 0.06, 0.35)
+
+  // Short hollow resonance — the tube body ringing
   const osc = ac.createOscillator()
-  osc.frequency.setValueAtTime(2200 + Math.random() * 300, t)
-  osc.frequency.exponentialRampToValueAtTime(700, t + 0.09)
+  osc.frequency.setValueAtTime(480 + Math.random() * 60, t + 0.01)
+  osc.frequency.exponentialRampToValueAtTime(260, t + 0.09)
   const g = ac.createGain()
-  g.gain.setValueAtTime(0.35, t)
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+  g.gain.setValueAtTime(0.18, t + 0.01)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.11)
   osc.connect(g)
   g.connect(ac.destination)
-  osc.start(t)
-  osc.stop(t + 0.18)
-
-  // Transient click on impact
-  const buf = noiseBuffer(ac, 0.03)
-  playNoise(ac, buf, t, 0.025, 0.5, 'highpass', 3000, 1)
-  // Short roll/settle
-  const buf2 = noiseBuffer(ac, 0.06)
-  playNoise(ac, buf2, t + 0.02, 0.05, 0.12, 'bandpass', 1400, 3)
+  osc.start(t + 0.01)
+  osc.stop(t + 0.11)
 }
 
 // ─── background music ────────────────────────────────────────────────────────
