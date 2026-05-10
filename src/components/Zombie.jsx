@@ -102,7 +102,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
           const dx = op.x - nearWin.ax, dz = op.z - nearWin.az
           if (dx * dx + dz * dz < nearDist) { isClosest = false; break }
         }
-        if (isClosest && Math.random() < 0.2) {
+        if (isClosest && Math.random() < 0.05) {
           modeRef.current = 'attack_window'
           targetWindowRef.current = nearWin.id
           pathRef.current = []
