@@ -8,15 +8,15 @@ export default function Screens() {
   const waveKills = useGameStore((s) => s.waveKills)
   const startGame = useGameStore((s) => s.startGame)
   const nextWave = useGameStore((s) => s.nextWave)
+  const intermissionLeft = useGameStore((s) => s.intermissionLeft)
   const zombies = useGameStore((s) => s.zombies)
-  const total = useGameStore((s) => s.getZombiesForWave())
+  const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
 
   if (phase === 'start') {
     return (
       <Overlay>
         <Title>ZOMBIE SHOOTER</Title>
-        <Sub>Survive the waves. 30 seconds per wave.</Sub>
-        <Sub style={{ marginTop: 4 }}>Shoot all zombies before time runs out.</Sub>
+        <Sub>Survive the waves. Kill all zombies to advance.</Sub>
         <Controls>
           WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot
         </Controls>
@@ -26,44 +26,66 @@ export default function Screens() {
   }
 
   if (phase === 'wave_clear') {
-    const nextCount = 5 + wave * 3
-    return (
-      <Overlay>
-        <Badge style={{ color: '#00ff88' }}>WAVE {wave} CLEARED</Badge>
-        <Title style={{ fontSize: 48 }}>NICE SHOT!</Title>
-        <Sub>Kills this wave: {waveKills}</Sub>
-        <Sub style={{ marginTop: 4, color: '#888' }}>Total kills: {kills}</Sub>
-        <Sub style={{ marginTop: 8, color: '#aaa' }}>
-          Next wave: <strong style={{ color: '#fff' }}>{nextCount} zombies</strong>
-        </Sub>
-        <Btn onClick={nextWave}>NEXT WAVE →</Btn>
-      </Overlay>
-    )
+    return <WaveClearScreen wave={wave} waveKills={waveKills} kills={kills} nextWave={nextWave} />
+  }
+
+  if (phase === 'intermission') {
+    const nextCount = getZombiesForWave()
+    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} />
   }
 
   if (phase === 'dead') {
     return <YouDied onRestart={startGame} wave={wave} kills={kills} />
   }
 
-  if (phase === 'game_over') {
-    return (
-      <Overlay>
-        <Badge style={{ color: '#ff3300' }}>TIME'S UP</Badge>
-        <Title>GAME OVER</Title>
-        <Sub>You reached wave <strong style={{ color: '#fff' }}>{wave}</strong></Sub>
-        <Sub>Total kills: <strong style={{ color: '#00ff88' }}>{kills}</strong></Sub>
-        <Sub style={{ color: '#666', marginTop: 4 }}>
-          {zombies.length} zombie{zombies.length !== 1 ? 's' : ''} remained
-        </Sub>
-        <Btn onClick={startGame}>PLAY AGAIN</Btn>
-      </Overlay>
-    )
-  }
-
   return null
 }
 
-function Overlay({ children }) {
+function WaveClearScreen({ wave, waveKills, kills, nextWave }) {
+  useEffect(() => {
+    const id = setTimeout(nextWave, 1500)
+    return () => clearTimeout(id)
+  }, [nextWave])
+
+  return (
+    <Overlay>
+      <Badge style={{ color: '#00ff88' }}>WAVE {wave} CLEARED</Badge>
+      <Title style={{ fontSize: 48 }}>NICE SHOT!</Title>
+      <Sub>Kills this wave: {waveKills}</Sub>
+      <Sub style={{ marginTop: 4, color: '#888' }}>Total kills: {kills}</Sub>
+    </Overlay>
+  )
+}
+
+function IntermissionScreen({ wave, intermissionLeft, zombieCount }) {
+  const seconds = Math.ceil(intermissionLeft)
+  const urgent = seconds <= 3
+
+  return (
+    <Overlay dim={0.6}>
+      <Badge style={{ color: '#aaa', letterSpacing: 8 }}>INCOMING</Badge>
+      <Title>WAVE {wave}</Title>
+      <Sub style={{ marginTop: 4 }}>{zombieCount} zombie{zombieCount !== 1 ? 's' : ''} approaching</Sub>
+      <div style={{
+        marginTop: 24,
+        fontSize: 72,
+        fontWeight: 'bold',
+        fontFamily: 'Courier New, monospace',
+        color: urgent ? '#ff3300' : '#ffe066',
+        textShadow: urgent ? '0 0 30px rgba(255,50,0,0.8)' : '0 0 20px rgba(255,200,0,0.5)',
+        lineHeight: 1,
+        minWidth: 80,
+        textAlign: 'center',
+        transition: 'color 0.3s, text-shadow 0.3s',
+      }}>
+        {seconds}
+      </div>
+      <Sub style={{ marginTop: 8, color: '#555', fontSize: 13 }}>Board up windows while you can</Sub>
+    </Overlay>
+  )
+}
+
+function Overlay({ children, dim = 0.78 }) {
   return (
     <div style={{
       position: 'absolute',
@@ -72,7 +94,7 @@ function Overlay({ children }) {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'rgba(0,0,0,0.78)',
+      background: `rgba(0,0,0,${dim})`,
       gap: 12,
       fontFamily: 'Courier New, monospace',
     }}>
@@ -134,7 +156,6 @@ function YouDied({ onRestart, wave, kills }) {
   const [btnVisible, setBtnVisible] = useState(false)
 
   useEffect(() => {
-    // Fade in text over 1.5s, then show button
     let start = null
     const fade = (ts) => {
       if (!start) start = ts

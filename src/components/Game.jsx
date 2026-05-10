@@ -14,6 +14,7 @@ import Screens from './Screens'
 export default function Game() {
   const phase = useGameStore((s) => s.phase)
   const isPlaying = phase === 'playing'
+  const inGame = phase === 'playing' || phase === 'wave_clear' || phase === 'intermission'
 
   // Player unmounts on phase change so we release the lock here instead
   useEffect(() => {
@@ -23,12 +24,12 @@ export default function Game() {
   }, [isPlaying])
 
   useEffect(() => {
-    if (phase === 'playing') {
+    if (inGame) {
       startEerieMusic()
     } else {
       stopEerieMusic()
     }
-  }, [phase])
+  }, [inGame])
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>

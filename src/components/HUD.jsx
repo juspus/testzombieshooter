@@ -4,7 +4,6 @@ import { useGameStore, CLIP_SIZE } from '../store'
 export default function HUD() {
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
-  const timeLeft = useGameStore((s) => s.timeLeft)
   const zombies = useGameStore((s) => s.zombies)
   const total = useGameStore((s) => s.getZombiesForWave())
   const bulletsInClip = useGameStore((s) => s.bulletsInClip)
@@ -15,9 +14,6 @@ export default function HUD() {
   const boardingProgress = useGameStore((s) => s.boardingProgress)
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2
-
-  const time = Math.ceil(timeLeft)
-  const danger = time <= 10
 
   return (
     <div style={styles.hud}>
@@ -30,10 +26,6 @@ export default function HUD() {
         <div style={styles.stat}>
           <span style={styles.label}>WAVE</span>
           <span style={styles.value}>{wave}</span>
-        </div>
-        <div style={{ ...styles.stat, ...styles.timer, color: danger ? '#ff3300' : '#00ff88' }}>
-          <span style={styles.label}>TIME</span>
-          <span style={{ ...styles.value, fontSize: 36 }}>{time}s</span>
         </div>
         <div style={styles.stat}>
           <span style={styles.label}>KILLS</span>
@@ -148,7 +140,6 @@ const styles = {
     fontFamily: 'Courier New, monospace',
     letterSpacing: 2,
   },
-  timer: {},
   hint: {
     position: 'absolute',
     bottom: 50,

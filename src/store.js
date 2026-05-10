@@ -3,7 +3,7 @@ import { buildGrid } from './walls'
 import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
 import { playPlankBreak } from './sounds'
 
-const WAVE_DURATION = 30
+const INTERMISSION_DURATION = 10
 const CLIP_SIZE = 10
 const bulletsForWave = (wave) => zombiesForWave(wave) * 2
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
@@ -13,7 +13,7 @@ const HITS_PER_PLANK = 5   // zombie hits to break one plank
 export { CLIP_SIZE, HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
-  phase: 'start', // 'start' | 'playing' | 'wave_clear' | 'game_over' | 'dead'
+  phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   walls: [],
   windowPlanks: {},  // { [windowId]: 1 | 2 }
   plankHits: {},     // { [windowId]: hitCount } toward next plank break
@@ -22,7 +22,7 @@ export const useGameStore = create((set, get) => ({
   wave: 1,
   kills: 0,
   waveKills: 0,
-  timeLeft: WAVE_DURATION,
+  intermissionLeft: INTERMISSION_DURATION,
   zombies: [],
   nextId: 0,
   bulletsInClip: CLIP_SIZE,
@@ -33,19 +33,19 @@ export const useGameStore = create((set, get) => ({
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    buildGrid(cabinWallSegments())           // grid: no windows blocked initially
-    const walls = playerCollisionWalls()    // player: all windows always blocked
+    buildGrid(cabinWallSegments())
+    const walls = playerCollisionWalls()
     set({
-      phase: 'playing',
+      phase: 'intermission',
       walls,
       windowPlanks: {},
       plankHits: {},
       wave,
       kills: 0,
       waveKills: 0,
-      timeLeft: WAVE_DURATION,
-      zombies: spawnZombies(wave, 0),
-      nextId: zombiesForWave(wave),
+      intermissionLeft: INTERMISSION_DURATION,
+      zombies: [],
+      nextId: 0,
       bulletsInClip: clip,
       reserveBullets: total - clip,
       isReloading: false,
@@ -57,17 +57,16 @@ export const useGameStore = create((set, get) => ({
     const wave = prevWave + 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    buildGrid(allWallSegments(windowPlanks)) // grid: preserve boarded windows
-    const walls = playerCollisionWalls()    // player: all windows always blocked
+    buildGrid(allWallSegments(windowPlanks))
+    const walls = playerCollisionWalls()
     set({
-      phase: 'playing',
+      phase: 'intermission',
       walls,
       wave,
       plankHits: {},
       waveKills: 0,
-      timeLeft: WAVE_DURATION,
-      zombies: spawnZombies(wave, nextId),
-      nextId: nextId + zombiesForWave(wave),
+      intermissionLeft: INTERMISSION_DURATION,
+      zombies: [],
       bulletsInClip: clip,
       reserveBullets: total - clip,
       isReloading: false,
@@ -121,13 +120,19 @@ export const useGameStore = create((set, get) => ({
   },
 
   tick: (delta) => {
-    const { phase, timeLeft } = get()
-    if (phase !== 'playing') return
-    const next = timeLeft - delta
-    if (next <= 0) {
-      set({ timeLeft: 0, phase: 'game_over' })
-    } else {
-      set({ timeLeft: next })
+    const { phase, intermissionLeft, wave, nextId } = get()
+    if (phase === 'intermission') {
+      const next = intermissionLeft - delta
+      if (next <= 0) {
+        set({
+          phase: 'playing',
+          intermissionLeft: 0,
+          zombies: spawnZombies(wave, nextId),
+          nextId: nextId + zombiesForWave(wave),
+        })
+      } else {
+        set({ intermissionLeft: next })
+      }
     }
   },
 
@@ -141,7 +146,7 @@ export const useGameStore = create((set, get) => ({
     const current = windowPlanks[id] ?? 0
     if (current >= 2) return false
     const newPlanks = { ...windowPlanks, [id]: current + 1 }
-    buildGrid(allWallSegments(newPlanks))  // update grid only; player walls unchanged
+    buildGrid(allWallSegments(newPlanks))
     set({ windowPlanks: newPlanks })
     return true
   },
@@ -152,7 +157,7 @@ export const useGameStore = create((set, get) => ({
     const hits = (plankHits[id] ?? 0) + 1
     if (hits >= HITS_PER_PLANK) {
       const newPlanks = { ...windowPlanks, [id]: windowPlanks[id] - 1 }
-      buildGrid(allWallSegments(newPlanks))  // update grid only; player walls unchanged
+      buildGrid(allWallSegments(newPlanks))
       playPlankBreak()
       set({ windowPlanks: newPlanks, plankHits: { ...plankHits, [id]: 0 } })
     } else {
