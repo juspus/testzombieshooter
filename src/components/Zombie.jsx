@@ -77,9 +77,16 @@ export default function ZombieComponent({ id, startX, startZ }) {
     if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
       const insideCabin = Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD
       if ((planks[targetWindowRef.current] ?? 0) === 0 || insideCabin) {
+        // Snap to window center axis so the zombie enters through the opening, not the corner
+        if (!insideCabin) {
+          const win = WINDOW_DEFS[targetWindowRef.current]
+          if (win.wall === 'N' || win.wall === 'S') pos.x = win.winX
+          else pos.z = win.winZ
+        }
         modeRef.current = 'chase'
         targetWindowRef.current = -1
         pathRef.current = []
+        pathTimer.current = 0  // force immediate A* recalculation instead of LOS beeline
       }
     }
 
