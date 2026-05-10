@@ -17,6 +17,8 @@ const ATTACK_INTERVAL = 1.0  // seconds between plank hits
 
 // Module-level registry so Player can push holes into any zombie instance
 const _holeAdders = {}
+// Position registry so zombies can compare distances to windows
+const _zombieGroups = {}
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
 
@@ -46,6 +48,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
     if (ref.current) {
       ref.current.position.set(startX, ZOMBIE_HEIGHT / 2, startZ)
       Player.registerZombieRef(id, ref.current)
+      _zombieGroups[id] = ref.current
     }
     _holeAdders[id] = (localPos, localNormal) => {
       const quat = new THREE.Quaternion().setFromUnitVectors(
@@ -57,6 +60,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
     return () => {
       Player.unregisterZombieRef(id)
       delete _holeAdders[id]
+      delete _zombieGroups[id]
     }
   }, [id, startX, startZ])
 
@@ -82,17 +86,29 @@ export default function ZombieComponent({ id, startX, startZ }) {
     if (pathTimer.current <= 0) {
       pathTimer.current = PATH_INTERVAL
       const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0)
-      if (modeRef.current !== 'attack_window' && boardedWins.length > 0 && Math.random() < 0.2) {
+      if (modeRef.current !== 'attack_window' && boardedWins.length > 0) {
+        // Find nearest boarded window to this zombie
         let nearWin = boardedWins[0], nearDist = Infinity
         for (const win of boardedWins) {
           const dx = pos.x - win.ax, dz = pos.z - win.az
           const d = dx * dx + dz * dz
           if (d < nearDist) { nearDist = d; nearWin = win }
         }
-        modeRef.current = 'attack_window'
-        targetWindowRef.current = nearWin.id
-        pathRef.current = []
-      } else if (modeRef.current !== 'attack_window') {
+        // Only the closest zombie to that window gets the 20% roll
+        let isClosest = true
+        for (const [otherId, otherGroup] of Object.entries(_zombieGroups)) {
+          if (Number(otherId) === id || !otherGroup) continue
+          const op = otherGroup.position
+          const dx = op.x - nearWin.ax, dz = op.z - nearWin.az
+          if (dx * dx + dz * dz < nearDist) { isClosest = false; break }
+        }
+        if (isClosest && Math.random() < 0.2) {
+          modeRef.current = 'attack_window'
+          targetWindowRef.current = nearWin.id
+          pathRef.current = []
+        }
+      }
+      if (modeRef.current !== 'attack_window') {
         // Normal pathfinding toward player
         const newPath = findPath(pos.x, pos.z, px, pz)
         if (newPath && newPath.length > 1) {
