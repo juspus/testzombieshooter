@@ -3,7 +3,7 @@ import { buildGrid } from './walls'
 import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
 import { playPlankBreak } from './sounds'
 
-const INTERMISSION_DURATION = 10
+const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
@@ -25,7 +25,7 @@ export const useGameStore = create((set, get) => ({
   wave: 1,
   kills: 0,
   waveKills: 0,
-  intermissionLeft: INTERMISSION_DURATION,
+  intermissionLeft: intermissionForWave(1),
   zombies: [],
   pendingSpawns: [],  // zombies queued to enter 10-per-frame
   nextId: 0,
@@ -48,7 +48,7 @@ export const useGameStore = create((set, get) => ({
       wave,
       kills: 0,
       waveKills: 0,
-      intermissionLeft: INTERMISSION_DURATION,
+      intermissionLeft: intermissionForWave(wave),
       zombies: [],
       pendingSpawns: [],
       nextId: 0,
@@ -72,7 +72,7 @@ export const useGameStore = create((set, get) => ({
       wave,
       plankHits: {},
       waveKills: 0,
-      intermissionLeft: INTERMISSION_DURATION,
+      intermissionLeft: intermissionForWave(wave),
       zombies: [],
       pendingSpawns: [],
       bulletsInClip: clip,
