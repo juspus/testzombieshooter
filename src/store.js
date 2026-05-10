@@ -7,21 +7,24 @@ const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
 const AK_CLIP = 30
 const AK_COST = 270
+const DEAGLE_CLIP = 7
+const DEAGLE_COST = 700
 const AMMO_PACK_COST = 10
 const AMMO_PACK_AMOUNT = 20
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
+const clipSizeForWeapon = (w) => w === 'ak47' ? AK_CLIP : w === 'deagle' ? DEAGLE_CLIP : CLIP_SIZE
 
 const HITS_PER_PLANK = 5
 const PLANK_COST = 2.5
 const WAVE_REWARD = 15
-export { CLIP_SIZE, AK_CLIP, AK_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST }
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
-  weapon: 'pistol',   // 'pistol' | 'ak47'
+  weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
   shopOpen: false,
   nearChest: false,
   walls: [],
@@ -71,7 +74,7 @@ export const useGameStore = create((set, get) => ({
   nextWave: () => {
     const { wave: prevWave, nextId, windowPlanks, money, weapon } = get()
     const wave = prevWave + 1
-    const clipSize = weapon === 'ak47' ? AK_CLIP : CLIP_SIZE
+    const clipSize = clipSizeForWeapon(weapon)
     const total = bulletsForWave(wave)
     const clip = Math.min(clipSize, total)
     buildGrid(allWallSegments(windowPlanks))
@@ -102,7 +105,7 @@ export const useGameStore = create((set, get) => ({
 
   beginReload: () => {
     const { bulletsInClip, reserveBullets, isReloading, weapon } = get()
-    const clipSize = weapon === 'ak47' ? AK_CLIP : CLIP_SIZE
+    const clipSize = clipSizeForWeapon(weapon)
     if (isReloading || reserveBullets === 0 || bulletsInClip === clipSize) return false
     set({ isReloading: true })
     return true
@@ -110,7 +113,7 @@ export const useGameStore = create((set, get) => ({
 
   finishReload: () => {
     const { bulletsInClip, reserveBullets, weapon } = get()
-    const clipSize = weapon === 'ak47' ? AK_CLIP : CLIP_SIZE
+    const clipSize = clipSizeForWeapon(weapon)
     const toLoad = Math.min(clipSize - bulletsInClip, reserveBullets)
     set({ bulletsInClip: bulletsInClip + toLoad, reserveBullets: reserveBullets - toLoad, isReloading: false })
   },
@@ -200,6 +203,11 @@ export const useGameStore = create((set, get) => ({
     if (itemId === 'ak47') {
       if (weapon === 'ak47' || money < AK_COST) return false
       set({ money: money - AK_COST, weapon: 'ak47', bulletsInClip: AK_CLIP, reserveBullets: 0 })
+      return true
+    }
+    if (itemId === 'deagle') {
+      if (weapon === 'deagle' || money < DEAGLE_COST) return false
+      set({ money: money - DEAGLE_COST, weapon: 'deagle', bulletsInClip: DEAGLE_CLIP, reserveBullets: 0 })
       return true
     }
     if (itemId === 'ammo_pack') {
