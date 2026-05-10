@@ -164,7 +164,26 @@ export function hasLineOfSight(x1, z1, x2, z2) {
 export function findPath(fromX, fromZ, toX, toZ) {
   const s = worldToCell(fromX, fromZ)
   const g = worldToCell(toX,   toZ)
-  return aStar(s.col, s.row, g.col, g.row)
+  // If start or goal maps to a blocked cell (e.g. player/zombie pressed into a corner),
+  // reroute to the nearest open neighbour so A* has a reachable target.
+  const sc = _grid[s.row * GRID_SIZE + s.col] ? nearestOpen(s.col, s.row) : s
+  const gc = _grid[g.row * GRID_SIZE + g.col] ? nearestOpen(g.col, g.row) : g
+  if (!sc || !gc) return null
+  return aStar(sc.col, sc.row, gc.col, gc.row)
+}
+
+function nearestOpen(col, row) {
+  for (let r = 1; r <= 3; r++) {
+    for (let dc = -r; dc <= r; dc++) {
+      for (let dr = -r; dr <= r; dr++) {
+        if (Math.abs(dc) !== r && Math.abs(dr) !== r) continue  // perimeter of square ring only
+        const nc = col + dc, nr = row + dr
+        if (nc < 0 || nc >= GRID_SIZE || nr < 0 || nr >= GRID_SIZE) continue
+        if (!_grid[nr * GRID_SIZE + nc]) return { col: nc, row: nr }
+      }
+    }
+  }
+  return null
 }
 
 function aStar(sc, sr, gc, gr) {
