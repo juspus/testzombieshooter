@@ -3,6 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Gun from './Gun'
 import BulletTrails from './BulletTrails'
+import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep } from '../sounds'
 import { collidesWithWalls } from '../walls'
@@ -47,6 +48,7 @@ export default function Player() {
   const nearChestRef = useRef(false)
   const mouseHeldRef = useRef(false)
   const akFireTimerRef = useRef(0)
+  const shotgunCooldownRef = useRef(0)
   const weapon = useGameStore((s) => s.weapon)
   const weaponRef = useRef(weapon)
 
@@ -131,6 +133,8 @@ export default function Player() {
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera({ x: 0, y: 0 }, camera)
 
+    if (weaponRef.current === 'shotgun' && shotgunCooldownRef.current > 0) return
+
     if (!consumeBullet()) { playEmptyClick(); return }
 
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
@@ -138,6 +142,17 @@ export default function Player() {
     playGunshot()
 
     if (weaponRef.current === 'shotgun') {
+      shotgunCooldownRef.current = 0.2
+
+      // Eject shell casing to the right of the camera
+      const right = new THREE.Vector3(
+        camera.matrixWorld.elements[0],
+        camera.matrixWorld.elements[1],
+        camera.matrixWorld.elements[2],
+      )
+      const ejectPos = camera.position.clone().addScaledVector(right, 0.18).add(new THREE.Vector3(0, -0.12, 0))
+      ShellCasings.eject?.(ejectPos, right)
+
       // 12 pellets spread in a cone — each raycasted independently
       const PELLETS = 12
       const SPREAD = 0.10  // NDC half-width of cone
@@ -245,6 +260,9 @@ export default function Player() {
         setNearChest(near)
       }
     }
+
+    // Shotgun pump cooldown
+    if (shotgunCooldownRef.current > 0) shotgunCooldownRef.current = Math.max(0, shotgunCooldownRef.current - delta)
 
     // Reload countdown
     if (reloadTimer.current > 0) {
