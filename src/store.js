@@ -116,12 +116,11 @@ export const useGameStore = create((set, get) => ({
   },
 
   hitZombie: (id, isHeadshot) => {
-    const { zombies, pendingSpawns, kills, waveKills, weapon } = get()
+    const { zombies, pendingSpawns, kills, waveKills } = get()
     const zombie = zombies.find((z) => z.id === id)
     if (!zombie) return
 
-    const damage = weapon === 'ak47' ? 2 : 1
-    const newHealth = isHeadshot ? 0 : zombie.health - damage
+    const newHealth = isHeadshot ? 0 : zombie.health - 1
 
     if (newHealth <= 0) {
       const remaining = zombies.filter((z) => z.id !== id)

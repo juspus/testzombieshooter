@@ -45,6 +45,10 @@ export default function Player() {
   const skipTimerRef = useRef(0)
   const shopOpenRef = useRef(false)
   const nearChestRef = useRef(false)
+  const mouseHeldRef = useRef(false)
+  const akFireTimerRef = useRef(0)
+  const weapon = useGameStore((s) => s.weapon)
+  const weaponRef = useRef(weapon)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -60,6 +64,7 @@ export default function Player() {
 
   useEffect(() => { wallsRef.current = walls }, [walls])
   useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
+  useEffect(() => { weaponRef.current = weapon }, [weapon])
 
   useEffect(() => {
     camera.rotation.order = 'YXZ'
@@ -123,14 +128,26 @@ export default function Player() {
   }, [gl])
 
   useEffect(() => {
-    const onClick = () => {
+    const onMouseDown = (e) => {
+      if (e.button !== 0) return
       if (shopOpenRef.current) return
       if (!locked.current) { requestLock(); return }
-      if (phase === 'playing') shoot()
+      if (phase !== 'playing') return
+      shoot()
+      mouseHeldRef.current = true
+      akFireTimerRef.current = 0.1  // next AK shot in 0.1s
     }
-    gl.domElement.addEventListener('click', onClick)
-    return () => gl.domElement.removeEventListener('click', onClick)
-  }, [gl, requestLock])
+    const onMouseUp = (e) => {
+      if (e.button !== 0) return
+      mouseHeldRef.current = false
+    }
+    gl.domElement.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      gl.domElement.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [gl, phase, requestLock, shoot])
 
   const shoot = useCallback(() => {
     const raycaster = new THREE.Raycaster()
@@ -245,6 +262,15 @@ export default function Player() {
           boardingWindowRef.current = -1
           setBoardingProgress(0)
         }
+      }
+    }
+
+    // AK-47 auto-fire at 10 rounds/s while mouse held
+    if (phase === 'playing' && weaponRef.current === 'ak47' && mouseHeldRef.current && locked.current) {
+      akFireTimerRef.current -= delta
+      if (akFireTimerRef.current <= 0) {
+        shoot()
+        akFireTimerRef.current = 0.1
       }
     }
 
