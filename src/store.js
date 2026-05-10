@@ -22,6 +22,7 @@ export const useGameStore = create((set, get) => ({
   plankHits: {},     // { [windowId]: hitCount } toward next plank break
   nearWindowId: -1,  // window the player is currently standing near (-1 = none)
   boardingProgress: 0,  // 0–1, fraction of 2s hold complete
+  skipProgress: 0,      // 0–1, fraction of hold-T skip complete
   wave: 1,
   kills: 0,
   waveKills: 0,
@@ -182,8 +183,14 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
+  skipIntermission: () => {
+    if (get().phase !== 'intermission') return
+    set({ intermissionLeft: 0 })
+  },
+
   setNearWindowId: (id) => set({ nearWindowId: id }),
   setBoardingProgress: (v) => set({ boardingProgress: v }),
+  setSkipProgress: (v) => set({ skipProgress: v }),
 
   getZombieSpeed: () => speedForWave(get().wave),
   getZombiesForWave: () => zombiesForWave(get().wave),

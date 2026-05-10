@@ -24,8 +24,10 @@ export default function Player() {
   const beginReload = useGameStore((s) => s.beginReload)
   const finishReload = useGameStore((s) => s.finishReload)
   const addPlank = useGameStore((s) => s.addPlank)
+  const skipIntermission = useGameStore((s) => s.skipIntermission)
   const setNearWindowId = useGameStore((s) => s.setNearWindowId)
   const setBoardingProgress = useGameStore((s) => s.setBoardingProgress)
+  const setSkipProgress = useGameStore((s) => s.setSkipProgress)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
   const walls = useGameStore((s) => s.walls)
   const wallsRef = useRef(walls)
@@ -33,6 +35,7 @@ export default function Player() {
   const prevNearWindowRef = useRef(-1)
   const boardTimerRef = useRef(0)
   const boardingWindowRef = useRef(-1)
+  const skipTimerRef = useRef(0)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -207,6 +210,23 @@ export default function Player() {
           boardingWindowRef.current = -1
           setBoardingProgress(0)
         }
+      }
+    }
+
+    // Hold T to skip intermission (2-second hold)
+    if (phase === 'intermission') {
+      const SKIP_TIME = 2.0
+      if (keys.current['KeyT']) {
+        skipTimerRef.current += delta
+        setSkipProgress(Math.min(skipTimerRef.current / SKIP_TIME, 1))
+        if (skipTimerRef.current >= SKIP_TIME) {
+          skipTimerRef.current = 0
+          setSkipProgress(0)
+          skipIntermission()
+        }
+      } else if (skipTimerRef.current > 0) {
+        skipTimerRef.current = 0
+        setSkipProgress(0)
       }
     }
 

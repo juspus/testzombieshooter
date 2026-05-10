@@ -12,6 +12,7 @@ export default function Screens() {
   const zombies = useGameStore((s) => s.zombies)
   const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
   const money = useGameStore((s) => s.money)
+  const skipProgress = useGameStore((s) => s.skipProgress)
 
   if (phase === 'start') {
     return (
@@ -32,7 +33,7 @@ export default function Screens() {
 
   if (phase === 'intermission') {
     const nextCount = getZombiesForWave()
-    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} money={money} />
+    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} money={money} skipProgress={skipProgress} />
   }
 
   if (phase === 'dead') {
@@ -58,7 +59,7 @@ function WaveClearScreen({ wave, waveKills, kills, nextWave }) {
   )
 }
 
-function IntermissionScreen({ wave, intermissionLeft, zombieCount, money }) {
+function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress }) {
   const seconds = Math.ceil(intermissionLeft)
   const urgent = seconds <= 3
 
@@ -100,6 +101,14 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money }) {
       )}
       <div style={{ fontSize: 11, letterSpacing: 2, color: '#555', marginTop: 2 }}>
         HOLD E NEAR WINDOWS TO BOARD · €2.50 PER PLANK
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: 6 }}>
+        <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>
+          HOLD T TO SKIP
+        </div>
+        <div style={{ width: 140, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${skipProgress * 100}%`, background: '#aaa', borderRadius: 2, transition: 'width 0.05s linear' }} />
+        </div>
       </div>
     </div>
   )
