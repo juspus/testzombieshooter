@@ -77,9 +77,16 @@ export default function ZombieComponent({ id, startX, startZ }) {
     if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
       const insideCabin = Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD
       if ((planks[targetWindowRef.current] ?? 0) === 0 || insideCabin) {
+        // Snap to window center axis so the zombie enters through the opening, not the corner
+        if (!insideCabin) {
+          const win = WINDOW_DEFS[targetWindowRef.current]
+          if (win.wall === 'N' || win.wall === 'S') pos.x = win.winX
+          else pos.z = win.winZ
+        }
         modeRef.current = 'chase'
         targetWindowRef.current = -1
         pathRef.current = []
+        pathTimer.current = 0  // force immediate A* recalculation instead of LOS beeline
       }
     }
 
@@ -186,9 +193,19 @@ export default function ZombieComponent({ id, startX, startZ }) {
     }
 
     if (moveDir) {
-      pos.addScaledVector(moveDir, speed * delta)
-      pos.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x))
-      pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z))
+      const dx = moveDir.x * speed * delta
+      const dz = moveDir.z * speed * delta
+      const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + dx))
+      const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + dz))
+
+      if (!isBlocked(nx, nz)) {
+        pos.x = nx
+        pos.z = nz
+      } else if (!isBlocked(nx, pos.z)) {
+        pos.x = nx
+      } else if (!isBlocked(pos.x, nz)) {
+        pos.z = nz
+      }
 
       // Footstep sound — only when close enough for player to hear
       const sdx = px - pos.x, sdz = pz - pos.z
