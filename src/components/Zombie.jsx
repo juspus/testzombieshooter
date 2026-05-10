@@ -66,41 +66,40 @@ export default function ZombieComponent({ id, startX, startZ }) {
     if (phase !== 'playing' || !ref.current) return
     const pos = ref.current.position
     const px = camera.position.x, pz = camera.position.z
+    const planks = windowPlanksRef.current
 
-    let moveDir = null
-
-    if (hasLineOfSight(pos.x, pos.z, px, pz)) {
-      // Clear line to player — chase directly
-      pathRef.current = []
-      wpIdxRef.current = 0
-      modeRef.current = 'chase'
-      targetWindowRef.current = -1
-      const dx = px - pos.x, dz = pz - pos.z
-      const dist = Math.sqrt(dx * dx + dz * dz)
-      if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
-    } else {
-      // If current target window had its planks removed, revert to chase
-      const planks = windowPlanksRef.current
-      if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
-        if ((planks[targetWindowRef.current] ?? 0) === 0) {
-          modeRef.current = 'chase'
-          targetWindowRef.current = -1
-          pathRef.current = []
-        }
+    // Revert attack mode if the target plank was destroyed
+    if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
+      if ((planks[targetWindowRef.current] ?? 0) === 0) {
+        modeRef.current = 'chase'
+        targetWindowRef.current = -1
+        pathRef.current = []
       }
+    }
 
-      // Periodic path recalculation
-      pathTimer.current -= delta
-      if (pathTimer.current <= 0) {
-        pathTimer.current = PATH_INTERVAL
+    // Periodic decision: 20% chance to divert to nearest boarded window
+    pathTimer.current -= delta
+    if (pathTimer.current <= 0) {
+      pathTimer.current = PATH_INTERVAL
+      const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0)
+      if (modeRef.current !== 'attack_window' && boardedWins.length > 0 && Math.random() < 0.2) {
+        let nearWin = boardedWins[0], nearDist = Infinity
+        for (const win of boardedWins) {
+          const dx = pos.x - win.ax, dz = pos.z - win.az
+          const d = dx * dx + dz * dz
+          if (d < nearDist) { nearDist = d; nearWin = win }
+        }
+        modeRef.current = 'attack_window'
+        targetWindowRef.current = nearWin.id
+        pathRef.current = []
+      } else if (modeRef.current !== 'attack_window') {
+        // Normal pathfinding toward player
         const newPath = findPath(pos.x, pos.z, px, pz)
         if (newPath && newPath.length > 1) {
           pathRef.current = newPath
           wpIdxRef.current = 1
-          modeRef.current = 'chase'
-          targetWindowRef.current = -1
-        } else if (modeRef.current !== 'attack_window' && !isBlocked(px, pz)) {
-          // No path AND player cell is reachable → windows are genuinely all blocked
+        } else if (!isBlocked(px, pz)) {
+          // No path and player is reachable — all windows must be blocked, force attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
             if ((planks[win.id] ?? 0) === 0) continue
@@ -115,48 +114,55 @@ export default function ZombieComponent({ id, startX, startZ }) {
           }
         }
       }
+    }
 
-      if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
-        const win = WINDOW_DEFS[targetWindowRef.current]
-        const dx = win.ax - pos.x, dz = win.az - pos.z
-        const dist = Math.sqrt(dx * dx + dz * dz)
-        if (dist > ATTACK_RANGE) {
-          moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
-        } else {
-          // In range — swing at the planks
-          attackTimerRef.current -= delta
-          if (attackTimerRef.current <= 0) {
-            attackTimerRef.current = ATTACK_INTERVAL
-            hitPlank(win.id)
-            playPlankHit()
-          }
-          ref.current.lookAt(win.winX, pos.y, win.winZ)
-        }
+    let moveDir = null
+
+    if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
+      // Committed to attacking a window — ignore player LOS
+      const win = WINDOW_DEFS[targetWindowRef.current]
+      const dx = win.ax - pos.x, dz = win.az - pos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist > ATTACK_RANGE) {
+        moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
       } else {
-        // Follow A* path
-        const path = pathRef.current
-        if (path.length > 0 && wpIdxRef.current < path.length) {
-          while (
-            wpIdxRef.current < path.length - 1 &&
-            hasLineOfSight(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z)
-          ) {
-            wpIdxRef.current++
-          }
-          const wp = path[wpIdxRef.current]
-          const dx = wp.x - pos.x, dz = wp.z - pos.z
-          const dist = Math.sqrt(dx * dx + dz * dz)
-          if (dist < WAYPOINT_REACH) {
-            wpIdxRef.current++
-          } else {
-            moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
-          }
+        attackTimerRef.current -= delta
+        if (attackTimerRef.current <= 0) {
+          attackTimerRef.current = ATTACK_INTERVAL
+          hitPlank(win.id)
+          playPlankHit()
         }
-        // Fallback if path empty or exhausted
-        if (!moveDir) {
-          const dx = px - pos.x, dz = pz - pos.z
-          const dist = Math.sqrt(dx * dx + dz * dz)
-          if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+        ref.current.lookAt(win.winX, pos.y, win.winZ)
+      }
+    } else if (hasLineOfSight(pos.x, pos.z, px, pz)) {
+      // Clear line to player — chase directly
+      const dx = px - pos.x, dz = pz - pos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+    } else {
+      // Follow A* path
+      const path = pathRef.current
+      if (path.length > 0 && wpIdxRef.current < path.length) {
+        while (
+          wpIdxRef.current < path.length - 1 &&
+          hasLineOfSight(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z)
+        ) {
+          wpIdxRef.current++
         }
+        const wp = path[wpIdxRef.current]
+        const dx = wp.x - pos.x, dz = wp.z - pos.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist < WAYPOINT_REACH) {
+          wpIdxRef.current++
+        } else {
+          moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+        }
+      }
+      // Fallback if path empty or exhausted
+      if (!moveDir) {
+        const dx = px - pos.x, dz = pz - pos.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
       }
     }
 
