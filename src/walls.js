@@ -161,27 +161,35 @@ export function hasLineOfSight(x1, z1, x2, z2) {
 
 // ─── A* pathfinding ──────────────────────────────────────────────────────────
 
+// Grid column/row of world origin (0,0) — cabin interior centre.
+const GRID_CENTER = Math.floor((0 - GRID_ORIGIN) / CELL)  // = 18
+
 export function findPath(fromX, fromZ, toX, toZ) {
   const s = worldToCell(fromX, fromZ)
   const g = worldToCell(toX,   toZ)
-  // If start or goal maps to a blocked cell (e.g. player/zombie pressed into a corner),
-  // reroute to the nearest open neighbour so A* has a reachable target.
-  const sc = _grid[s.row * GRID_SIZE + s.col] ? nearestOpen(s.col, s.row) : s
-  const gc = _grid[g.row * GRID_SIZE + g.col] ? nearestOpen(g.col, g.row) : g
-  if (!sc || !gc) return null
-  return aStar(sc.col, sc.row, gc.col, gc.row)
+  // If the goal cell is blocked (player pressed into a corner), reroute to the
+  // nearest open neighbour that is closest to cabin centre so we always pick an
+  // interior cell rather than accidentally targeting one outside the wall.
+  const gc = _grid[g.row * GRID_SIZE + g.col] ? nearestOpenToCenter(g.col, g.row) : g
+  if (!gc) return null
+  return aStar(s.col, s.row, gc.col, gc.row)
 }
 
-function nearestOpen(col, row) {
+function nearestOpenToCenter(col, row) {
   for (let r = 1; r <= 3; r++) {
+    let best = null, bestDist = Infinity
     for (let dc = -r; dc <= r; dc++) {
       for (let dr = -r; dr <= r; dr++) {
-        if (Math.abs(dc) !== r && Math.abs(dr) !== r) continue  // perimeter of square ring only
+        if (Math.abs(dc) !== r && Math.abs(dr) !== r) continue
         const nc = col + dc, nr = row + dr
         if (nc < 0 || nc >= GRID_SIZE || nr < 0 || nr >= GRID_SIZE) continue
-        if (!_grid[nr * GRID_SIZE + nc]) return { col: nc, row: nr }
+        if (!_grid[nr * GRID_SIZE + nc]) {
+          const d = (nc - GRID_CENTER) * (nc - GRID_CENTER) + (nr - GRID_CENTER) * (nr - GRID_CENTER)
+          if (d < bestDist) { bestDist = d; best = { col: nc, row: nr } }
+        }
       }
     }
+    if (best) return best
   }
   return null
 }
