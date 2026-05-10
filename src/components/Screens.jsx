@@ -11,6 +11,7 @@ export default function Screens() {
   const intermissionLeft = useGameStore((s) => s.intermissionLeft)
   const zombies = useGameStore((s) => s.zombies)
   const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
+  const money = useGameStore((s) => s.money)
 
   if (phase === 'start') {
     return (
@@ -24,8 +25,6 @@ export default function Screens() {
       </Overlay>
     )
   }
-
-  const money = useGameStore((s) => s.money)
 
   if (phase === 'wave_clear') {
     return <WaveClearScreen wave={wave} waveKills={waveKills} kills={kills} nextWave={nextWave} />
