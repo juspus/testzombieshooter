@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { buildGrid } from './walls'
 import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
 import { playPlankBreak } from './sounds'
-
+//
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
 const AK_CLIP = 30
