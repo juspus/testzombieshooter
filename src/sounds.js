@@ -251,6 +251,49 @@ export function playPlankBreak() {
   playTone(ac, t + 0.03, 320, 140, 0.18, 0.2)
 }
 
+export function playPumpAction() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // First stroke — pulling slide back: sharp bandpass snap + woody thud
+  const buf1 = noiseBuffer(ac, 0.06)
+  playNoise(ac, buf1, t, 0.055, 0.9, 'bandpass', 2200, 4)
+  playTone(ac, t, 160, 55, 0.05, 0.55)
+
+  // Slight scrape mid-stroke
+  const scrape = noiseBuffer(ac, 0.08)
+  playNoise(ac, scrape, t + 0.04, 0.06, 0.25, 'bandpass', 900, 2)
+
+  // Second stroke — slamming forward: harder crack + lower body thud
+  const buf2 = noiseBuffer(ac, 0.06)
+  playNoise(ac, buf2, t + 0.13, 0.055, 1.1, 'bandpass', 2600, 5)
+  playTone(ac, t + 0.13, 200, 65, 0.05, 0.7)
+  // Locking click at end of forward stroke
+  mechanicalClick(ac, t + 0.18, 0.55)
+}
+
+export function playShellThonk() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Hollow plastic thud — empty shell tube hitting floor
+  const thud = noiseBuffer(ac, 0.08)
+  playNoise(ac, thud, t, 0.07, 0.6, 'bandpass', 420, 2.5)
+  playTone(ac, t, 320, 140, 0.06, 0.35)
+
+  // Short hollow resonance — the tube body ringing
+  const osc = ac.createOscillator()
+  osc.frequency.setValueAtTime(480 + Math.random() * 60, t + 0.01)
+  osc.frequency.exponentialRampToValueAtTime(260, t + 0.09)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.18, t + 0.01)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.11)
+  osc.connect(g)
+  g.connect(ac.destination)
+  osc.start(t + 0.01)
+  osc.stop(t + 0.11)
+}
+
 // ─── background music ────────────────────────────────────────────────────────
 
 let _masterGain = null

@@ -1,4 +1,4 @@
-import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, STRONG_PLANK_COST } from '../store'
+import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, STRONG_PLANK_COST } from '../store'
 
 const ITEMS = [
   {
@@ -13,6 +13,13 @@ const ITEMS = [
     name: 'Desert Eagle',
     desc: `Semi-auto hand cannon. Pierces up to 3 enemies. Instant kill. ${DEAGLE_CLIP}-round magazine.`,
     price: DEAGLE_COST,
+    oneTime: true,
+  },
+  {
+    id: 'shotgun',
+    name: 'Pump Shotgun',
+    desc: `Pump-action shotgun. 12 pellets per shot in a wide cone. ${SHOTGUN_CLIP}-shell magazine.`,
+    price: SHOTGUN_COST,
     oneTime: true,
   },
   {

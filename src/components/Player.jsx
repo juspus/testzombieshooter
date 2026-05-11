@@ -3,8 +3,9 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Gun from './Gun'
 import BulletTrails from './BulletTrails'
+import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
-import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep } from '../sounds'
+import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk } from '../sounds'
 import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
@@ -52,6 +53,7 @@ export default function Player() {
   const nearChestRef = useRef(false)
   const mouseHeldRef = useRef(false)
   const akFireTimerRef = useRef(0)
+  const shotgunCooldownRef = useRef(0)
   const weapon = useGameStore((s) => s.weapon)
   const weaponRef = useRef(weapon)
 
@@ -138,13 +140,67 @@ export default function Player() {
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera({ x: 0, y: 0 }, camera)
 
+    if (weaponRef.current === 'shotgun' && shotgunCooldownRef.current > 0) return
+
     if (!consumeBullet()) { playEmptyClick(); return }
 
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     Gun.fire?.()
     playGunshot()
 
-    if (weaponRef.current === 'deagle') {
+    if (weaponRef.current === 'shotgun') {
+      shotgunCooldownRef.current = 0.5
+
+      // Pump animation + sounds
+      Gun.pump?.()
+      setTimeout(playPumpAction, 40)
+      setTimeout(playShellThonk, 140)  // 0.1s after pump starts
+
+      // Eject shell casing — spawn ahead and right of camera so it's visible
+      const right = new THREE.Vector3(
+        camera.matrixWorld.elements[0],
+        camera.matrixWorld.elements[1],
+        camera.matrixWorld.elements[2],
+      )
+      const fwd = new THREE.Vector3(
+        -camera.matrixWorld.elements[8],
+        -camera.matrixWorld.elements[9],
+        -camera.matrixWorld.elements[10],
+      )
+      const ejectPos = camera.position.clone()
+        .addScaledVector(fwd, 0.45)
+        .addScaledVector(right, 0.28)
+        .add(new THREE.Vector3(0, -0.10, 0))
+      ShellCasings.eject?.(ejectPos, right)
+
+      // 12 pellets spread in a cone — each raycasted independently
+      const PELLETS = 12
+      const SPREAD = 0.10  // NDC half-width of cone
+      const killed = new Set()
+      for (let i = 0; i < PELLETS; i++) {
+        const angle = Math.random() * Math.PI * 2
+        const r = Math.sqrt(Math.random()) * SPREAD  // sqrt for even circular distribution
+        const pelletRC = new THREE.Raycaster()
+        pelletRC.setFromCamera({ x: Math.cos(angle) * r, y: Math.sin(angle) * r }, camera)
+        let bestId = null, bestDist = Infinity, bestPoint = null, bestHead = false
+        for (const [id, ref] of Object.entries(zombieRefs.current)) {
+          if (!ref) continue
+          const hits = pelletRC.intersectObject(ref, true)
+          if (hits.length > 0 && hits[0].distance < bestDist) {
+            bestDist = hits[0].distance
+            bestId = Number(id)
+            bestPoint = hits[0].point.clone()
+            bestHead = hits[0].object.userData.isHead === true
+          }
+        }
+        const trailEnd = bestPoint ?? camera.position.clone().addScaledVector(pelletRC.ray.direction, 30)
+        BulletTrails.add(muzzle, trailEnd)
+        if (bestId !== null) {
+          const died = hitZombie(bestId, bestHead)
+          if (died && !killed.has(bestId)) { killed.add(bestId); playZombieDie() }
+        }
+      }
+    } else if (weaponRef.current === 'deagle') {
       // Pierce up to 3 enemies, instant kill each
       const hits = []
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
@@ -224,6 +280,9 @@ export default function Player() {
         setNearChest(near)
       }
     }
+
+    // Shotgun pump cooldown
+    if (shotgunCooldownRef.current > 0) shotgunCooldownRef.current = Math.max(0, shotgunCooldownRef.current - delta)
 
     // Reload countdown
     if (reloadTimer.current > 0) {

@@ -2,26 +2,29 @@ import { create } from 'zustand'
 import { buildGrid } from './walls'
 import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
 import { playPlankBreak } from './sounds'
-
+//
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
 const AK_CLIP = 30
 const AK_COST = 270
 const DEAGLE_CLIP = 7
 const DEAGLE_COST = 700
+const SHOTGUN_CLIP = 8
+const SHOTGUN_COST = 150
 const AMMO_PACK_COST = 10
 const AMMO_PACK_AMOUNT = 20
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
-const clipSizeForWeapon = (w) => w === 'ak47' ? AK_CLIP : w === 'deagle' ? DEAGLE_CLIP : CLIP_SIZE
+const clipSizeForWeapon = (w) =>
+  w === 'ak47' ? AK_CLIP : w === 'deagle' ? DEAGLE_CLIP : w === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
 
 const HITS_PER_PLANK = 5
 const PLANK_COST = 2.5
 const STRONG_PLANK_COST = 20
 const STRONG_HITS_PER_PLANK = 20
 const WAVE_REWARD = 15
-export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
@@ -56,7 +59,7 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
-      money: 10,
+      money: 5000,
       weapon: 'pistol',
       shopOpen: false,
       walls,
@@ -230,6 +233,11 @@ export const useGameStore = create((set, get) => ({
     if (itemId === 'deagle') {
       if (weapon === 'deagle' || money < DEAGLE_COST) return false
       set({ money: money - DEAGLE_COST, weapon: 'deagle', bulletsInClip: DEAGLE_CLIP, reserveBullets: 0 })
+      return true
+    }
+    if (itemId === 'shotgun') {
+      if (weapon === 'shotgun' || money < SHOTGUN_COST) return false
+      set({ money: money - SHOTGUN_COST, weapon: 'shotgun', bulletsInClip: SHOTGUN_CLIP, reserveBullets: 0 })
       return true
     }
     if (itemId === 'ammo_pack') {
