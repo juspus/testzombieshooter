@@ -145,13 +145,19 @@ export default function ZombieComponent({ id, startX, startZ }) {
     let moveDir = null
 
     if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
-      // Committed to attacking a window — ignore player LOS
+      // Two-phase constrained approach — prevents sliding along the wall face.
+      // Phase 1: align laterally to the window axis.
+      // Phase 2: advance straight in (perpendicular to wall) once aligned.
       const win = WINDOW_DEFS[targetWindowRef.current]
-      const dx = win.ax - pos.x, dz = win.az - pos.z
-      const dist = Math.sqrt(dx * dx + dz * dz)
-      if (dist > ATTACK_RANGE) {
-        moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
-      } else {
+      const isNS = win.wall === 'N' || win.wall === 'S'
+      const step = speed * delta
+      const R = 0.28
+
+      const lateralDist = isNS ? Math.abs(pos.x - win.winX) : Math.abs(pos.z - win.winZ)
+      const approachDist = isNS ? Math.abs(pos.z - win.az) : Math.abs(pos.x - win.ax)
+
+      if (approachDist <= ATTACK_RANGE && lateralDist <= 0.6) {
+        // In position — attack the plank
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
@@ -159,7 +165,34 @@ export default function ZombieComponent({ id, startX, startZ }) {
           playPlankHit()
         }
         ref.current.lookAt(win.winX, pos.y, win.winZ)
+      } else if (lateralDist > 0.12) {
+        // Phase 1: slide laterally toward window center while making slow forward progress
+        if (isNS) {
+          const ls = Math.sign(win.winX - pos.x) * Math.min(step, lateralDist)
+          if (!isBlockedRadius(pos.x + ls, pos.z, R)) pos.x += ls
+          const ps = Math.sign(win.az - pos.z) * step * 0.4
+          if (!isBlockedRadius(pos.x, pos.z + ps, R)) pos.z += ps
+        } else {
+          const ls = Math.sign(win.winZ - pos.z) * Math.min(step, lateralDist)
+          if (!isBlockedRadius(pos.x, pos.z + ls, R)) pos.z += ls
+          const ps = Math.sign(win.ax - pos.x) * step * 0.4
+          if (!isBlockedRadius(pos.x + ps, pos.z, R)) pos.x += ps
+        }
+        ref.current.lookAt(win.winX, pos.y, win.winZ)
+      } else {
+        // Phase 2: locked to window axis — advance straight in only
+        if (isNS) {
+          pos.x = win.winX
+          const ps = Math.sign(win.az - pos.z) * step
+          if (!isBlockedRadius(pos.x, pos.z + ps, R)) pos.z += ps
+        } else {
+          pos.z = win.winZ
+          const ps = Math.sign(win.ax - pos.x) * step
+          if (!isBlockedRadius(pos.x + ps, pos.z, R)) pos.x += ps
+        }
+        ref.current.lookAt(win.winX, pos.y, win.winZ)
       }
+      // moveDir stays null — generic movement block skipped
     } else if (hasLineOfSight(pos.x, pos.z, px, pz)) {
       // Clear line to player — chase directly
       const dx = px - pos.x, dz = pz - pos.z
@@ -193,10 +226,9 @@ export default function ZombieComponent({ id, startX, startZ }) {
     }
 
     if (moveDir) {
-      const dx = moveDir.x * speed * delta
-      const dz = moveDir.z * speed * delta
-      const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + dx))
-      const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + dz))
+      const step = speed * delta
+      const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + moveDir.x * step))
+      const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + moveDir.z * step))
 
       const R = 0.28
       if (!isBlockedRadius(nx, nz, R)) {
@@ -206,6 +238,18 @@ export default function ZombieComponent({ id, startX, startZ }) {
         pos.x = nx
       } else if (!isBlockedRadius(pos.x, nz, R)) {
         pos.z = nz
+      } else {
+        // Corner-stuck: push away from whichever walls are blocking
+        let pushX = 0, pushZ = 0
+        if (isBlocked(pos.x - R, pos.z)) pushX += 1
+        if (isBlocked(pos.x + R, pos.z)) pushX -= 1
+        if (isBlocked(pos.x, pos.z - R)) pushZ += 1
+        if (isBlocked(pos.x, pos.z + R)) pushZ -= 1
+        if (pushX !== 0 || pushZ !== 0) {
+          const len = Math.sqrt(pushX * pushX + pushZ * pushZ)
+          pos.x += (pushX / len) * step * 0.8
+          pos.z += (pushZ / len) * step * 0.8
+        }
       }
 
       // Footstep sound — only when close enough for player to hear
