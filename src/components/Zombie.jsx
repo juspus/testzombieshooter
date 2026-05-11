@@ -316,19 +316,34 @@ export default function ZombieComponent({ id, startX, startZ }) {
         <boxGeometry args={[0.30, 0.38, 0.28]} />
         <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
-      {/* Cranium cap — wider at top */}
-      <mesh position={[0, 0.912, -0.010]} userData={{ zombieId: id, isHead: true }}>
-        <boxGeometry args={[0.295, 0.075, 0.250]} />
-        <meshStandardMaterial color={skullBone} roughness={0.80} />
+      {/* Stepped dome rings — stack of shrinking boxes to round the crown */}
+      <mesh position={[0, 0.940, -0.006]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.294, 0.036, 0.270]} />
+        <meshStandardMaterial color={skullBone} roughness={0.84} />
       </mesh>
-      {/* Parietal steps — left/right */}
-      <mesh position={[-0.140, 0.880, -0.002]} userData={{ zombieId: id, isHead: true }}>
-        <boxGeometry args={[0.020, 0.060, 0.200]} />
-        <meshStandardMaterial color={skullDark} roughness={0.88} />
+      <mesh position={[0, 0.975, -0.010]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.266, 0.034, 0.242]} />
+        <meshStandardMaterial color={skullBone} roughness={0.84} />
       </mesh>
-      <mesh position={[0.140, 0.880, -0.002]} userData={{ zombieId: id, isHead: true }}>
-        <boxGeometry args={[0.020, 0.060, 0.200]} />
-        <meshStandardMaterial color={skullDark} roughness={0.88} />
+      <mesh position={[0, 1.007, -0.013]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.228, 0.030, 0.205]} />
+        <meshStandardMaterial color={skullBone} roughness={0.83} />
+      </mesh>
+      <mesh position={[0, 1.035, -0.013]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.180, 0.026, 0.162]} />
+        <meshStandardMaterial color={skullBone} roughness={0.83} />
+      </mesh>
+      <mesh position={[0, 1.059, -0.011]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.124, 0.022, 0.111]} />
+        <meshStandardMaterial color={skullBone} roughness={0.82} />
+      </mesh>
+      <mesh position={[0, 1.079, -0.008]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.066, 0.018, 0.058]} />
+        <meshStandardMaterial color={skullBone} roughness={0.82} />
+      </mesh>
+      <mesh position={[0, 1.094, -0.005]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.028, 0.013, 0.024]} />
+        <meshStandardMaterial color={skullBone} roughness={0.82} />
       </mesh>
       {/* Occipital bump — back of skull */}
       <mesh position={[0, 0.730, -0.148]} userData={{ zombieId: id, isHead: true }}>
