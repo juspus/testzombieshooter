@@ -40,8 +40,11 @@ export function isBlocked(x, z) {
 
 // Check if any point within radius r of (x,z) is blocked — used for zombie movement.
 export function isBlockedRadius(x, z, r) {
+  const d = r * 0.707
   return isBlocked(x - r, z) || isBlocked(x + r, z) ||
-         isBlocked(x, z - r) || isBlocked(x, z + r)
+         isBlocked(x, z - r) || isBlocked(x, z + r) ||
+         isBlocked(x - d, z - d) || isBlocked(x + d, z - d) ||
+         isBlocked(x - d, z + d) || isBlocked(x + d, z + d)
 }
 
 export function cellToWorld(col, row) {
