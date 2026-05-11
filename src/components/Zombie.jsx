@@ -67,6 +67,25 @@ export default function ZombieComponent({ id, startX, startZ }) {
 
   useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
 
+  function followPath(pos, fallbackX, fallbackZ) {
+    const path = pathRef.current
+    if (path.length > 0 && wpIdxRef.current < path.length) {
+      // LOS shortcut — skip waypoints we can already see directly
+      while (
+        wpIdxRef.current < path.length - 1 &&
+        hasLineOfSight(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z)
+      ) { wpIdxRef.current++ }
+      const wp = path[wpIdxRef.current]
+      const dx = wp.x - pos.x, dz = wp.z - pos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist < WAYPOINT_REACH) { wpIdxRef.current++; return null }
+      return new THREE.Vector3(dx / dist, 0, dz / dist)
+    }
+    const dx = fallbackX - pos.x, dz = fallbackZ - pos.z
+    const dist = Math.sqrt(dx * dx + dz * dz)
+    return dist > 0.01 ? new THREE.Vector3(dx / dist, 0, dz / dist) : null
+  }
+
   useFrame((_, delta) => {
     if (phase !== 'playing' || !ref.current) return
     const pos = ref.current.position
@@ -90,20 +109,20 @@ export default function ZombieComponent({ id, startX, startZ }) {
       }
     }
 
-    // Periodic decision: 20% chance to divert to nearest boarded window
+    // Periodic pathfinding — recalculate toward player OR window attack position
     pathTimer.current -= delta
     if (pathTimer.current <= 0) {
       pathTimer.current = PATH_INTERVAL
       const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0)
+
+      // Consider switching to attack_window mode
       if (modeRef.current !== 'attack_window' && boardedWins.length > 0) {
-        // Find nearest boarded window to this zombie
         let nearWin = boardedWins[0], nearDist = Infinity
         for (const win of boardedWins) {
           const dx = pos.x - win.ax, dz = pos.z - win.az
           const d = dx * dx + dz * dz
           if (d < nearDist) { nearDist = d; nearWin = win }
         }
-        // Only the closest zombie to that window gets the 20% roll
         let isClosest = true
         for (const [otherId, otherGroup] of Object.entries(_zombieGroups)) {
           if (Number(otherId) === id || !otherGroup) continue
@@ -118,14 +137,22 @@ export default function ZombieComponent({ id, startX, startZ }) {
           pathRef.current = []
         }
       }
-      if (modeRef.current !== 'attack_window') {
-        // Normal pathfinding toward player
+
+      // A* toward window attack position or player
+      if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
+        const win = WINDOW_DEFS[targetWindowRef.current]
+        const newPath = findPath(pos.x, pos.z, win.ax, win.az)
+        if (newPath && newPath.length > 1) {
+          pathRef.current = newPath
+          wpIdxRef.current = 1
+        }
+      } else {
         const newPath = findPath(pos.x, pos.z, px, pz)
         if (newPath && newPath.length > 1) {
           pathRef.current = newPath
           wpIdxRef.current = 1
         } else if (!isBlocked(px, pz)) {
-          // No path and player is reachable — all windows must be blocked, force attack
+          // Player unreachable — all entries blocked, force nearest window attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
             if ((planks[win.id] ?? 0) === 0) continue
@@ -142,22 +169,18 @@ export default function ZombieComponent({ id, startX, startZ }) {
       }
     }
 
+    // Determine movement target
     let moveDir = null
+    const isAttackMode = modeRef.current === 'attack_window' && targetWindowRef.current >= 0
+    const targetX = isAttackMode ? WINDOW_DEFS[targetWindowRef.current].ax : px
+    const targetZ = isAttackMode ? WINDOW_DEFS[targetWindowRef.current].az : pz
 
-    if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
-      // Two-phase constrained approach — prevents sliding along the wall face.
-      // Phase 1: align laterally to the window axis.
-      // Phase 2: advance straight in (perpendicular to wall) once aligned.
+    // Check if attack zombie has reached its strike position
+    if (isAttackMode) {
       const win = WINDOW_DEFS[targetWindowRef.current]
-      const isNS = win.wall === 'N' || win.wall === 'S'
-      const step = speed * delta
-      const R = 0.28
-
-      const lateralDist = isNS ? Math.abs(pos.x - win.winX) : Math.abs(pos.z - win.winZ)
-      const approachDist = isNS ? Math.abs(pos.z - win.az) : Math.abs(pos.x - win.ax)
-
-      if (approachDist <= ATTACK_RANGE && lateralDist <= 0.6) {
-        // In position — attack the plank
+      const dx = win.ax - pos.x, dz = win.az - pos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist <= ATTACK_RANGE) {
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
@@ -165,64 +188,24 @@ export default function ZombieComponent({ id, startX, startZ }) {
           playPlankHit()
         }
         ref.current.lookAt(win.winX, pos.y, win.winZ)
-      } else if (lateralDist > 0.12) {
-        // Phase 1: slide laterally toward window center while making slow forward progress
-        if (isNS) {
-          const ls = Math.sign(win.winX - pos.x) * Math.min(step, lateralDist)
-          if (!isBlockedRadius(pos.x + ls, pos.z, R)) pos.x += ls
-          const ps = Math.sign(win.az - pos.z) * step * 0.4
-          if (!isBlockedRadius(pos.x, pos.z + ps, R)) pos.z += ps
-        } else {
-          const ls = Math.sign(win.winZ - pos.z) * Math.min(step, lateralDist)
-          if (!isBlockedRadius(pos.x, pos.z + ls, R)) pos.z += ls
-          const ps = Math.sign(win.ax - pos.x) * step * 0.4
-          if (!isBlockedRadius(pos.x + ps, pos.z, R)) pos.x += ps
-        }
-        ref.current.lookAt(win.winX, pos.y, win.winZ)
+        // No moveDir — zombie stays put and attacks
       } else {
-        // Phase 2: locked to window axis — advance straight in only
-        if (isNS) {
-          pos.x = win.winX
-          const ps = Math.sign(win.az - pos.z) * step
-          if (!isBlockedRadius(pos.x, pos.z + ps, R)) pos.z += ps
+        // Not yet in range — fall through to path-follow below
+        const tdx = targetX - pos.x, tdz = targetZ - pos.z
+        const tdist = Math.sqrt(tdx * tdx + tdz * tdz)
+        if (hasLineOfSight(pos.x, pos.z, targetX, targetZ)) {
+          if (tdist > 0.01) moveDir = new THREE.Vector3(tdx / tdist, 0, tdz / tdist)
         } else {
-          pos.z = win.winZ
-          const ps = Math.sign(win.ax - pos.x) * step
-          if (!isBlockedRadius(pos.x + ps, pos.z, R)) pos.x += ps
+          moveDir = followPath(pos, targetX, targetZ)
         }
         ref.current.lookAt(win.winX, pos.y, win.winZ)
       }
-      // moveDir stays null — generic movement block skipped
     } else if (hasLineOfSight(pos.x, pos.z, px, pz)) {
-      // Clear line to player — chase directly
       const dx = px - pos.x, dz = pz - pos.z
       const dist = Math.sqrt(dx * dx + dz * dz)
       if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
     } else {
-      // Follow A* path
-      const path = pathRef.current
-      if (path.length > 0 && wpIdxRef.current < path.length) {
-        while (
-          wpIdxRef.current < path.length - 1 &&
-          hasLineOfSight(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z)
-        ) {
-          wpIdxRef.current++
-        }
-        const wp = path[wpIdxRef.current]
-        const dx = wp.x - pos.x, dz = wp.z - pos.z
-        const dist = Math.sqrt(dx * dx + dz * dz)
-        if (dist < WAYPOINT_REACH) {
-          wpIdxRef.current++
-        } else {
-          moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
-        }
-      }
-      // Fallback if path empty or exhausted
-      if (!moveDir) {
-        const dx = px - pos.x, dz = pz - pos.z
-        const dist = Math.sqrt(dx * dx + dz * dz)
-        if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
-      }
+      moveDir = followPath(pos, px, pz)
     }
 
     if (moveDir) {
