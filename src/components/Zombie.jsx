@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Player from './Player'
-import { findPath, hasLineOfSight, isBlocked, collidesWithWalls } from '../walls'
+import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
 import { playZombieFootstep, playPlankHit } from '../sounds'
 import * as THREE from 'three'
@@ -23,24 +23,33 @@ const _zombieGroups = {}
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
 
-// Move a zombie using real geometry collision (circle vs AABB wall segments).
-// Tries full move → axis-split → penetration push-out.
+// Geometry-accurate line-of-sight: samples along the segment at half-radius
+// intervals and checks the zombie's full circle against the real wall AABBs.
+function hasDirectPath(x1, z1, x2, z2, walls) {
+  const dx = x2 - x1, dz = z2 - z1
+  const dist = Math.sqrt(dx * dx + dz * dz)
+  if (dist < 0.01) return true
+  const steps = Math.max(2, Math.ceil(dist / (ZOMBIE_R * 0.5)))
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps
+    if (collidesWithWalls(x1 + dx * t, z1 + dz * t, ZOMBIE_R, walls)) return false
+  }
+  return true
+}
+
+// Move a zombie: try full move, then penetration push-out only (no axis-split
+// slide). With accurate hasDirectPath above, direct moves only happen when the
+// path is truly clear, so the full move should almost never fail.
 function applyMove(pos, vx, vz, walls) {
   const R = ZOMBIE_R
-  let nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + vx))
-  let nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + vz))
+  const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + vx))
+  const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + vz))
 
   if (!collidesWithWalls(nx, nz, R, walls)) {
     pos.x = nx; pos.z = nz; return
   }
-  if (!collidesWithWalls(nx, pos.z, R, walls)) {
-    pos.x = nx; return
-  }
-  if (!collidesWithWalls(pos.x, nz, R, walls)) {
-    pos.z = nz; return
-  }
 
-  // Push out of any penetrating walls using the exact penetration vector.
+  // Blocked — push out of any penetrating walls without sliding along them.
   let pushX = 0, pushZ = 0
   for (const w of walls) {
     const nearX = Math.max(w.x - w.halfW, Math.min(pos.x, w.x + w.halfW))
@@ -49,9 +58,8 @@ function applyMove(pos, vx, vz, walls) {
     const d2 = dx * dx + dz * dz
     if (d2 < R * R) {
       const d = Math.sqrt(d2) || 0.001
-      const pen = R - d
-      pushX += (dx / d) * pen
-      pushZ += (dz / d) * pen
+      pushX += (dx / d) * (R - d)
+      pushZ += (dz / d) * (R - d)
     }
   }
   pos.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + pushX))
@@ -119,7 +127,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
       // LOS shortcut — skip waypoints we can already see directly
       while (
         wpIdxRef.current < path.length - 1 &&
-        hasLineOfSight(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z)
+        hasDirectPath(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z, zombieWallsRef.current)
       ) { wpIdxRef.current++ }
       const wp = path[wpIdxRef.current]
       const dx = wp.x - pos.x, dz = wp.z - pos.z
@@ -235,7 +243,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
         const tx = win.ax, tz = win.az
         const tdx = tx - pos.x, tdz = tz - pos.z
         const tdist = Math.sqrt(tdx * tdx + tdz * tdz)
-        if (hasLineOfSight(pos.x, pos.z, tx, tz)) {
+        if (hasDirectPath(pos.x, pos.z, tx, tz, zombieWallsRef.current)) {
           if (tdist > 0.01) moveDir = new THREE.Vector3(tdx / tdist, 0, tdz / tdist)
         } else {
           moveDir = followPath(pos, tx, tz)
@@ -243,7 +251,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
       }
     } else {
       ref.current.lookAt(px, pos.y, pz)
-      if (hasLineOfSight(pos.x, pos.z, px, pz)) {
+      if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
         const dx = px - pos.x, dz = pz - pos.z
         const dist = Math.sqrt(dx * dx + dz * dz)
         if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
