@@ -2,18 +2,19 @@ import { useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Player from './Player'
-import { findPath, hasLineOfSight, isBlocked, isBlockedRadius } from '../walls'
-import { WINDOW_DEFS, CABIN_HW, CABIN_HD } from '../cabin'
+import { findPath, hasLineOfSight, isBlocked, collidesWithWalls } from '../walls'
+import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
 import { playZombieFootstep, playPlankHit } from '../sounds'
 import * as THREE from 'three'
 
 const ZOMBIE_HEIGHT = 1.8
 const ARENA_BOUND = 18.5
+const ZOMBIE_R = 0.22             // physical collision radius
 const KILL_DISTANCE = 1.2
-const PATH_INTERVAL = 0.12   // seconds between A* recalculations
-const WAYPOINT_REACH = 0.6   // distance to advance to next waypoint
-const ATTACK_RANGE = 1.8     // distance to window center to start hitting
-const ATTACK_INTERVAL = 1.0  // seconds between plank hits
+const PATH_INTERVAL = 0.12        // seconds between A* recalculations
+const WAYPOINT_REACH = 0.6        // distance to advance to next waypoint
+const ATTACK_RANGE = 1.8          // distance to window face to start hitting
+const ATTACK_INTERVAL = 1.0       // seconds between plank hits
 
 // Module-level registry so Player can push holes into any zombie instance
 const _holeAdders = {}
@@ -21,6 +22,41 @@ const _holeAdders = {}
 const _zombieGroups = {}
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
+
+// Move a zombie using real geometry collision (circle vs AABB wall segments).
+// Tries full move → axis-split → penetration push-out.
+function applyMove(pos, vx, vz, walls) {
+  const R = ZOMBIE_R
+  let nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + vx))
+  let nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + vz))
+
+  if (!collidesWithWalls(nx, nz, R, walls)) {
+    pos.x = nx; pos.z = nz; return
+  }
+  if (!collidesWithWalls(nx, pos.z, R, walls)) {
+    pos.x = nx; return
+  }
+  if (!collidesWithWalls(pos.x, nz, R, walls)) {
+    pos.z = nz; return
+  }
+
+  // Push out of any penetrating walls using the exact penetration vector.
+  let pushX = 0, pushZ = 0
+  for (const w of walls) {
+    const nearX = Math.max(w.x - w.halfW, Math.min(pos.x, w.x + w.halfW))
+    const nearZ = Math.max(w.z - w.halfD, Math.min(pos.z, w.z + w.halfD))
+    const dx = pos.x - nearX, dz = pos.z - nearZ
+    const d2 = dx * dx + dz * dz
+    if (d2 < R * R) {
+      const d = Math.sqrt(d2) || 0.001
+      const pen = R - d
+      pushX += (dx / d) * pen
+      pushZ += (dz / d) * pen
+    }
+  }
+  pos.x = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + pushX))
+  pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + pushZ))
+}
 
 export default function ZombieComponent({ id, startX, startZ }) {
   const ref = useRef()
@@ -35,15 +71,16 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const [holes, setHoles] = useState([])
 
   // Pathfinding state
-  const pathRef          = useRef([])
-  const wpIdxRef         = useRef(0)
-  const pathTimer        = useRef(Math.random() * PATH_INTERVAL)
-  const modeRef          = useRef('chase')   // 'chase' | 'attack_window'
-  const targetWindowRef  = useRef(-1)
-  const attackTimerRef   = useRef(0)
-  const windowPlanksRef  = useRef(windowPlanks)
-  const stepTimerRef     = useRef(Math.random() * 0.6)
-  const isAggressorRef   = useRef(Math.random() < 0.2)  // rolled once at spawn
+  const pathRef         = useRef([])
+  const wpIdxRef        = useRef(0)
+  const pathTimer       = useRef(Math.random() * PATH_INTERVAL)
+  const modeRef         = useRef('chase')   // 'chase' | 'attack_window'
+  const targetWindowRef = useRef(-1)
+  const attackTimerRef  = useRef(0)
+  const windowPlanksRef = useRef(windowPlanks)
+  const zombieWallsRef  = useRef(cabinWallSegments())
+  const stepTimerRef    = useRef(Math.random() * 0.6)
+  const isAggressorRef  = useRef(Math.random() < 0.2)
 
   useEffect(() => {
     if (ref.current) {
@@ -65,7 +102,16 @@ export default function ZombieComponent({ id, startX, startZ }) {
     }
   }, [id, startX, startZ])
 
-  useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
+  // Keep collision wall list in sync with plank state.
+  // Zombies collide with cabin walls (window gaps open) + any boarded window faces.
+  useEffect(() => {
+    windowPlanksRef.current = windowPlanks
+    const segs = [...cabinWallSegments()]
+    for (const [wid, count] of Object.entries(windowPlanks)) {
+      if (count > 0) segs.push(windowBlockSegment(Number(wid)))
+    }
+    zombieWallsRef.current = segs
+  }, [windowPlanks])
 
   function followPath(pos, fallbackX, fallbackZ) {
     const path = pathRef.current
@@ -96,7 +142,6 @@ export default function ZombieComponent({ id, startX, startZ }) {
     if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
       const insideCabin = Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD
       if ((planks[targetWindowRef.current] ?? 0) === 0 || insideCabin) {
-        // Snap to window center axis so the zombie enters through the opening, not the corner
         if (!insideCabin) {
           const win = WINDOW_DEFS[targetWindowRef.current]
           if (win.wall === 'N' || win.wall === 'S') pos.x = win.winX
@@ -105,7 +150,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
         modeRef.current = 'chase'
         targetWindowRef.current = -1
         pathRef.current = []
-        pathTimer.current = 0  // force immediate A* recalculation instead of LOS beeline
+        pathTimer.current = 0
       }
     }
 
@@ -152,7 +197,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
           pathRef.current = newPath
           wpIdxRef.current = 1
         } else if (!isBlocked(px, pz)) {
-          // Player unreachable — all entries blocked, force nearest window attack
+          // Player unreachable via open path — force nearest window attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
             if ((planks[win.id] ?? 0) === 0) continue
@@ -169,17 +214,15 @@ export default function ZombieComponent({ id, startX, startZ }) {
       }
     }
 
-    // Determine movement target
+    // Determine movement direction
     let moveDir = null
     const isAttackMode = modeRef.current === 'attack_window' && targetWindowRef.current >= 0
-    const targetX = isAttackMode ? WINDOW_DEFS[targetWindowRef.current].ax : px
-    const targetZ = isAttackMode ? WINDOW_DEFS[targetWindowRef.current].az : pz
 
-    // Check if attack zombie has reached its strike position
     if (isAttackMode) {
       const win = WINDOW_DEFS[targetWindowRef.current]
       const dx = win.winX - pos.x, dz = win.winZ - pos.z
       const dist = Math.sqrt(dx * dx + dz * dz)
+      ref.current.lookAt(win.winX, pos.y, win.winZ)
       if (dist <= ATTACK_RANGE) {
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
@@ -187,73 +230,41 @@ export default function ZombieComponent({ id, startX, startZ }) {
           hitPlank(win.id)
           playPlankHit()
         }
-        ref.current.lookAt(win.winX, pos.y, win.winZ)
-        // No moveDir — zombie stays put and attacks
+        // Stay put while attacking
       } else {
-        // Not yet in range — fall through to path-follow below
-        const tdx = targetX - pos.x, tdz = targetZ - pos.z
+        const tx = win.ax, tz = win.az
+        const tdx = tx - pos.x, tdz = tz - pos.z
         const tdist = Math.sqrt(tdx * tdx + tdz * tdz)
-        if (hasLineOfSight(pos.x, pos.z, targetX, targetZ)) {
+        if (hasLineOfSight(pos.x, pos.z, tx, tz)) {
           if (tdist > 0.01) moveDir = new THREE.Vector3(tdx / tdist, 0, tdz / tdist)
         } else {
-          moveDir = followPath(pos, targetX, targetZ)
+          moveDir = followPath(pos, tx, tz)
         }
-        ref.current.lookAt(win.winX, pos.y, win.winZ)
       }
-    } else if (hasLineOfSight(pos.x, pos.z, px, pz)) {
-      const dx = px - pos.x, dz = pz - pos.z
-      const dist = Math.sqrt(dx * dx + dz * dz)
-      if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
     } else {
-      moveDir = followPath(pos, px, pz)
+      ref.current.lookAt(px, pos.y, pz)
+      if (hasLineOfSight(pos.x, pos.z, px, pz)) {
+        const dx = px - pos.x, dz = pz - pos.z
+        const dist = Math.sqrt(dx * dx + dz * dz)
+        if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+      } else {
+        moveDir = followPath(pos, px, pz)
+      }
     }
 
     if (moveDir) {
       const step = speed * delta
-      const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + moveDir.x * step))
-      const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + moveDir.z * step))
-
-      const R = 0.20
-      // When zombie's center is already in a blocked cell (window crossing or interior
-      // corner where thin walls mark adjacent cells blocked), let it move freely so it
-      // can escape — otherwise all probes return blocked and it freezes.
-      if (isBlocked(pos.x, pos.z)) {
-        pos.x = nx
-        pos.z = nz
-      } else if (!isBlockedRadius(nx, nz, R)) {
-        pos.x = nx
-        pos.z = nz
-      } else if (!isBlockedRadius(nx, pos.z, R)) {
-        pos.x = nx
-      } else if (!isBlockedRadius(pos.x, nz, R)) {
-        pos.z = nz
-      } else {
-        // Corner-stuck: push away from whichever walls are blocking
-        let pushX = 0, pushZ = 0
-        if (isBlocked(pos.x - R, pos.z)) pushX += 1
-        if (isBlocked(pos.x + R, pos.z)) pushX -= 1
-        if (isBlocked(pos.x, pos.z - R)) pushZ += 1
-        if (isBlocked(pos.x, pos.z + R)) pushZ -= 1
-        if (pushX !== 0 || pushZ !== 0) {
-          const len = Math.sqrt(pushX * pushX + pushZ * pushZ)
-          pos.x += (pushX / len) * step * 0.8
-          pos.z += (pushZ / len) * step * 0.8
-        }
-      }
+      applyMove(pos, moveDir.x * step, moveDir.z * step, zombieWallsRef.current)
 
       // Footstep sound — only when close enough for player to hear
       const sdx = px - pos.x, sdz = pz - pos.z
-      if (sdx * sdx + sdz * sdz < 144) {  // within 12 units
+      if (sdx * sdx + sdz * sdz < 144) {
         stepTimerRef.current -= delta
         if (stepTimerRef.current <= 0) {
           stepTimerRef.current = 0.55 + Math.random() * 0.1
           playZombieFootstep()
         }
       }
-    }
-
-    if (modeRef.current !== 'attack_window') {
-      ref.current.lookAt(px, pos.y, pz)
     }
 
     const dx = px - pos.x, dz = pz - pos.z
