@@ -81,11 +81,8 @@ export const useGameStore = create((set, get) => ({
   },
 
   nextWave: () => {
-    const { wave: prevWave, nextId, windowPlanks, money, weapon } = get()
+    const { wave: prevWave, nextId, windowPlanks, money, bulletsInClip, reserveBullets } = get()
     const wave = prevWave + 1
-    const clipSize = clipSizeForWeapon(weapon)
-    const total = bulletsForWave(wave)
-    const clip = Math.min(clipSize, total)
     buildGrid(allWallSegments(windowPlanks))
     const walls = playerCollisionWalls()
     set({
@@ -99,8 +96,8 @@ export const useGameStore = create((set, get) => ({
       intermissionLeft: intermissionForWave(wave),
       zombies: [],
       pendingSpawns: [],
-      bulletsInClip: clip,
-      reserveBullets: total - clip,
+      bulletsInClip,
+      reserveBullets,
       isReloading: false,
     })
   },
