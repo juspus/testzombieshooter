@@ -705,20 +705,20 @@ export default function ZombieComponent({ id, startX, startZ }) {
       {/* Left hand */}
       <mesh position={[-0.330, -0.045, 0.462]} rotation={[-1.05, 0, -0.05]} castShadow userData={{ zombieId: id, isHead: false }}>
         <boxGeometry args={[0.105, 0.105, 0.09]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
       {/* Fingers — left (3 stubby boxes fanned out) */}
       <mesh position={[-0.345, -0.068, 0.510]} rotation={[-1.05, -0.15, -0.05]}>
         <boxGeometry args={[0.025, 0.07, 0.022]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
       <mesh position={[-0.320, -0.062, 0.512]} rotation={[-1.05, 0, -0.04]}>
         <boxGeometry args={[0.025, 0.075, 0.022]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
       <mesh position={[-0.296, -0.068, 0.508]} rotation={[-1.05, 0.14, -0.03]}>
         <boxGeometry args={[0.025, 0.068, 0.022]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
 
       {/* ══ RIGHT ARM ══ */}
@@ -745,20 +745,20 @@ export default function ZombieComponent({ id, startX, startZ }) {
       </mesh>
       <mesh position={[0.328, -0.018, 0.435]} rotation={[-0.95, 0, 0.05]} castShadow userData={{ zombieId: id, isHead: false }}>
         <boxGeometry args={[0.105, 0.105, 0.09]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
       {/* Fingers — right */}
       <mesh position={[0.344, -0.040, 0.483]} rotation={[-0.95, -0.15, 0.04]}>
         <boxGeometry args={[0.025, 0.07, 0.022]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
       <mesh position={[0.319, -0.036, 0.486]} rotation={[-0.95, 0, 0.03]}>
         <boxGeometry args={[0.025, 0.075, 0.022]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
       <mesh position={[0.295, -0.042, 0.481]} rotation={[-0.95, 0.14, 0.02]}>
         <boxGeometry args={[0.025, 0.068, 0.022]} />
-        <meshStandardMaterial color={skinDark} roughness={0.85} />
+        <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
 
       {/* ══ LEFT LEG ══ */}
