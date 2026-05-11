@@ -153,21 +153,32 @@ const PLANK_W = WIN_HALF * 2   // 2.0 units wide
 const PLANK_H = 0.13
 const PLANK_D = 0.09
 
-function WindowPlankMesh({ win, count }) {
+const STRIPE_CLR = '#7a8fa0'
+const STRIPE_OFFSETS = [-0.62, 0, 0.62]
+
+function WindowPlankMesh({ win, count, isStrong }) {
   const isNS = win.wall === 'N' || win.wall === 'S'
-  // Interior face of the wall, slightly proud of the surface
   const offset = WALL_T / 2 + 0.01
   const px = win.wall === 'E' ? win.winX - offset : win.wall === 'W' ? win.winX + offset : win.winX
   const pz = win.wall === 'N' ? win.winZ + offset : win.wall === 'S' ? win.winZ - offset : win.winZ
   const args = isNS ? [PLANK_W, PLANK_H, PLANK_D] : [PLANK_D, PLANK_H, PLANK_W]
+  const stripeArgs = isNS ? [0.045, PLANK_H + 0.002, PLANK_D + 0.005] : [PLANK_D + 0.005, PLANK_H + 0.002, 0.045]
   const ys = count === 1 ? [1.25] : [0.85, 1.65]
   return (
     <>
       {ys.map((y, i) => (
-        <mesh key={i} position={[px, y, pz]} castShadow>
-          <boxGeometry args={args} />
-          <meshStandardMaterial color={PLANK_CLR_BOARD} roughness={0.9} />
-        </mesh>
+        <group key={i} position={[px, y, pz]}>
+          <mesh castShadow>
+            <boxGeometry args={args} />
+            <meshStandardMaterial color={isStrong ? '#3d2a0e' : PLANK_CLR_BOARD} roughness={0.9} />
+          </mesh>
+          {isStrong && STRIPE_OFFSETS.map((off, j) => (
+            <mesh key={j} position={isNS ? [off, 0, 0] : [0, 0, off]}>
+              <boxGeometry args={stripeArgs} />
+              <meshStandardMaterial color={STRIPE_CLR} metalness={0.85} roughness={0.2} />
+            </mesh>
+          ))}
+        </group>
       ))}
     </>
   )
@@ -175,12 +186,13 @@ function WindowPlankMesh({ win, count }) {
 
 function WindowPlanks() {
   const windowPlanks = useGameStore((s) => s.windowPlanks)
+  const windowPlankStrong = useGameStore((s) => s.windowPlankStrong)
   return (
     <>
       {WINDOW_DEFS.map((win) => {
         const count = windowPlanks[win.id] ?? 0
         if (count === 0) return null
-        return <WindowPlankMesh key={win.id} win={win} count={count} />
+        return <WindowPlankMesh key={win.id} win={win} count={count} isStrong={windowPlankStrong[win.id] ?? false} />
       })}
     </>
   )

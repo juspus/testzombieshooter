@@ -1,4 +1,4 @@
-import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT } from '../store'
+import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, STRONG_PLANK_COST } from '../store'
 
 const ITEMS = [
   {
@@ -37,6 +37,8 @@ export default function Shop() {
   const buyItem = useGameStore((s) => s.buyItem)
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
+  const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
+  const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
 
   if (!shopOpen) return null
 
@@ -72,6 +74,28 @@ export default function Shop() {
               </div>
             )
           })}
+
+          {/* Strong Planks toggle */}
+          <div style={{ ...styles.card, border: strongPlanksMode ? '1px solid #778899' : '1px solid #3a2a10' }}>
+            <div style={styles.itemIcon}>🔩</div>
+            <div style={styles.itemName}>STRONG PLANKS</div>
+            <div style={styles.itemDesc}>
+              Metal-reinforced boards. {`€${STRONG_PLANK_COST.toFixed(2)}`} per plank, withstands 20 hits.
+              Existing planks can also be upgraded.
+            </div>
+            <div style={{ ...styles.itemPrice, color: strongPlanksMode ? '#778899' : '#ffe066' }}>
+              {strongPlanksMode ? 'ACTIVE' : `€${STRONG_PLANK_COST.toFixed(2)} / plank`}
+            </div>
+            <button
+              style={{
+                ...styles.buyBtn,
+                ...(strongPlanksMode ? styles.strongActiveBtn : styles.canBuyBtn),
+              }}
+              onClick={toggleStrongPlanksMode}
+            >
+              {strongPlanksMode ? 'DISABLE' : 'ENABLE'}
+            </button>
+          </div>
         </div>
 
         <div style={styles.hint}>E / ESC — close shop</div>
@@ -186,6 +210,10 @@ const styles = {
     background: '#1a3a0a',
     color: '#4a8a2a',
     cursor: 'default',
+  },
+  strongActiveBtn: {
+    background: '#1a2a35',
+    color: '#778899',
   },
   hint: {
     color: '#444',

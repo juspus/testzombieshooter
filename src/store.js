@@ -21,8 +21,10 @@ const clipSizeForWeapon = (w) =>
 
 const HITS_PER_PLANK = 5
 const PLANK_COST = 2.5
+const STRONG_PLANK_COST = 20
+const STRONG_HITS_PER_PLANK = 20
 const WAVE_REWARD = 15
-export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST }
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
@@ -31,8 +33,10 @@ export const useGameStore = create((set, get) => ({
   shopOpen: false,
   nearChest: false,
   walls: [],
-  windowPlanks: {},  // { [windowId]: 1 | 2 }
-  plankHits: {},     // { [windowId]: hitCount } toward next plank break
+  windowPlanks: {},       // { [windowId]: 1 | 2 }
+  windowPlankStrong: {},  // { [windowId]: true } when planks at that window are reinforced
+  strongPlanksMode: false,
+  plankHits: {},          // { [windowId]: hitCount } toward next plank break
   nearWindowId: -1,  // window the player is currently standing near (-1 = none)
   boardingProgress: 0,  // 0–1, fraction of 2s hold complete
   skipProgress: 0,      // 0–1, fraction of hold-T skip complete
@@ -60,6 +64,8 @@ export const useGameStore = create((set, get) => ({
       shopOpen: false,
       walls,
       windowPlanks: {},
+      windowPlankStrong: {},
+      strongPlanksMode: false,
       plankHits: {},
       wave,
       kills: 0,
@@ -174,25 +180,41 @@ export const useGameStore = create((set, get) => ({
   },
 
   addPlank: (id) => {
-    const { windowPlanks, money } = get()
+    const { windowPlanks, windowPlankStrong, money, strongPlanksMode } = get()
     const current = windowPlanks[id] ?? 0
     if (current >= 2) return false
-    if (money < PLANK_COST) return false
+    const cost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
+    if (money < cost) return false
     const newPlanks = { ...windowPlanks, [id]: current + 1 }
+    const newStrong = strongPlanksMode ? { ...windowPlankStrong, [id]: true } : windowPlankStrong
     buildGrid(allWallSegments(newPlanks))
-    set({ windowPlanks: newPlanks, money: money - PLANK_COST })
+    set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, money: money - cost })
+    return true
+  },
+
+  upgradePlanks: (id) => {
+    const { windowPlanks, windowPlankStrong, money } = get()
+    const count = windowPlanks[id] ?? 0
+    if (count === 0 || windowPlankStrong[id]) return false
+    const cost = STRONG_PLANK_COST * count
+    if (money < cost) return false
+    set({ windowPlankStrong: { ...windowPlankStrong, [id]: true }, money: money - cost })
     return true
   },
 
   hitPlank: (id) => {
-    const { plankHits, windowPlanks } = get()
+    const { plankHits, windowPlanks, windowPlankStrong } = get()
     if ((windowPlanks[id] ?? 0) === 0) return
+    const hitsNeeded = windowPlankStrong[id] ? STRONG_HITS_PER_PLANK : HITS_PER_PLANK
     const hits = (plankHits[id] ?? 0) + 1
-    if (hits >= HITS_PER_PLANK) {
+    if (hits >= hitsNeeded) {
       const newPlanks = { ...windowPlanks, [id]: windowPlanks[id] - 1 }
+      const newStrong = newPlanks[id] === 0
+        ? { ...windowPlankStrong, [id]: false }
+        : windowPlankStrong
       buildGrid(allWallSegments(newPlanks))
       playPlankBreak()
-      set({ windowPlanks: newPlanks, plankHits: { ...plankHits, [id]: 0 } })
+      set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, plankHits: { ...plankHits, [id]: 0 } })
     } else {
       set({ plankHits: { ...plankHits, [id]: hits } })
     }
@@ -230,6 +252,8 @@ export const useGameStore = create((set, get) => ({
     if (get().phase !== 'intermission') return
     set({ intermissionLeft: 0 })
   },
+
+  toggleStrongPlanksMode: () => set({ strongPlanksMode: !get().strongPlanksMode }),
 
   setNearWindowId: (id) => set({ nearWindowId: id }),
   setBoardingProgress: (v) => set({ boardingProgress: v }),
