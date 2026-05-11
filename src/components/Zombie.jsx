@@ -37,9 +37,9 @@ function hasDirectPath(x1, z1, x2, z2, walls) {
   return true
 }
 
-// Move a zombie: try full move, then penetration push-out only (no axis-split
-// slide). With accurate hasDirectPath above, direct moves only happen when the
-// path is truly clear, so the full move should almost never fail.
+// Move a zombie: full move → axis-split for wall-threading → push-out.
+// The axis-split is needed so zombies can thread through narrow window
+// openings when following A* paths at a slight angle.
 function applyMove(pos, vx, vz, walls) {
   const R = ZOMBIE_R
   const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + vx))
@@ -48,8 +48,14 @@ function applyMove(pos, vx, vz, walls) {
   if (!collidesWithWalls(nx, nz, R, walls)) {
     pos.x = nx; pos.z = nz; return
   }
+  if (!collidesWithWalls(nx, pos.z, R, walls)) {
+    pos.x = nx; return
+  }
+  if (!collidesWithWalls(pos.x, nz, R, walls)) {
+    pos.z = nz; return
+  }
 
-  // Blocked — push out of any penetrating walls without sliding along them.
+  // Fully blocked — push out of penetrating walls.
   let pushX = 0, pushZ = 0
   for (const w of walls) {
     const nearX = Math.max(w.x - w.halfW, Math.min(pos.x, w.x + w.halfW))
