@@ -4,28 +4,28 @@ const ITEMS = [
   {
     id: 'ak47',
     name: 'AK-47',
-    desc: `Full-auto rifle. 2 body shots to kill. ${AK_CLIP}-round magazine.`,
+    desc: `Full-auto · 2 body shots · ${AK_CLIP}-rd mag`,
     price: AK_COST,
     oneTime: true,
   },
   {
     id: 'deagle',
     name: 'Desert Eagle',
-    desc: `Semi-auto hand cannon. Pierces up to 3 enemies. Instant kill. ${DEAGLE_CLIP}-round magazine.`,
+    desc: `Semi-auto · Instant kill · Pierces 3 · ${DEAGLE_CLIP}-rd mag`,
     price: DEAGLE_COST,
     oneTime: true,
   },
   {
     id: 'shotgun',
     name: 'Pump Shotgun',
-    desc: `Pump-action shotgun. 12 pellets per shot in a wide cone. ${SHOTGUN_CLIP}-shell magazine.`,
+    desc: `Pump-action · 12 pellets/shot · ${SHOTGUN_CLIP}-shell mag`,
     price: SHOTGUN_COST,
     oneTime: true,
   },
   {
     id: 'ammo_pack',
     name: 'Ammo Pack',
-    desc: `${AMMO_PACK_AMOUNT} rounds added to reserve.`,
+    desc: `+${AMMO_PACK_AMOUNT} rounds to reserve`,
     price: AMMO_PACK_COST,
     oneTime: false,
   },
@@ -45,60 +45,67 @@ export default function Shop() {
   return (
     <div style={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) closeShop() }}>
       <div style={styles.panel}>
+
         <div style={styles.header}>
-          <div style={styles.title}>SUPPLY CHEST</div>
-          <div style={styles.money}>€{money.toFixed(2)}</div>
+          <span style={styles.title}>SUPPLY CHEST</span>
+          <span style={styles.money}>€{money.toFixed(2)}</span>
         </div>
 
-        <div style={styles.items}>
+        <div style={styles.divider} />
+
+        <div style={styles.list}>
           {ITEMS.map((item) => {
             const owned = item.oneTime && weapon === item.id
             const canAfford = money >= item.price
             const disabled = owned || !canAfford
             return (
-              <div key={item.id} style={{ ...styles.card, opacity: disabled && !owned ? 0.55 : 1 }}>
-                <div style={styles.itemIcon}>{item.id === 'ak47' ? '🔫' : '📦'}</div>
-                <div style={styles.itemName}>{item.name}</div>
-                <div style={styles.itemDesc}>{item.desc}</div>
-                <div style={styles.itemPrice}>€{item.price.toFixed(2)}</div>
-                <button
-                  style={{
-                    ...styles.buyBtn,
-                    ...(owned ? styles.ownedBtn : !canAfford ? styles.cantAffordBtn : styles.canBuyBtn),
-                  }}
-                  disabled={disabled}
-                  onClick={() => buyItem(item.id)}
-                >
-                  {owned ? 'OWNED' : 'BUY'}
-                </button>
+              <div key={item.id} style={{ ...styles.row, opacity: disabled && !owned ? 0.45 : 1 }}>
+                <div style={styles.rowLeft}>
+                  <span style={{ ...styles.rowName, color: owned ? '#4a8a2a' : '#ddd' }}>{item.name}</span>
+                  <span style={styles.rowDesc}>{item.desc}</span>
+                </div>
+                <div style={styles.rowRight}>
+                  <span style={{ ...styles.rowPrice, color: canAfford || owned ? '#ffe066' : '#884422' }}>
+                    {owned ? '—' : `€${item.price.toFixed(2)}`}
+                  </span>
+                  <button
+                    style={{ ...styles.btn, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    disabled={disabled}
+                    onClick={() => buyItem(item.id)}
+                  >
+                    {owned ? 'OWNED' : 'BUY'}
+                  </button>
+                </div>
               </div>
             )
           })}
 
+          <div style={styles.divider} />
+
           {/* Strong Planks toggle */}
-          <div style={{ ...styles.card, border: strongPlanksMode ? '1px solid #778899' : '1px solid #3a2a10' }}>
-            <div style={styles.itemIcon}>🔩</div>
-            <div style={styles.itemName}>STRONG PLANKS</div>
-            <div style={styles.itemDesc}>
-              Metal-reinforced boards. {`€${STRONG_PLANK_COST.toFixed(2)}`} per plank, withstands 20 hits.
-              Existing planks can also be upgraded.
+          <div style={styles.row}>
+            <div style={styles.rowLeft}>
+              <span style={{ ...styles.rowName, color: strongPlanksMode ? '#aaccee' : '#ddd' }}>Strong Planks</span>
+              <span style={styles.rowDesc}>
+                Metal-reinforced · €{STRONG_PLANK_COST.toFixed(2)}/plank · 20 hits · upgrades existing
+              </span>
             </div>
-            <div style={{ ...styles.itemPrice, color: strongPlanksMode ? '#778899' : '#ffe066' }}>
-              {strongPlanksMode ? 'ACTIVE' : `€${STRONG_PLANK_COST.toFixed(2)} / plank`}
+            <div style={styles.rowRight}>
+              <span style={{ ...styles.rowPrice, color: strongPlanksMode ? '#778899' : '#ffe066' }}>
+                {strongPlanksMode ? 'ACTIVE' : `€${STRONG_PLANK_COST.toFixed(2)}`}
+              </span>
+              <button
+                style={{ ...styles.btn, ...(strongPlanksMode ? styles.btnStrong : styles.btnBuy) }}
+                onClick={toggleStrongPlanksMode}
+              >
+                {strongPlanksMode ? 'DISABLE' : 'ENABLE'}
+              </button>
             </div>
-            <button
-              style={{
-                ...styles.buyBtn,
-                ...(strongPlanksMode ? styles.strongActiveBtn : styles.canBuyBtn),
-              }}
-              onClick={toggleStrongPlanksMode}
-            >
-              {strongPlanksMode ? 'DISABLE' : 'ENABLE'}
-            </button>
           </div>
         </div>
 
-        <div style={styles.hint}>E / ESC — close shop</div>
+        <div style={styles.divider} />
+        <div style={styles.hint}>E / ESC — close</div>
       </div>
     </div>
   )
@@ -108,34 +115,32 @@ const styles = {
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(0,0,0,0.72)',
+    background: 'rgba(0,0,0,0.75)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
   },
   panel: {
-    background: 'rgba(15,10,5,0.97)',
+    background: 'rgba(10,8,4,0.98)',
     border: '1px solid #5a3a10',
-    borderRadius: 10,
-    padding: '28px 36px 22px',
+    borderRadius: 8,
+    padding: '22px 28px 18px',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    gap: 20,
-    minWidth: 480,
+    gap: 12,
+    width: 500,
     fontFamily: 'Courier New, monospace',
-    boxShadow: '0 0 40px rgba(180,100,0,0.25)',
+    boxShadow: '0 0 40px rgba(180,100,0,0.2)',
   },
   header: {
-    width: '100%',
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'baseline',
   },
   title: {
     color: '#c8801a',
-    fontSize: 20,
+    fontSize: 16,
     letterSpacing: 6,
     fontWeight: 'bold',
   },
@@ -145,79 +150,84 @@ const styles = {
     fontWeight: 'bold',
     letterSpacing: 2,
   },
-  items: {
-    display: 'flex',
-    gap: 16,
+  divider: {
+    borderBottom: '1px solid #2a1a08',
   },
-  card: {
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid #3a2a10',
-    borderRadius: 8,
-    padding: '18px 20px',
+  list: {
     display: 'flex',
     flexDirection: 'column',
+    gap: 2,
+  },
+  row: {
+    display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    width: 180,
-    transition: 'opacity 0.2s',
+    justifyContent: 'space-between',
+    padding: '10px 4px',
+    gap: 16,
+    borderBottom: '1px solid #1a1008',
   },
-  itemIcon: {
-    fontSize: 36,
+  rowLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+    flex: 1,
   },
-  itemName: {
-    color: '#ddd',
-    fontSize: 14,
+  rowName: {
+    fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 2,
-    textAlign: 'center',
   },
-  itemDesc: {
-    color: '#777',
-    fontSize: 11,
+  rowDesc: {
+    color: '#666',
+    fontSize: 10,
     letterSpacing: 1,
-    textAlign: 'center',
-    lineHeight: 1.5,
-    flexGrow: 1,
   },
-  itemPrice: {
-    color: '#ffe066',
-    fontSize: 18,
+  rowRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14,
+    flexShrink: 0,
+  },
+  rowPrice: {
+    fontSize: 15,
     fontWeight: 'bold',
     letterSpacing: 1,
+    minWidth: 72,
+    textAlign: 'right',
   },
-  buyBtn: {
-    width: '100%',
-    padding: '9px 0',
+  btn: {
+    padding: '6px 14px',
     border: 'none',
-    borderRadius: 4,
-    fontSize: 13,
+    borderRadius: 3,
+    fontSize: 11,
     letterSpacing: 3,
     fontFamily: 'Courier New, monospace',
     fontWeight: 'bold',
     cursor: 'pointer',
-    transition: 'all 0.15s',
+    minWidth: 72,
   },
-  canBuyBtn: {
+  btnBuy: {
     background: '#c8801a',
     color: '#000',
   },
-  cantAffordBtn: {
-    background: '#2a2a2a',
-    color: '#555',
+  btnCant: {
+    background: '#1e1e1e',
+    color: '#444',
     cursor: 'default',
   },
-  ownedBtn: {
-    background: '#1a3a0a',
-    color: '#4a8a2a',
+  btnOwned: {
+    background: '#0e200a',
+    color: '#3a6a1a',
     cursor: 'default',
   },
-  strongActiveBtn: {
-    background: '#1a2a35',
-    color: '#778899',
+  btnStrong: {
+    background: '#0e1a22',
+    color: '#556677',
   },
   hint: {
-    color: '#444',
-    fontSize: 11,
+    color: '#3a3a3a',
+    fontSize: 10,
     letterSpacing: 3,
+    textAlign: 'center',
   },
 }
