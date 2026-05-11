@@ -19,7 +19,7 @@ const WIN_SILL_H   = WY0               // 0.5
 const WIN_LINTEL_H = WH - WY1          // 1.2
 const WIN_LINTEL_Y = WY1 + WIN_LINTEL_H / 2  // 2.6
 
-export const CHEST_POS = { x: -5, z: -7.5 }
+export const CHEST_POS = { x: -5.5, z: 7.5 }
 
 const WALL_CLR  = '#7c5c38'
 const FLOOR_CLR = '#4a3018'
