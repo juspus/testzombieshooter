@@ -95,6 +95,11 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const zombieWallsRef  = useRef(cabinWallSegments())
   const stepTimerRef    = useRef(Math.random() * 0.6)
   const isAggressorRef  = useRef(Math.random() < 0.2)
+  const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
+  const leftLegRef      = useRef()
+  const rightLegRef     = useRef()
+  const leftArmRef      = useRef()
+  const rightArmRef     = useRef()
 
   useEffect(() => {
     if (ref.current) {
@@ -280,6 +285,14 @@ export default function ZombieComponent({ id, startX, startZ }) {
         }
       }
     }
+
+    // Walking animation
+    if (moveDir) walkCycleRef.current += delta * 4.0
+    const t = walkCycleRef.current
+    if (leftLegRef.current)  leftLegRef.current.rotation.x  =  Math.sin(t) * 0.32
+    if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(t) * 0.32
+    if (leftArmRef.current)  leftArmRef.current.rotation.x  = -Math.sin(t) * 0.20
+    if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
 
     const dx = px - pos.x, dz = pz - pos.z
     if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
@@ -676,150 +689,141 @@ export default function ZombieComponent({ id, startX, startZ }) {
         <meshStandardMaterial color={pants} roughness={0.95} />
       </mesh>
 
-      {/* ══ LEFT ARM ══ */}
-      {/* Shoulder joint bump */}
-      <mesh position={[-0.248, 0.305, 0.04]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.10, 0.10, 0.10]} />
-        <meshStandardMaterial color={shirt} roughness={0.95} />
-      </mesh>
-      {/* Upper arm */}
-      <mesh position={[-0.305, 0.195, 0.095]} rotation={[-0.55, 0, -0.12]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.13, 0.36, 0.12]} />
-        <meshStandardMaterial color={shirt} roughness={0.95} />
-      </mesh>
-      {/* Elbow bump */}
-      <mesh position={[-0.318, 0.035, 0.195]} userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.09, 0.09, 0.09]} />
-        <meshStandardMaterial color={skin} roughness={0.9} />
-      </mesh>
-      {/* Forearm */}
-      <mesh position={[-0.325, 0.018, 0.300]} rotation={[-1.05, 0, -0.08]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.11, 0.32, 0.10]} />
-        <meshStandardMaterial color={skin} roughness={0.9} />
-      </mesh>
-      {/* Wrist vein detail */}
-      <mesh position={[-0.326, -0.038, 0.408]} rotation={[-1.05, 0, -0.05]}>
-        <boxGeometry args={[0.007, 0.07, 0.005]} />
-        <meshStandardMaterial color={skinVein} roughness={1} />
-      </mesh>
-      {/* Left hand */}
-      <mesh position={[-0.330, -0.045, 0.462]} rotation={[-1.05, 0, -0.05]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.105, 0.105, 0.09]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
-      {/* Fingers — left (3 stubby boxes fanned out) */}
-      <mesh position={[-0.345, -0.068, 0.510]} rotation={[-1.05, -0.15, -0.05]}>
-        <boxGeometry args={[0.025, 0.07, 0.022]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
-      <mesh position={[-0.320, -0.062, 0.512]} rotation={[-1.05, 0, -0.04]}>
-        <boxGeometry args={[0.025, 0.075, 0.022]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
-      <mesh position={[-0.296, -0.068, 0.508]} rotation={[-1.05, 0.14, -0.03]}>
-        <boxGeometry args={[0.025, 0.068, 0.022]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
+      {/* ══ LEFT ARM — pivot at shoulder ══ */}
+      <group ref={leftArmRef} position={[-0.248, 0.365, 0]}>
+        <mesh position={[0, -0.060, 0.04]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.10, 0.10, 0.10]} />
+          <meshStandardMaterial color={shirt} roughness={0.95} />
+        </mesh>
+        <mesh position={[-0.057, -0.170, 0.095]} rotation={[-0.55, 0, -0.12]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.13, 0.36, 0.12]} />
+          <meshStandardMaterial color={shirt} roughness={0.95} />
+        </mesh>
+        <mesh position={[-0.070, -0.330, 0.195]} userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.09, 0.09, 0.09]} />
+          <meshStandardMaterial color={skin} roughness={0.9} />
+        </mesh>
+        <mesh position={[-0.077, -0.347, 0.300]} rotation={[-1.05, 0, -0.08]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.11, 0.32, 0.10]} />
+          <meshStandardMaterial color={skin} roughness={0.9} />
+        </mesh>
+        <mesh position={[-0.078, -0.403, 0.408]} rotation={[-1.05, 0, -0.05]}>
+          <boxGeometry args={[0.007, 0.07, 0.005]} />
+          <meshStandardMaterial color={skinVein} roughness={1} />
+        </mesh>
+        <mesh position={[-0.082, -0.410, 0.462]} rotation={[-1.05, 0, -0.05]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.105, 0.105, 0.09]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+        <mesh position={[-0.097, -0.433, 0.510]} rotation={[-1.05, -0.15, -0.05]}>
+          <boxGeometry args={[0.025, 0.07, 0.022]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+        <mesh position={[-0.072, -0.427, 0.512]} rotation={[-1.05, 0, -0.04]}>
+          <boxGeometry args={[0.025, 0.075, 0.022]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+        <mesh position={[-0.048, -0.433, 0.508]} rotation={[-1.05, 0.14, -0.03]}>
+          <boxGeometry args={[0.025, 0.068, 0.022]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+      </group>
 
-      {/* ══ RIGHT ARM ══ */}
-      <mesh position={[0.248, 0.305, 0.04]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.10, 0.10, 0.10]} />
-        <meshStandardMaterial color={shirt} roughness={0.95} />
-      </mesh>
-      <mesh position={[0.305, 0.195, 0.095]} rotation={[-0.45, 0, 0.12]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.13, 0.36, 0.12]} />
-        <meshStandardMaterial color={shirt} roughness={0.95} />
-      </mesh>
-      {/* Elbow */}
-      <mesh position={[0.316, 0.055, 0.185]} userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.09, 0.09, 0.09]} />
-        <meshStandardMaterial color={skin} roughness={0.9} />
-      </mesh>
-      <mesh position={[0.322, 0.040, 0.285]} rotation={[-0.95, 0, 0.08]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.11, 0.32, 0.10]} />
-        <meshStandardMaterial color={skin} roughness={0.9} />
-      </mesh>
-      <mesh position={[0.323, -0.022, 0.390]} rotation={[-0.95, 0, 0.05]}>
-        <boxGeometry args={[0.007, 0.07, 0.005]} />
-        <meshStandardMaterial color={skinVein} roughness={1} />
-      </mesh>
-      <mesh position={[0.328, -0.018, 0.435]} rotation={[-0.95, 0, 0.05]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.105, 0.105, 0.09]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
-      {/* Fingers — right */}
-      <mesh position={[0.344, -0.040, 0.483]} rotation={[-0.95, -0.15, 0.04]}>
-        <boxGeometry args={[0.025, 0.07, 0.022]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
-      <mesh position={[0.319, -0.036, 0.486]} rotation={[-0.95, 0, 0.03]}>
-        <boxGeometry args={[0.025, 0.075, 0.022]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
-      <mesh position={[0.295, -0.042, 0.481]} rotation={[-0.95, 0.14, 0.02]}>
-        <boxGeometry args={[0.025, 0.068, 0.022]} />
-        <meshStandardMaterial color={skullBone} roughness={0.85} />
-      </mesh>
+      {/* ══ RIGHT ARM — pivot at shoulder ══ */}
+      <group ref={rightArmRef} position={[0.248, 0.365, 0]}>
+        <mesh position={[0, -0.060, 0.04]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.10, 0.10, 0.10]} />
+          <meshStandardMaterial color={shirt} roughness={0.95} />
+        </mesh>
+        <mesh position={[0.057, -0.170, 0.095]} rotation={[-0.45, 0, 0.12]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.13, 0.36, 0.12]} />
+          <meshStandardMaterial color={shirt} roughness={0.95} />
+        </mesh>
+        <mesh position={[0.068, -0.310, 0.185]} userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.09, 0.09, 0.09]} />
+          <meshStandardMaterial color={skin} roughness={0.9} />
+        </mesh>
+        <mesh position={[0.074, -0.325, 0.285]} rotation={[-0.95, 0, 0.08]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.11, 0.32, 0.10]} />
+          <meshStandardMaterial color={skin} roughness={0.9} />
+        </mesh>
+        <mesh position={[0.075, -0.387, 0.390]} rotation={[-0.95, 0, 0.05]}>
+          <boxGeometry args={[0.007, 0.07, 0.005]} />
+          <meshStandardMaterial color={skinVein} roughness={1} />
+        </mesh>
+        <mesh position={[0.080, -0.383, 0.435]} rotation={[-0.95, 0, 0.05]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.105, 0.105, 0.09]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+        <mesh position={[0.096, -0.405, 0.483]} rotation={[-0.95, -0.15, 0.04]}>
+          <boxGeometry args={[0.025, 0.07, 0.022]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+        <mesh position={[0.071, -0.401, 0.486]} rotation={[-0.95, 0, 0.03]}>
+          <boxGeometry args={[0.025, 0.075, 0.022]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+        <mesh position={[0.047, -0.407, 0.481]} rotation={[-0.95, 0.14, 0.02]}>
+          <boxGeometry args={[0.025, 0.068, 0.022]} />
+          <meshStandardMaterial color={skullBone} roughness={0.85} />
+        </mesh>
+      </group>
 
-      {/* ══ LEFT LEG ══ */}
-      <mesh position={[-0.12, -0.375, 0]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.16, 0.36, 0.17]} />
-        <meshStandardMaterial color={pants} roughness={0.95} />
-      </mesh>
-      {/* Kneecap */}
-      <mesh position={[-0.12, -0.555, 0.09]} userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.08, 0.07, 0.04]} />
-        <meshStandardMaterial color={pants} roughness={0.95} />
-      </mesh>
-      <mesh position={[-0.12, -0.670, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.14, 0.30, 0.15]} />
-        <meshStandardMaterial color={pants} roughness={0.95} />
-      </mesh>
-      {/* Left boot shaft */}
-      <mesh position={[-0.12, -0.820, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.145, 0.10, 0.165]} />
-        <meshStandardMaterial color={boot} roughness={0.8} />
-      </mesh>
-      {/* Left boot foot */}
-      <mesh position={[-0.12, -0.872, 0.055]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.135, 0.06, 0.235]} />
-        <meshStandardMaterial color={boot} roughness={0.8} />
-      </mesh>
-      {/* Boot sole */}
-      <mesh position={[-0.12, -0.903, 0.055]}>
-        <boxGeometry args={[0.140, 0.015, 0.240]} />
-        <meshStandardMaterial color={bootSole} roughness={0.6} />
-      </mesh>
+      {/* ══ LEFT LEG — pivot at hip ══ */}
+      <group ref={leftLegRef} position={[-0.12, -0.175, 0]}>
+        <mesh position={[0, -0.200, 0]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.16, 0.36, 0.17]} />
+          <meshStandardMaterial color={pants} roughness={0.95} />
+        </mesh>
+        <mesh position={[0, -0.380, 0.09]} userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.08, 0.07, 0.04]} />
+          <meshStandardMaterial color={pants} roughness={0.95} />
+        </mesh>
+        <mesh position={[0, -0.495, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.14, 0.30, 0.15]} />
+          <meshStandardMaterial color={pants} roughness={0.95} />
+        </mesh>
+        <mesh position={[0, -0.645, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.145, 0.10, 0.165]} />
+          <meshStandardMaterial color={boot} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, -0.697, 0.055]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.135, 0.06, 0.235]} />
+          <meshStandardMaterial color={boot} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, -0.728, 0.055]}>
+          <boxGeometry args={[0.140, 0.015, 0.240]} />
+          <meshStandardMaterial color={bootSole} roughness={0.6} />
+        </mesh>
+      </group>
 
-      {/* ══ RIGHT LEG ══ */}
-      <mesh position={[0.12, -0.375, 0]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.16, 0.36, 0.17]} />
-        <meshStandardMaterial color={pants} roughness={0.95} />
-      </mesh>
-      {/* Kneecap */}
-      <mesh position={[0.12, -0.555, 0.09]} userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.08, 0.07, 0.04]} />
-        <meshStandardMaterial color={pants} roughness={0.95} />
-      </mesh>
-      <mesh position={[0.12, -0.670, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.14, 0.30, 0.15]} />
-        <meshStandardMaterial color={pants} roughness={0.95} />
-      </mesh>
-      {/* Right boot shaft */}
-      <mesh position={[0.12, -0.820, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.145, 0.10, 0.165]} />
-        <meshStandardMaterial color={boot} roughness={0.8} />
-      </mesh>
-      {/* Right boot foot */}
-      <mesh position={[0.12, -0.872, 0.055]} castShadow userData={{ zombieId: id, isHead: false }}>
-        <boxGeometry args={[0.135, 0.06, 0.235]} />
-        <meshStandardMaterial color={boot} roughness={0.8} />
-      </mesh>
-      {/* Boot sole */}
-      <mesh position={[0.12, -0.903, 0.055]}>
-        <boxGeometry args={[0.140, 0.015, 0.240]} />
-        <meshStandardMaterial color={bootSole} roughness={0.6} />
-      </mesh>
+      {/* ══ RIGHT LEG — pivot at hip ══ */}
+      <group ref={rightLegRef} position={[0.12, -0.175, 0]}>
+        <mesh position={[0, -0.200, 0]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.16, 0.36, 0.17]} />
+          <meshStandardMaterial color={pants} roughness={0.95} />
+        </mesh>
+        <mesh position={[0, -0.380, 0.09]} userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.08, 0.07, 0.04]} />
+          <meshStandardMaterial color={pants} roughness={0.95} />
+        </mesh>
+        <mesh position={[0, -0.495, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.14, 0.30, 0.15]} />
+          <meshStandardMaterial color={pants} roughness={0.95} />
+        </mesh>
+        <mesh position={[0, -0.645, 0.01]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.145, 0.10, 0.165]} />
+          <meshStandardMaterial color={boot} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, -0.697, 0.055]} castShadow userData={{ zombieId: id, isHead: false }}>
+          <boxGeometry args={[0.135, 0.06, 0.235]} />
+          <meshStandardMaterial color={boot} roughness={0.8} />
+        </mesh>
+        <mesh position={[0, -0.728, 0.055]}>
+          <boxGeometry args={[0.140, 0.015, 0.240]} />
+          <meshStandardMaterial color={bootSole} roughness={0.6} />
+        </mesh>
+      </group>
 
       {/* Bullet holes */}
       {holes.map((h, i) => (
