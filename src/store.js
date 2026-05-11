@@ -24,6 +24,7 @@ const PLANK_COST = 2.5
 const STRONG_PLANK_COST = 20
 const STRONG_HITS_PER_PLANK = 20
 const WAVE_REWARD = 15
+const ZOMBIE_KILL_REWARD = 1
 export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
@@ -81,13 +82,13 @@ export const useGameStore = create((set, get) => ({
   },
 
   nextWave: () => {
-    const { wave: prevWave, nextId, windowPlanks, money, bulletsInClip, reserveBullets } = get()
+    const { wave: prevWave, nextId, windowPlanks, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills } = get()
     const wave = prevWave + 1
     buildGrid(allWallSegments(windowPlanks))
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
-      money: money + WAVE_REWARD,
+      money: money + WAVE_REWARD + (prevWaveKills * ZOMBIE_KILL_REWARD),
       shopOpen: false,
       walls,
       wave,
