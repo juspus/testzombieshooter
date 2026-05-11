@@ -290,11 +290,14 @@ export default function ZombieComponent({ id, startX, startZ }) {
 
     // Animation
     if (isAttackingRef.current) {
-      // Both arms pound forward together in sync with the attack timer
       const phase = 1.0 - attackTimerRef.current / ATTACK_INTERVAL
-      const strike = Math.sin(phase * Math.PI) * 0.70
-      if (leftArmRef.current)  leftArmRef.current.rotation.x  = -strike - 0.30
-      if (rightArmRef.current) rightArmRef.current.rotation.x = -strike - 0.30
+      // Slow lift (72% of cycle), fast slam (28% of cycle)
+      const HIGH = 0.28, LOW = -1.05, LIFT = 0.72
+      const armX = phase < LIFT
+        ? LOW + (HIGH - LOW) * (phase / LIFT)
+        : HIGH + (LOW - HIGH) * ((phase - LIFT) / (1 - LIFT))
+      if (leftArmRef.current)  leftArmRef.current.rotation.x  = armX
+      if (rightArmRef.current) rightArmRef.current.rotation.x = armX
       if (leftLegRef.current)  leftLegRef.current.rotation.x  = 0
       if (rightLegRef.current) rightLegRef.current.rotation.x = 0
     } else {
