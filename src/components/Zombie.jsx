@@ -214,7 +214,13 @@ export default function ZombieComponent({ id, startX, startZ }) {
       const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + moveDir.z * step))
 
       const R = 0.20
-      if (!isBlockedRadius(nx, nz, R)) {
+      // When zombie's center is already in a blocked cell (window crossing or interior
+      // corner where thin walls mark adjacent cells blocked), let it move freely so it
+      // can escape — otherwise all probes return blocked and it freezes.
+      if (isBlocked(pos.x, pos.z)) {
+        pos.x = nx
+        pos.z = nz
+      } else if (!isBlockedRadius(nx, nz, R)) {
         pos.x = nx
         pos.z = nz
       } else if (!isBlockedRadius(nx, pos.z, R)) {
