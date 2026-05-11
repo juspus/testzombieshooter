@@ -1,4 +1,4 @@
-import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, PLANK_COST } from '../store'
+import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
 
 
 export default function HUD() {
@@ -11,14 +11,21 @@ export default function HUD() {
   const isReloading = useGameStore((s) => s.isReloading)
   const nearWindowId = useGameStore((s) => s.nearWindowId)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
+  const windowPlankStrong = useGameStore((s) => s.windowPlankStrong)
+  const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const boardingProgress = useGameStore((s) => s.boardingProgress)
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
   const nearChest = useGameStore((s) => s.nearChest)
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
-  const showBoardPrompt = nearWindowId >= 0 && nearPlankCount < 2 && !nearChest
-  const canAfford = money >= PLANK_COST
+  const nearPlanksAreStrong = nearWindowId >= 0 ? (windowPlankStrong[nearWindowId] ?? false) : false
+  const canAddPlank = nearPlankCount < 2
+  const canUpgrade = strongPlanksMode && nearPlankCount > 0 && !nearPlanksAreStrong
+  const showBoardPrompt = nearWindowId >= 0 && (canAddPlank || canUpgrade) && !nearChest
+  const activeCost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
+  const upgradeCost = STRONG_PLANK_COST * nearPlankCount
+  const canAfford = canUpgrade ? money >= upgradeCost : money >= activeCost
 
   return (
     <div style={styles.hud}>
@@ -78,15 +85,19 @@ export default function HUD() {
 
       {/* Window board prompt */}
       {showBoardPrompt && (
-        <div style={{ ...styles.boardPrompt, borderColor: canAfford ? '#554400' : '#552200' }}>
-          <span style={{ color: canAfford ? '#ffe066' : '#ff6644' }}>
-            {canAfford
-              ? `HOLD E — board window (€${PLANK_COST.toFixed(2)}) [${nearPlankCount}/2]`
-              : `NOT ENOUGH MONEY — €${PLANK_COST.toFixed(2)} needed`}
+        <div style={{ ...styles.boardPrompt, borderColor: canAfford ? (strongPlanksMode ? '#446688' : '#554400') : '#552200' }}>
+          <span style={{ color: canAfford ? (strongPlanksMode ? '#aaccee' : '#ffe066') : '#ff6644' }}>
+            {canUpgrade
+              ? canAfford
+                ? `HOLD E — upgrade to STRONG (€${upgradeCost.toFixed(2)})`
+                : `NOT ENOUGH MONEY — €${upgradeCost.toFixed(2)} needed`
+              : canAfford
+                ? `HOLD E — board window (€${activeCost.toFixed(2)}) [${nearPlankCount}/2]${strongPlanksMode ? ' ⚡' : ''}`
+                : `NOT ENOUGH MONEY — €${activeCost.toFixed(2)} needed`}
           </span>
           {canAfford && (
             <div style={styles.boardBar}>
-              <div style={{ ...styles.boardBarFill, width: `${boardingProgress * 100}%` }} />
+              <div style={{ ...styles.boardBarFill, width: `${boardingProgress * 100}%`, background: strongPlanksMode ? '#aaccee' : '#ffe066' }} />
             </div>
           )}
         </div>

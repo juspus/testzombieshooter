@@ -27,6 +27,7 @@ export default function Player() {
   const beginReload = useGameStore((s) => s.beginReload)
   const finishReload = useGameStore((s) => s.finishReload)
   const addPlank = useGameStore((s) => s.addPlank)
+  const upgradePlanks = useGameStore((s) => s.upgradePlanks)
   const skipIntermission = useGameStore((s) => s.skipIntermission)
   const setNearWindowId = useGameStore((s) => s.setNearWindowId)
   const setBoardingProgress = useGameStore((s) => s.setBoardingProgress)
@@ -36,9 +37,13 @@ export default function Player() {
   const setNearChest = useGameStore((s) => s.setNearChest)
   const shopOpen = useGameStore((s) => s.shopOpen)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
+  const windowPlankStrong = useGameStore((s) => s.windowPlankStrong)
+  const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const walls = useGameStore((s) => s.walls)
   const wallsRef = useRef(walls)
   const windowPlanksRef = useRef(windowPlanks)
+  const windowPlankStrongRef = useRef(windowPlankStrong)
+  const strongPlanksModeRef = useRef(strongPlanksMode)
   const prevNearWindowRef = useRef(-1)
   const boardTimerRef = useRef(0)
   const boardingWindowRef = useRef(-1)
@@ -64,6 +69,8 @@ export default function Player() {
 
   useEffect(() => { wallsRef.current = walls }, [walls])
   useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
+  useEffect(() => { windowPlankStrongRef.current = windowPlankStrong }, [windowPlankStrong])
+  useEffect(() => { strongPlanksModeRef.current = strongPlanksMode }, [strongPlanksMode])
   useEffect(() => { weaponRef.current = weapon }, [weapon])
 
   useEffect(() => {
@@ -242,16 +249,20 @@ export default function Player() {
       }
     }
 
-    // Hold E to board window (2 seconds per plank)
+    // Hold E to board or upgrade window planks (2 seconds)
     {
       const BOARD_TIME = 2.0
       const nearId = prevNearWindowRef.current
       const eHeld = keys.current['KeyE']
-      const canBoard = eHeld && nearId >= 0 && (windowPlanksRef.current[nearId] ?? 0) < 2 && !nearChestRef.current
+      const plankCount = windowPlanksRef.current[nearId] ?? 0
+      const isStrong = windowPlankStrongRef.current[nearId] ?? false
+      const strongMode = strongPlanksModeRef.current
+      const canAddPlank = plankCount < 2
+      const canUpgrade = strongMode && plankCount > 0 && !isStrong
+      const canBoard = eHeld && nearId >= 0 && (canAddPlank || canUpgrade) && !nearChestRef.current
 
       if (canBoard) {
         if (boardingWindowRef.current !== nearId) {
-          // Switched to a different window — reset timer
           boardingWindowRef.current = nearId
           boardTimerRef.current = 0
         }
@@ -259,7 +270,8 @@ export default function Player() {
         const progress = Math.min(boardTimerRef.current / BOARD_TIME, 1)
         setBoardingProgress(progress)
         if (boardTimerRef.current >= BOARD_TIME) {
-          addPlank(nearId)
+          if (canAddPlank) addPlank(nearId)
+          else upgradePlanks(nearId)
           boardTimerRef.current = 0
           setBoardingProgress(0)
         }
