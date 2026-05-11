@@ -317,16 +317,16 @@ export default function ZombieComponent({ id, startX, startZ }) {
         <meshStandardMaterial color={skullBone} roughness={0.85} />
       </mesh>
       {/* Dome rings — 3 steps to round the crown */}
-      <mesh position={[0, 0.976, -0.008]} userData={{ zombieId: id, isHead: true }}>
-        <boxGeometry args={[0.268, 0.052, 0.244]} />
+      <mesh position={[0, 0.963, -0.008]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.268, 0.026, 0.244]} />
         <meshStandardMaterial color={skullBone} roughness={0.84} />
       </mesh>
-      <mesh position={[0, 1.026, -0.011]} userData={{ zombieId: id, isHead: true }}>
-        <boxGeometry args={[0.194, 0.048, 0.173]} />
+      <mesh position={[0, 0.989, -0.010]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.194, 0.024, 0.173]} />
         <meshStandardMaterial color={skullBone} roughness={0.83} />
       </mesh>
-      <mesh position={[0, 1.072, -0.010]} userData={{ zombieId: id, isHead: true }}>
-        <boxGeometry args={[0.130, 0.042, 0.113]} />
+      <mesh position={[0, 1.013, -0.009]} userData={{ zombieId: id, isHead: true }}>
+        <boxGeometry args={[0.130, 0.022, 0.113]} />
         <meshStandardMaterial color={skullBone} roughness={0.83} />
       </mesh>
       {/* Occipital bump — back of skull */}
