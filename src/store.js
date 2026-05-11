@@ -135,10 +135,14 @@ export const useGameStore = create((set, get) => ({
       const remaining = zombies.filter((z) => z.id !== id)
       const newKills = kills + 1
       const newWaveKills = waveKills + 1
-      const waveOver = remaining.length === 0 && pendingSpawns.length === 0
+      // Immediately slot in the next pending zombie so the active count stays at the cap
+      const nextPending = pendingSpawns.length > 0 ? pendingSpawns[0] : null
+      const newZombies = nextPending ? [...remaining, nextPending] : remaining
+      const newPending = nextPending ? pendingSpawns.slice(1) : pendingSpawns
+      const waveOver = newZombies.length === 0 && newPending.length === 0
       set(waveOver
-        ? { zombies: remaining, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
-        : { zombies: remaining, kills: newKills, waveKills: newWaveKills }
+        ? { zombies: newZombies, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
+        : { zombies: newZombies, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills }
       )
       return true
     } else {
@@ -153,21 +157,17 @@ export const useGameStore = create((set, get) => ({
       const next = intermissionLeft - delta
       if (next <= 0) {
         const all = spawnZombies(wave, nextId)
+        const cap = Math.min(25, all.length)
         set({
           phase: 'playing',
           intermissionLeft: 0,
-          zombies: all.slice(0, 10),
-          pendingSpawns: all.slice(10),
+          zombies: all.slice(0, cap),
+          pendingSpawns: all.slice(cap),
           nextId: nextId + all.length,
         })
       } else {
         set({ intermissionLeft: next })
       }
-    } else if (phase === 'playing' && pendingSpawns.length > 0) {
-      set({
-        zombies: [...zombies, ...pendingSpawns.slice(0, 10)],
-        pendingSpawns: pendingSpawns.slice(10),
-      })
     }
   },
 
