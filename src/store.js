@@ -59,7 +59,7 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
-      money: 5000,
+      money: 10,
       weapon: 'pistol',
       shopOpen: false,
       walls,
