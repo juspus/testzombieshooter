@@ -96,6 +96,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const stepTimerRef    = useRef(Math.random() * 0.6)
   const isAggressorRef  = useRef(Math.random() < 0.2)
   const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
+  const isAttackingRef  = useRef(false)
   const leftLegRef      = useRef()
   const rightLegRef     = useRef()
   const leftArmRef      = useRef()
@@ -243,14 +244,15 @@ export default function ZombieComponent({ id, startX, startZ }) {
       const dist = Math.sqrt(dx * dx + dz * dz)
       ref.current.lookAt(win.winX, pos.y, win.winZ)
       if (dist <= ATTACK_RANGE) {
+        isAttackingRef.current = true
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
           hitPlank(win.id)
           playPlankHit()
         }
-        // Stay put while attacking
       } else {
+        isAttackingRef.current = false
         const tx = win.ax, tz = win.az
         const tdx = tx - pos.x, tdz = tz - pos.z
         const tdist = Math.sqrt(tdx * tdx + tdz * tdz)
@@ -286,13 +288,24 @@ export default function ZombieComponent({ id, startX, startZ }) {
       }
     }
 
-    // Walking animation
-    if (moveDir) walkCycleRef.current += delta * 4.0
-    const t = walkCycleRef.current
-    if (leftLegRef.current)  leftLegRef.current.rotation.x  =  Math.sin(t) * 0.32
-    if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(t) * 0.32
-    if (leftArmRef.current)  leftArmRef.current.rotation.x  = -Math.sin(t) * 0.20
-    if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
+    // Animation
+    if (isAttackingRef.current) {
+      // Both arms pound forward together in sync with the attack timer
+      const phase = 1.0 - attackTimerRef.current / ATTACK_INTERVAL
+      const strike = Math.sin(phase * Math.PI) * 0.70
+      if (leftArmRef.current)  leftArmRef.current.rotation.x  = -strike - 0.30
+      if (rightArmRef.current) rightArmRef.current.rotation.x = -strike - 0.30
+      if (leftLegRef.current)  leftLegRef.current.rotation.x  = 0
+      if (rightLegRef.current) rightLegRef.current.rotation.x = 0
+    } else {
+      isAttackingRef.current = false
+      if (moveDir) walkCycleRef.current += delta * 4.0
+      const t = walkCycleRef.current
+      if (leftLegRef.current)  leftLegRef.current.rotation.x  =  Math.sin(t) * 0.32
+      if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(t) * 0.32
+      if (leftArmRef.current)  leftArmRef.current.rotation.x  = -Math.sin(t) * 0.20
+      if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
+    }
 
     const dx = px - pos.x, dz = pz - pos.z
     if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
