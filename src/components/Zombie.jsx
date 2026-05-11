@@ -12,7 +12,7 @@ const ARENA_BOUND = 18.5
 const KILL_DISTANCE = 1.2
 const PATH_INTERVAL = 0.12   // seconds between A* recalculations
 const WAYPOINT_REACH = 0.6   // distance to advance to next waypoint
-const ATTACK_RANGE = 1.0     // distance to window attack position to start hitting
+const ATTACK_RANGE = 1.8     // distance to window center to start hitting
 const ATTACK_INTERVAL = 1.0  // seconds between plank hits
 
 // Module-level registry so Player can push holes into any zombie instance
@@ -178,7 +178,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
     // Check if attack zombie has reached its strike position
     if (isAttackMode) {
       const win = WINDOW_DEFS[targetWindowRef.current]
-      const dx = win.ax - pos.x, dz = win.az - pos.z
+      const dx = win.winX - pos.x, dz = win.winZ - pos.z
       const dist = Math.sqrt(dx * dx + dz * dz)
       if (dist <= ATTACK_RANGE) {
         attackTimerRef.current -= delta
@@ -213,7 +213,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
       const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + moveDir.x * step))
       const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + moveDir.z * step))
 
-      const R = 0.28
+      const R = 0.20
       if (!isBlockedRadius(nx, nz, R)) {
         pos.x = nx
         pos.z = nz
