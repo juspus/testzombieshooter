@@ -9,7 +9,7 @@ import * as THREE from 'three'
 
 const ZOMBIE_HEIGHT = 1.8
 const ARENA_BOUND = 18.5
-const ZOMBIE_R = 0.38             // physical collision radius
+const ZOMBIE_R = 0.30             // physical collision radius
 const KILL_DISTANCE = 1.2
 const PATH_INTERVAL = 0.12        // seconds between A* recalculations
 const WAYPOINT_REACH = 0.6        // distance to advance to next waypoint
