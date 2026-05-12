@@ -49,7 +49,7 @@ const RUG1    = '#2a0808'   // Rug dark red
 const RUG2    = '#180808'   // Rug almost black
 const COBWEB  = '#1c1c18'   // Dusty cobweb strands
 
-function Box({ position, args, color, roughness = 0.95, metalness = 0, castShadow = false, receiveShadow = false, rotation, emissive, emissiveIntensity = 0 }) {
+function Box({ position, args, color, roughness = 0.95, metalness = 0, castShadow = true, receiveShadow = true, rotation, emissive, emissiveIntensity = 0 }) {
   return (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow} rotation={rotation}>
       <boxGeometry args={args} />
@@ -153,7 +153,7 @@ function BarricadedDoor() {
       <Box position={[x + 0.10, 1.82, cz]} args={[0.05, 0.14, dW - 0.06]} color={WOOD2} />
 
       {/* ── Z-brace diagonal batten ────────────────────────────────── */}
-      <mesh position={[x + 0.10, dH / 2, cz]} rotation={[Math.atan2(dH, dW), 0, 0]}>
+      <mesh position={[x + 0.10, dH / 2, cz]} rotation={[Math.atan2(dH, dW), 0, 0]} castShadow>
         <boxGeometry args={[0.05, Math.hypot(dH, dW) - 0.1, 0.07]} />
         <meshStandardMaterial color={WOOD2} roughness={0.98} />
       </mesh>
@@ -163,27 +163,27 @@ function BarricadedDoor() {
       <Box position={[x + 0.10, 1.78, cz - hw + 0.26]} args={[0.04, 0.07, 0.52]} color={METAL} metalness={0.4} roughness={0.7} />
 
       {/* ── Door handle / knob ──────────────────────────────────────── */}
-      <mesh position={[x + 0.13, dH * 0.46, cz + hw - 0.30]} rotation={[0, 0, Math.PI / 2]}>
+      <mesh position={[x + 0.13, dH * 0.46, cz + hw - 0.30]} rotation={[0, 0, Math.PI / 2]} castShadow>
         <cylinderGeometry args={[0.026, 0.026, 0.14, 6]} />
         <meshStandardMaterial color={METAL} roughness={0.45} metalness={0.55} />
       </mesh>
       <Box position={[x + 0.13, dH * 0.46, cz + hw - 0.20]} args={[0.04, 0.08, 0.06]} color={METAL} metalness={0.5} roughness={0.5} />
 
       {/* ── Barricade — diagonal boards nailed over the door ───────── */}
-      <mesh position={[x - 0.01, WH * 0.42, cz]} rotation={[ 0.55, 0, 0]}>
+      <mesh position={[x - 0.01, WH * 0.42, cz]} rotation={[ 0.55, 0, 0]} castShadow>
         <boxGeometry args={[0.07, hw * 2.8, 0.10]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
-      <mesh position={[x - 0.03, WH * 0.42, cz]} rotation={[-0.55, 0, 0]}>
+      <mesh position={[x - 0.03, WH * 0.42, cz]} rotation={[-0.55, 0, 0]} castShadow>
         <boxGeometry args={[0.07, hw * 2.8, 0.10]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
       {/* Horizontal braces */}
-      <mesh position={[x - 0.02, WH * 0.28, cz]}>
+      <mesh position={[x - 0.02, WH * 0.28, cz]} castShadow>
         <boxGeometry args={[0.07, 0.10, hw * 2.2]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
-      <mesh position={[x - 0.02, WH * 0.62, cz]}>
+      <mesh position={[x - 0.02, WH * 0.62, cz]} castShadow>
         <boxGeometry args={[0.07, 0.10, hw * 2.2]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
@@ -266,19 +266,19 @@ function CeilingBeams() {
     <group>
       {/* Main room — beams run E-W (along X), spaced in Z */}
       {[-8, -4.5, -1, 2.5, 6, 9.5].map((z) => (
-        <Box key={z} position={[3.5, y, z]} args={[11, bh, bd]} color={BEAM} roughness={1} />
+        <Box key={z} position={[3.5, y, z]} args={[11, bh, bd]} color={BEAM} roughness={1} castShadow />
       ))}
       {/* Bedroom — beams run E-W */}
       {[-8.5, -6.5].map((z) => (
-        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} />
+        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
       ))}
       {/* Hall — beams run E-W */}
       {[-1.5, 1.5, 4].map((z) => (
-        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} />
+        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
       ))}
       {/* Kitchen — beams run E-W */}
       {[6.5, 8.5].map((z) => (
-        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} />
+        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
       ))}
     </group>
   )
@@ -367,15 +367,15 @@ function Fireplace() {
       <Box position={[fx, 0.24, fzW + 0.14]} args={[1.5, 0.04, 0.34]} color={ASH} roughness={1} />
 
       {/* Logs */}
-      <mesh position={[fx - 0.22, 0.32, fzW + 0.14]} rotation={[0, 0.4, 0]}>
+      <mesh position={[fx - 0.22, 0.32, fzW + 0.14]} rotation={[0, 0.4, 0]} castShadow>
         <cylinderGeometry args={[0.075, 0.075, 1.1, 5]} />
         <meshStandardMaterial color="#0e0400" roughness={1} />
       </mesh>
-      <mesh position={[fx + 0.18, 0.28, fzW + 0.16]} rotation={[0, -0.3, 0]}>
+      <mesh position={[fx + 0.18, 0.28, fzW + 0.16]} rotation={[0, -0.3, 0]} castShadow>
         <cylinderGeometry args={[0.065, 0.065, 1.0, 5]} />
         <meshStandardMaterial color="#0a0300" roughness={1} />
       </mesh>
-      <mesh position={[fx, 0.38, fzW + 0.10]} rotation={[0, 0, 0]}>
+      <mesh position={[fx, 0.38, fzW + 0.10]} rotation={[0, 0, 0]} castShadow>
         <cylinderGeometry args={[0.055, 0.055, 1.0, 5]} />
         <meshStandardMaterial color="#0c0400" roughness={1} />
       </mesh>
@@ -397,7 +397,7 @@ function Fireplace() {
       <MantelClock position={[fx - 0.15, 2.72, fzW + 0.4]} />
 
       {/* Firelight */}
-      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} />
+      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} castShadow />
       <pointLight position={[fx, 0.3, fzW + 0.2]} color="#ff2200" intensity={8}  distance={6}  decay={2} />
     </group>
   )
@@ -708,11 +708,11 @@ function WoodStove({ position }) {
         <meshStandardMaterial color="#141210" roughness={0.8} metalness={0.3} />
       </mesh>
       {/* Kettle on top */}
-      <mesh position={[0.12, 0.98, 0.05]}>
+      <mesh position={[0.12, 0.98, 0.05]} castShadow>
         <cylinderGeometry args={[0.09, 0.10, 0.16, 8]} />
         <meshStandardMaterial color={COPPER} roughness={0.7} metalness={0.3} />
       </mesh>
-      <mesh position={[0.12, 1.07, 0.05]}>
+      <mesh position={[0.12, 1.07, 0.05]} castShadow>
         <cylinderGeometry args={[0.055, 0.055, 0.06, 8]} />
         <meshStandardMaterial color={COPPER} roughness={0.7} metalness={0.3} />
       </mesh>
@@ -749,11 +749,11 @@ function Chest() {
   const x = CHEST_POS.x, z = CHEST_POS.z
   return (
     <group position={[x, 0, z]}>
-      <mesh position={[0, 0.22, 0]} receiveShadow>
+      <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.9, 0.44, 0.55]} />
         <meshStandardMaterial color="#2a1408" roughness={0.95} />
       </mesh>
-      <mesh position={[0, 0.49, -0.04]}>
+      <mesh position={[0, 0.49, -0.04]} castShadow>
         <boxGeometry args={[0.9, 0.13, 0.5]} />
         <meshStandardMaterial color="#361a0a" roughness={0.9} />
       </mesh>
@@ -1020,11 +1020,11 @@ export default function Arena() {
       <KitchenTable position={[-4.5, 0, 7.5]} />
       <WallLantern position={[-HW + WT, 1.8, 7.5]} rotation={[0, Math.PI / 2, 0]} />
       {/* Hanging pots */}
-      <mesh position={[-5.5, WH - 0.45, 6.5]}>
+      <mesh position={[-5.5, WH - 0.45, 6.5]} castShadow>
         <cylinderGeometry args={[0.10, 0.12, 0.20, 7]} />
         <meshStandardMaterial color={COPPER} roughness={0.8} metalness={0.2} />
       </mesh>
-      <mesh position={[-7, WH - 0.45, 7]}>
+      <mesh position={[-7, WH - 0.45, 7]} castShadow>
         <cylinderGeometry args={[0.08, 0.10, 0.16, 7]} />
         <meshStandardMaterial color={COPPER} roughness={0.8} metalness={0.2} />
       </mesh>
