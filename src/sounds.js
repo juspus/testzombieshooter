@@ -294,6 +294,42 @@ export function playShellThonk() {
   osc.stop(t + 0.11)
 }
 
+export function playKnifeSwing() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Blade whoosh — bandpass noise sweeping upward then decaying
+  const buf = noiseBuffer(ac, 0.20)
+  const src = ac.createBufferSource()
+  src.buffer = buf
+  const filt = ac.createBiquadFilter()
+  filt.type = 'bandpass'
+  filt.frequency.setValueAtTime(600, t)
+  filt.frequency.exponentialRampToValueAtTime(3200, t + 0.08)
+  filt.frequency.exponentialRampToValueAtTime(500, t + 0.20)
+  filt.Q.value = 2.5
+  const gain = ac.createGain()
+  gain.gain.setValueAtTime(0.45, t)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22)
+  src.connect(filt)
+  filt.connect(gain)
+  gain.connect(ac.destination)
+  src.start(t)
+  src.stop(t + 0.22)
+
+  // Metallic blade ring — thin high oscillator
+  const osc = ac.createOscillator()
+  osc.frequency.setValueAtTime(3800, t + 0.04)
+  osc.frequency.exponentialRampToValueAtTime(1600, t + 0.18)
+  const ringGain = ac.createGain()
+  ringGain.gain.setValueAtTime(0.07, t + 0.04)
+  ringGain.gain.exponentialRampToValueAtTime(0.001, t + 0.20)
+  osc.connect(ringGain)
+  ringGain.connect(ac.destination)
+  osc.start(t + 0.04)
+  osc.stop(t + 0.20)
+}
+
 // ─── background music ────────────────────────────────────────────────────────
 
 let _masterGain = null

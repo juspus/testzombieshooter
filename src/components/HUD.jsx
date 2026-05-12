@@ -1,5 +1,7 @@
 import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
 
+const KNIFE_COOLDOWN = 0.8
+
 
 export default function HUD() {
   const wave = useGameStore((s) => s.wave)
@@ -16,6 +18,8 @@ export default function HUD() {
   const boardingProgress = useGameStore((s) => s.boardingProgress)
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
+  const activeItem = useGameStore((s) => s.activeItem)
+  const knifeCooldown = useGameStore((s) => s.knifeCooldown)
   const nearChest = useGameStore((s) => s.nearChest)
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
@@ -51,30 +55,54 @@ export default function HUD() {
         </div>
       </div>
 
-      {/* Ammo — bottom right */}
-      <div style={styles.ammoBox}>
-        <div style={styles.weaponLabel}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
-        {isReloading ? (
-          <div style={styles.reloading}>RELOADING…</div>
-        ) : (
-          <div style={{
-            ...styles.ammoCount,
-            color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
-          }}>
-            {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
-          </div>
-        )}
-        <div style={styles.reloadHint}>R — reload</div>
-        {/* Bullet pip row */}
-        <div style={{ ...styles.pips, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
-          {Array.from({ length: clipSize }).map((_, i) => (
-            <div key={i} style={{
-              ...styles.pip,
-              background: i < bulletsInClip ? '#ffe066' : '#333',
-            }} />
-          ))}
+      {/* Weapon info — bottom right */}
+      {activeItem === 'knife' ? (
+        <div style={styles.ammoBox}>
+          <div style={styles.weaponLabel}>KNIFE</div>
+          {knifeCooldown > 0 ? (
+            <>
+              <div style={{ ...styles.ammoCount, color: '#ff6600', fontSize: 20, letterSpacing: 3 }}>
+                COOLDOWN
+              </div>
+              <div style={styles.cooldownTrack}>
+                <div style={{
+                  ...styles.cooldownFill,
+                  width: `${((KNIFE_COOLDOWN - knifeCooldown) / KNIFE_COOLDOWN) * 100}%`,
+                }} />
+              </div>
+            </>
+          ) : (
+            <div style={{ ...styles.ammoCount, color: '#00ff88', fontSize: 20, letterSpacing: 3 }}>
+              READY
+            </div>
+          )}
+          <div style={styles.reloadHint}>Q — switch to gun</div>
         </div>
-      </div>
+      ) : (
+        <div style={styles.ammoBox}>
+          <div style={styles.weaponLabel}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
+          {isReloading ? (
+            <div style={styles.reloading}>RELOADING…</div>
+          ) : (
+            <div style={{
+              ...styles.ammoCount,
+              color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
+            }}>
+              {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
+            </div>
+          )}
+          <div style={styles.reloadHint}>R — reload · Q — knife</div>
+          {/* Bullet pip row */}
+          <div style={{ ...styles.pips, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
+            {Array.from({ length: clipSize }).map((_, i) => (
+              <div key={i} style={{
+                ...styles.pip,
+                background: i < bulletsInClip ? '#ffe066' : '#333',
+              }} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Chest prompt */}
       {nearChest && !showBoardPrompt && (
@@ -281,5 +309,19 @@ const styles = {
     height: 14,
     borderRadius: 2,
     transition: 'background 0.1s',
+  },
+  cooldownTrack: {
+    width: 100,
+    height: 6,
+    background: 'rgba(255,255,255,0.12)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginTop: 6,
+  },
+  cooldownFill: {
+    height: '100%',
+    background: '#ff6600',
+    borderRadius: 3,
+    transition: 'width 0.05s linear',
   },
 }
