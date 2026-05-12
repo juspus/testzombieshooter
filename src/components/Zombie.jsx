@@ -28,6 +28,9 @@ const WAYPOINT_REACH = 0.6        // distance to advance to next waypoint
 const ATTACK_RANGE = 1.8          // distance to window face to start hitting
 const ATTACK_INTERVAL = 2.0       // seconds between plank hits
 
+// Reused movement direction vector — set and consumed within a single zombie's useFrame
+const _moveDir = new THREE.Vector3()
+
 // Module-level registry so Player can push holes into any zombie instance
 const _holeAdders = {}
 // Position registry so zombies can compare distances to windows
@@ -158,11 +161,11 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
       const dx = wp.x - pos.x, dz = wp.z - pos.z
       const dist = Math.sqrt(dx * dx + dz * dz)
       if (dist < WAYPOINT_REACH) { wpIdxRef.current++; return null }
-      return new THREE.Vector3(dx / dist, 0, dz / dist)
+      return _moveDir.set(dx / dist, 0, dz / dist)
     }
     const dx = fallbackX - pos.x, dz = fallbackZ - pos.z
     const dist = Math.sqrt(dx * dx + dz * dz)
-    return dist > 0.01 ? new THREE.Vector3(dx / dist, 0, dz / dist) : null
+    return dist > 0.01 ? _moveDir.set(dx / dist, 0, dz / dist) : null
   }
 
   useFrame((_, delta) => {
@@ -270,7 +273,7 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
         const tdx = tx - pos.x, tdz = tz - pos.z
         const tdist = Math.sqrt(tdx * tdx + tdz * tdz)
         if (hasDirectPath(pos.x, pos.z, tx, tz, zombieWallsRef.current)) {
-          if (tdist > 0.01) moveDir = new THREE.Vector3(tdx / tdist, 0, tdz / tdist)
+          if (tdist > 0.01) moveDir = _moveDir.set(tdx / tdist, 0, tdz / tdist)
         } else {
           moveDir = followPath(pos, tx, tz)
         }
@@ -280,7 +283,7 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
       if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
         const dx = px - pos.x, dz = pz - pos.z
         const dist = Math.sqrt(dx * dx + dz * dz)
-        if (dist > 0.01) moveDir = new THREE.Vector3(dx / dist, 0, dz / dist)
+        if (dist > 0.01) moveDir = _moveDir.set(dx / dist, 0, dz / dist)
       } else {
         moveDir = followPath(pos, px, pz)
       }
