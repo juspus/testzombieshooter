@@ -27,14 +27,6 @@ const WAVE_REWARD = 15
 const ZOMBIE_KILL_REWARD = 1
 export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
-// Non-reactive timers — changing these never triggers a re-render.
-// _spawnCooldown: set to ~0.35s after a kill so the replacement zombie mounts
-//   in a later frame rather than the same frame as the unmount.
-// _periodicTimer: independently spawns one pending zombie every 6s so the
-//   active count keeps climbing even if the player isn't shooting.
-let _spawnCooldown = Infinity
-let _periodicTimer  = 6.0
-
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
@@ -144,13 +136,14 @@ export const useGameStore = create((set, get) => ({
       const remaining = zombies.filter((z) => z.id !== id)
       const newKills = kills + 1
       const newWaveKills = waveKills + 1
-      const waveOver = remaining.length === 0 && pendingSpawns.length === 0
-      // Arm the cooldown so the next pending zombie mounts ~300ms from now
-      // (after this zombie's Three.js cleanup has finished) rather than this frame.
-      if (!waveOver && pendingSpawns.length > 0) _spawnCooldown = 0.30
+      // Immediately slot in the next pending zombie so the active count stays at the cap
+      const nextPending = pendingSpawns.length > 0 ? pendingSpawns[0] : null
+      const newZombies = nextPending ? [...remaining, nextPending] : remaining
+      const newPending = nextPending ? pendingSpawns.slice(1) : pendingSpawns
+      const waveOver = newZombies.length === 0 && newPending.length === 0
       set(waveOver
-        ? { zombies: remaining, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
-        : { zombies: remaining, kills: newKills, waveKills: newWaveKills }
+        ? { zombies: newZombies, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
+        : { zombies: newZombies, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills }
       )
       return true
     } else {
@@ -165,9 +158,7 @@ export const useGameStore = create((set, get) => ({
       const next = intermissionLeft - delta
       if (next <= 0) {
         const all = spawnZombies(wave, nextId)
-        const cap = Math.min(5, all.length)
-        _spawnCooldown = Infinity
-        _periodicTimer  = 6.0
+        const cap = Math.min(25, all.length)
         set({
           phase: 'playing',
           intermissionLeft: 0,
@@ -177,18 +168,6 @@ export const useGameStore = create((set, get) => ({
         })
       } else {
         set({ intermissionLeft: next })
-      }
-    }
-    // Drip pending zombies into the active list one at a time so mount cost
-    // is spread across frames rather than stacked.
-    if (phase === 'playing' && pendingSpawns.length > 0) {
-      _spawnCooldown -= delta
-      _periodicTimer  -= delta
-      if (_spawnCooldown <= 0 || _periodicTimer <= 0) {
-        const next = pendingSpawns[0]
-        set({ zombies: [...zombies, next], pendingSpawns: pendingSpawns.slice(1) })
-        _spawnCooldown = Infinity  // re-armed by next kill
-        _periodicTimer  = 6.0
       }
     }
   },
