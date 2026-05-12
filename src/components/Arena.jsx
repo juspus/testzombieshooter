@@ -360,8 +360,8 @@ function Fireplace() {
       <MantelClock position={[fx - 0.15, 2.72, fzW + 0.4]} />
 
       {/* Firelight */}
-      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff3a00" intensity={20} distance={14} decay={2} castShadow />
-      <pointLight position={[fx, 0.3, fzW + 0.2]} color="#ff1a00" intensity={5} distance={4} decay={2} />
+      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} castShadow />
+      <pointLight position={[fx, 0.3, fzW + 0.2]} color="#ff2200" intensity={8}  distance={6}  decay={2} />
     </group>
   )
 }
@@ -383,7 +383,7 @@ function Candle({ position }) {
         <boxGeometry args={[0.02, 0.03, 0.02]} />
         <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={3} roughness={1} />
       </mesh>
-      <pointLight position={[0, 0.22, 0]} color="#ff8800" intensity={1.2} distance={3.5} decay={2} />
+      <pointLight position={[0, 0.22, 0]} color="#ff9900" intensity={2.5} distance={5} decay={2} />
     </group>
   )
 }
@@ -680,7 +680,7 @@ function WoodStove({ position }) {
         <meshStandardMaterial color={COPPER} roughness={0.7} metalness={0.3} />
       </mesh>
       {/* Warm glow from stove */}
-      <pointLight position={[0, 0.5, 0.3]} color="#ff5500" intensity={3} distance={6} decay={2} />
+      <pointLight position={[0, 0.5, 0.3]} color="#ff6600" intensity={6} distance={10} decay={2} />
     </group>
   )
 }
@@ -751,7 +751,7 @@ function WallLantern({ position, rotation }) {
       <Box position={[0, 0, 0.30]} args={[0.13, 0.16, 0.13]} color="#2a1a04" roughness={0.3} />
       {/* Flame */}
       <Box position={[0, 0.02, 0.28]} args={[0.04, 0.06, 0.04]} color="#ffaa00" emissive="#ffaa00" emissiveIntensity={2} castShadow={false} />
-      <pointLight position={[0, 0, 0.32]} color="#ff8800" intensity={3} distance={7} decay={2} />
+      <pointLight position={[0, 0, 0.32]} color="#ff9900" intensity={5} distance={10} decay={2} />
     </group>
   )
 }
@@ -895,16 +895,19 @@ export default function Arena() {
   return (
     <group>
       {/* ── Lighting ─────────────────────────────────────────────────────── */}
-      <ambientLight intensity={0.10} />
+      <ambientLight intensity={0.35} />
       {/* Fireplace is the dominant light source */}
       {/* (pointLights are inside Fireplace component) */}
+      {/* Main room fill — warm overhead */}
+      <pointLight position={[3.5, WH - 0.5, 0]} color="#ffcc88" intensity={10} distance={18} decay={2} />
       {/* Hall lantern */}
-      <pointLight position={[-5.5, WH - 0.6, 0.5]} color="#ff7700" intensity={6} distance={9} decay={2} />
-      {/* Bedroom candle glow */}
-      <pointLight position={[-5.5, 1.2, -7]}      color="#ff8800" intensity={2.5} distance={6} decay={2} />
-      {/* Kitchen stove glow handled inside WoodStove */}
+      <pointLight position={[-5.5, WH - 0.6, 0.5]} color="#ffaa55" intensity={12} distance={14} decay={2} />
+      {/* Bedroom */}
+      <pointLight position={[-5.5, 1.8, -7]}      color="#ffaa66" intensity={8}  distance={10} decay={2} />
+      {/* Kitchen stove glow handled inside WoodStove; extra fill: */}
+      <pointLight position={[-5.5, WH - 0.5, 7.5]} color="#ffaa55" intensity={8}  distance={10} decay={2} />
       {/* Chest glow */}
-      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={3} distance={6} decay={2} />
+      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
 
       {/* ── Floor ────────────────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
