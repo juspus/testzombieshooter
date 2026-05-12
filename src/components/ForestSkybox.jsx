@@ -36,7 +36,7 @@ function buildForestTexture() {
   ctx.fillStyle = '#06090c'
   ctx.fillRect(0, 0, W, H)
 
-  const rng = seeded(0xf0rest)
+  const rng = seeded(0xf04e57)
   const BASE_Y = H * 0.68
 
   // Far layer — darker, smaller; drawn first (behind)
