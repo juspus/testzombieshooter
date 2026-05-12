@@ -416,11 +416,11 @@ function Candle({ position }) {
         <cylinderGeometry args={[0.003, 0.005, 0.07, 4]} />
         <meshStandardMaterial color="#111" roughness={1} />
       </mesh>
+      {/* Emissive flame — no per-candle pointLight to keep total light count low */}
       <mesh position={[0, 0.12, 0]}>
         <boxGeometry args={[0.02, 0.03, 0.02]} />
-        <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={3} roughness={1} />
+        <meshStandardMaterial color="#ffaa00" emissive="#ffaa00" emissiveIntensity={4} roughness={1} />
       </mesh>
-      <pointLight position={[0, 0.22, 0]} color="#ff9900" intensity={2.5} distance={5} decay={2} />
     </group>
   )
 }
@@ -716,8 +716,7 @@ function WoodStove({ position }) {
         <cylinderGeometry args={[0.055, 0.055, 0.06, 8]} />
         <meshStandardMaterial color={COPPER} roughness={0.7} metalness={0.3} />
       </mesh>
-      {/* Warm glow from stove */}
-      <pointLight position={[0, 0.5, 0.3]} color="#ff6600" intensity={6} distance={10} decay={2} />
+      {/* Stove firebox emissive — no pointLight (kept scene light count low) */}
     </group>
   )
 }
@@ -770,7 +769,6 @@ function Chest() {
         <boxGeometry args={[0.13, 0.11, 0.04]} />
         <meshStandardMaterial color="#555" metalness={0.8} roughness={0.3} />
       </mesh>
-      <pointLight position={[0, 0.8, 0]} color="#ffcc66" intensity={3} distance={5} />
     </group>
   )
 }
@@ -786,9 +784,8 @@ function WallLantern({ position, rotation }) {
       <Box position={[0, 0, 0.28]} args={[0.18, 0.22, 0.18]} color="#1e1810" roughness={0.7} />
       {/* Glass panes (dark amber) */}
       <Box position={[0, 0, 0.30]} args={[0.13, 0.16, 0.13]} color="#2a1a04" roughness={0.3} />
-      {/* Flame */}
-      <Box position={[0, 0.02, 0.28]} args={[0.04, 0.06, 0.04]} color="#ffaa00" emissive="#ffaa00" emissiveIntensity={2} castShadow={false} />
-      <pointLight position={[0, 0, 0.32]} color="#ff9900" intensity={5} distance={10} decay={2} />
+      {/* Emissive flame — no per-lantern pointLight */}
+      <Box position={[0, 0.02, 0.28]} args={[0.04, 0.06, 0.04]} color="#ffaa00" emissive="#ffaa00" emissiveIntensity={4} castShadow={false} />
     </group>
   )
 }
@@ -935,25 +932,24 @@ export default function Arena() {
       <ambientLight intensity={0.55} color="#c8d8f0" />
       {/* Moonlight — cool directional from upper-left */}
       <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} castShadow
-        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+        shadow-mapSize-width={1024} shadow-mapSize-height={1024}
         shadow-camera-near={1} shadow-camera-far={80}
         shadow-camera-left={-30} shadow-camera-right={30}
         shadow-camera-top={30} shadow-camera-bottom={-30}
       />
       {/* Hemisphere sky/ground fill */}
       <hemisphereLight skyColor="#3a5080" groundColor="#0a1808" intensity={0.4} />
-      {/* Fireplace is the dominant interior light source */}
-      {/* (pointLights are inside Fireplace component) */}
-      {/* Main room fill — warm overhead */}
-      <pointLight position={[3.5, WH - 0.5, 0]} color="#ffcc88" intensity={12} distance={22} decay={2} />
-      {/* Hall lantern */}
-      <pointLight position={[-5.5, WH - 0.6, 0.5]} color="#ffaa55" intensity={14} distance={16} decay={2} />
-      {/* Bedroom */}
-      <pointLight position={[-5.5, 1.8, -7]}      color="#ffaa66" intensity={10} distance={12} decay={2} />
-      {/* Kitchen stove glow handled inside WoodStove; extra fill: */}
-      <pointLight position={[-5.5, WH - 0.5, 7.5]} color="#ffaa55" intensity={10} distance={12} decay={2} />
+      {/* ── Scene point lights — kept to a minimum to avoid shader recompilation
+           stutter when zombie materials mount.  Per-candle/lantern lights removed;
+           these four fills + the two fireplace lights cover all four rooms.      ── */}
+      {/* Main room warm fill */}
+      <pointLight position={[3.5, WH - 0.5,  0]}  color="#ffcc88" intensity={14} distance={24} decay={2} />
+      {/* West rooms fill (bedroom / hall / kitchen share one broad light) */}
+      <pointLight position={[-5.5, WH - 0.5, -7]}  color="#ffaa66" intensity={12} distance={14} decay={2} />
+      <pointLight position={[-5.5, WH - 0.5,  0.5]} color="#ffaa55" intensity={12} distance={14} decay={2} />
+      <pointLight position={[-5.5, WH - 0.5,  7.5]} color="#ffaa55" intensity={10} distance={12} decay={2} />
       {/* Chest glow */}
-      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5}  distance={8}  decay={2} />
+      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
 
       {/* ── Floor ────────────────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
