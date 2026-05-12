@@ -8,6 +8,7 @@ import Gun from './Gun'
 import ZombieManager from './ZombieManager'
 import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
+import ForestSkybox from './ForestSkybox'
 import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
@@ -34,13 +35,14 @@ export default function Game() {
   }, [inGame])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#06090c' }}>
       <Canvas
         shadows
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%' }}
       >
-        <fog attach="fog" args={['#0a0a0a', 10, 40]} />
+        <fog attach="fog" args={['#0a1209', 10, 28]} />
+        <ForestSkybox />
         <Arena />
         <Player />
         <Gun />
