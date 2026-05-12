@@ -3,7 +3,7 @@
 export const CABIN_HW  = 9        // X: ±9  (width = 18)
 export const CABIN_HD  = 10       // Z: ±10 (depth = 20)
 export const WALL_H    = 3.2
-export const WALL_T    = 0.3
+export const WALL_T    = 0.6
 export const WALL_HT   = WALL_T / 2   // 0.15
 
 export const WIN_Y0    = 0.5      // window sill height
@@ -117,10 +117,10 @@ export function playerCollisionWalls() {
 }
 
 export const SPAWN_CLUSTERS = [
-  { x:  -7, z: -13 },   // near north window 0 (bedroom)
-  { x:  -4, z: -13 },   // near north window 1 (bedroom)
-  { x: -13, z:  2.5 },  // near west window (hall)
-  { x:  13, z:   0 },   // near east window (main room)
-  { x:   4, z:  13 },   // near south window (main room)
-  { x:  -5, z:  13 },   // near south window (kitchen)
+  { x:  -7, z: -16 },   // near north window 0 (bedroom)
+  { x:  -4, z: -16 },   // near north window 1 (bedroom)
+  { x: -15, z:  2.5 },  // near west window (hall)
+  { x:  15, z:   0 },   // near east window (main room)
+  { x:   4, z:  16 },   // near south window (main room)
+  { x:  -5, z:  16 },   // near south window (kitchen)
 ]
