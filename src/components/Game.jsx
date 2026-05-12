@@ -41,7 +41,6 @@ export default function Game() {
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%' }}
       >
-        <fog attach="fog" args={['#080a0e', 18, 55]} />
         <ForestSkybox />
         <Arena />
         <Player />
