@@ -2,16 +2,19 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import Gun from './Gun'
+import Knife from './Knife'
 import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
-import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk } from '../sounds'
+import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing } from '../sounds'
 import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import * as THREE from 'three'
 
 const CHEST_RADIUS_SQ = 2.2 * 2.2
+const KNIFE_COOLDOWN = 0.8
+const KNIFE_RANGE = 2.2
 
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
@@ -24,6 +27,9 @@ export default function Player() {
   const hitZombie = useGameStore((s) => s.hitZombie)
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
+  const activeItem = useGameStore((s) => s.activeItem)
+  const toggleItem = useGameStore((s) => s.toggleItem)
+  const setKnifeCooldown = useGameStore((s) => s.setKnifeCooldown)
   const consumeBullet = useGameStore((s) => s.consumeBullet)
   const beginReload = useGameStore((s) => s.beginReload)
   const finishReload = useGameStore((s) => s.finishReload)
@@ -54,8 +60,10 @@ export default function Player() {
   const mouseHeldRef = useRef(false)
   const akFireTimerRef = useRef(0)
   const shotgunCooldownRef = useRef(0)
+  const knifeCooldownRef = useRef(0)
   const weapon = useGameStore((s) => s.weapon)
   const weaponRef = useRef(weapon)
+  const activeItemRef = useRef(activeItem)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -74,6 +82,7 @@ export default function Player() {
   useEffect(() => { windowPlankStrongRef.current = windowPlankStrong }, [windowPlankStrong])
   useEffect(() => { strongPlanksModeRef.current = strongPlanksMode }, [strongPlanksMode])
   useEffect(() => { weaponRef.current = weapon }, [weapon])
+  useEffect(() => { activeItemRef.current = activeItem }, [activeItem])
 
   useEffect(() => {
     camera.rotation.order = 'YXZ'
@@ -117,7 +126,11 @@ export default function Player() {
         if (shopOpenRef.current) { closeShop(); return }
         if (nearChestRef.current) { openShop(); return }
       }
-      if (e.code === 'KeyR' && !shopOpenRef.current && beginReload()) {
+      if (e.code === 'KeyQ' && !shopOpenRef.current) {
+        toggleItem()
+        return
+      }
+      if (e.code === 'KeyR' && !shopOpenRef.current && activeItemRef.current === 'gun' && beginReload()) {
         reloadTimer.current = RELOAD_TIME
         playReload()
       }
@@ -244,12 +257,46 @@ export default function Player() {
     }
   }, [camera, hitZombie, consumeBullet])
 
+  const knifeSwing = useCallback(() => {
+    if (knifeCooldownRef.current > 0) return
+
+    Knife.swing?.()
+    playKnifeSwing()
+    knifeCooldownRef.current = KNIFE_COOLDOWN
+    setKnifeCooldown(KNIFE_COOLDOWN)
+
+    // Melee hit: closest zombie within range and roughly in front of player
+    const camPos = camera.position
+    const fwd = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
+    const zombiePos = new THREE.Vector3()
+    let closestId = null, closestDist = Infinity
+
+    for (const [id, ref] of Object.entries(zombieRefs.current)) {
+      if (!ref) continue
+      ref.getWorldPosition(zombiePos)
+      zombiePos.y = camPos.y  // ignore height difference for range check
+      const dist = camPos.distanceTo(zombiePos)
+      if (dist > KNIFE_RANGE) continue
+      const toZombie = zombiePos.clone().sub(camPos).normalize()
+      if (fwd.dot(toZombie) < 0.1) continue  // must be in roughly forward 160° arc
+      if (dist < closestDist) { closestDist = dist; closestId = id }
+    }
+
+    if (closestId !== null) {
+      if (hitZombie(Number(closestId), true)) playZombieDie()
+    }
+  }, [camera, hitZombie, setKnifeCooldown])
+
   useEffect(() => {
     const onMouseDown = (e) => {
       if (e.button !== 0) return
       if (shopOpenRef.current) return
       if (!locked.current) { requestLock(); return }
       if (phase !== 'playing') return
+      if (activeItemRef.current === 'knife') {
+        knifeSwing()
+        return
+      }
       shoot()
       mouseHeldRef.current = true
       akFireTimerRef.current = 0.1  // next AK shot in 0.1s
@@ -264,7 +311,7 @@ export default function Player() {
       gl.domElement.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('mouseup', onMouseUp)
     }
-  }, [gl, phase, requestLock, shoot])
+  }, [gl, phase, requestLock, shoot, knifeSwing])
 
   useFrame((_, delta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
@@ -283,6 +330,12 @@ export default function Player() {
 
     // Shotgun pump cooldown
     if (shotgunCooldownRef.current > 0) shotgunCooldownRef.current = Math.max(0, shotgunCooldownRef.current - delta)
+
+    // Knife cooldown (tick + sync to store for HUD)
+    if (knifeCooldownRef.current > 0) {
+      knifeCooldownRef.current = Math.max(0, knifeCooldownRef.current - delta)
+      setKnifeCooldown(knifeCooldownRef.current)
+    }
 
     // Reload countdown
     if (reloadTimer.current > 0) {
@@ -343,8 +396,8 @@ export default function Player() {
       }
     }
 
-    // AK-47 auto-fire at 10 rounds/s while mouse held (deagle is semi-auto only)
-    if (phase === 'playing' && weaponRef.current === 'ak47' && mouseHeldRef.current && locked.current) {
+    // AK-47 auto-fire at 10 rounds/s while mouse held (deagle is semi-auto only; no auto-fire for knife)
+    if (phase === 'playing' && weaponRef.current === 'ak47' && activeItemRef.current === 'gun' && mouseHeldRef.current && locked.current) {
       akFireTimerRef.current -= delta
       if (akFireTimerRef.current <= 0) {
         shoot()

@@ -269,6 +269,7 @@ function ShotgunModel({ gunMat, pumpRef }) {
 export default function Gun() {
   const { camera } = useThree()
   const weapon = useGameStore((s) => s.weapon)
+  const activeItem = useGameStore((s) => s.activeItem)
   const isAK = weapon === 'ak47'
   const isDeagle = weapon === 'deagle'
   const isShotgun = weapon === 'shotgun'
@@ -353,6 +354,9 @@ export default function Gun() {
           : new THREE.Vector3(0.22, -0.20, -0.69)
     muzzleLocal.applyMatrix4(camera.matrixWorld)
     _muzzleWorld.copy(muzzleLocal)
+
+    // Knife.jsx handles the full render cycle when knife is active
+    if (activeItem !== 'gun') return
 
     gl.render(scene, camera)
     gl.autoClear = false

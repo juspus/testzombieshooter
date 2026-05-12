@@ -5,6 +5,7 @@ import { startEerieMusic, stopEerieMusic } from '../sounds'
 import Arena from './Arena'
 import Player from './Player'
 import Gun from './Gun'
+import Knife from './Knife'
 import ZombieManager from './ZombieManager'
 import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
@@ -44,6 +45,7 @@ export default function Game() {
         <Arena />
         <Player />
         <Gun />
+        <Knife />
         <ZombieManager />
         <BulletTrails />
         <ShellCasings />

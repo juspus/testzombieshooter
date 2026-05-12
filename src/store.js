@@ -31,6 +31,8 @@ export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
   weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
+  activeItem: 'gun',  // 'gun' | 'knife'
+  knifeCooldown: 0,   // seconds remaining until knife ready again
   shopOpen: false,
   nearChest: false,
   walls: [],
@@ -62,6 +64,8 @@ export const useGameStore = create((set, get) => ({
       phase: 'intermission',
       money: 10,
       weapon: 'pistol',
+      activeItem: 'gun',
+      knifeCooldown: 0,
       shopOpen: false,
       walls,
       windowPlanks: {},
@@ -100,6 +104,7 @@ export const useGameStore = create((set, get) => ({
       bulletsInClip,
       reserveBullets,
       isReloading: false,
+      knifeCooldown: 0,
     })
   },
 
@@ -217,6 +222,9 @@ export const useGameStore = create((set, get) => ({
       set({ plankHits: { ...plankHits, [id]: hits } })
     }
   },
+
+  toggleItem: () => set((s) => ({ activeItem: s.activeItem === 'gun' ? 'knife' : 'gun' })),
+  setKnifeCooldown: (v) => set({ knifeCooldown: v }),
 
   openShop: () => set({ shopOpen: true }),
   closeShop: () => set({ shopOpen: false }),
