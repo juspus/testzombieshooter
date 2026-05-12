@@ -26,7 +26,7 @@ const KILL_DISTANCE = 1.2
 const PATH_INTERVAL = 0.12        // seconds between A* recalculations
 const WAYPOINT_REACH = 0.6        // distance to advance to next waypoint
 const ATTACK_RANGE = 1.8          // distance to window face to start hitting
-const ATTACK_INTERVAL = 1.0       // seconds between plank hits
+const ATTACK_INTERVAL = 2.0       // seconds between plank hits
 
 // Module-level registry so Player can push holes into any zombie instance
 const _holeAdders = {}
@@ -305,7 +305,7 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
     if (isAttackingRef.current) {
       const phase = 1.0 - attackTimerRef.current / ATTACK_INTERVAL
       // Slow lift (72% of cycle), fast slam (28% of cycle)
-      const HIGH = 0.28, LOW = -1.05, LIFT = 0.72
+      const HIGH = 0.1, LOW = -1.05, LIFT = 0.9
       const armX = phase < LIFT
         ? LOW + (HIGH - LOW) * (phase / LIFT)
         : HIGH + (LOW - HIGH) * ((phase - LIFT) / (1 - LIFT))
