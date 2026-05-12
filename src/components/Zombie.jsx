@@ -291,11 +291,12 @@ export default function ZombieComponent({ id, startX, startZ }) {
     // Animation
     if (isAttackingRef.current) {
       const phase = 1.0 - attackTimerRef.current / ATTACK_INTERVAL
-      // Slow lift (72% of cycle), fast slam (28% of cycle)
-      const HIGH = 0.28, LOW = -1.05, LIFT = 0.72
+      // phase 0 = just hit (arms forward), phase 1 = next hit
+      // Slow lift back (72%), fast slam forward (28%)
+      const FWD = 0.85, BACK = -0.55, LIFT = 0.72
       const armX = phase < LIFT
-        ? LOW + (HIGH - LOW) * (phase / LIFT)
-        : HIGH + (LOW - HIGH) * ((phase - LIFT) / (1 - LIFT))
+        ? FWD + (BACK - FWD) * (phase / LIFT)
+        : BACK + (FWD - BACK) * ((phase - LIFT) / (1 - LIFT))
       if (leftArmRef.current)  leftArmRef.current.rotation.x  = armX
       if (rightArmRef.current) rightArmRef.current.rotation.x = armX
       if (leftLegRef.current)  leftLegRef.current.rotation.x  = 0
