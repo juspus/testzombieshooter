@@ -24,6 +24,15 @@ const DOOR_LINTEL_Y = DOOR_H + DOOR_LINTEL_H / 2
 export const CHEST_POS = { x: 5, z: 7 }
 
 // ─── Color palette ─────────────────────────────────────────────────────────
+const ROOF    = '#1e0e04'   // Dark weathered shingles
+const GLASS   = '#4a7a8a'   // Cold night glass tint
+
+const PITCH   = 2.8                  // roof height above wall top
+const SL_X    = 3.0                  // skylight centre X
+const SL_Z    = 0.0                  // skylight centre Z
+const SL_W    = 3.0                  // skylight width (along Z)
+const SL_L    = 2.2                  // skylight length (along slope)
+
 const WALL    = '#2a1608'   // Dark weathered timber
 const WALL2   = '#1e1006'   // Darker panel variant
 const FLOOR   = '#1a0e06'   // Rotting floorboards
@@ -925,6 +934,88 @@ function WestMainWall() {
 
 // ─── Arena export ────────────────────────────────────────────────────────────
 
+// ─── Roof ────────────────────────────────────────────────────────────────────
+
+function Roof() {
+  const angle   = Math.atan2(PITCH, HW)           // slope angle ≈ 17°
+  const eavX    = HW + 0.55                        // eave overhangs wall by 0.55
+  const panelW  = Math.sqrt(eavX * eavX + PITCH * PITCH)
+  const panelCX = eavX / 2
+  const panelCY = WH + PITCH / 2
+  const panelLen = HD * 2 + 1.1                    // eave overhang at gable ends
+
+  // Y on right-panel surface at SL_X
+  const glassY  = WH + PITCH - (SL_X / HW) * PITCH
+  // Glass panel length along the slope to cover SL_L horizontal distance
+  const glassSlL = SL_L / Math.cos(angle)
+
+  const ROWS = 10
+
+  return (
+    <group>
+      {/* Right slope */}
+      <mesh position={[panelCX, panelCY, 0]} rotation={[0, 0, -angle]}>
+        <boxGeometry args={[panelW, 0.22, panelLen]} />
+        <meshStandardMaterial color={ROOF} roughness={1} />
+      </mesh>
+
+      {/* Left slope */}
+      <mesh position={[-panelCX, panelCY, 0]} rotation={[0, 0, angle]}>
+        <boxGeometry args={[panelW, 0.22, panelLen]} />
+        <meshStandardMaterial color={ROOF} roughness={1} />
+      </mesh>
+
+      {/* Ridge cap */}
+      <mesh position={[0, WH + PITCH + 0.06, 0]}>
+        <boxGeometry args={[0.5, 0.16, panelLen + 0.2]} />
+        <meshStandardMaterial color={ROOF} roughness={1} />
+      </mesh>
+
+      {/* Gable-end fills — stacked boxes approximating a triangle */}
+      {[HD + 0.55, -(HD + 0.55)].map((gz) => (
+        <group key={gz}>
+          {Array.from({ length: ROWS }, (_, i) => {
+            const rowH = PITCH / ROWS
+            const rowW = HW * 2 * (1 - i / ROWS)
+            return (
+              <mesh key={i} position={[0, WH + rowH * i + rowH / 2, gz]}>
+                <boxGeometry args={[rowW, rowH + 0.02, 0.32]} />
+                <meshStandardMaterial color={ROOF} roughness={1} />
+              </mesh>
+            )
+          })}
+        </group>
+      ))}
+
+      {/* Skylight — glass + wood frame, positioned on right slope surface */}
+      <group position={[SL_X, glassY, SL_Z]} rotation={[0, 0, -angle]}>
+        {/* Glass pane */}
+        <mesh position={[0, 0.1, 0]}>
+          <boxGeometry args={[glassSlL, 0.06, SL_W]} />
+          <meshStandardMaterial color={GLASS} roughness={0.05} metalness={0.1} transparent opacity={0.4} />
+        </mesh>
+        {/* Frame — 4 sides */}
+        <mesh position={[0, 0.12, -(SL_W / 2 + 0.09)]}>
+          <boxGeometry args={[glassSlL + 0.24, 0.14, 0.14]} />
+          <meshStandardMaterial color={BEAM} roughness={1} />
+        </mesh>
+        <mesh position={[0, 0.12, SL_W / 2 + 0.09]}>
+          <boxGeometry args={[glassSlL + 0.24, 0.14, 0.14]} />
+          <meshStandardMaterial color={BEAM} roughness={1} />
+        </mesh>
+        <mesh position={[-(glassSlL / 2 + 0.09), 0.12, 0]}>
+          <boxGeometry args={[0.14, 0.14, SL_W + 0.24]} />
+          <meshStandardMaterial color={BEAM} roughness={1} />
+        </mesh>
+        <mesh position={[glassSlL / 2 + 0.09, 0.12, 0]}>
+          <boxGeometry args={[0.14, 0.14, SL_W + 0.24]} />
+          <meshStandardMaterial color={BEAM} roughness={1} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
 export default function Arena() {
   return (
     <group>
@@ -964,12 +1055,43 @@ export default function Arena() {
         <meshStandardMaterial color="#1a2a14" roughness={1} />
       </mesh>
 
-      {/* ── Ceiling ──────────────────────────────────────────────────────── */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WH, 0]}>
-        <planeGeometry args={[HW * 2, HD * 2]} />
-        <meshStandardMaterial color={CEIL} roughness={1} side={THREE.BackSide} />
+      {/* ── Ceiling — split into 4 panels to leave skylight opening ──────── */}
+      {/* Skylight hole: X 1.5→4.5, Z -1→1 (centre at SL_X=3, SL_Z=0) */}
+      {[
+        { pos: [0,        WH, -(HD + 1) / 2], args: [HW * 2, HD - 1] },  // front strip
+        { pos: [0,        WH,  (HD + 1) / 2], args: [HW * 2, HD - 1] },  // back strip
+        { pos: [-3.75,    WH,  0            ], args: [10.5,   SL_W]   },  // left of hole
+        { pos: [6.75,     WH,  0            ], args: [4.5,    SL_W]   },  // right of hole
+      ].map(({ pos, args }, i) => (
+        <mesh key={i} rotation={[Math.PI / 2, 0, 0]} position={pos}>
+          <planeGeometry args={args} />
+          <meshStandardMaterial color={CEIL} roughness={1} side={THREE.BackSide} />
+        </mesh>
+      ))}
+
+      {/* Interior skylight glass — visible from below */}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[SL_X, WH + 0.01, SL_Z]}>
+        <planeGeometry args={[SL_L, SL_W]} />
+        <meshStandardMaterial color={GLASS} roughness={0.05} transparent opacity={0.35} side={THREE.DoubleSide} />
       </mesh>
+
+      {/* Interior frame around skylight opening */}
+      {[
+        { pos: [SL_X,          WH, SL_Z - SL_W / 2 - 0.06], args: [SL_L + 0.16, 0.1, 0.1] },
+        { pos: [SL_X,          WH, SL_Z + SL_W / 2 + 0.06], args: [SL_L + 0.16, 0.1, 0.1] },
+        { pos: [SL_X - SL_L / 2 - 0.06, WH, SL_Z],          args: [0.1, 0.1, SL_W + 0.16] },
+        { pos: [SL_X + SL_L / 2 + 0.06, WH, SL_Z],          args: [0.1, 0.1, SL_W + 0.16] },
+      ].map(({ pos, args }, i) => (
+        <mesh key={i} position={pos}>
+          <boxGeometry args={args} />
+          <meshStandardMaterial color={BEAM} roughness={1} />
+        </mesh>
+      ))}
+
       <CeilingBeams />
+
+      {/* ── Roof ─────────────────────────────────────────────────────────── */}
+      <Roof />
 
       {/* ── Walls ────────────────────────────────────────────────────────── */}
       <NorthWall />
