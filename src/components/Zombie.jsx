@@ -84,15 +84,7 @@ function applyMove(pos, vx, vz, walls) {
   pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + pushZ))
 }
 
-// zombieData = { id, x, z } when active, null when slot is idle.
-// The component never unmounts — visibility toggling keeps it in the scene
-// so traverseVisible() bails on inactive slots after one check.
-export default function ZombieComponent({ zombieData, hidden = false }) {
-  const id      = zombieData?.id ?? -1
-  const startX  = zombieData?.x  ?? 0
-  const startZ  = zombieData?.z  ?? 0
-  const active  = !!zombieData && !hidden
-
+export default function ZombieComponent({ id, startX, startZ, hidden = false }) {
   const ref = useRef()
   const { camera } = useThree()
   const speed = useGameStore((s) => s.getZombieSpeed())
@@ -108,7 +100,7 @@ export default function ZombieComponent({ zombieData, hidden = false }) {
   const pathRef         = useRef([])
   const wpIdxRef        = useRef(0)
   const pathTimer       = useRef(Math.random() * PATH_INTERVAL)
-  const modeRef         = useRef('chase')
+  const modeRef         = useRef('chase')   // 'chase' | 'attack_window'
   const targetWindowRef = useRef(-1)
   const attackTimerRef  = useRef(0)
   const windowPlanksRef = useRef(windowPlanks)
@@ -122,30 +114,9 @@ export default function ZombieComponent({ zombieData, hidden = false }) {
   const leftArmRef      = useRef()
   const rightArmRef     = useRef()
 
-  // Activate / deactivate slot when zombieData.id changes (no mount/unmount).
   useEffect(() => {
-    if (!active) {
-      // Deactivate: unregister and hide
-      Player.unregisterZombieRef(id)
-      delete _holeAdders[id]
-      delete _zombieGroups[id]
-      if (ref.current) ref.current.visible = false
-      return
-    }
-    // Activate: reset all transient state for this new zombie
-    pathRef.current         = []
-    wpIdxRef.current        = 0
-    pathTimer.current       = Math.random() * PATH_INTERVAL
-    modeRef.current         = 'chase'
-    targetWindowRef.current = -1
-    attackTimerRef.current  = 0
-    isAggressorRef.current  = Math.random() < 0.2
-    walkCycleRef.current    = Math.random() * Math.PI * 2
-    isAttackingRef.current  = false
-    setHoles([])
-
+    if (hidden) return
     if (ref.current) {
-      ref.current.visible = true
       ref.current.position.set(startX, ZOMBIE_HEIGHT / 2, startZ)
       Player.registerZombieRef(id, ref.current)
       _zombieGroups[id] = ref.current
@@ -162,7 +133,7 @@ export default function ZombieComponent({ zombieData, hidden = false }) {
       delete _holeAdders[id]
       delete _zombieGroups[id]
     }
-  }, [id, active])
+  }, [id, startX, startZ])
 
   // Keep collision wall list in sync with plank state.
   // Zombies collide with cabin walls (window gaps open) + any boarded window faces.
@@ -195,7 +166,7 @@ export default function ZombieComponent({ zombieData, hidden = false }) {
   }
 
   useFrame((_, delta) => {
-    if (!active || phase !== 'playing' || !ref.current) return
+    if (hidden || phase !== 'playing' || !ref.current) return
     const pos = ref.current.position
     const px = camera.position.x, pz = camera.position.z
     const planks = windowPlanksRef.current
@@ -378,7 +349,7 @@ export default function ZombieComponent({ zombieData, hidden = false }) {
   const bone     = '#b8a882'
 
   return (
-    <group ref={ref} visible={active}>
+    <group ref={ref} scale={hidden ? 0.001 : 1}>
 
       {/* ══ HEAD ══ */}
 

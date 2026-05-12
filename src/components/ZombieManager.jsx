@@ -2,8 +2,6 @@ import { useGameStore } from '../store'
 import { useFrame } from '@react-three/fiber'
 import ZombieComponent from './Zombie'
 
-const MAX_SLOTS = 26  // 25 active cap + 1 shader-warmer slot
-
 export default function ZombieManager() {
   const zombies = useGameStore((s) => s.zombies)
   const tick = useGameStore((s) => s.tick)
@@ -12,16 +10,15 @@ export default function ZombieManager() {
     tick(Math.min(rawDelta, 0.05))
   })
 
-  // Fixed pool of slots — components never mount/unmount.
-  // Slot 0 is a permanent hidden warmer that keeps shader programs compiled.
-  // Slots 1-25 map to live zombies by position in the array; unused slots get
-  // zombieData=null which sets their group visible=false so traverseVisible()
-  // bails immediately, costing 1 traversal step instead of 200.
-  return Array.from({ length: MAX_SLOTS }, (_, i) => (
-    <ZombieComponent
-      key={i}
-      zombieData={i === 0 ? null : (zombies[i - 1] ?? null)}
-      hidden={i === 0}
-    />
-  ))
+  return (
+    <>
+      {/* Warmer: always in scene so zombie shader programs are never fully
+          dereferenced and deleted. Prevents recompile stall on spawn and
+          on the final kill (when all live zombies unmount simultaneously). */}
+      <ZombieComponent key="warmer" id={-1} startX={0} startZ={0} hidden />
+      {zombies.map((z) => (
+        <ZombieComponent key={z.id} id={z.id} startX={z.x} startZ={z.z} />
+      ))}
+    </>
+  )
 }
