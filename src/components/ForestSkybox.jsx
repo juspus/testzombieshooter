@@ -9,7 +9,7 @@ export default function ForestSkybox() {
     <group>
       <color attach="background" args={['#06090c']} />
       <mesh position={[0, 5, 0]}>
-        <cylinderGeometry args={[38, 38, 24, 64, 1, true]} />
+        <cylinderGeometry args={[18, 18, 24, 64, 1, true]} />
         <meshBasicMaterial map={texture} side={THREE.BackSide} />
       </mesh>
     </group>
