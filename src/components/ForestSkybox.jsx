@@ -4,6 +4,7 @@ import * as THREE from 'three'
 export default function ForestSkybox() {
   const texture = useTexture('/forest-panorama.png')
   texture.wrapS = THREE.RepeatWrapping
+  texture.flipY = false
 
   return (
     <group>
