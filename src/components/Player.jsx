@@ -13,7 +13,7 @@ import { CHEST_POS } from './Arena'
 import * as THREE from 'three'
 
 const CHEST_RADIUS_SQ = 2.2 * 2.2
-const KNIFE_COOLDOWN = 0.8
+const KNIFE_COOLDOWN = 0.4
 const KNIFE_RANGE = 2.2
 
 const PLAYER_HEIGHT = 1.7
