@@ -48,6 +48,9 @@ const COPPER  = '#3a2410'   // Tarnished copper (kettle / pots)
 const RUG1    = '#2a0808'   // Rug dark red
 const RUG2    = '#180808'   // Rug almost black
 const COBWEB  = '#1c1c18'   // Dusty cobweb strands
+const ROOF    = '#1e0e04'   // Dark weathered shingles
+
+const PITCH   = 2.8         // Roof height above wall top
 
 function Box({ position, args, color, roughness = 0.95, metalness = 0, castShadow = true, receiveShadow = true, rotation, emissive, emissiveIntensity = 0 }) {
   return (
@@ -923,6 +926,56 @@ function WestMainWall() {
   )
 }
 
+// ─── Roof ────────────────────────────────────────────────────────────────────
+
+function Roof() {
+  const angle    = Math.atan2(PITCH, HW)
+  const eavX     = HW + 0.55
+  const panelW   = Math.sqrt(eavX * eavX + PITCH * PITCH)
+  const panelCX  = eavX / 2
+  const panelCY  = WH + PITCH / 2
+  const panelLen = HD * 2 + 1.1
+  const ROWS     = 10
+
+  return (
+    <group>
+      {/* Right slope */}
+      <mesh position={[panelCX, panelCY, 0]} rotation={[0, 0, -angle]}>
+        <boxGeometry args={[panelW, 0.22, panelLen]} />
+        <meshStandardMaterial color={ROOF} roughness={1} />
+      </mesh>
+
+      {/* Left slope */}
+      <mesh position={[-panelCX, panelCY, 0]} rotation={[0, 0, angle]}>
+        <boxGeometry args={[panelW, 0.22, panelLen]} />
+        <meshStandardMaterial color={ROOF} roughness={1} />
+      </mesh>
+
+      {/* Ridge cap */}
+      <mesh position={[0, WH + PITCH + 0.06, 0]}>
+        <boxGeometry args={[0.5, 0.16, panelLen + 0.2]} />
+        <meshStandardMaterial color={ROOF} roughness={1} />
+      </mesh>
+
+      {/* Gable ends — stacked boxes approximating a triangle */}
+      {[HD + 0.55, -(HD + 0.55)].map((gz) => (
+        <group key={gz}>
+          {Array.from({ length: ROWS }, (_, i) => {
+            const rowH = PITCH / ROWS
+            const rowW = HW * 2 * (1 - i / ROWS)
+            return (
+              <mesh key={i} position={[0, WH + rowH * i + rowH / 2, gz]}>
+                <boxGeometry args={[rowW, rowH + 0.02, 0.32]} />
+                <meshStandardMaterial color={ROOF} roughness={1} />
+              </mesh>
+            )
+          })}
+        </group>
+      ))}
+    </group>
+  )
+}
+
 // ─── Arena export ────────────────────────────────────────────────────────────
 
 export default function Arena() {
@@ -970,6 +1023,8 @@ export default function Arena() {
         <meshStandardMaterial color={CEIL} roughness={1} side={THREE.BackSide} />
       </mesh>
       <CeilingBeams />
+
+      <Roof />
 
       {/* ── Walls ────────────────────────────────────────────────────────── */}
       <NorthWall />
