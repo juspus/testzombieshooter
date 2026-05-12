@@ -16,28 +16,28 @@ function HuntingKnifeModel() {
     <group>
       {/* ── Blade ─────────────────────────────────────────────────── */}
       {/* Main blade flat */}
-      <mesh position={[0, 0.004, -0.150]}>
-        <boxGeometry args={[0.022, 0.013, 0.240]} />
+      <mesh position={[0, 0.005, -0.225]}>
+        <boxGeometry args={[0.032, 0.020, 0.360]} />
         {metal}
       </mesh>
       {/* Spine — slightly raised back edge */}
-      <mesh position={[0, 0.012, -0.145]}>
-        <boxGeometry args={[0.019, 0.005, 0.230]} />
+      <mesh position={[0, 0.015, -0.220]}>
+        <boxGeometry args={[0.028, 0.007, 0.345]} />
         {spine}
       </mesh>
       {/* Fuller (blood groove) */}
-      <mesh position={[0.007, 0.004, -0.135]}>
-        <boxGeometry args={[0.003, 0.004, 0.200]} />
+      <mesh position={[0.010, 0.005, -0.205]}>
+        <boxGeometry args={[0.004, 0.005, 0.300]} />
         {spine}
       </mesh>
       {/* Tip taper — first step */}
-      <mesh position={[0, 0.002, -0.268]}>
-        <boxGeometry args={[0.016, 0.009, 0.054]} />
+      <mesh position={[0, 0.003, -0.402]}>
+        <boxGeometry args={[0.022, 0.013, 0.080]} />
         {metal}
       </mesh>
       {/* Tip taper — second step (point) */}
-      <mesh position={[0, 0.001, -0.293]}>
-        <boxGeometry args={[0.009, 0.005, 0.030]} />
+      <mesh position={[0, 0.001, -0.441]}>
+        <boxGeometry args={[0.012, 0.007, 0.044]} />
         {metal}
       </mesh>
 
@@ -106,16 +106,16 @@ export default function Knife() {
       const t = 1 - swingT.current        // 0 → 1 as swing plays
       const arc = Math.sin(t * Math.PI)   // bell: 0 → peak → 0
 
-      // Base grip position + swing arc (forward stab + slight sweep)
+      // Right-to-left slash: sweep across screen in X, roll wrist through Z
       groupRef.current.position.set(
-        0.18 - arc * 0.10,
-        -0.17 + arc * 0.04,
-        -0.28 - arc * 0.06,
+        0.22 - arc * 0.42,   // sweeps from right to left across screen
+        -0.16 + arc * 0.06,  // slight rise at peak
+        -0.28 - arc * 0.04,
       )
       groupRef.current.rotation.set(
-        0.15 - arc * 1.10,   // pitch forward on swing
-        0.15 - arc * 0.40,   // yaw inward
-       -0.20 + arc * 0.25,   // roll
+         0.10 + arc * 0.20,  // slight forward pitch
+         0.10 + arc * 0.25,  // yaw inward as blade crosses body
+        -0.30 - arc * 1.80,  // strong Z roll — wrist rotating through the slash
       )
     }
 
