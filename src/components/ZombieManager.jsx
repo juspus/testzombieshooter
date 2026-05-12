@@ -12,11 +12,10 @@ export default function ZombieManager() {
 
   return (
     <>
-      {/* Warmer: keeps one invisible zombie in scene so shaders are pre-compiled
-          before the first wave, eliminating the spawn/kill stall. */}
-      {zombies.length === 0 && (
-        <ZombieComponent key="warmer" id={-1} startX={0} startZ={0} hidden />
-      )}
+      {/* Warmer: always in scene so zombie shader programs are never fully
+          dereferenced and deleted. Prevents recompile stall on spawn and
+          on the final kill (when all live zombies unmount simultaneously). */}
+      <ZombieComponent key="warmer" id={-1} startX={0} startZ={0} hidden />
       {zombies.map((z) => (
         <ZombieComponent key={z.id} id={z.id} startX={z.x} startZ={z.z} />
       ))}
