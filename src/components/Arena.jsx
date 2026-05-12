@@ -930,13 +930,10 @@ export default function Arena() {
     <group>
       {/* ── Lighting ─────────────────────────────────────────────────────── */}
       <ambientLight intensity={0.55} color="#c8d8f0" />
-      {/* Moonlight — cool directional from upper-left */}
-      <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} castShadow
-        shadow-mapSize-width={1024} shadow-mapSize-height={1024}
-        shadow-camera-near={1} shadow-camera-far={80}
-        shadow-camera-left={-30} shadow-camera-right={30}
-        shadow-camera-top={30} shadow-camera-bottom={-30}
-      />
+      {/* Moonlight — cool directional from upper-left, no shadow map (shadow
+          traversal visits every sub-mesh of every zombie each frame = thousands
+          of objects, causing a spike on any scene change) */}
+      <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} />
       {/* Hemisphere sky/ground fill */}
       <hemisphereLight skyColor="#3a5080" groundColor="#0a1808" intensity={0.4} />
       {/* ── Scene point lights — kept to a minimum to avoid shader recompilation
