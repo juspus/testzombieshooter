@@ -72,7 +72,7 @@ function applyMove(pos, vx, vz, walls) {
   pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + pushZ))
 }
 
-export default function ZombieComponent({ id, startX, startZ }) {
+export default function ZombieComponent({ id, startX, startZ, hidden = false }) {
   const ref = useRef()
   const { camera } = useThree()
   const speed = useGameStore((s) => s.getZombieSpeed())
@@ -103,6 +103,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const rightArmRef     = useRef()
 
   useEffect(() => {
+    if (hidden) return
     if (ref.current) {
       ref.current.position.set(startX, ZOMBIE_HEIGHT / 2, startZ)
       Player.registerZombieRef(id, ref.current)
@@ -153,7 +154,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
   }
 
   useFrame((_, delta) => {
-    if (phase !== 'playing' || !ref.current) return
+    if (hidden || phase !== 'playing' || !ref.current) return
     const pos = ref.current.position
     const px = camera.position.x, pz = camera.position.z
     const planks = windowPlanksRef.current
@@ -336,7 +337,7 @@ export default function ZombieComponent({ id, startX, startZ }) {
   const bone     = '#b8a882'
 
   return (
-    <group ref={ref}>
+    <group ref={ref} scale={hidden ? 0.001 : 1}>
 
       {/* ══ HEAD ══ */}
 
