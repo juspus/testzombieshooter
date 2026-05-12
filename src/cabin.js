@@ -51,10 +51,11 @@ export function cabinWallSegments() {
 
     // West wall (X=-9), bedroom section: solid
     { x: -HW, z:   -7, halfW: HT, halfD:    3 },  // z∈[-10,-4]
-    // West wall (X=-9), hall section: door at Z=0±1.2, window at Z=2.5±1.0
-    { x: -HW, z: -2.6, halfW: HT, halfD:  1.4 },  // z∈[-4,-1.2]
-    { x: -HW, z: 1.35, halfW: HT, halfD: 0.15 },  // z∈[+1.2,+1.5] column between door and window
-    { x: -HW, z: 4.25, halfW: HT, halfD: 0.75 },  // z∈[+3.5,+5]
+    // West wall (X=-9), hall section: door at Z=0±1.2 (barricaded/solid), window at Z=2.5±1.0
+    { x: -HW, z: -2.6,    halfW: HT, halfD:  1.4 },  // z∈[-4,-1.2]
+    { x: -HW, z: DOOR_Z,  halfW: HT, halfD: DOOR_HALF }, // z∈[-1.2,+1.2] barricaded door
+    { x: -HW, z: 1.35,    halfW: HT, halfD: 0.15 },  // z∈[+1.2,+1.5] column between door and window
+    { x: -HW, z: 4.25,    halfW: HT, halfD: 0.75 },  // z∈[+3.5,+5]
     // West wall (X=-9), kitchen section: solid
     { x: -HW, z:  7.5, halfW: HT, halfD:  2.5 },  // z∈[+5,+10]
 
