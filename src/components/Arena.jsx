@@ -895,19 +895,28 @@ export default function Arena() {
   return (
     <group>
       {/* ── Lighting ─────────────────────────────────────────────────────── */}
-      <ambientLight intensity={0.35} />
-      {/* Fireplace is the dominant light source */}
+      <ambientLight intensity={0.55} color="#c8d8f0" />
+      {/* Moonlight — cool directional from upper-left */}
+      <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} castShadow
+        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+        shadow-camera-near={1} shadow-camera-far={80}
+        shadow-camera-left={-30} shadow-camera-right={30}
+        shadow-camera-top={30} shadow-camera-bottom={-30}
+      />
+      {/* Hemisphere sky/ground fill */}
+      <hemisphereLight skyColor="#3a5080" groundColor="#0a1808" intensity={0.4} />
+      {/* Fireplace is the dominant interior light source */}
       {/* (pointLights are inside Fireplace component) */}
       {/* Main room fill — warm overhead */}
-      <pointLight position={[3.5, WH - 0.5, 0]} color="#ffcc88" intensity={10} distance={18} decay={2} />
+      <pointLight position={[3.5, WH - 0.5, 0]} color="#ffcc88" intensity={12} distance={22} decay={2} />
       {/* Hall lantern */}
-      <pointLight position={[-5.5, WH - 0.6, 0.5]} color="#ffaa55" intensity={12} distance={14} decay={2} />
+      <pointLight position={[-5.5, WH - 0.6, 0.5]} color="#ffaa55" intensity={14} distance={16} decay={2} />
       {/* Bedroom */}
-      <pointLight position={[-5.5, 1.8, -7]}      color="#ffaa66" intensity={8}  distance={10} decay={2} />
+      <pointLight position={[-5.5, 1.8, -7]}      color="#ffaa66" intensity={10} distance={12} decay={2} />
       {/* Kitchen stove glow handled inside WoodStove; extra fill: */}
-      <pointLight position={[-5.5, WH - 0.5, 7.5]} color="#ffaa55" intensity={8}  distance={10} decay={2} />
+      <pointLight position={[-5.5, WH - 0.5, 7.5]} color="#ffaa55" intensity={10} distance={12} decay={2} />
       {/* Chest glow */}
-      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
+      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5}  distance={8}  decay={2} />
 
       {/* ── Floor ────────────────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -919,7 +928,7 @@ export default function Arena() {
       {/* ── Exterior ground ──────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[80, 80]} />
-        <meshStandardMaterial color="#0a1006" roughness={1} />
+        <meshStandardMaterial color="#1a2a14" roughness={1} />
       </mesh>
 
       {/* ── Ceiling ──────────────────────────────────────────────────────── */}
