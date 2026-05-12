@@ -38,6 +38,25 @@ const _zombieGroups = {}
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
 
+// Static zombie colors (shared across all instances)
+const pants     = '#18180f'
+const boot      = '#0e0c08'
+const bootSole  = '#080604'
+const blood     = '#3a0b0a'
+const skullBone = '#c2b090'
+const skullDark = '#a09070'
+const flesh     = '#5a3a28'
+const fleshDark = '#3a2018'
+const gum       = '#6a1c1c'
+const tooth     = '#d8cca8'
+const eyeGlow   = '#ffaa00'
+const bloodBrt  = '#5a1210'
+const hair      = '#141008'
+const bone      = '#b8a882'
+// Health-dependent colors — two pre-built objects, selected by health value
+const _SKIN_NORMAL  = { skin: '#7d8c65', skinDark: '#5c6e4e', skinVein: '#4a5c3a', shirt: '#252520', shirtTear: '#1a1a15' }
+const _SKIN_DAMAGED = { skin: '#6b7355', skinDark: '#4e5840', skinVein: '#3a4530', shirt: '#1e1e18', shirtTear: '#141410' }
+
 // Geometry-accurate line-of-sight: samples along the segment at half-radius
 // intervals and checks the zombie's full circle against the real wall AABBs.
 function hasDirectPath(x1, z1, x2, z2, walls) {
@@ -330,26 +349,7 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
     if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
   })
 
-  const damaged   = health === 1
-  const skin      = damaged ? '#6b7355' : '#7d8c65'
-  const skinDark  = damaged ? '#4e5840' : '#5c6e4e'
-  const skinVein  = damaged ? '#3a4530' : '#4a5c3a'
-  const shirt     = damaged ? '#1e1e18' : '#252520'
-  const shirtTear = damaged ? '#141410' : '#1a1a15'
-  const pants     = '#18180f'
-  const boot      = '#0e0c08'
-  const bootSole  = '#080604'
-  const blood     = '#3a0b0a'
-  const skullBone = '#c2b090'
-  const skullDark = '#a09070'
-  const flesh     = '#5a3a28'
-  const fleshDark = '#3a2018'
-  const gum       = '#6a1c1c'
-  const tooth     = '#d8cca8'
-  const eyeGlow   = '#ffaa00'
-  const bloodBrt = '#5a1210'
-  const hair     = '#141008'
-  const bone     = '#b8a882'
+  const { skin, skinDark, skinVein, shirt, shirtTear } = health === 1 ? _SKIN_DAMAGED : _SKIN_NORMAL
 
   return (
     <group ref={ref} scale={hidden ? 0.001 : 1}>
