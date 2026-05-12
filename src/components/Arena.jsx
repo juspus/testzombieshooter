@@ -397,7 +397,7 @@ function Fireplace() {
       <MantelClock position={[fx - 0.15, 2.72, fzW + 0.4]} />
 
       {/* Firelight */}
-      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} castShadow />
+      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} />
       <pointLight position={[fx, 0.3, fzW + 0.2]} color="#ff2200" intensity={8}  distance={6}  decay={2} />
     </group>
   )
@@ -932,10 +932,10 @@ export default function Arena() {
       <ambientLight intensity={0.55} color="#c8d8f0" />
       {/* Moonlight — shadow map only hits 6 proxy meshes per zombie now */}
       <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} castShadow
-        shadow-mapSize-width={1024} shadow-mapSize-height={1024}
-        shadow-camera-near={1} shadow-camera-far={80}
-        shadow-camera-left={-30} shadow-camera-right={30}
-        shadow-camera-top={30} shadow-camera-bottom={-30}
+        shadow-mapSize-width={512} shadow-mapSize-height={512}
+        shadow-camera-near={1} shadow-camera-far={60}
+        shadow-camera-left={-18} shadow-camera-right={18}
+        shadow-camera-top={18} shadow-camera-bottom={-18}
       />
       {/* Hemisphere sky/ground fill */}
       <hemisphereLight skyColor="#3a5080" groundColor="#0a1808" intensity={0.4} />
