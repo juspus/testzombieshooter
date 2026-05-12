@@ -123,44 +123,81 @@ function DoorwayFrame({ cx, cz, halfW, isXWall }) {
 // ─── Barricaded west door ───────────────────────────────────────────────────
 
 function BarricadedDoor() {
-  const x  = -HW + WT / 2 + 0.01
-  const cz = DOOR_Z
-  const hw = DOOR_HALF
+  const x   = -HW + WT / 2 + 0.01
+  const cz  = DOOR_Z
+  const hw  = DOOR_HALF  // 1.2
+  const dW  = hw * 2     // 2.4
+  const dH  = DOOR_H     // 2.2
+
+  // 6 vertical planks evenly spaced across door width
+  const plankZs = [-1.0, -0.6, -0.2, 0.2, 0.6, 1.0]
+
   return (
     <group>
-      {/* Door frame */}
-      <Box position={[x + 0.04, DOOR_H / 2, cz - hw - 0.06]} args={[WT + 0.06, DOOR_H, 0.07]} color={WOOD2} />
-      <Box position={[x + 0.04, DOOR_H / 2, cz + hw + 0.06]} args={[WT + 0.06, DOOR_H, 0.07]} color={WOOD2} />
-      <Box position={[x + 0.04, DOOR_H + 0.04, cz]} args={[WT + 0.06, 0.08, hw * 2 + 0.12]} color={WOOD2} />
-      {/* Diagonal planks */}
+      {/* ── Door frame ─────────────────────────────────────────────── */}
+      <Box position={[x + 0.04, dH / 2, cz - hw - 0.06]} args={[WT + 0.06, dH + 0.08, 0.08]} color={WOOD2} />
+      <Box position={[x + 0.04, dH / 2, cz + hw + 0.06]} args={[WT + 0.06, dH + 0.08, 0.08]} color={WOOD2} />
+      <Box position={[x + 0.04, dH + 0.05, cz]}           args={[WT + 0.06, 0.10, dW + 0.16]} color={WOOD2} />
+
+      {/* ── Door body — vertical tongue-and-groove planks ──────────── */}
+      {plankZs.map((pz) => (
+        <Box key={pz} position={[x + 0.05, dH / 2, cz + pz]} args={[0.09, dH - 0.02, 0.36]} color={WOOD} />
+      ))}
+      {/* Plank edge beads (thin dark strips between planks) */}
+      {[-0.8, -0.4, 0, 0.4, 0.8].map((pz) => (
+        <Box key={pz} position={[x + 0.055, dH / 2, cz + pz]} args={[0.09, dH - 0.02, 0.03]} color={WOOD2} />
+      ))}
+
+      {/* ── Horizontal battens (back of door) ──────────────────────── */}
+      <Box position={[x + 0.10, 0.38, cz]} args={[0.05, 0.14, dW - 0.06]} color={WOOD2} />
+      <Box position={[x + 0.10, 1.82, cz]} args={[0.05, 0.14, dW - 0.06]} color={WOOD2} />
+
+      {/* ── Z-brace diagonal batten ────────────────────────────────── */}
+      <mesh position={[x + 0.10, dH / 2, cz]} rotation={[Math.atan2(dH, dW), 0, 0]} castShadow>
+        <boxGeometry args={[0.05, Math.hypot(dH, dW) - 0.1, 0.07]} />
+        <meshStandardMaterial color={WOOD2} roughness={0.98} />
+      </mesh>
+
+      {/* ── Iron strap hinges (left jamb side) ─────────────────────── */}
+      <Box position={[x + 0.10, 0.34, cz - hw + 0.26]} args={[0.04, 0.07, 0.52]} color={METAL} metalness={0.4} roughness={0.7} />
+      <Box position={[x + 0.10, 1.78, cz - hw + 0.26]} args={[0.04, 0.07, 0.52]} color={METAL} metalness={0.4} roughness={0.7} />
+
+      {/* ── Door handle / knob ──────────────────────────────────────── */}
+      <mesh position={[x + 0.13, dH * 0.46, cz + hw - 0.30]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.026, 0.026, 0.14, 6]} />
+        <meshStandardMaterial color={METAL} roughness={0.45} metalness={0.55} />
+      </mesh>
+      <Box position={[x + 0.13, dH * 0.46, cz + hw - 0.20]} args={[0.04, 0.08, 0.06]} color={METAL} metalness={0.5} roughness={0.5} />
+
+      {/* ── Barricade — diagonal boards nailed over the door ───────── */}
       <mesh position={[x - 0.01, WH * 0.42, cz]} rotation={[ 0.55, 0, 0]} castShadow>
-        <boxGeometry args={[0.07, hw * 2.8, 0.1]} />
+        <boxGeometry args={[0.07, hw * 2.8, 0.10]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
       <mesh position={[x - 0.03, WH * 0.42, cz]} rotation={[-0.55, 0, 0]} castShadow>
-        <boxGeometry args={[0.07, hw * 2.8, 0.1]} />
+        <boxGeometry args={[0.07, hw * 2.8, 0.10]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
       {/* Horizontal braces */}
       <mesh position={[x - 0.02, WH * 0.28, cz]} castShadow>
-        <boxGeometry args={[0.07, 0.1, hw * 2.2]} />
+        <boxGeometry args={[0.07, 0.10, hw * 2.2]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
       <mesh position={[x - 0.02, WH * 0.62, cz]} castShadow>
-        <boxGeometry args={[0.07, 0.1, hw * 2.2]} />
+        <boxGeometry args={[0.07, 0.10, hw * 2.2]} />
         <meshStandardMaterial color={PLANK} roughness={0.98} />
       </mesh>
-      {/* Chain */}
+
+      {/* ── Chain + padlock ─────────────────────────────────────────── */}
       <mesh position={[x - 0.06, WH * 0.46, cz - 0.3]} rotation={[0.4, 0, 0]}>
         <cylinderGeometry args={[0.018, 0.018, hw * 2.6, 6]} />
         <meshStandardMaterial color={METAL} roughness={0.3} metalness={0.7} />
       </mesh>
-      {/* Padlock */}
-      <mesh position={[x - 0.1, WH * 0.46, cz]}>
-        <boxGeometry args={[0.09, 0.16, 0.2]} />
+      <mesh position={[x - 0.10, WH * 0.46, cz]}>
+        <boxGeometry args={[0.09, 0.16, 0.20]} />
         <meshStandardMaterial color="#111" roughness={0.3} metalness={0.7} />
       </mesh>
-      <mesh position={[x - 0.1, WH * 0.46 + 0.12, cz]} rotation={[0, Math.PI / 2, 0]}>
+      <mesh position={[x - 0.10, WH * 0.46 + 0.12, cz]} rotation={[0, Math.PI / 2, 0]}>
         <torusGeometry args={[0.065, 0.018, 8, 8, Math.PI]} />
         <meshStandardMaterial color="#222" roughness={0.3} metalness={0.8} />
       </mesh>
