@@ -1,108 +1,97 @@
 import { useMemo } from 'react'
-
-const TRUNK = '#040302'
-const PINE  = '#060d06'
-const PINE2 = '#08100a'  // slightly lighter inner layer
-const MIST  = '#141f16'
+import * as THREE from 'three'
 
 function seeded(seed) {
   let s = seed >>> 0
   return () => { s = Math.imul(s ^ (s >>> 17), 0x45d9f3b) ^ (s >>> 13); return (s >>> 0) / 0xffffffff }
 }
 
-function PineTree({ x, z, h, ry }) {
-  const trunkH = h * 0.20
-  const crownH = h * 0.80
+function drawPine(ctx, x, baseY, maxW, h, color1, color2) {
   const LAYERS = 5
-  return (
-    <group position={[x, 0, z]} rotation={[0, ry, 0]}>
-      <mesh position={[0, trunkH / 2, 0]}>
-        <boxGeometry args={[0.30, trunkH, 0.30]} />
-        <meshStandardMaterial color={TRUNK} roughness={1} />
-      </mesh>
-      {Array.from({ length: LAYERS }, (_, i) => {
-        const t   = i / (LAYERS - 1)
-        const w   = (1.8 - t * 1.1) * (h / 5.5)
-        const lh  = (crownH / LAYERS) * 1.15
-        const y   = trunkH + (crownH / LAYERS) * (i + 0.4)
-        return (
-          <mesh key={i} position={[0, y, 0]}>
-            <boxGeometry args={[w, lh, w]} />
-            <meshStandardMaterial color={i % 2 === 0 ? PINE : PINE2} roughness={1} />
-          </mesh>
-        )
-      })}
-    </group>
-  )
+  const trunkH = h * 0.15
+  ctx.fillStyle = '#020201'
+  ctx.fillRect(x - 2, baseY - trunkH, 4, trunkH)
+  for (let i = 0; i < LAYERS; i++) {
+    const lw = maxW * (1 - (i / (LAYERS - 1)) * 0.55)
+    const lh = (h * 0.85 / LAYERS) * 1.25
+    const ly = baseY - trunkH - (h * 0.85 / LAYERS) * (i + 0.3)
+    ctx.fillStyle = i % 2 === 0 ? color1 : color2
+    ctx.beginPath()
+    ctx.moveTo(x, ly - lh)
+    ctx.lineTo(x + lw / 2, ly)
+    ctx.lineTo(x - lw / 2, ly)
+    ctx.closePath()
+    ctx.fill()
+  }
+}
+
+function buildForestTexture() {
+  const W = 2048, H = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+
+  // Sky
+  ctx.fillStyle = '#06090c'
+  ctx.fillRect(0, 0, W, H)
+
+  const rng = seeded(0xf0rest)
+  const BASE_Y = H * 0.68
+
+  // Far layer — darker, smaller; drawn first (behind)
+  for (let i = 0; i < 90; i++) {
+    // Wrap-safe: trees at x in [−W*0.05, W*1.05] so edges tile cleanly
+    const x = ((rng() * 1.1 - 0.05) * W + W) % W
+    const h = 70 + rng() * 100
+    const w = 18 + rng() * 24
+    drawPine(ctx, x, BASE_Y, w, h, '#050c04', '#040e05')
+    // Mirror tree near opposite edge for seamless wrap
+    if (x < W * 0.05) drawPine(ctx, x + W, BASE_Y, w, h, '#050c04', '#040e05')
+    if (x > W * 0.95) drawPine(ctx, x - W, BASE_Y, w, h, '#050c04', '#040e05')
+  }
+
+  // Near layer — slightly lighter, taller
+  for (let i = 0; i < 65; i++) {
+    const x = ((rng() * 1.1 - 0.05) * W + W) % W
+    const h = 130 + rng() * 160
+    const w = 28 + rng() * 38
+    drawPine(ctx, x, BASE_Y, w, h, '#071007', '#08120a')
+    if (x < W * 0.05) drawPine(ctx, x + W, BASE_Y, w, h, '#071007', '#08120a')
+    if (x > W * 0.95) drawPine(ctx, x - W, BASE_Y, w, h, '#071007', '#08120a')
+  }
+
+  // Ground fill
+  const gnd = ctx.createLinearGradient(0, BASE_Y, 0, H)
+  gnd.addColorStop(0, '#0a1508')
+  gnd.addColorStop(1, '#060d05')
+  ctx.fillStyle = gnd
+  ctx.fillRect(0, BASE_Y, W, H - BASE_Y)
+
+  // Dense mist rising from ground
+  const mist = ctx.createLinearGradient(0, BASE_Y - H * 0.12, 0, H)
+  mist.addColorStop(0, 'rgba(12,22,14,0)')
+  mist.addColorStop(0.45, 'rgba(14,26,16,0.55)')
+  mist.addColorStop(1, 'rgba(18,32,20,0.82)')
+  ctx.fillStyle = mist
+  ctx.fillRect(0, BASE_Y - H * 0.12, W, H - BASE_Y + H * 0.12)
+
+  const tex = new THREE.CanvasTexture(canvas)
+  tex.wrapS = THREE.RepeatWrapping
+  return tex
 }
 
 export default function ForestSkybox() {
-  const trees = useMemo(() => {
-    const rng = seeded(0xf0rest)
-    return Array.from({ length: 56 }, (_, i) => {
-      const angle  = (i / 56) * Math.PI * 2 + (rng() - 0.5) * 0.3
-      const radius = 22 + rng() * 14
-      return {
-        x: Math.cos(angle) * radius,
-        z: Math.sin(angle) * radius,
-        h: 4.5 + rng() * 6.0,
-        ry: rng() * Math.PI * 2,
-      }
-    })
-  }, [])
-
-  // Second, denser ring close to the cabin walls — visible through windows
-  const innerTrees = useMemo(() => {
-    const rng = seeded(0xc10se)
-    return Array.from({ length: 24 }, (_, i) => {
-      const angle  = (i / 24) * Math.PI * 2 + (rng() - 0.5) * 0.4
-      const radius = 13 + rng() * 6
-      return {
-        x: Math.cos(angle) * radius,
-        z: Math.sin(angle) * radius,
-        h: 3.5 + rng() * 4.0,
-        ry: rng() * Math.PI * 2,
-      }
-    })
-  }, [])
-
-  const mists = useMemo(() => {
-    const rng = seeded(0xm1st)
-    return Array.from({ length: 18 }, () => {
-      const angle  = rng() * Math.PI * 2
-      const radius = 10 + rng() * 16
-      return {
-        x:  Math.cos(angle) * radius,
-        z:  Math.sin(angle) * radius,
-        w:  7 + rng() * 10,
-        d:  4 + rng() * 7,
-        h:  0.5 + rng() * 1.0,
-        y:  0.15 + rng() * 0.5,
-        op: 0.10 + rng() * 0.22,
-      }
-    })
-  }, [])
+  const texture = useMemo(() => buildForestTexture(), [])
 
   return (
     <group>
-      {/* Scene background — dark overcast night sky */}
       <color attach="background" args={['#06090c']} />
-
-      {trees.map((t, i)      => <PineTree key={`o${i}`} {...t} />)}
-      {innerTrees.map((t, i) => <PineTree key={`n${i}`} {...t} />)}
-
-      {mists.map((m, i) => (
-        <mesh key={i} position={[m.x, m.y, m.z]}>
-          <boxGeometry args={[m.w, m.h, m.d]} />
-          <meshStandardMaterial
-            color={MIST}
-            roughness={1}
-            transparent
-            opacity={m.op}
-            depthWrite={false}
-          />
-        </mesh>
-      ))}
+      {/* Single cylinder — 1 draw call, BasicMaterial skips all lighting */}
+      <mesh position={[0, 5, 0]}>
+        <cylinderGeometry args={[38, 38, 24, 64, 1, true]} />
+        <meshBasicMaterial map={texture} side={THREE.BackSide} />
+      </mesh>
     </group>
   )
 }
