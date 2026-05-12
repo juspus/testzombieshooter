@@ -3,7 +3,7 @@
 export const CABIN_HW  = 9        // X: ±9  (width = 18)
 export const CABIN_HD  = 10       // Z: ±10 (depth = 20)
 export const WALL_H    = 3.2
-export const WALL_T    = 0.3
+export const WALL_T    = 0.6
 export const WALL_HT   = WALL_T / 2   // 0.15
 
 export const WIN_Y0    = 0.5      // window sill height
