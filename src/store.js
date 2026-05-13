@@ -15,7 +15,7 @@ const AMMO_PACK_COST = 10
 const AMMO_PACK_AMOUNT = 20
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
-const speedForWave = (wave) => 1.5 + (wave - 1) * 0.15
+const speedForWave = (wave) => 1.5 + (wave - 1) * 0.05
 const clipSizeForWeapon = (w) =>
   w === 'ak47' ? AK_CLIP : w === 'deagle' ? DEAGLE_CLIP : w === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
 
