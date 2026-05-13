@@ -1,3 +1,5 @@
+import { parseRunShareToken } from '../src/shareToken.js'
+
 const DEFAULT_GAME_PATH = '/'
 
 export default function handler(req, res) {
@@ -5,9 +7,11 @@ export default function handler(req, res) {
   const summary = getRunSummary(requestUrl.searchParams)
   const ogImageUrl = new URL('/api/og', requestUrl.origin)
 
-  for (const [key, value] of requestUrl.searchParams.entries()) {
-    ogImageUrl.searchParams.set(key, value)
-  }
+  ogImageUrl.searchParams.set('wave', summary.wave)
+  ogImageUrl.searchParams.set('kills', summary.kills)
+  ogImageUrl.searchParams.set('money', summary.money)
+  ogImageUrl.searchParams.set('weapon', summary.weapon)
+  ogImageUrl.searchParams.set('perks', summary.perks)
 
   const title = `Cabin run: wave ${summary.wave}, ${summary.kills} kill${summary.kills === 1 ? '' : 's'}`
   const description = `I reached wave ${summary.wave} with ${summary.kills} kill${summary.kills === 1 ? '' : 's'} in Cabin.`
@@ -51,6 +55,18 @@ function getRequestUrl(req) {
 }
 
 function getRunSummary(params) {
+  const tokenSummary = parseRunShareToken(params.get('r'))
+  if (tokenSummary) {
+    return {
+      wave: tokenSummary.w,
+      kills: tokenSummary.k,
+      money: tokenSummary.m,
+      weapon: tokenSummary.weapon,
+      perks: cleanText(tokenSummary.perks.join(', ') || 'None', 90),
+      gameUrl: tokenSummary.game,
+    }
+  }
+
   return {
     wave: clampInt(params.get('wave'), 1, 999, 1),
     kills: clampInt(params.get('kills'), 0, 99999, 0),
