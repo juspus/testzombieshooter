@@ -628,7 +628,8 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
         </mesh>
       ))}
 
-      <pointLight position={[0, -0.5, 0]} intensity={0.5} color="#ff2200" distance={2} />
+      {/* Avoid per-zombie lights: changing light count on spawn/death forces
+          Three.js to recompile many cabin materials and causes kill/load spikes. */}
     </group>
   )
 }

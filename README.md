@@ -49,6 +49,9 @@ Wave clears now pay a detailed performance bonus on top of the base wave and kil
 ### Window Barricade Shop
 Between waves, spend coins to board up windows with planks. Planks slow zombie entry. Upgrade to reinforced (metal-striped) planks.
 
+### Perk Upgrades
+The supply chest also sells one-time perks: Fast Hands, Deep Pockets, Iron Sights, Runner's Breath, Carpenter, and Knife Mastery. Perks improve reload speed, ammo-pack value, near-head hit forgiveness, movement speed, boarding speed, and knife reach/cooldown.
+
 ### Zombie Contact Death
 Zombie within 1.2 units of player → instant death. YOU DIED screen with Souls-style fade-in.
 

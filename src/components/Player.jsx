@@ -13,9 +13,21 @@ import { CHEST_POS } from './Arena'
 import * as THREE from 'three'
 
 const CHEST_RADIUS_SQ = 1.5 * 1.5
-const KNIFE_COOLDOWN = 0.4
-const KNIFE_RANGE = 2.2
+const BASE_KNIFE_COOLDOWN = 0.4
+const BASE_KNIFE_RANGE = 2.2
 const SKIP_TIME = 0.6
+
+const reloadTimeForPerks = (perks) => perks.fast_hands ? 1.0 : 1.5
+const boardTimeForPerks = (perks) => perks.carpenter ? 1.3 : 2.0
+const moveSpeedForPerks = (perks) => MOVE_SPEED * (perks.runners_breath ? 1.15 : 1)
+const knifeCooldownForPerks = (perks) => perks.knife_mastery ? 0.25 : BASE_KNIFE_COOLDOWN
+const knifeRangeForPerks = (perks) => perks.knife_mastery ? 2.8 : BASE_KNIFE_RANGE
+
+function isIronSightsHeadshot(zombieRef, point, perks) {
+  if (!perks.iron_sights || !zombieRef || !point) return false
+  const local = zombieRef.worldToLocal(point.clone())
+  return local.y > 0.55 && Math.abs(local.x) < 0.34 && Math.abs(local.z) < 0.34
+}
 
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
@@ -29,6 +41,7 @@ export default function Player() {
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const activeItem = useGameStore((s) => s.activeItem)
+  const perks = useGameStore((s) => s.perks)
   const toggleItem = useGameStore((s) => s.toggleItem)
   const setKnifeCooldown = useGameStore((s) => s.setKnifeCooldown)
   const consumeBullet = useGameStore((s) => s.consumeBullet)
@@ -65,6 +78,7 @@ export default function Player() {
   const weapon = useGameStore((s) => s.weapon)
   const weaponRef = useRef(weapon)
   const activeItemRef = useRef(activeItem)
+  const perksRef = useRef(perks)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -73,8 +87,6 @@ export default function Player() {
   const zombieRefs = useRef({})
   const reloadTimer = useRef(0)
   const stepTimer = useRef(0)
-  const RELOAD_TIME = 1.5
-
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
@@ -84,6 +96,7 @@ export default function Player() {
   useEffect(() => { strongPlanksModeRef.current = strongPlanksMode }, [strongPlanksMode])
   useEffect(() => { weaponRef.current = weapon }, [weapon])
   useEffect(() => { activeItemRef.current = activeItem }, [activeItem])
+  useEffect(() => { perksRef.current = perks }, [perks])
 
   useEffect(() => {
     camera.rotation.order = 'YXZ'
@@ -132,7 +145,7 @@ export default function Player() {
         return
       }
       if (e.code === 'KeyR' && !shopOpenRef.current && activeItemRef.current === 'gun' && beginReload()) {
-        reloadTimer.current = RELOAD_TIME
+        reloadTimer.current = reloadTimeForPerks(perksRef.current)
         playReload()
       }
     }
@@ -210,6 +223,7 @@ export default function Player() {
         const trailEnd = bestPoint ?? camera.position.clone().addScaledVector(pelletRC.ray.direction, 30)
         BulletTrails.add(muzzle, trailEnd)
         if (bestId !== null) {
+          if (!bestHead) bestHead = isIronSightsHeadshot(zombieRefs.current[bestId], bestPoint, perksRef.current)
           const died = hitZombie(bestId, bestHead)
           if (died && !killed.has(bestId)) { killed.add(bestId); playZombieDie() }
         }
@@ -248,8 +262,11 @@ export default function Player() {
       if (closest !== null) {
         const id = Number(closest)
         const zombieRef = zombieRefs.current[closest]
+        if (!isHeadshot && hitPoint && zombieRef) {
+          isHeadshot = isIronSightsHeadshot(zombieRef, hitPoint, perksRef.current)
+        }
         if (!isHeadshot && hitPoint && zombieRef && hitFaceNormal) {
-          const localPos = zombieRef.worldToLocal(hitPoint)
+          const localPos = zombieRef.worldToLocal(hitPoint.clone())
           localPos.addScaledVector(hitFaceNormal, 0.012)
           Zombie.addBulletHole(id, localPos, hitFaceNormal)
         }
@@ -263,8 +280,9 @@ export default function Player() {
 
     Knife.swing?.()
     playKnifeSwing()
-    knifeCooldownRef.current = KNIFE_COOLDOWN
-    setKnifeCooldown(KNIFE_COOLDOWN)
+    const cooldown = knifeCooldownForPerks(perksRef.current)
+    knifeCooldownRef.current = cooldown
+    setKnifeCooldown(cooldown)
 
     // Melee hit: closest zombie within range and roughly in front of player
     const camPos = camera.position
@@ -277,7 +295,7 @@ export default function Player() {
       ref.getWorldPosition(zombiePos)
       zombiePos.y = camPos.y  // ignore height difference for range check
       const dist = camPos.distanceTo(zombiePos)
-      if (dist > KNIFE_RANGE) continue
+      if (dist > knifeRangeForPerks(perksRef.current)) continue
       const toZombie = zombiePos.clone().sub(camPos).normalize()
       if (fwd.dot(toZombie) < 0.1) continue  // must be in roughly forward 160° arc
       if (dist < closestDist) { closestDist = dist; closestId = id }
@@ -362,9 +380,9 @@ export default function Player() {
       }
     }
 
-    // Hold E to board or upgrade window planks (2 seconds)
+    // Hold E to board or upgrade window planks (Carpenter speeds this up)
     {
-      const BOARD_TIME = 2.0
+      const BOARD_TIME = boardTimeForPerks(perksRef.current)
       const nearId = prevNearWindowRef.current
       const eHeld = keys.current['KeyE']
       const plankCount = windowPlanksRef.current[nearId] ?? 0
@@ -435,7 +453,7 @@ export default function Player() {
     if (keys.current['KeyD'] || keys.current['ArrowRight']) dir.add(right)
 
     if (dir.lengthSq() > 0) {
-      dir.normalize().multiplyScalar(MOVE_SPEED * delta)
+      dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current) * delta)
       const R = 0.35
       const ws = wallsRef.current
       const cx = camera.position.x

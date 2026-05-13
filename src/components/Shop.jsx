@@ -1,4 +1,4 @@
-import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, STRONG_PLANK_COST } from '../store'
+import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST } from '../store'
 
 const ITEMS = [
   {
@@ -25,9 +25,48 @@ const ITEMS = [
   {
     id: 'ammo_pack',
     name: 'Ammo Pack',
-    desc: `+${AMMO_PACK_AMOUNT} rounds to reserve`,
+    desc: (perks) => `+${perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT} rounds to reserve`,
     price: AMMO_PACK_COST,
     oneTime: false,
+  },
+]
+
+const PERKS = [
+  {
+    id: 'fast_hands',
+    name: 'Fast Hands',
+    desc: 'Reload 33% faster',
+    price: PERK_COSTS.fast_hands,
+  },
+  {
+    id: 'deep_pockets',
+    name: 'Deep Pockets',
+    desc: `Ammo packs give +${DEEP_POCKETS_AMMO_PACK_AMOUNT} rounds`,
+    price: PERK_COSTS.deep_pockets,
+  },
+  {
+    id: 'iron_sights',
+    name: 'Iron Sights',
+    desc: 'Near-head hits count as headshots',
+    price: PERK_COSTS.iron_sights,
+  },
+  {
+    id: 'runners_breath',
+    name: "Runner's Breath",
+    desc: 'Move 15% faster',
+    price: PERK_COSTS.runners_breath,
+  },
+  {
+    id: 'carpenter',
+    name: 'Carpenter',
+    desc: 'Board windows 35% faster',
+    price: PERK_COSTS.carpenter,
+  },
+  {
+    id: 'knife_mastery',
+    name: 'Knife Mastery',
+    desc: 'Longer reach and quicker recovery',
+    price: PERK_COSTS.knife_mastery,
   },
 ]
 
@@ -35,8 +74,10 @@ export default function Shop() {
   const shopOpen = useGameStore((s) => s.shopOpen)
   const closeShop = useGameStore((s) => s.closeShop)
   const buyItem = useGameStore((s) => s.buyItem)
+  const buyPerk = useGameStore((s) => s.buyPerk)
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
+  const perks = useGameStore((s) => s.perks)
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
 
@@ -62,7 +103,7 @@ export default function Shop() {
               <div key={item.id} style={{ ...styles.row, opacity: disabled && !owned ? 0.45 : 1 }}>
                 <div style={styles.rowLeft}>
                   <span style={{ ...styles.rowName, color: owned ? '#4a8a2a' : '#ddd' }}>{item.name}</span>
-                  <span style={styles.rowDesc}>{item.desc}</span>
+                  <span style={styles.rowDesc}>{typeof item.desc === 'function' ? item.desc(perks) : item.desc}</span>
                 </div>
                 <div style={styles.rowRight}>
                   <span style={{ ...styles.rowPrice, color: canAfford || owned ? '#ffe066' : '#884422' }}>
@@ -82,6 +123,34 @@ export default function Shop() {
 
           <div style={styles.divider} />
 
+          <div style={styles.sectionLabel}>PERKS</div>
+          {PERKS.map((perk) => {
+            const owned = perks[perk.id]
+            const canAfford = money >= perk.price
+            const disabled = owned || !canAfford
+            return (
+              <div key={perk.id} style={{ ...styles.row, opacity: disabled && !owned ? 0.45 : 1 }}>
+                <div style={styles.rowLeft}>
+                  <span style={{ ...styles.rowName, color: owned ? '#4a8a2a' : '#ddd' }}>{perk.name}</span>
+                  <span style={styles.rowDesc}>{perk.desc}</span>
+                </div>
+                <div style={styles.rowRight}>
+                  <span style={{ ...styles.rowPrice, color: canAfford || owned ? '#ffe066' : '#884422' }}>
+                    {owned ? '—' : `€${perk.price.toFixed(2)}`}
+                  </span>
+                  <button
+                    style={{ ...styles.btn, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    disabled={disabled}
+                    onClick={() => buyPerk(perk.id)}
+                  >
+                    {owned ? 'OWNED' : 'BUY'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          <div style={styles.divider} />
           {/* Strong Planks toggle */}
           <div style={styles.row}>
             <div style={styles.rowLeft}>
@@ -129,7 +198,9 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 12,
-    width: 500,
+    width: 560,
+    maxHeight: '82vh',
+    overflowY: 'auto',
     fontFamily: 'Courier New, monospace',
     boxShadow: '0 0 40px rgba(180,100,0,0.2)',
   },
@@ -157,6 +228,13 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
+  },
+  sectionLabel: {
+    color: '#775522',
+    fontSize: 10,
+    letterSpacing: 4,
+    fontWeight: 'bold',
+    margin: '8px 4px 2px',
   },
   row: {
     display: 'flex',
