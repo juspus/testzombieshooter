@@ -9,10 +9,10 @@ export default function Screens() {
   const startGame = useGameStore((s) => s.startGame)
   const nextWave = useGameStore((s) => s.nextWave)
   const intermissionLeft = useGameStore((s) => s.intermissionLeft)
-  const zombies = useGameStore((s) => s.zombies)
   const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
   const money = useGameStore((s) => s.money)
   const skipProgress = useGameStore((s) => s.skipProgress)
+  const lastWaveBonuses = useGameStore((s) => s.lastWaveBonuses)
 
   if (phase === 'start') {
     return (
@@ -28,7 +28,7 @@ export default function Screens() {
   }
 
   if (phase === 'wave_clear') {
-    return <WaveClearScreen wave={wave} waveKills={waveKills} kills={kills} nextWave={nextWave} />
+    return <WaveClearScreen wave={wave} waveKills={waveKills} kills={kills} bonuses={lastWaveBonuses} nextWave={nextWave} />
   }
 
   if (phase === 'intermission') {
@@ -43,9 +43,9 @@ export default function Screens() {
   return null
 }
 
-function WaveClearScreen({ wave, waveKills, kills, nextWave }) {
+function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
   useEffect(() => {
-    const id = setTimeout(nextWave, 1500)
+    const id = setTimeout(nextWave, 3200)
     return () => clearTimeout(id)
   }, [nextWave])
 
@@ -55,8 +55,80 @@ function WaveClearScreen({ wave, waveKills, kills, nextWave }) {
       <Title style={{ fontSize: 48 }}>NICE SHOT!</Title>
       <Sub>Kills this wave: {waveKills}</Sub>
       <Sub style={{ marginTop: 4, color: '#888' }}>Total kills: {kills}</Sub>
+      {bonuses && <BonusBreakdown bonuses={bonuses} />}
     </Overlay>
   )
+}
+
+function BonusBreakdown({ bonuses }) {
+  const rows = [
+    ['Wave reward', bonuses.base],
+    [`Kill reward (${Math.round(bonuses.kills)} kills)`, bonuses.kills],
+    bonuses.headshots > 0 && [`Headshot kills (${bonuses.headshotsCount})`, bonuses.headshots],
+    bonuses.knifeKills > 0 && [`Knife kills (${bonuses.knifeKillsCount})`, bonuses.knifeKills],
+    bonuses.noPlanksLost > 0 && ['No planks lost', bonuses.noPlanksLost],
+    bonuses.fastClear > 0 && [`Fast clear (${formatSeconds(bonuses.elapsed)} / ${formatSeconds(bonuses.fastClearPar)})`, bonuses.fastClear],
+  ].filter(Boolean)
+  const payout = bonuses.base + bonuses.kills + bonuses.total
+
+  return (
+    <div style={styles.bonusPanel}>
+      <div style={styles.bonusTitle}>PERFORMANCE PAYOUT</div>
+      {rows.map(([label, value]) => (
+        <div key={label} style={styles.bonusRow}>
+          <span>{label}</span>
+          <span style={styles.bonusValue}>+€{value.toFixed(2)}</span>
+        </div>
+      ))}
+      <div style={styles.bonusDivider} />
+      <div style={{ ...styles.bonusRow, color: '#ffe066', fontWeight: 'bold' }}>
+        <span>Total banked next wave</span>
+        <span>+€{payout.toFixed(2)}</span>
+      </div>
+    </div>
+  )
+}
+
+function formatSeconds(value) {
+  return `${Math.max(0, value).toFixed(1)}s`
+}
+
+const styles = {
+  bonusPanel: {
+    width: 360,
+    marginTop: 12,
+    padding: '12px 16px',
+    background: 'rgba(0,0,0,0.45)',
+    border: '1px solid rgba(255,224,102,0.3)',
+    borderRadius: 6,
+    color: '#bbb',
+    fontFamily: 'Courier New, monospace',
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  bonusTitle: {
+    color: '#ffe066',
+    fontSize: 11,
+    letterSpacing: 4,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  bonusRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginTop: 4,
+  },
+  bonusValue: {
+    color: '#88cc44',
+    whiteSpace: 'nowrap',
+  },
+  bonusDivider: {
+    height: 1,
+    background: 'rgba(255,255,255,0.12)',
+    margin: '8px 0',
+  },
 }
 
 function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress }) {

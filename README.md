@@ -43,6 +43,9 @@ Up to 25 zombies active at once; extras queue and spawn as kills happen.
 ### Zombie AI
 Each zombie pathfinds toward the player using A*. Zombies can switch to "attack window" mode — targeting boarded windows to break in. Animated humanoid meshes with walk cycle, arm swing, and idle sway.
 
+### Performance Payouts
+Wave clears now pay a detailed performance bonus on top of the base wave and kill rewards. Headshot kills, knife kills, fast clears, and preserving pre-wave barricades all add extra money for the next intermission.
+
 ### Window Barricade Shop
 Between waves, spend coins to board up windows with planks. Planks slow zombie entry. Upgrade to reinforced (metal-striped) planks.
 
