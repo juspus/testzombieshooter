@@ -6,6 +6,7 @@ import {
   DOOR_Z, DOOR_HALF,
   PART_Z_BH, PART_Z_HK, PART_X,
   WINDOW_DEFS,
+  SPAWN_CLUSTERS,
 } from '../cabin'
 
 const HW = CABIN_HW
@@ -976,6 +977,67 @@ function Roof() {
   )
 }
 
+
+// ─── Forest spawn thickets ───────────────────────────────────────────────────
+
+const THICKET_TREE_OFFSETS = [
+  [-1.8, -0.25, 4.4, 0.42],
+  [-0.7,  0.18, 5.8, 0.52],
+  [ 0.6, -0.12, 4.9, 0.46],
+  [ 1.6,  0.28, 6.4, 0.58],
+]
+const THICKET_BRUSH_OFFSETS = [-2.2, -1.3, -0.35, 0.55, 1.45, 2.3]
+
+function edgeRotation(edge) {
+  if (edge === 'N') return 0
+  if (edge === 'S') return Math.PI
+  if (edge === 'E') return Math.PI / 2
+  return -Math.PI / 2
+}
+
+function SpawnThicket({ cluster, index }) {
+  const rotation = edgeRotation(cluster.edge)
+  return (
+    <group position={[cluster.x, 0, cluster.z]} rotation={[0, rotation, 0]}>
+      {/* Dense, non-colliding silhouettes mark the exact treeline zombies emerge from. */}
+      <Box position={[0, 0.04, 0.75]} args={[5.8, 0.08, 1.5]} color="#020605" castShadow={false} receiveShadow={false} />
+      {THICKET_TREE_OFFSETS.map(([x, z, h, scale], i) => (
+        <group key={i} position={[x, 0, z - 0.25 * (index % 2)]}>
+          <mesh position={[0, h * 0.36, 0]} castShadow>
+            <cylinderGeometry args={[0.09 * scale, 0.16 * scale, h * 0.72, 5]} />
+            <meshStandardMaterial color={i % 2 ? '#050a08' : '#030706'} roughness={1} />
+          </mesh>
+          <mesh position={[0, h * 0.76, 0]} castShadow>
+            <coneGeometry args={[1.15 * scale, h * 0.58, 5]} />
+            <meshStandardMaterial color={i % 2 ? '#03100d' : '#020b09'} roughness={1} />
+          </mesh>
+          <mesh position={[0, h * 0.52, 0]} castShadow>
+            <coneGeometry args={[1.45 * scale, h * 0.54, 5]} />
+            <meshStandardMaterial color="#010605" roughness={1} />
+          </mesh>
+        </group>
+      ))}
+      {THICKET_BRUSH_OFFSETS.map((x, i) => (
+        <group key={i} position={[x, 0.22, -0.25 + (i % 2) * 0.35]} rotation={[0, 0, (i % 2 ? -0.35 : 0.28)]}>
+          <Box position={[0, 0.16, 0]} args={[0.12, 0.5 + (i % 3) * 0.18, 0.10]} color="#020605" castShadow />
+          <Box position={[0.18, 0.28, 0.02]} args={[0.08, 0.55, 0.08]} color="#030807" rotation={[0, 0, -0.7]} castShadow />
+          <Box position={[-0.18, 0.25, -0.02]} args={[0.08, 0.5, 0.08]} color="#030807" rotation={[0, 0, 0.65]} castShadow />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function ForestSpawnThickets() {
+  return (
+    <group>
+      {SPAWN_CLUSTERS.map((cluster, index) => (
+        <SpawnThicket key={`${cluster.edge}-${index}`} cluster={cluster} index={index} />
+      ))}
+    </group>
+  )
+}
+
 // ─── Arena export ────────────────────────────────────────────────────────────
 
 export default function Arena() {
@@ -1016,6 +1078,8 @@ export default function Arena() {
         <planeGeometry args={[80, 80]} />
         <meshStandardMaterial color="#1a2a14" roughness={1} />
       </mesh>
+
+      <ForestSpawnThickets />
 
       {/* ── Ceiling ──────────────────────────────────────────────────────── */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WH, 0]}>
