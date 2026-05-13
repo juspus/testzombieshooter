@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGameStore } from '../store'
+import { createRunShareToken } from '../shareToken'
 
 export default function Screens() {
   const phase = useGameStore((s) => s.phase)
@@ -448,12 +449,7 @@ function getRunShareUrl(summary) {
   if (typeof window === 'undefined') return ''
 
   const url = new URL('/api/share', window.location.origin)
-  url.searchParams.set('wave', summary.wave)
-  url.searchParams.set('kills', summary.kills)
-  url.searchParams.set('money', summary.money.toFixed(2))
-  url.searchParams.set('weapon', summary.weapon)
-  if (summary.perks.length > 0) url.searchParams.set('perks', summary.perks.join(','))
-  url.searchParams.set('game', summary.gameUrl)
+  url.searchParams.set('r', createRunShareToken(summary))
   return url.toString()
 }
 
