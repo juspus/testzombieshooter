@@ -29,7 +29,7 @@ const HEADSHOT_KILL_BONUS = 0.5
 const KNIFE_KILL_BONUS = 2
 const NO_PLANK_LOSS_BONUS = 10
 const FAST_CLEAR_BONUS = 8
-const fastClearParForWave = (wave) => 25 + wave * 5
+const fastClearParForWave = (wave) => 10 + wave * 2
 export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
