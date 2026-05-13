@@ -213,6 +213,17 @@ export function playZombieFootstep() {
   setTimeout(() => { _zStepActive-- }, 200)
 }
 
+export function playPlayerHit() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Wet impact layered with a brief low heartbeat-like thump.
+  const impactBuf = noiseBuffer(ac, 0.16)
+  playNoise(ac, impactBuf, t, 0.12, 0.75, 'bandpass', 260, 1.4)
+  playNoise(ac, impactBuf, t + 0.015, 0.08, 0.35, 'highpass', 1800, 0.8)
+  playTone(ac, t, 95, 38, 0.16, 0.55)
+}
+
 export function playPlankHit() {
   const ac = ctx()
   const t = ac.currentTime

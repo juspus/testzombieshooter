@@ -1,4 +1,4 @@
-import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
+import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, MAX_PLAYER_HEALTH } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -22,6 +22,9 @@ export default function HUD() {
   const activeItem = useGameStore((s) => s.activeItem)
   const perks = useGameStore((s) => s.perks)
   const knifeCooldown = useGameStore((s) => s.knifeCooldown)
+  const playerHealth = useGameStore((s) => s.playerHealth)
+  const playerMaxHealth = useGameStore((s) => s.playerMaxHealth)
+  const damageFlash = useGameStore((s) => s.damageFlash)
   const nearChest = useGameStore((s) => s.nearChest)
   const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
@@ -33,6 +36,8 @@ export default function HUD() {
   const activeCost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
   const upgradeCost = STRONG_PLANK_COST * nearPlankCount
   const canAfford = canUpgrade ? money >= upgradeCost : money >= activeCost
+  const healthPct = Math.max(0, Math.min(1, playerHealth / (playerMaxHealth || MAX_PLAYER_HEALTH)))
+  const healthColor = healthPct <= 0.25 ? '#ff3300' : healthPct <= 0.5 ? '#ffaa00' : '#00ff88'
 
   return (
     <div style={styles.hud}>
@@ -57,6 +62,24 @@ export default function HUD() {
           </span>
         </div>
       </div>
+
+      {/* Health — bottom left */}
+      <div style={styles.healthBox}>
+        <div style={styles.healthHeader}>
+          <span>HEALTH</span>
+          <span style={{ color: healthColor }}>{Math.ceil(playerHealth)} / {playerMaxHealth}</span>
+        </div>
+        <div style={styles.healthTrack}>
+          <div style={{ ...styles.healthFill, width: `${healthPct * 100}%`, background: healthColor }} />
+        </div>
+      </div>
+
+      {damageFlash > 0 && (
+        <div style={{
+          ...styles.damageVignette,
+          opacity: Math.min(0.55, damageFlash / 0.35 * 0.55),
+        }} />
+      )}
 
       {/* Weapon info — bottom right */}
       {activeItem === 'knife' ? (
@@ -227,6 +250,44 @@ const styles = {
     background: '#00ff88',
     transition: 'width 0.2s',
     borderRadius: 3,
+  },
+  healthBox: {
+    position: 'absolute',
+    bottom: 40,
+    left: 40,
+    width: 220,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    fontFamily: 'Courier New, monospace',
+  },
+  healthHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    color: '#888',
+    fontSize: 12,
+    letterSpacing: 2,
+    fontWeight: 'bold',
+  },
+  healthTrack: {
+    height: 12,
+    background: 'rgba(255,255,255,0.12)',
+    border: '1px solid rgba(255,255,255,0.2)',
+    borderRadius: 8,
+    overflow: 'hidden',
+    boxShadow: '0 0 16px rgba(0,0,0,0.65)',
+  },
+  healthFill: {
+    height: '100%',
+    borderRadius: 8,
+    transition: 'width 0.15s, background 0.15s',
+    boxShadow: '0 0 12px currentColor',
+  },
+  damageVignette: {
+    position: 'absolute',
+    inset: 0,
+    background: 'radial-gradient(circle, rgba(255,0,0,0) 35%, rgba(130,0,0,0.9) 100%)',
+    transition: 'opacity 0.05s linear',
   },
   ammoBox: {
     position: 'absolute',

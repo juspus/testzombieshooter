@@ -4,7 +4,7 @@ import { useGameStore } from '../store'
 import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
-import { playZombieFootstep, playPlankHit } from '../sounds'
+import { playZombieFootstep, playPlankHit, playPlayerHit } from '../sounds'
 import * as THREE from 'three'
 
 const _geoCache = new Map()
@@ -42,7 +42,9 @@ const _deathTmpQuat = new THREE.Quaternion()
 const _deathTmpEuler = new THREE.Euler()
 const ARENA_BOUND = 18.5
 const ZOMBIE_R = 0.30             // physical collision radius
-const KILL_DISTANCE = 1.2
+const PLAYER_ATTACK_RANGE = 1.25
+const PLAYER_ATTACK_DAMAGE = 20
+const PLAYER_ATTACK_INTERVAL = 1.1
 const PATH_INTERVAL = 0.12        // seconds between A* recalculations
 const WAYPOINT_REACH = 0.6        // distance to advance to next waypoint
 const ATTACK_RANGE = 1.8          // distance to window face to start hitting
@@ -131,7 +133,7 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
   const { camera } = useThree()
   const speed = useGameStore((s) => s.getZombieSpeed())
   const phase = useGameStore((s) => s.phase)
-  const die = useGameStore((s) => s.die)
+  const damagePlayer = useGameStore((s) => s.damagePlayer)
   const health = useGameStore((s) => s.zombies.find((z) => z.id === id)?.health ?? 2)
   const dying = useGameStore((s) => s.zombies.find((z) => z.id === id)?.dying ?? false)
   const hitPlank = useGameStore((s) => s.hitPlank)
@@ -359,9 +361,17 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
       }
     } else {
       ref.current.lookAt(px, pos.y, pz)
-      if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
-        const dx = px - pos.x, dz = pz - pos.z
-        const dist = Math.sqrt(dx * dx + dz * dz)
+      const dx = px - pos.x, dz = pz - pos.z
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist <= PLAYER_ATTACK_RANGE) {
+        isAttackingRef.current = true
+        attackTimerRef.current -= delta
+        if (attackTimerRef.current <= 0) {
+          attackTimerRef.current = PLAYER_ATTACK_INTERVAL
+          damagePlayer(PLAYER_ATTACK_DAMAGE)
+          playPlayerHit()
+        }
+      } else if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
         if (dist > 0.01) moveDir = _moveDir.set(dx / dist, 0, dz / dist)
       } else {
         moveDir = followPath(pos, px, pz)
@@ -405,8 +415,6 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
       if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
     }
 
-    const dx = px - pos.x, dz = pz - pos.z
-    if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
   })
 
   const { skin, skinDark, skinVein, shirt, shirtTear } = health === 1 ? _SKIN_DAMAGED : _SKIN_NORMAL

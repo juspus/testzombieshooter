@@ -38,11 +38,16 @@ const HEADSHOT_KILL_BONUS = 0.5
 const KNIFE_KILL_BONUS = 2
 const NO_PLANK_LOSS_BONUS = 10
 const FAST_CLEAR_BONUS = 8
+const MAX_PLAYER_HEALTH = 100
+const PLAYER_DAMAGE_FLASH_TIME = 0.35
 const fastClearParForWave = (wave) => 10 + wave * 2
-export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK, MAX_PLAYER_HEALTH }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
+  playerHealth: MAX_PLAYER_HEALTH,
+  playerMaxHealth: MAX_PLAYER_HEALTH,
+  damageFlash: 0,
   money: 10,
   weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
   activeItem: 'gun',  // 'gun' | 'knife'
@@ -83,6 +88,9 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
+      playerHealth: MAX_PLAYER_HEALTH,
+      playerMaxHealth: MAX_PLAYER_HEALTH,
+      damageFlash: 0,
       money: 10,
       weapon: 'pistol',
       activeItem: 'gun',
@@ -238,9 +246,12 @@ export const useGameStore = create((set, get) => ({
   },
 
   tick: (delta) => {
-    const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed } = get()
+    const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed, damageFlash } = get()
     if (phase === 'playing') {
-      set({ waveElapsed: waveElapsed + delta })
+      set({
+        waveElapsed: waveElapsed + delta,
+        damageFlash: Math.max(0, damageFlash - delta),
+      })
       return
     }
     if (phase === 'intermission') {
@@ -266,9 +277,21 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
+  damagePlayer: (amount) => {
+    const { phase, playerHealth } = get()
+    if (phase !== 'playing' || playerHealth <= 0) return false
+    const nextHealth = Math.max(0, playerHealth - amount)
+    set({
+      playerHealth: nextHealth,
+      damageFlash: PLAYER_DAMAGE_FLASH_TIME,
+      phase: nextHealth <= 0 ? 'dead' : phase,
+    })
+    return nextHealth <= 0
+  },
+
   die: () => {
     if (get().phase !== 'playing') return
-    set({ phase: 'dead' })
+    set({ phase: 'dead', playerHealth: 0, damageFlash: PLAYER_DAMAGE_FLASH_TIME })
   },
 
   addPlank: (id) => {
