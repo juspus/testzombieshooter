@@ -25,6 +25,11 @@ const STRONG_PLANK_COST = 20
 const STRONG_HITS_PER_PLANK = 20
 const WAVE_REWARD = 15
 const ZOMBIE_KILL_REWARD = 1
+const HEADSHOT_KILL_BONUS = 0.5
+const KNIFE_KILL_BONUS = 2
+const NO_PLANK_LOSS_BONUS = 10
+const FAST_CLEAR_BONUS = 8
+const fastClearParForWave = (wave) => 25 + wave * 5
 export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
@@ -53,6 +58,12 @@ export const useGameStore = create((set, get) => ({
   bulletsInClip: CLIP_SIZE,
   reserveBullets: 0,
   isReloading: false,
+  waveElapsed: 0,
+  waveHeadshots: 0,
+  waveKnifeKills: 0,
+  wavePlanksLost: 0,
+  waveStartPlanks: 0,
+  lastWaveBonuses: null,
 
   startGame: () => {
     const wave = 1
@@ -82,17 +93,23 @@ export const useGameStore = create((set, get) => ({
       bulletsInClip: clip,
       reserveBullets: total - clip,
       isReloading: false,
+      waveElapsed: 0,
+      waveHeadshots: 0,
+      waveKnifeKills: 0,
+      wavePlanksLost: 0,
+      waveStartPlanks: 0,
+      lastWaveBonuses: null,
     })
   },
 
   nextWave: () => {
-    const { wave: prevWave, nextId, windowPlanks, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills } = get()
+    const { wave: prevWave, windowPlanks, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
     const wave = prevWave + 1
     buildGrid(allWallSegments(windowPlanks))
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
-      money: money + WAVE_REWARD + (prevWaveKills * ZOMBIE_KILL_REWARD),
+      money: money + WAVE_REWARD + (prevWaveKills * ZOMBIE_KILL_REWARD) + (lastWaveBonuses?.total ?? 0),
       shopOpen: false,
       walls,
       wave,
@@ -105,6 +122,11 @@ export const useGameStore = create((set, get) => ({
       reserveBullets,
       isReloading: false,
       knifeCooldown: 0,
+      waveElapsed: 0,
+      waveHeadshots: 0,
+      waveKnifeKills: 0,
+      wavePlanksLost: 0,
+      waveStartPlanks: 0,
     })
   },
 
@@ -130,8 +152,8 @@ export const useGameStore = create((set, get) => ({
     set({ bulletsInClip: bulletsInClip + toLoad, reserveBullets: reserveBullets - toLoad, isReloading: false })
   },
 
-  hitZombie: (id, isHeadshot) => {
-    const { zombies, pendingSpawns, kills, waveKills } = get()
+  hitZombie: (id, isHeadshot, source = 'gun') => {
+    const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks } = get()
     const zombie = zombies.find((z) => z.id === id)
     if (!zombie || zombie.dying) return
 
@@ -140,6 +162,8 @@ export const useGameStore = create((set, get) => ({
     if (newHealth <= 0) {
       const newKills = kills + 1
       const newWaveKills = waveKills + 1
+      const newWaveHeadshots = waveHeadshots + (source === 'gun' && isHeadshot ? 1 : 0)
+      const newWaveKnifeKills = waveKnifeKills + (source === 'knife' ? 1 : 0)
       // Immediately slot in the next pending zombie so the active count stays at the cap
       const nextPending = pendingSpawns.length > 0 ? pendingSpawns[0] : null
       const newPending = nextPending ? pendingSpawns.slice(1) : pendingSpawns
@@ -148,9 +172,29 @@ export const useGameStore = create((set, get) => ({
       const withNext = nextPending ? [...newZombies, nextPending] : newZombies
       const activeCount = withNext.filter((z) => !z.dying).length
       const waveOver = activeCount === 0 && newPending.length === 0
+      const statUpdate = {
+        zombies: withNext,
+        pendingSpawns: newPending,
+        kills: newKills,
+        waveKills: newWaveKills,
+        waveHeadshots: newWaveHeadshots,
+        waveKnifeKills: newWaveKnifeKills,
+      }
       set(waveOver
-        ? { zombies: withNext, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
-        : { zombies: withNext, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills }
+        ? {
+          ...statUpdate,
+          phase: 'wave_clear',
+          lastWaveBonuses: buildWaveBonusSummary({
+            wave,
+            waveKills: newWaveKills,
+            waveHeadshots: newWaveHeadshots,
+            waveKnifeKills: newWaveKnifeKills,
+            wavePlanksLost,
+            waveStartPlanks,
+            waveElapsed,
+          }),
+        }
+        : statUpdate
       )
       return true
     } else {
@@ -160,18 +204,34 @@ export const useGameStore = create((set, get) => ({
   },
 
   removeDyingZombie: (id) => {
-    const { zombies, pendingSpawns, phase } = get()
+    const { zombies, pendingSpawns, phase, wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed } = get()
     const newZombies = zombies.filter((z) => z.id !== id)
     const activeCount = newZombies.filter((z) => !z.dying).length
     const waveOver = activeCount === 0 && pendingSpawns.length === 0 && phase === 'playing'
     set(waveOver
-      ? { zombies: newZombies, phase: 'wave_clear' }
+      ? {
+        zombies: newZombies,
+        phase: 'wave_clear',
+        lastWaveBonuses: buildWaveBonusSummary({
+          wave,
+          waveKills,
+          waveHeadshots,
+          waveKnifeKills,
+          wavePlanksLost,
+          waveStartPlanks,
+          waveElapsed,
+        }),
+      }
       : { zombies: newZombies }
     )
   },
 
   tick: (delta) => {
-    const { phase, intermissionLeft, wave, nextId, zombies, pendingSpawns } = get()
+    const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed } = get()
+    if (phase === 'playing') {
+      set({ waveElapsed: waveElapsed + delta })
+      return
+    }
     if (phase === 'intermission') {
       const next = intermissionLeft - delta
       if (next <= 0) {
@@ -183,6 +243,11 @@ export const useGameStore = create((set, get) => ({
           zombies: all.slice(0, cap),
           pendingSpawns: all.slice(cap),
           nextId: nextId + all.length,
+          waveElapsed: 0,
+          waveHeadshots: 0,
+          waveKnifeKills: 0,
+          wavePlanksLost: 0,
+          waveStartPlanks: countPlanks(windowPlanks),
         })
       } else {
         set({ intermissionLeft: next })
@@ -219,7 +284,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   hitPlank: (id) => {
-    const { plankHits, windowPlanks, windowPlankStrong } = get()
+    const { plankHits, windowPlanks, windowPlankStrong, wavePlanksLost } = get()
     if ((windowPlanks[id] ?? 0) === 0) return
     const hitsNeeded = windowPlankStrong[id] ? STRONG_HITS_PER_PLANK : HITS_PER_PLANK
     const hits = (plankHits[id] ?? 0) + 1
@@ -230,7 +295,7 @@ export const useGameStore = create((set, get) => ({
         : windowPlankStrong
       buildGrid(allWallSegments(newPlanks))
       playPlankBreak()
-      set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, plankHits: { ...plankHits, [id]: 0 } })
+      set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, plankHits: { ...plankHits, [id]: 0 }, wavePlanksLost: wavePlanksLost + 1 })
     } else {
       set({ plankHits: { ...plankHits, [id]: hits } })
     }
@@ -282,6 +347,33 @@ export const useGameStore = create((set, get) => ({
   getZombieSpeed: () => speedForWave(get().wave),
   getZombiesForWave: () => zombiesForWave(get().wave),
 }))
+
+function countPlanks(windowPlanks) {
+  return Object.values(windowPlanks).reduce((sum, count) => sum + count, 0)
+}
+
+function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed }) {
+  const fastClearPar = fastClearParForWave(wave)
+  const headshots = waveHeadshots * HEADSHOT_KILL_BONUS
+  const knifeKills = waveKnifeKills * KNIFE_KILL_BONUS
+  const noPlanksLost = waveStartPlanks > 0 && wavePlanksLost === 0 ? NO_PLANK_LOSS_BONUS : 0
+  const fastClear = waveElapsed > 0 && waveElapsed <= fastClearPar ? FAST_CLEAR_BONUS : 0
+  return {
+    base: WAVE_REWARD,
+    kills: waveKills * ZOMBIE_KILL_REWARD,
+    headshots,
+    knifeKills,
+    noPlanksLost,
+    fastClear,
+    total: headshots + knifeKills + noPlanksLost + fastClear,
+    elapsed: waveElapsed,
+    fastClearPar,
+    headshotsCount: waveHeadshots,
+    knifeKillsCount: waveKnifeKills,
+    planksLost: wavePlanksLost,
+    startPlanks: waveStartPlanks,
+  }
+}
 
 function spawnZombies(wave, startId) {
   const count = zombiesForWave(wave)

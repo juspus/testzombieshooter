@@ -283,7 +283,7 @@ export default function Player() {
     }
 
     if (closestId !== null) {
-      if (hitZombie(Number(closestId), true)) playZombieDie()
+      if (hitZombie(Number(closestId), true, 'knife')) playZombieDie()
     }
   }, [camera, hitZombie, setKnifeCooldown])
 
