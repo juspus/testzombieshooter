@@ -6,6 +6,7 @@ import {
   DOOR_Z, DOOR_HALF,
   PART_Z_BH, PART_Z_HK, PART_X,
   WINDOW_DEFS,
+  SPAWN_CLUSTERS,
 } from '../cabin'
 
 const HW = CABIN_HW
@@ -49,6 +50,7 @@ const RUG1    = '#2a0808'   // Rug dark red
 const RUG2    = '#180808'   // Rug almost black
 const COBWEB  = '#1c1c18'   // Dusty cobweb strands
 const ROOF    = '#1e0e04'   // Dark weathered shingles
+const FOREST_FLOOR = '#020605' // Exterior grass/leaf bed blends into spawn thickets
 
 const PITCH   = 2.8         // Roof height above wall top
 
@@ -976,6 +978,112 @@ function Roof() {
   )
 }
 
+
+// ─── Forest spawn thickets ───────────────────────────────────────────────────
+
+const THICKET_TREE_OFFSETS = [
+  [-6.4,  0.1,  5.3, 0.48],
+  [-5.5,  2.6,  7.1, 0.66],
+  [-4.4, -1.4,  5.8, 0.54],
+  [-3.4,  1.25, 6.8, 0.62],
+  [-2.4,  3.3,  7.6, 0.72],
+  [-1.4, -0.7,  6.1, 0.58],
+  [-0.4,  1.65, 7.9, 0.76],
+  [ 0.7, -1.45, 5.7, 0.54],
+  [ 1.6,  0.85, 6.9, 0.64],
+  [ 2.5,  3.45, 8.1, 0.78],
+  [ 3.6, -0.65, 6.2, 0.58],
+  [ 4.7,  1.85, 7.3, 0.68],
+  [ 5.8, -1.15, 5.2, 0.5],
+  [ 6.7,  2.45, 6.5, 0.6],
+]
+const THICKET_PATCHES = [
+  [0, 1.0, 14.8, 5.7, 0],
+  [-4.6, 2.85, 6.6, 3.8, -0.2],
+  [4.4, 2.95, 6.8, 4.0, 0.22],
+  [-5.9, -0.35, 4.8, 2.5, 0.14],
+  [5.9, -0.25, 4.6, 2.4, -0.12],
+  [-1.1, 4.35, 7.4, 2.8, 0.08],
+  [2.0, -1.65, 6.5, 2.1, -0.08],
+]
+const THICKET_BRUSH_OFFSETS = [
+  [-7.0, -1.15, 0.88, -0.45],
+  [-6.2,  0.75, 1.12,  0.4],
+  [-5.1,  2.8,  1.0, -0.32],
+  [-4.1, -0.55, 1.18,  0.36],
+  [-3.1,  1.45, 0.96, -0.38],
+  [-2.2,  3.65, 1.2,   0.28],
+  [-1.2, -1.4,  1.05, -0.28],
+  [-0.3,  0.6,  1.16,  0.42],
+  [ 0.8,  2.8,  0.94, -0.35],
+  [ 1.8, -0.95, 1.12,  0.44],
+  [ 2.8,  1.15, 0.92, -0.28],
+  [ 3.8,  3.45, 1.22,  0.34],
+  [ 4.8, -0.45, 1.02, -0.42],
+  [ 5.8,  1.6,  1.18,  0.32],
+  [ 6.8, -1.05, 0.9,  -0.36],
+]
+
+function edgeRotation(edge) {
+  if (edge === 'N') return 0
+  if (edge === 'S') return Math.PI
+  if (edge === 'E') return Math.PI / 2
+  return -Math.PI / 2
+}
+
+function SpawnThicket({ cluster, index }) {
+  const rotation = edgeRotation(cluster.edge)
+  return (
+    <group position={[cluster.x, 0, cluster.z]} rotation={[0, rotation, 0]}>
+      {/* Dense, non-colliding patches mark the full treeline zone zombies emerge from. */}
+      {THICKET_PATCHES.map(([x, z, w, d, rot], i) => (
+        <Box
+          key={i}
+          position={[x, 0.04, z]}
+          args={[w, 0.08, d]}
+          color={i === 0 ? FOREST_FLOOR : '#030807'}
+          rotation={[0, rot, 0]}
+          castShadow={false}
+          receiveShadow={false}
+        />
+      ))}
+      {THICKET_TREE_OFFSETS.map(([x, z, h, scale], i) => (
+        <group key={i} position={[x, 0, z - 0.3 * (index % 2)]}>
+          <mesh position={[0, h * 0.36, 0]} castShadow>
+            <cylinderGeometry args={[0.09 * scale, 0.16 * scale, h * 0.72, 5]} />
+            <meshStandardMaterial color={i % 2 ? '#050a08' : '#030706'} roughness={1} />
+          </mesh>
+          <mesh position={[0, h * 0.76, 0]} castShadow>
+            <coneGeometry args={[1.15 * scale, h * 0.58, 5]} />
+            <meshStandardMaterial color={i % 2 ? '#03100d' : '#020b09'} roughness={1} />
+          </mesh>
+          <mesh position={[0, h * 0.52, 0]} castShadow>
+            <coneGeometry args={[1.45 * scale, h * 0.54, 5]} />
+            <meshStandardMaterial color="#010605" roughness={1} />
+          </mesh>
+        </group>
+      ))}
+      {THICKET_BRUSH_OFFSETS.map(([x, z, h, rot], i) => (
+        <group key={i} position={[x, 0.22, z]} rotation={[0, 0, rot]}>
+          <Box position={[0, h * 0.22, 0]} args={[0.12, h, 0.12]} color={FOREST_FLOOR} castShadow />
+          <Box position={[0.2, h * 0.34, 0.02]} args={[0.08, h * 0.85, 0.08]} color="#030807" rotation={[0, 0, -0.7]} castShadow />
+          <Box position={[-0.2, h * 0.31, -0.02]} args={[0.08, h * 0.78, 0.08]} color="#030807" rotation={[0, 0, 0.65]} castShadow />
+        </group>
+      ))}
+    </group>
+  )
+}
+
+function ForestSpawnThickets() {
+  return (
+    <group>
+      {SPAWN_CLUSTERS.map((cluster, index) => (
+        <SpawnThicket key={`${cluster.edge}-${index}`} cluster={cluster} index={index} />
+      ))}
+    </group>
+  )
+}
+
 // ─── Arena export ────────────────────────────────────────────────────────────
 
 export default function Arena() {
@@ -1014,8 +1122,10 @@ export default function Arena() {
       {/* ── Exterior ground ──────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <planeGeometry args={[80, 80]} />
-        <meshStandardMaterial color="#1a2a14" roughness={1} />
+        <meshStandardMaterial color={FOREST_FLOOR} roughness={1} />
       </mesh>
+
+      <ForestSpawnThickets />
 
       {/* ── Ceiling ──────────────────────────────────────────────────────── */}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WH, 0]}>
