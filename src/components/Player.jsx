@@ -12,7 +12,7 @@ import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import * as THREE from 'three'
 
-const CHEST_RADIUS_SQ = 2.2 * 2.2
+const CHEST_RADIUS_SQ = 1.5 * 1.5
 const KNIFE_COOLDOWN = 0.4
 const KNIFE_RANGE = 2.2
 
