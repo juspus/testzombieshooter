@@ -12,6 +12,7 @@ import ShellCasings from './ShellCasings'
 import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
+import ForestSkybox from './ForestSkybox'
 
 export default function Game() {
   const phase = useGameStore((s) => s.phase)
@@ -42,6 +43,7 @@ export default function Game() {
         style={{ width: '100%', height: '100%' }}
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
+        <ForestSkybox />
         <Arena />
         <Player />
         <Gun />

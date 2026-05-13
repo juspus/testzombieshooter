@@ -117,10 +117,10 @@ export function playerCollisionWalls() {
 }
 
 export const SPAWN_CLUSTERS = [
-  { x:  -7, z: -16 },   // near north window 0 (bedroom)
-  { x:  -4, z: -16 },   // near north window 1 (bedroom)
-  { x: -15, z:  2.5 },  // near west window (hall)
-  { x:  15, z:   0 },   // near east window (main room)
-  { x:   4, z:  16 },   // near south window (main room)
-  { x:  -5, z:  16 },   // near south window (kitchen)
+  { x:  -7, z: -17.2, edge: 'N' },   // tucked into north treeline near bedroom window 0
+  { x:  -4, z: -17.2, edge: 'N' },   // tucked into north treeline near bedroom window 1
+  { x: -17.2, z:  2.5, edge: 'W' },  // tucked into west treeline near hall window
+  { x:  17.2, z:   0, edge: 'E' },   // tucked into east treeline near main room window
+  { x:   4, z:  17.2, edge: 'S' },   // tucked into south treeline near main room window
+  { x:  -5, z:  17.2, edge: 'S' },   // tucked into south treeline near kitchen window
 ]

@@ -397,17 +397,31 @@ function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills,
   }
 }
 
+const SPAWN_EDGE_OFFSET = 0.9
+const SPAWN_TANGENT_SPREAD = 4.0
+
+function getSpawnBasis(edge) {
+  switch (edge) {
+    case 'N': return { outwardX: 0, outwardZ: -1, tangentX: 1, tangentZ: 0 }
+    case 'S': return { outwardX: 0, outwardZ:  1, tangentX: 1, tangentZ: 0 }
+    case 'E': return { outwardX: 1, outwardZ:  0, tangentX: 0, tangentZ: 1 }
+    case 'W': return { outwardX: -1, outwardZ: 0, tangentX: 0, tangentZ: 1 }
+    default: return { outwardX: 0, outwardZ: 1, tangentX: 1, tangentZ: 0 }
+  }
+}
+
 function spawnZombies(wave, startId) {
   const count = zombiesForWave(wave)
   const zombies = []
   for (let i = 0; i < count; i++) {
     const cluster = SPAWN_CLUSTERS[i % SPAWN_CLUSTERS.length]
-    const angle = Math.random() * Math.PI * 2
-    const r = 1.0 + Math.random() * 3.0
+    const basis = getSpawnBasis(cluster.edge)
+    const tangentJitter = (Math.random() - 0.5) * SPAWN_TANGENT_SPREAD
+    const inwardJitter = Math.random() * 1.3
     zombies.push({
       id: startId + i,
-      x: cluster.x + Math.cos(angle) * r,
-      z: cluster.z + Math.sin(angle) * r,
+      x: cluster.x + basis.tangentX * tangentJitter - basis.outwardX * (SPAWN_EDGE_OFFSET + inwardJitter),
+      z: cluster.z + basis.tangentZ * tangentJitter - basis.outwardZ * (SPAWN_EDGE_OFFSET + inwardJitter),
       health: 2,
     })
   }
