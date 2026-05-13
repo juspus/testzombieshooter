@@ -20,6 +20,10 @@ function cg(rt, rb, h, segs = 6) {
 }
 
 const ZOMBIE_HEIGHT = 1.8
+const DEATH_DURATION = 0.75
+// Reused quaternion for death slerp — written and consumed within a single zombie's useFrame
+const _deathTmpQuat = new THREE.Quaternion()
+const _deathTmpEuler = new THREE.Euler()
 const ARENA_BOUND = 18.5
 const ZOMBIE_R = 0.30             // physical collision radius
 const KILL_DISTANCE = 1.2
@@ -113,8 +117,10 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
   const phase = useGameStore((s) => s.phase)
   const die = useGameStore((s) => s.die)
   const health = useGameStore((s) => s.zombies.find((z) => z.id === id)?.health ?? 2)
+  const dying = useGameStore((s) => s.zombies.find((z) => z.id === id)?.dying ?? false)
   const hitPlank = useGameStore((s) => s.hitPlank)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
+  const removeDyingZombie = useGameStore((s) => s.removeDyingZombie)
 
   const [holes, setHoles] = useState([])
 
@@ -135,6 +141,10 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
   const rightLegRef     = useRef()
   const leftArmRef      = useRef()
   const rightArmRef     = useRef()
+  const dyingTimerRef      = useRef(0)
+  const removedRef         = useRef(false)
+  const deathStartQuatRef  = useRef(null)
+  const deathEndQuatRef    = useRef(null)
 
   useEffect(() => {
     if (hidden) return
@@ -188,7 +198,41 @@ export default function ZombieComponent({ id, startX, startZ, hidden = false }) 
   }
 
   useFrame((_, delta) => {
-    if (hidden || phase !== 'playing' || !ref.current) return
+    if (hidden || !ref.current) return
+
+    // Death fall animation — plays regardless of phase
+    if (dying) {
+      if (!removedRef.current) {
+        if (!deathStartQuatRef.current) {
+          // First dying frame: capture current orientation and build target
+          deathStartQuatRef.current = ref.current.quaternion.clone()
+          // Extract the facing (Y) angle from the lookAt quaternion using YXZ order,
+          // which avoids gimbal lock when decomposing a pure-Y rotation
+          const yAngle = _deathTmpEuler.setFromQuaternion(ref.current.quaternion, 'YXZ').y
+          // End pose: same facing direction, tilted 90° forward (positive X rotation = falls toward player)
+          deathEndQuatRef.current = new THREE.Quaternion()
+            .setFromEuler(new THREE.Euler(0, yAngle, 0))
+            .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)))
+          // Ensure slerp takes the shortest arc
+          if (deathStartQuatRef.current.dot(deathEndQuatRef.current) < 0) {
+            deathEndQuatRef.current.negate()
+          }
+        }
+        dyingTimerRef.current = Math.min(dyingTimerRef.current + delta, DEATH_DURATION)
+        const t = dyingTimerRef.current / DEATH_DURATION
+        const eased = t * t  // ease-in: accelerates like gravity
+        _deathTmpQuat.slerpQuaternions(deathStartQuatRef.current, deathEndQuatRef.current, eased)
+        ref.current.quaternion.copy(_deathTmpQuat)
+        ref.current.position.y = ZOMBIE_HEIGHT / 2 * (1 - eased * 0.85)
+        if (dyingTimerRef.current >= DEATH_DURATION) {
+          removedRef.current = true
+          removeDyingZombie(id)
+        }
+      }
+      return
+    }
+
+    if (phase !== 'playing') return
     const pos = ref.current.position
     const px = camera.position.x, pz = camera.position.z
     const planks = windowPlanksRef.current

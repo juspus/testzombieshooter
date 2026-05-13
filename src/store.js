@@ -133,28 +133,41 @@ export const useGameStore = create((set, get) => ({
   hitZombie: (id, isHeadshot) => {
     const { zombies, pendingSpawns, kills, waveKills } = get()
     const zombie = zombies.find((z) => z.id === id)
-    if (!zombie) return
+    if (!zombie || zombie.dying) return
 
     const newHealth = isHeadshot ? 0 : zombie.health - 1
 
     if (newHealth <= 0) {
-      const remaining = zombies.filter((z) => z.id !== id)
       const newKills = kills + 1
       const newWaveKills = waveKills + 1
       // Immediately slot in the next pending zombie so the active count stays at the cap
       const nextPending = pendingSpawns.length > 0 ? pendingSpawns[0] : null
-      const newZombies = nextPending ? [...remaining, nextPending] : remaining
       const newPending = nextPending ? pendingSpawns.slice(1) : pendingSpawns
-      const waveOver = newZombies.length === 0 && newPending.length === 0
+      // Mark killed zombie as dying (animation plays before removal)
+      const newZombies = zombies.map((z) => z.id === id ? { ...z, health: 0, dying: true } : z)
+      const withNext = nextPending ? [...newZombies, nextPending] : newZombies
+      const activeCount = withNext.filter((z) => !z.dying).length
+      const waveOver = activeCount === 0 && newPending.length === 0
       set(waveOver
-        ? { zombies: newZombies, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
-        : { zombies: newZombies, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills }
+        ? { zombies: withNext, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills, phase: 'wave_clear' }
+        : { zombies: withNext, pendingSpawns: newPending, kills: newKills, waveKills: newWaveKills }
       )
       return true
     } else {
       set({ zombies: zombies.map((z) => z.id === id ? { ...z, health: newHealth } : z) })
       return false
     }
+  },
+
+  removeDyingZombie: (id) => {
+    const { zombies, pendingSpawns, phase } = get()
+    const newZombies = zombies.filter((z) => z.id !== id)
+    const activeCount = newZombies.filter((z) => !z.dying).length
+    const waveOver = activeCount === 0 && pendingSpawns.length === 0 && phase === 'playing'
+    set(waveOver
+      ? { zombies: newZombies, phase: 'wave_clear' }
+      : { zombies: newZombies }
+    )
   },
 
   tick: (delta) => {
