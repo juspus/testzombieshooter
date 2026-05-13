@@ -1,6 +1,6 @@
-# Zombie Shooter
+# Cabin
 
-A first-person wave-based zombie shooter built with React Three Fiber. No login required. Runs in the browser.
+A first-person wave-based survival shooter built with React Three Fiber. No login required. Runs in the browser.
 
 **Live:** deployed on Vercel (connect repo, auto-detects config)
 

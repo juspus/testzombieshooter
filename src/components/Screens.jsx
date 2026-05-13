@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useGameStore } from '../store'
 
 export default function Screens() {
@@ -10,14 +10,16 @@ export default function Screens() {
   const nextWave = useGameStore((s) => s.nextWave)
   const intermissionLeft = useGameStore((s) => s.intermissionLeft)
   const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
-  const money = useGameStore((s) => s.money)
   const skipProgress = useGameStore((s) => s.skipProgress)
   const lastWaveBonuses = useGameStore((s) => s.lastWaveBonuses)
+  const money = useGameStore((s) => s.money)
+  const weapon = useGameStore((s) => s.weapon)
+  const perks = useGameStore((s) => s.perks)
 
   if (phase === 'start') {
     return (
       <Overlay>
-        <Title>ZOMBIE SHOOTER</Title>
+        <Title>CABIN</Title>
         <Sub>Survive the waves. Kill all zombies to advance.</Sub>
         <Controls>
           WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot
@@ -37,7 +39,7 @@ export default function Screens() {
   }
 
   if (phase === 'dead') {
-    return <YouDied onRestart={startGame} wave={wave} kills={kills} />
+    return <YouDied onRestart={startGame} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} />
   }
 
   return null
@@ -252,9 +254,19 @@ function Controls({ children }) {
   )
 }
 
-function YouDied({ onRestart, wave, kills }) {
+function YouDied({ onRestart, wave, kills, money, weapon, perks }) {
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
+  const [shareStatus, setShareStatus] = useState('')
+
+  const runSummary = useMemo(() => ({
+    wave,
+    kills,
+    money,
+    weapon: formatWeaponName(weapon),
+    perks: Object.keys(perks ?? {}).filter((key) => perks[key]).map(formatPerkName),
+    gameUrl: getGameUrl(),
+  }), [wave, kills, money, weapon, perks])
 
   useEffect(() => {
     let start = null
@@ -268,6 +280,33 @@ function YouDied({ onRestart, wave, kills }) {
     const raf = requestAnimationFrame(fade)
     return () => cancelAnimationFrame(raf)
   }, [])
+
+  const handleShare = async () => {
+    const shareUrl = getRunShareUrl(runSummary)
+    const shareData = {
+      title: 'Cabin run results',
+      text: `I reached wave ${runSummary.wave} with ${runSummary.kills} kill${runSummary.kills !== 1 ? 's' : ''} in Cabin.`,
+      url: shareUrl,
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData)
+        setShareStatus('Shared run link with preview image!')
+      } else {
+        await copyGameLink(shareUrl)
+        setShareStatus('Share link copied with OG preview image.')
+      }
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        setShareStatus('Share canceled.')
+        return
+      }
+      console.error('Unable to share run', error)
+      await copyGameLink(shareUrl)
+      setShareStatus('Share failed. Link copied instead.')
+    }
+  }
 
   return (
     <div style={{
@@ -307,40 +346,141 @@ function YouDied({ onRestart, wave, kills }) {
       </div>
 
       <div style={{
+        opacity: opacity * 0.7,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(100px, 1fr))',
+        gap: 12,
+        width: 'min(520px, 88vw)',
+        marginTop: 28,
+        fontFamily: 'Courier New, monospace',
+      }}>
+        <DeathStat label="Cash" value={`€${money.toFixed(2)}`} />
+        <DeathStat label="Weapon" value={runSummary.weapon} />
+        <DeathStat label="Perks" value={runSummary.perks.length || 'None'} />
+      </div>
+
+      <div style={{
         marginTop: 56,
         opacity: btnVisible ? 1 : 0,
         transition: 'opacity 0.8s ease',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 12,
       }}>
-        <button
-          onClick={onRestart}
-          style={{
-            padding: '14px 52px',
-            background: 'transparent',
-            border: '1px solid rgba(180,0,0,0.7)',
-            color: 'rgba(200,200,200,0.9)',
-            fontSize: 15,
-            letterSpacing: 5,
-            fontFamily: 'Courier New, monospace',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-            transition: 'all 0.3s',
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.background = 'rgba(140,0,0,0.4)'
-            e.target.style.borderColor = 'rgba(200,0,0,1)'
-            e.target.style.color = '#fff'
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'transparent'
-            e.target.style.borderColor = 'rgba(180,0,0,0.7)'
-            e.target.style.color = 'rgba(200,200,200,0.9)'
-          }}
-        >
-          Start New Game
-        </button>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
+            Share Run
+          </DeathButton>
+          <DeathButton onClick={onRestart}>
+            Start New Game
+          </DeathButton>
+        </div>
+        <div style={{
+          minHeight: 18,
+          color: '#777',
+          fontSize: 12,
+          letterSpacing: 2,
+          fontFamily: 'Courier New, monospace',
+          textTransform: 'uppercase',
+        }}>
+          {shareStatus}
+        </div>
       </div>
     </div>
   )
+}
+
+function DeathStat({ label, value }) {
+  return (
+    <div style={{
+      border: '1px solid rgba(180,0,0,0.35)',
+      background: 'rgba(0,0,0,0.35)',
+      padding: '10px 12px',
+      textAlign: 'center',
+      textTransform: 'uppercase',
+    }}>
+      <div style={{ color: '#666', fontSize: 10, letterSpacing: 3 }}>{label}</div>
+      <div style={{ color: '#ccc', fontSize: 16, letterSpacing: 2, marginTop: 4 }}>{value}</div>
+    </div>
+  )
+}
+
+function DeathButton({ children, onClick, accent = 'rgba(180,0,0,0.7)' }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '14px 36px',
+        minWidth: 210,
+        background: 'transparent',
+        border: `1px solid ${accent}`,
+        color: 'rgba(200,200,200,0.9)',
+        fontSize: 15,
+        letterSpacing: 5,
+        fontFamily: 'Courier New, monospace',
+        cursor: 'pointer',
+        textTransform: 'uppercase',
+        transition: 'all 0.3s',
+      }}
+      onMouseEnter={(e) => {
+        e.target.style.background = accent === 'rgba(180,0,0,0.7)' ? 'rgba(140,0,0,0.4)' : 'rgba(255,255,255,0.12)'
+        e.target.style.borderColor = accent === 'rgba(180,0,0,0.7)' ? 'rgba(200,0,0,1)' : '#fff'
+        e.target.style.color = '#fff'
+      }}
+      onMouseLeave={(e) => {
+        e.target.style.background = 'transparent'
+        e.target.style.borderColor = accent
+        e.target.style.color = 'rgba(200,200,200,0.9)'
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function getGameUrl() {
+  if (typeof window === 'undefined') return ''
+  return `${window.location.origin}${window.location.pathname}`
+}
+
+function getRunShareUrl(summary) {
+  if (typeof window === 'undefined') return ''
+
+  const url = new URL('/api/share', window.location.origin)
+  url.searchParams.set('wave', summary.wave)
+  url.searchParams.set('kills', summary.kills)
+  url.searchParams.set('money', summary.money.toFixed(2))
+  url.searchParams.set('weapon', summary.weapon)
+  if (summary.perks.length > 0) url.searchParams.set('perks', summary.perks.join(','))
+  url.searchParams.set('game', summary.gameUrl)
+  return url.toString()
+}
+
+function formatWeaponName(weapon) {
+  const names = { pistol: 'Pistol', ak47: 'AK-47', deagle: 'Deagle', shotgun: 'Shotgun' }
+  return names[weapon] ?? weapon
+}
+
+function formatPerkName(perk) {
+  return perk.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+}
+
+async function copyGameLink(gameUrl) {
+  if (!gameUrl) return
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(gameUrl)
+    return
+  }
+
+  const input = document.createElement('textarea')
+  input.value = gameUrl
+  input.style.position = 'fixed'
+  input.style.opacity = '0'
+  document.body.appendChild(input)
+  input.select()
+  document.execCommand('copy')
+  input.remove()
 }
 
 function Btn({ children, onClick }) {
