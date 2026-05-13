@@ -13,6 +13,15 @@ const SHOTGUN_CLIP = 8
 const SHOTGUN_COST = 150
 const AMMO_PACK_COST = 10
 const AMMO_PACK_AMOUNT = 20
+const DEEP_POCKETS_AMMO_PACK_AMOUNT = 30
+const PERK_COSTS = {
+  fast_hands: 80,
+  deep_pockets: 60,
+  iron_sights: 75,
+  runners_breath: 90,
+  carpenter: 65,
+  knife_mastery: 70,
+}
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.05
@@ -25,13 +34,14 @@ const STRONG_PLANK_COST = 20
 const STRONG_HITS_PER_PLANK = 20
 const WAVE_REWARD = 15
 const ZOMBIE_KILL_REWARD = 1
-export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
   weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
   activeItem: 'gun',  // 'gun' | 'knife'
+  perks: {},       // one-time perk unlocks bought from the supply chest
   knifeCooldown: 0,   // seconds remaining until knife ready again
   shopOpen: false,
   nearChest: false,
@@ -65,6 +75,7 @@ export const useGameStore = create((set, get) => ({
       money: 10,
       weapon: 'pistol',
       activeItem: 'gun',
+      perks: {},
       knifeCooldown: 0,
       shopOpen: false,
       walls,
@@ -243,7 +254,7 @@ export const useGameStore = create((set, get) => ({
   closeShop: () => set({ shopOpen: false }),
 
   buyItem: (itemId) => {
-    const { money, weapon, reserveBullets } = get()
+    const { money, weapon, reserveBullets, perks } = get()
     if (itemId === 'ak47') {
       if (weapon === 'ak47' || money < AK_COST) return false
       set({ money: money - AK_COST, weapon: 'ak47', bulletsInClip: AK_CLIP, reserveBullets: 0 })
@@ -261,10 +272,21 @@ export const useGameStore = create((set, get) => ({
     }
     if (itemId === 'ammo_pack') {
       if (money < AMMO_PACK_COST) return false
-      set({ money: money - AMMO_PACK_COST, reserveBullets: reserveBullets + AMMO_PACK_AMOUNT })
+      set({
+        money: money - AMMO_PACK_COST,
+        reserveBullets: reserveBullets + (perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT),
+      })
       return true
     }
     return false
+  },
+
+  buyPerk: (perkId) => {
+    const { money, perks } = get()
+    const cost = PERK_COSTS[perkId]
+    if (!cost || perks[perkId] || money < cost) return false
+    set({ money: money - cost, perks: { ...perks, [perkId]: true } })
+    return true
   },
 
   skipIntermission: () => {
