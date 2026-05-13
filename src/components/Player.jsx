@@ -15,6 +15,7 @@ import * as THREE from 'three'
 const CHEST_RADIUS_SQ = 2.2 * 2.2
 const KNIFE_COOLDOWN = 0.4
 const KNIFE_RANGE = 2.2
+const SKIP_TIME = 1
 
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
@@ -407,7 +408,6 @@ export default function Player() {
 
     // Hold T to skip intermission (2-second hold)
     if (phase === 'intermission') {
-      const SKIP_TIME = 2.0
       if (keys.current['KeyT']) {
         skipTimerRef.current += delta
         setSkipProgress(Math.min(skipTimerRef.current / SKIP_TIME, 1))
