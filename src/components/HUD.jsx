@@ -6,7 +6,7 @@ const KNIFE_COOLDOWN = 0.8
 export default function HUD() {
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
-  const zombies = useGameStore((s) => s.zombies)
+  const zombieCount = useGameStore((s) => s.zombies.length)
   const total = useGameStore((s) => s.getZombiesForWave())
   const bulletsInClip = useGameStore((s) => s.bulletsInClip)
   const reserveBullets = useGameStore((s) => s.reserveBullets)
@@ -139,7 +139,7 @@ export default function HUD() {
         <div
           style={{
             ...styles.barInner,
-            width: `${((total - zombies.length) / total) * 100}%`,
+            width: `${((total - zombieCount) / total) * 100}%`,
           }}
         />
       </div>
