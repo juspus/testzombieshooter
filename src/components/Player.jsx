@@ -407,7 +407,7 @@ export default function Player() {
 
     // Hold T to skip intermission (2-second hold)
     if (phase === 'intermission') {
-      const SKIP_TIME = 2.0
+      const SKIP_TIME = 1.0
       if (keys.current['KeyT']) {
         skipTimerRef.current += delta
         setSkipProgress(Math.min(skipTimerRef.current / SKIP_TIME, 1))
