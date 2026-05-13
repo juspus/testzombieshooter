@@ -1,6 +1,7 @@
 import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
 
-const KNIFE_COOLDOWN = 0.8
+const BASE_KNIFE_COOLDOWN = 0.4
+const KNIFE_MASTERY_COOLDOWN = 0.25
 
 
 export default function HUD() {
@@ -19,8 +20,10 @@ export default function HUD() {
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
   const activeItem = useGameStore((s) => s.activeItem)
+  const perks = useGameStore((s) => s.perks)
   const knifeCooldown = useGameStore((s) => s.knifeCooldown)
   const nearChest = useGameStore((s) => s.nearChest)
+  const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const nearPlanksAreStrong = nearWindowId >= 0 ? (windowPlankStrong[nearWindowId] ?? false) : false
@@ -67,7 +70,7 @@ export default function HUD() {
               <div style={styles.cooldownTrack}>
                 <div style={{
                   ...styles.cooldownFill,
-                  width: `${((KNIFE_COOLDOWN - knifeCooldown) / KNIFE_COOLDOWN) * 100}%`,
+                  width: `${Math.max(0, Math.min(1, (knifeCooldownMax - knifeCooldown) / knifeCooldownMax)) * 100}%`,
                 }} />
               </div>
             </>
@@ -76,7 +79,7 @@ export default function HUD() {
               READY
             </div>
           )}
-          <div style={styles.reloadHint}>Q — switch to gun</div>
+          <div style={styles.reloadHint}>Q — switch to gun{perks.knife_mastery ? ' · mastery' : ''}</div>
         </div>
       ) : (
         <div style={styles.ammoBox}>
