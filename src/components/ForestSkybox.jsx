@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 
-const SKYBOX_RADIUS = 92
+const SKYBOX_RADIUS = 46
 const SKYBOX_HEIGHT = 70
 const TEXTURE_WIDTH = 2048
 const TEXTURE_HEIGHT = 512
@@ -18,6 +18,7 @@ const palette = {
   bark: '#101817',
   twig: '#0b1110',
   ground: '#050807',
+  closeBrush: '#020605',
   leaf1: '#111008',
   leaf2: '#171108',
   leaf3: '#0d120c',
@@ -153,44 +154,44 @@ function makeForestTexture() {
     }
   }
 
-  // Distant rolling hill silhouette.
+  // Pull the woods up into the foreground so the cabin feels hemmed in.
   ctx.fillStyle = '#030808'
   for (let x = 0; x < TEXTURE_WIDTH; x += 1) {
-    const hillY = 318 + 18 * Math.sin((x / TEXTURE_WIDTH) * Math.PI * 4 + 1.5) + 10 * Math.sin((x / TEXTURE_WIDTH) * Math.PI * 10)
+    const hillY = 286 + 14 * Math.sin((x / TEXTURE_WIDTH) * Math.PI * 4 + 1.5) + 8 * Math.sin((x / TEXTURE_WIDTH) * Math.PI * 10)
     ctx.fillRect(x, hillY, 1, TEXTURE_HEIGHT - hillY)
   }
 
-  for (let x = -40; x < TEXTURE_WIDTH + 40; x += 17) {
-    drawPine(ctx, x, 358 + rng() * 30, 84 + rng() * 82, 16 + rng() * 30, palette.farTree, '#050b0b')
+  for (let x = -40; x < TEXTURE_WIDTH + 40; x += 15) {
+    drawPine(ctx, x, 330 + rng() * 26, 110 + rng() * 98, 20 + rng() * 34, palette.farTree, '#050b0b')
   }
 
-  for (let x = -45; x < TEXTURE_WIDTH + 45; x += 22) {
-    if (rng() < 0.58) {
-      drawPine(ctx, x + rng() * 12 - 6, 392 + rng() * 28, 118 + rng() * 138, 28 + rng() * 48, palette.midTree, '#040908')
+  for (let x = -45; x < TEXTURE_WIDTH + 45; x += 18) {
+    if (rng() < 0.6) {
+      drawPine(ctx, x + rng() * 12 - 6, 370 + rng() * 30, 160 + rng() * 155, 36 + rng() * 62, palette.midTree, '#040908')
     } else {
-      drawDeadTree(ctx, rng, x + rng() * 16 - 8, 400 + rng() * 28, 128 + rng() * 142, 3 + rng() * 6, palette.midTree, palette.twig)
+      drawDeadTree(ctx, rng, x + rng() * 16 - 8, 378 + rng() * 30, 170 + rng() * 165, 4 + rng() * 7, palette.midTree, palette.twig)
     }
   }
 
-  for (let x = -65; x < TEXTURE_WIDTH + 65; x += 36) {
-    if (rng() < 0.48) {
-      drawPine(ctx, x + rng() * 26 - 13, 440 + rng() * 34, 210 + rng() * 170, 54 + rng() * 70, palette.nearTree, '#030807')
+  for (let x = -65; x < TEXTURE_WIDTH + 65; x += 24) {
+    if (rng() < 0.5) {
+      drawPine(ctx, x + rng() * 24 - 12, 474 + rng() * 30, 270 + rng() * 210, 72 + rng() * 88, palette.nearTree, '#030807')
     } else {
-      drawDeadTree(ctx, rng, x + rng() * 22 - 11, 440 + rng() * 38, 225 + rng() * 200, 7 + rng() * 9, palette.nearTree, palette.bark)
+      drawDeadTree(ctx, rng, x + rng() * 22 - 11, 472 + rng() * 34, 285 + rng() * 230, 9 + rng() * 11, palette.nearTree, palette.bark)
     }
   }
 
   ctx.fillStyle = palette.ground
-  ctx.fillRect(0, 410, TEXTURE_WIDTH, 102)
-  for (let i = 0; i < 900; i += 1) {
-    ctx.fillStyle = [palette.leaf1, palette.leaf2, palette.leaf3, palette.ground][Math.floor(rng() * 4)]
-    ctx.fillRect(rng() * TEXTURE_WIDTH, 410 + rng() * 102, 2 + rng() * 5, 1 + rng() * 3)
+  ctx.fillRect(0, 362, TEXTURE_WIDTH, 150)
+  for (let i = 0; i < 1300; i += 1) {
+    ctx.fillStyle = [palette.leaf1, palette.leaf2, palette.leaf3, palette.ground, palette.closeBrush][Math.floor(rng() * 5)]
+    ctx.fillRect(rng() * TEXTURE_WIDTH, 362 + rng() * 150, 2 + rng() * 7, 1 + rng() * 4)
   }
 
-  for (let x = 0; x < TEXTURE_WIDTH; x += 11) {
-    const baseY = 450 + rng() * 62
-    for (let i = 0; i < 2 + rng() * 4; i += 1) {
-      drawPixelLine(ctx, x + rng() * 12 - 6, baseY, x + rng() * 30 - 15, baseY - 20 - rng() * 48, palette.nearTree, 1)
+  for (let x = 0; x < TEXTURE_WIDTH; x += 8) {
+    const baseY = 410 + rng() * 102
+    for (let i = 0; i < 3 + rng() * 5; i += 1) {
+      drawPixelLine(ctx, x + rng() * 12 - 6, baseY, x + rng() * 34 - 17, baseY - 28 - rng() * 68, palette.closeBrush, 1)
     }
   }
 
