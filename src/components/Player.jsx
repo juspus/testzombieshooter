@@ -15,7 +15,7 @@ import * as THREE from 'three'
 const CHEST_RADIUS_SQ = 1.5 * 1.5
 const KNIFE_COOLDOWN = 0.4
 const KNIFE_RANGE = 2.2
-const SKIP_TIME = 1
+const SKIP_TIME = 0.6
 
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
