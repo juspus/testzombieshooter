@@ -12,9 +12,10 @@ import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import * as THREE from 'three'
 
-const CHEST_RADIUS_SQ = 2.2 * 2.2
+const CHEST_RADIUS_SQ = 1.5 * 1.5
 const BASE_KNIFE_COOLDOWN = 0.4
 const BASE_KNIFE_RANGE = 2.2
+const SKIP_TIME = 0.6
 
 const reloadTimeForPerks = (perks) => perks.fast_hands ? 1.0 : 1.5
 const boardTimeForPerks = (perks) => perks.carpenter ? 1.3 : 2.0
@@ -301,7 +302,7 @@ export default function Player() {
     }
 
     if (closestId !== null) {
-      if (hitZombie(Number(closestId), true)) playZombieDie()
+      if (hitZombie(Number(closestId), true, 'knife')) playZombieDie()
     }
   }, [camera, hitZombie, setKnifeCooldown])
 
@@ -425,7 +426,6 @@ export default function Player() {
 
     // Hold T to skip intermission (2-second hold)
     if (phase === 'intermission') {
-      const SKIP_TIME = 2.0
       if (keys.current['KeyT']) {
         skipTimerRef.current += delta
         setSkipProgress(Math.min(skipTimerRef.current / SKIP_TIME, 1))
