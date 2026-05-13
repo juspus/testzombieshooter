@@ -1,6 +1,6 @@
 import { memo, useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useGameStore } from '../store'
+import { getZombieArchetype, useGameStore } from '../store'
 import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
@@ -76,6 +76,19 @@ const bone      = '#b8a882'
 // Health-dependent colors — two pre-built objects, selected by health value
 const _SKIN_NORMAL  = { skin: '#7d8c65', skinDark: '#5c6e4e', skinVein: '#4a5c3a', shirt: '#252520', shirtTear: '#1a1a15' }
 const _SKIN_DAMAGED = { skin: '#6b7355', skinDark: '#4e5840', skinVein: '#3a4530', shirt: '#1e1e18', shirtTear: '#141410' }
+const _TYPE_COLORS = {
+  walker: { accent: '#665533', eye: eyeGlow },
+  runner: { skin: '#8fa05a', skinDark: '#64723c', skinVein: '#8a2d1d', shirt: '#2a1f1a', shirtTear: '#1b120f', accent: '#d34a20', eye: '#ff3d00' },
+  brute: { skin: '#6f715e', skinDark: '#4c4d40', skinVein: '#2e3326', shirt: '#241d24', shirtTear: '#151018', accent: '#8b2d18', eye: '#ff8a00' },
+  screamer: { skin: '#6f6894', skinDark: '#494269', skinVein: '#39235b', shirt: '#21172b', shirtTear: '#140c1b', accent: '#9b4dff', eye: '#b26cff' },
+  crawler: { skin: '#5f7b55', skinDark: '#3f5538', skinVein: '#263c28', shirt: '#171f17', shirtTear: '#0d130d', accent: '#7dbb58', eye: '#aaff66' },
+  boss: { skin: '#8b4c43', skinDark: '#5b2d28', skinVein: '#2d0707', shirt: '#201010', shirtTear: '#120808', accent: '#ff2a1a', eye: '#ff1000' },
+}
+
+function getZombieColors(type, health, maxHealth) {
+  const base = health <= Math.ceil(maxHealth / 2) ? _SKIN_DAMAGED : _SKIN_NORMAL
+  return { ...base, ...(_TYPE_COLORS[type] ?? _TYPE_COLORS.walker) }
+}
 
 // Geometry-accurate line-of-sight: samples along the segment at half-radius
 // intervals and checks the zombie's full circle against the real wall AABBs.
@@ -126,13 +139,14 @@ function applyMove(pos, vx, vz, walls) {
   pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + pushZ))
 }
 
-function ZombieComponent({ id, startX, startZ, hidden = false }) {
+function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }) {
   const ref = useRef()
   const { camera } = useThree()
   const speed = useGameStore((s) => s.getZombieSpeed())
+  const archetype = getZombieArchetype(type)
   const phase = useGameStore((s) => s.phase)
   const die = useGameStore((s) => s.die)
-  const health = useGameStore((s) => s.zombies.find((z) => z.id === id)?.health ?? 2)
+  const health = useGameStore((s) => s.zombies.find((z) => z.id === id)?.health ?? archetype.health)
   const dying = useGameStore((s) => s.zombies.find((z) => z.id === id)?.dying ?? false)
   const hitPlank = useGameStore((s) => s.hitPlank)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
@@ -165,7 +179,8 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
   useEffect(() => {
     if (hidden) return
     if (ref.current) {
-      ref.current.position.set(startX, ZOMBIE_HEIGHT / 2, startZ)
+      const heightScale = archetype.heightScale ?? 1
+      ref.current.position.set(startX, (ZOMBIE_HEIGHT * heightScale) / 2, startZ)
       Player.registerZombieRef(id, ref.current)
       _zombieGroups[id] = ref.current
     }
@@ -181,7 +196,7 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
       delete _holeAdders[id]
       delete _zombieGroups[id]
     }
-  }, [id, startX, startZ])
+  }, [id, startX, startZ, archetype.heightScale, hidden])
 
   // Keep collision wall list in sync with plank state.
   // Zombies collide with cabin walls (window gaps open) + any boarded window faces.
@@ -239,7 +254,7 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
         const eased = t * t  // ease-in: accelerates like gravity
         _deathTmpQuat.slerpQuaternions(deathStartQuatRef.current, deathEndQuatRef.current, eased)
         ref.current.quaternion.copy(_deathTmpQuat)
-        ref.current.position.y = ZOMBIE_HEIGHT / 2 * (1 - eased * 0.85)
+        ref.current.position.y = (ZOMBIE_HEIGHT * (archetype.heightScale ?? 1)) / 2 * (1 - eased * 0.85)
         if (dyingTimerRef.current >= DEATH_DURATION) {
           removedRef.current = true
           removeDyingZombie(id)
@@ -343,7 +358,7 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
-          hitPlank(win.id)
+          for (let i = 0; i < archetype.plankHits; i++) hitPlank(win.id)
           playPlankHit()
         }
       } else {
@@ -369,7 +384,23 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
     }
 
     if (moveDir) {
-      const step = speed * delta
+      let speedMultiplier = archetype.speedMultiplier
+      if (type !== 'screamer') {
+        const zombies = useGameStore.getState().zombies
+        for (const z of zombies) {
+          if (z.id === id || z.type !== 'screamer' || z.dying) continue
+          const screamerGroup = _zombieGroups[z.id]
+          if (!screamerGroup) continue
+          const sdx = screamerGroup.position.x - pos.x
+          const sdz = screamerGroup.position.z - pos.z
+          const screamer = getZombieArchetype('screamer')
+          if (sdx * sdx + sdz * sdz <= screamer.auraRadius * screamer.auraRadius) {
+            speedMultiplier *= screamer.auraSpeedMultiplier
+            break
+          }
+        }
+      }
+      const step = speed * speedMultiplier * delta
       applyMove(pos, moveDir.x * step, moveDir.z * step, zombieWallsRef.current)
 
       // Footstep sound — only when close enough for player to hear
@@ -409,10 +440,24 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
     if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
   })
 
-  const { skin, skinDark, skinVein, shirt, shirtTear } = health === 1 ? _SKIN_DAMAGED : _SKIN_NORMAL
+  const colors = getZombieColors(type, health, archetype.health)
+  const { skin, skinDark, skinVein, shirt, shirtTear, accent, eye } = colors
+  const heightScale = archetype.heightScale ?? 1
+  const bodyScale = hidden ? 0.001 : 1
 
   return (
-    <group ref={ref} scale={hidden ? 0.001 : 1}>
+    <group ref={ref} scale={bodyScale}>
+      {archetype.boss && (
+        <mesh geometry={cg(0.68, 0.88, 0.08, 20)} position={[0, -0.868, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <meshBasicMaterial color="#4a0909" transparent opacity={0.45} depthWrite={false} />
+        </mesh>
+      )}
+      {type === 'screamer' && (
+        <mesh geometry={cg(archetype.auraRadius, archetype.auraRadius, 0.018, 48)} position={[0, -0.865, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <meshBasicMaterial color="#6520aa" transparent opacity={0.12} depthWrite={false} />
+        </mesh>
+      )}
+      <group scale={[archetype.boss ? 1.28 : type === 'brute' ? 1.15 : type === 'runner' ? 0.88 : 1, heightScale, archetype.boss ? 1.28 : type === 'brute' ? 1.15 : type === 'runner' ? 0.88 : 1]}>
 
       {/* ══ HEAD ══ */}
 
@@ -452,16 +497,16 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
       {/* Left supraorbital notch (inner top edge) */}
       <mesh geometry={bg(0.018, 0.010, 0.014)} position={[-0.052, 0.802, 0.139]} userData={{ zombieId: id, isHead: true }} material={sm("#0a0804", 1)} />
       {/* Left glow — amber */}
-      <mesh geometry={bg(0.055, 0.055, 0.014)} position={[-0.082, 0.762, 0.140]} userData={{ zombieId: id, isHead: true }} material={sm(eyeGlow, undefined, undefined, eyeGlow, 3.5)} />
+      <mesh geometry={bg(0.055, 0.055, 0.014)} position={[-0.082, 0.762, 0.140]} userData={{ zombieId: id, isHead: true }} material={sm(eye, undefined, undefined, eye, 3.5)} />
       {/* Left iris — hot orange */}
-      <mesh geometry={bg(0.030, 0.030, 0.008)} position={[-0.082, 0.762, 0.144]} userData={{ zombieId: id, isHead: true }} material={sm("#ff5500", undefined, undefined, "#ff5500", 5)} />
+      <mesh geometry={bg(0.030, 0.030, 0.008)} position={[-0.082, 0.762, 0.144]} userData={{ zombieId: id, isHead: true }} material={sm(eye, undefined, undefined, eye, 5)} />
 
       {/* Right eye socket */}
       <mesh geometry={bg(0.096, 0.088, 0.042)} position={[0.082, 0.762, 0.132]} userData={{ zombieId: id, isHead: true }} material={sm("#040201", 1)} />
       <mesh geometry={bg(0.104, 0.096, 0.014)} position={[0.082, 0.762, 0.115]} userData={{ zombieId: id, isHead: true }} material={sm(skullDark, 0.84)} />
       <mesh geometry={bg(0.018, 0.010, 0.014)} position={[0.052, 0.802, 0.139]} userData={{ zombieId: id, isHead: true }} material={sm("#0a0804", 1)} />
-      <mesh geometry={bg(0.055, 0.055, 0.014)} position={[0.082, 0.762, 0.140]} userData={{ zombieId: id, isHead: true }} material={sm(eyeGlow, undefined, undefined, eyeGlow, 3.5)} />
-      <mesh geometry={bg(0.030, 0.030, 0.008)} position={[0.082, 0.762, 0.144]} userData={{ zombieId: id, isHead: true }} material={sm("#ff5500", undefined, undefined, "#ff5500", 5)} />
+      <mesh geometry={bg(0.055, 0.055, 0.014)} position={[0.082, 0.762, 0.140]} userData={{ zombieId: id, isHead: true }} material={sm(eye, undefined, undefined, eye, 3.5)} />
+      <mesh geometry={bg(0.030, 0.030, 0.008)} position={[0.082, 0.762, 0.144]} userData={{ zombieId: id, isHead: true }} material={sm(eye, undefined, undefined, eye, 5)} />
 
       {/* Nasal aperture — wide cavity, two pillars */}
       <mesh geometry={bg(0.072, 0.065, 0.025)} position={[0, 0.714, 0.150]} userData={{ zombieId: id, isHead: true }} material={sm("#060302", 1)} />
@@ -618,6 +663,11 @@ function ZombieComponent({ id, startX, startZ, hidden = false }) {
         <mesh geometry={bg(0.145, 0.10, 0.165)} position={[0, -0.645, 0.01]} userData={{ zombieId: id, isHead: false }} material={sm(boot, 0.8)} />
         <mesh geometry={bg(0.135, 0.06, 0.235)} position={[0, -0.697, 0.055]} userData={{ zombieId: id, isHead: false }} material={sm(boot, 0.8)} />
         <mesh geometry={bg(0.140, 0.015, 0.240)} position={[0, -0.728, 0.055]} material={sm(bootSole, 0.6)} />
+      </group>
+
+      {type !== 'walker' && (
+        <mesh geometry={bg(0.18, 0.035, 0.028)} position={[0, 0.455, 0.126]} userData={{ zombieId: id, isHead: false }} material={sm(accent, 0.75, 0, accent, archetype.boss ? 1.8 : 0.7)} />
+      )}
       </group>
 
       {/* Bullet holes */}

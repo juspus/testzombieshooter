@@ -25,6 +25,46 @@ const PERK_COSTS = {
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.05
+
+export const ZOMBIE_ARCHETYPES = {
+  walker: { label: 'Walker', health: 2, speedMultiplier: 1, plankHits: 1 },
+  runner: { label: 'Runner', health: 1, speedMultiplier: 1.55, plankHits: 1 },
+  brute: { label: 'Brute', health: 5, speedMultiplier: 0.68, plankHits: 3 },
+  screamer: { label: 'Screamer', health: 2, speedMultiplier: 0.92, plankHits: 1, auraRadius: 6, auraSpeedMultiplier: 1.35 },
+  crawler: { label: 'Crawler', health: 2, speedMultiplier: 0.86, plankHits: 1, heightScale: 0.55 },
+  boss: { label: 'Boss', health: 16, speedMultiplier: 0.58, plankHits: 5, heightScale: 1.45, boss: true },
+}
+
+const ZOMBIE_TYPE_UNLOCKS = [
+  ['boss', 10],
+  ['crawler', 9],
+  ['screamer', 7],
+  ['brute', 5],
+  ['runner', 3],
+]
+
+export function getZombieArchetype(type = 'walker') {
+  return ZOMBIE_ARCHETYPES[type] ?? ZOMBIE_ARCHETYPES.walker
+}
+
+export function zombieTypesForWave(wave) {
+  return ZOMBIE_TYPE_UNLOCKS
+    .filter(([, unlockWave]) => wave >= unlockWave)
+    .map(([type]) => type)
+}
+
+function zombieTypeForSpawn(wave, index) {
+  if (wave >= 10 && index === 0) return 'boss'
+  const unlocked = zombieTypesForWave(wave).filter((type) => type !== 'boss')
+  if (unlocked.length === 0) return 'walker'
+
+  if (wave >= 9 && index % 5 === 4) return 'crawler'
+  if (wave >= 7 && index % 6 === 2) return 'screamer'
+  if (wave >= 5 && index % 4 === 1) return 'brute'
+  if (wave >= 3 && index % 3 === 0) return 'runner'
+  return 'walker'
+}
+
 const clipSizeForWeapon = (w) =>
   w === 'ak47' ? AK_CLIP : w === 'deagle' ? DEAGLE_CLIP : w === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
 
@@ -418,11 +458,18 @@ function spawnZombies(wave, startId) {
     const basis = getSpawnBasis(cluster.edge)
     const tangentJitter = (Math.random() - 0.5) * SPAWN_TANGENT_SPREAD
     const inwardJitter = Math.random() * 1.3
+    const type = zombieTypeForSpawn(wave, i)
+    const archetype = getZombieArchetype(type)
+    const spawnOffset = SPAWN_EDGE_OFFSET + inwardJitter
+    const bossEntranceOffset = archetype.boss ? 6 : 0
     zombies.push({
       id: startId + i,
-      x: cluster.x + basis.tangentX * tangentJitter - basis.outwardX * (SPAWN_EDGE_OFFSET + inwardJitter),
-      z: cluster.z + basis.tangentZ * tangentJitter - basis.outwardZ * (SPAWN_EDGE_OFFSET + inwardJitter),
-      health: 2,
+      x: cluster.x + basis.tangentX * tangentJitter - basis.outwardX * spawnOffset + basis.outwardX * bossEntranceOffset,
+      z: cluster.z + basis.tangentZ * tangentJitter - basis.outwardZ * spawnOffset + basis.outwardZ * bossEntranceOffset,
+      health: archetype.health,
+      maxHealth: archetype.health,
+      type,
+      bossEntrance: archetype.boss,
     })
   }
   return zombies

@@ -17,7 +17,7 @@ export default function ZombieManager() {
           on the final kill (when all live zombies unmount simultaneously). */}
       <ZombieComponent key="warmer" id={-1} startX={0} startZ={0} hidden />
       {zombies.map((z) => (
-        <ZombieComponent key={z.id} id={z.id} startX={z.x} startZ={z.z} />
+        <ZombieComponent key={z.id} id={z.id} startX={z.x} startZ={z.z} type={z.type} />
       ))}
     </>
   )
