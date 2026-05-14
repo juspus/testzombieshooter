@@ -33,7 +33,7 @@ function isIronSightsHeadshot(zombieRef, point, perks) {
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
 const LOOK_SENSITIVITY = 0.002
-const MOBILE_LOOK_SENSITIVITY = 0.004
+const MOBILE_LOOK_SENSITIVITY = 0.007
 const ARENA_BOUND = 18.5
 const STEP_INTERVAL = 0.42
 

@@ -121,7 +121,7 @@ export default function Shop() {
 
   return (
     <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) closeShop() }}>
-      <div style={panelStyle}>
+      <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
 
         <div style={headerStyle}>
           <span style={titleStyle}>SUPPLY CHEST</span>
@@ -228,10 +228,12 @@ const styles = {
     zIndex: 10,
   },
   mobileOverlay: {
-    background: 'rgba(0,0,0,0.42)',
-    alignItems: 'stretch',
+    position: 'fixed',
+    background: 'rgba(0,0,0,0.18)',
+    alignItems: 'center',
     justifyContent: 'center',
     padding: 'max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))',
+    zIndex: 30,
   },
   panel: {
     background: 'rgba(10,8,4,0.98)',
@@ -248,12 +250,14 @@ const styles = {
     boxShadow: '0 0 40px rgba(180,100,0,0.2)',
   },
   mobilePanel: {
-    width: 'min(520px, calc(var(--app-width, 100vw) - 20px))',
+    width: 'min(540px, calc(var(--app-width, 100vw) - 20px))',
     maxHeight: 'calc(var(--app-height, 100dvh) - 16px)',
     padding: '10px 12px 8px',
     gap: 7,
-    borderRadius: 7,
-    background: 'rgba(12,9,5,0.94)',
+    borderRadius: 10,
+    background: 'linear-gradient(180deg, rgba(34,22,10,0.98), rgba(13,10,7,0.98))',
+    border: '2px solid rgba(200,128,26,0.75)',
+    boxShadow: '0 0 0 1px rgba(255,224,102,0.12), 0 0 28px rgba(0,0,0,0.55)',
   },
   header: {
     display: 'flex',
@@ -271,8 +275,9 @@ const styles = {
     fontWeight: 'bold',
   },
   mobileTitle: {
-    fontSize: 12,
+    fontSize: 13,
     letterSpacing: 3,
+    color: '#ffb347',
   },
   money: {
     color: '#ffe066',
@@ -281,8 +286,9 @@ const styles = {
     letterSpacing: 2,
   },
   mobileMoney: {
-    fontSize: 16,
+    fontSize: 17,
     letterSpacing: 1,
+    color: '#ffe066',
   },
   divider: {
     borderBottom: '1px solid #2a1a08',
@@ -308,8 +314,10 @@ const styles = {
     borderBottom: '1px solid #1a1008',
   },
   mobileRow: {
-    padding: '6px 2px',
+    padding: '7px 3px',
     gap: 8,
+    background: 'rgba(255,255,255,0.025)',
+    borderBottom: '1px solid rgba(200,128,26,0.16)',
   },
   rowLeft: {
     display: 'flex',
@@ -323,8 +331,8 @@ const styles = {
     letterSpacing: 2,
   },
   mobileRowName: {
-    fontSize: 11,
-    letterSpacing: 1.5,
+    fontSize: 12,
+    letterSpacing: 1.4,
   },
   rowDesc: {
     color: '#666',
@@ -332,8 +340,9 @@ const styles = {
     letterSpacing: 1,
   },
   mobileRowDesc: {
-    fontSize: 8,
-    letterSpacing: 0.5,
+    color: '#9a8a72',
+    fontSize: 9,
+    letterSpacing: 0.4,
   },
   rowRight: {
     display: 'flex',
@@ -367,24 +376,26 @@ const styles = {
     minWidth: 72,
   },
   mobileBtn: {
-    padding: '6px 8px',
-    minWidth: 54,
-    fontSize: 9,
-    letterSpacing: 1.5,
+    padding: '8px 9px',
+    minWidth: 58,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    touchAction: 'manipulation',
   },
   closeBtn: {
-    border: '1px solid rgba(255,255,255,0.22)',
+    border: '1px solid rgba(255,224,102,0.35)',
     borderRadius: 999,
-    width: 30,
-    height: 30,
-    background: 'rgba(255,255,255,0.08)',
-    color: '#ddd',
-    fontSize: 20,
+    width: 34,
+    height: 34,
+    background: 'rgba(255,255,255,0.12)',
+    color: '#ffe8a3',
+    fontSize: 22,
     lineHeight: 1,
     flexShrink: 0,
+    touchAction: 'manipulation',
   },
   btnBuy: {
-    background: '#c8801a',
+    background: '#d98d22',
     color: '#000',
   },
   btnCant: {
@@ -402,7 +413,7 @@ const styles = {
     color: '#556677',
   },
   hint: {
-    color: '#3a3a3a',
+    color: '#6f5a36',
     fontSize: 10,
     letterSpacing: 3,
     textAlign: 'center',
