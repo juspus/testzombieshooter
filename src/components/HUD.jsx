@@ -1,10 +1,19 @@
+import { useEffect, useState } from 'react'
 import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
 
+function getIsMobileHud() {
+  if (typeof window === 'undefined') return false
+  const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+  const touchPoints = navigator.maxTouchPoints > 0
+  const mobileSized = Math.min(window.innerWidth, window.innerHeight) <= 900
+  return Boolean(coarsePointer || (touchPoints && mobileSized))
+}
 
 export default function HUD() {
+  const [isMobile, setIsMobile] = useState(getIsMobileHud)
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
   const zombieCount = useGameStore((s) => s.zombies.length)
@@ -33,6 +42,24 @@ export default function HUD() {
   const activeCost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
   const upgradeCost = STRONG_PLANK_COST * nearPlankCount
   const canAfford = canUpgrade ? money >= upgradeCost : money >= activeCost
+  const topBarStyle = isMobile ? { ...styles.topBar, ...styles.mobileTopBar } : styles.topBar
+  const statStyle = isMobile ? { ...styles.stat, ...styles.mobileStat } : styles.stat
+  const labelStyle = isMobile ? { ...styles.label, ...styles.mobileLabel } : styles.label
+  const valueStyle = isMobile ? { ...styles.value, ...styles.mobileValue } : styles.value
+
+  useEffect(() => {
+    const update = () => setIsMobile(getIsMobileHud())
+    const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    media?.addEventListener?.('change', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+      media?.removeEventListener?.('change', update)
+    }
+  }, [])
 
   return (
     <div style={styles.hud}>
@@ -41,18 +68,18 @@ export default function HUD() {
       <div style={styles.crosshairV} />
 
       {/* Top bar */}
-      <div style={styles.topBar}>
-        <div style={styles.stat}>
-          <span style={styles.label}>WAVE</span>
-          <span style={styles.value}>{wave}</span>
+      <div style={topBarStyle}>
+        <div style={statStyle}>
+          <span style={labelStyle}>WAVE</span>
+          <span style={valueStyle}>{wave}</span>
         </div>
-        <div style={styles.stat}>
-          <span style={styles.label}>KILLS</span>
-          <span style={styles.value}>{waveKills} / {total}</span>
+        <div style={statStyle}>
+          <span style={labelStyle}>KILLS</span>
+          <span style={valueStyle}>{waveKills} / {total}</span>
         </div>
-        <div style={styles.stat}>
-          <span style={styles.label}>MONEY</span>
-          <span style={{ ...styles.value, color: canAfford ? '#ffe066' : '#ff6644' }}>
+        <div style={statStyle}>
+          <span style={labelStyle}>MONEY</span>
+          <span style={{ ...valueStyle, color: canAfford ? '#ffe066' : '#ff6644' }}>
             €{money.toFixed(2)}
           </span>
         </div>
@@ -135,7 +162,7 @@ export default function HUD() {
       )}
 
       {/* Bottom hint */}
-      <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>
+      {!isMobile && <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>}
 
       {/* Zombie count bar */}
       <div style={styles.barOuter}>
@@ -186,11 +213,22 @@ const styles = {
     borderRadius: 8,
     border: '1px solid #333',
   },
+  mobileTopBar: {
+    gap: 10,
+    marginTop: 'max(6px, env(safe-area-inset-top))',
+    padding: '5px 10px',
+    borderRadius: 6,
+    background: 'rgba(0,0,0,0.46)',
+  },
   stat: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: 2,
+  },
+  mobileStat: {
+    minWidth: 44,
+    gap: 0,
   },
   label: {
     color: '#888',
@@ -198,12 +236,21 @@ const styles = {
     letterSpacing: 3,
     fontFamily: 'Courier New, monospace',
   },
+  mobileLabel: {
+    fontSize: 8,
+    letterSpacing: 1.5,
+  },
   value: {
     color: '#fff',
     fontSize: 28,
     fontWeight: 'bold',
     fontFamily: 'Courier New, monospace',
     letterSpacing: 2,
+  },
+  mobileValue: {
+    fontSize: 16,
+    letterSpacing: 1,
+    lineHeight: 1.05,
   },
   hint: {
     position: 'absolute',
