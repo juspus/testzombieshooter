@@ -1,4 +1,4 @@
-import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
+import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -33,6 +33,7 @@ export default function HUD() {
   const activeCost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
   const upgradeCost = STRONG_PLANK_COST * nearPlankCount
   const canAfford = canUpgrade ? money >= upgradeCost : money >= activeCost
+  const unlockedTypes = zombieTypesForWave(wave)
 
   return (
     <div style={styles.hud}>
@@ -57,6 +58,15 @@ export default function HUD() {
           </span>
         </div>
       </div>
+
+      {unlockedTypes.length > 0 && (
+        <div style={styles.threatBox}>
+          <span style={styles.threatLabel}>THREATS</span>
+          <span style={styles.threatValue}>
+            {unlockedTypes.map((type) => type.toUpperCase()).join(' · ')}
+          </span>
+        </div>
+      )}
 
       {/* Weapon info — bottom right */}
       {activeItem === 'knife' ? (
@@ -176,6 +186,29 @@ const styles = {
     width: 2,
     height: 20,
     background: 'rgba(255,255,255,0.85)',
+  },
+  threatBox: {
+    marginTop: 8,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 2,
+    background: 'rgba(30,0,0,0.45)',
+    border: '1px solid rgba(140,30,20,0.5)',
+    borderRadius: 6,
+    padding: '7px 18px',
+    fontFamily: 'Courier New, monospace',
+  },
+  threatLabel: {
+    color: '#c66',
+    fontSize: 10,
+    letterSpacing: 3,
+  },
+  threatValue: {
+    color: '#ffb088',
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 2,
   },
   topBar: {
     display: 'flex',

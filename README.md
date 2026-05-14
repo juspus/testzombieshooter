@@ -43,6 +43,17 @@ Up to 25 zombies active at once; extras queue and spawn as kills happen.
 ### Zombie AI
 Each zombie pathfinds toward the player using A*. Zombies can switch to "attack window" mode — targeting boarded windows to break in. Animated humanoid meshes with walk cycle, arm swing, and idle sway.
 
+#### Zombie Archetypes
+Special zombies enter the spawn pool as waves advance.
+
+| Wave | Zombie Type | Behavior |
+|---:|---|---|
+| 3 | Runner | Lower health, higher speed |
+| 5 | Brute | Higher health, slower, hits planks harder |
+| 7 | Screamer | Temporarily increases nearby zombie speed |
+| 9 | Crawler | Harder to hit, lower camera-height target |
+| 10 | Boss | Big health pool, unique entrance |
+
 ### Performance Payouts
 Wave clears now pay a detailed performance bonus on top of the base wave and kill rewards. Headshot kills, knife kills, fast clears, and preserving pre-wave barricades all add extra money for the next intermission.
 
