@@ -37,10 +37,10 @@ export const ZOMBIE_ARCHETYPES = {
 
 const ZOMBIE_TYPE_UNLOCKS = [
   ['boss', 10],
-  ['crawler', 9],
-  ['screamer', 7],
+  ['crawler', 3],
+  ['screamer', 9],
   ['brute', 5],
-  ['runner', 3],
+  ['runner', 7],
 ]
 
 export function getZombieArchetype(type = 'walker') {
