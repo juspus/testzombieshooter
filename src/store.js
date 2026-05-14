@@ -16,7 +16,7 @@ const AMMO_PACK_AMOUNT = 20
 const DEEP_POCKETS_AMMO_PACK_AMOUNT = 30
 const PERK_COSTS = {
   fast_hands: 80,
-  deep_pockets: 60,
+  deep_pockets: 80,
   iron_sights: 75,
   runners_breath: 90,
   carpenter: 65,
@@ -29,7 +29,7 @@ const speedForWave = (wave) => 1.5 + (wave - 1) * 0.05
 export const ZOMBIE_ARCHETYPES = {
   walker: { label: 'Walker', health: 2, speedMultiplier: 1, plankHits: 1 },
   runner: { label: 'Runner', health: 1, speedMultiplier: 1.55, plankHits: 1 },
-  brute: { label: 'Brute', health: 5, speedMultiplier: 0.68, plankHits: 3 },
+  brute: { label: 'Brute', health: 7, speedMultiplier: 0.68, plankHits: 3 },
   screamer: { label: 'Screamer', health: 2, speedMultiplier: 0.92, plankHits: 1, auraRadius: 6, auraSpeedMultiplier: 1.35 },
   crawler: { label: 'Crawler', health: 2, speedMultiplier: 0.86, plankHits: 1, heightScale: 0.55 },
   boss: { label: 'Boss', health: 16, speedMultiplier: 0.58, plankHits: 5, heightScale: 1.45, boss: true },
@@ -208,7 +208,7 @@ export const useGameStore = create((set, get) => ({
     const zombie = zombies.find((z) => z.id === id)
     if (!zombie || zombie.dying) return
 
-    const newHealth = isHeadshot ? 0 : zombie.health - 1
+    const newHealth = isHeadshot ? zombie.health - 3 : zombie.health - 1
 
     if (newHealth <= 0) {
       const newKills = kills + 1
