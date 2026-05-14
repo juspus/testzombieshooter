@@ -13,8 +13,11 @@ import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
 import ForestSkybox from './ForestSkybox'
+import MobileControls from './MobileControls'
+import useMobileViewport from '../useMobileViewport'
 
 export default function Game() {
+  useMobileViewport()
   const phase = useGameStore((s) => s.phase)
   const isPlaying = phase === 'playing'
   const isActive = phase === 'playing' || phase === 'intermission'
@@ -36,7 +39,7 @@ export default function Game() {
   }, [inGame])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
+    <div style={{ width: 'var(--app-width, 100vw)', height: 'var(--app-height, 100dvh)', position: 'relative', background: '#000', overflow: 'hidden' }}>
       <Canvas
         shadows
         camera={{ fov: 75, near: 0.1, far: 200 }}
@@ -54,6 +57,7 @@ export default function Game() {
       </Canvas>
 
       {isActive && <HUD />}
+      <MobileControls />
       <Shop />
       <Screens />
     </div>
