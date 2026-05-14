@@ -44,6 +44,7 @@ export default function Game() {
     <div style={{ width: 'var(--app-width, 100vw)', height: 'var(--app-height, 100dvh)', position: 'relative', background: '#000', overflow: 'hidden' }}>
       <Canvas
         shadows
+        gl={{ preserveDrawingBuffer: true }}
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%' }}
       >
