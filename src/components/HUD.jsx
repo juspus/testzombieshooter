@@ -50,6 +50,12 @@ export default function HUD() {
   const labelStyle = isMobile ? { ...styles.label, ...styles.mobileLabel } : styles.label
   const valueStyle = isMobile ? { ...styles.value, ...styles.mobileValue } : styles.value
   const showTopBar = !(isMobile && phase === 'intermission')
+  const ammoBoxStyle = isMobile ? { ...styles.ammoBox, ...styles.mobileAmmoBox } : styles.ammoBox
+  const weaponLabelStyle = isMobile ? { ...styles.weaponLabel, ...styles.mobileWeaponLabel } : styles.weaponLabel
+  const ammoCountStyle = isMobile ? { ...styles.ammoCount, ...styles.mobileAmmoCount } : styles.ammoCount
+  const reloadHintStyle = isMobile ? { ...styles.reloadHint, ...styles.mobileReloadHint } : styles.reloadHint
+  const pipsStyle = isMobile ? { ...styles.pips, ...styles.mobilePips } : styles.pips
+  const pipStyle = isMobile ? { ...styles.pip, ...styles.mobilePip } : styles.pip
 
   useEffect(() => {
     const update = () => setIsMobile(getIsMobileHud())
@@ -102,11 +108,11 @@ export default function HUD() {
 
       {/* Weapon info — bottom right */}
       {activeItem === 'knife' ? (
-        <div style={styles.ammoBox}>
-          <div style={styles.weaponLabel}>KNIFE</div>
+        <div style={ammoBoxStyle}>
+          <div style={weaponLabelStyle}>KNIFE</div>
           {knifeCooldown > 0 ? (
             <>
-              <div style={{ ...styles.ammoCount, color: '#ff6600', fontSize: 20, letterSpacing: 3 }}>
+              <div style={{ ...ammoCountStyle, color: '#ff6600', fontSize: isMobile ? 13 : 20, letterSpacing: isMobile ? 1.5 : 3 }}>
                 COOLDOWN
               </div>
               <div style={styles.cooldownTrack}>
@@ -117,33 +123,32 @@ export default function HUD() {
               </div>
             </>
           ) : (
-            <div style={{ ...styles.ammoCount, color: '#00ff88', fontSize: 20, letterSpacing: 3 }}>
+            <div style={{ ...ammoCountStyle, color: '#00ff88', fontSize: isMobile ? 13 : 20, letterSpacing: isMobile ? 1.5 : 3 }}>
               READY
             </div>
           )}
-          <div style={styles.reloadHint}>Q — switch to gun{perks.knife_mastery ? ' · mastery' : ''}</div>
+          {!isMobile && <div style={reloadHintStyle}>Q — switch to gun{perks.knife_mastery ? ' · mastery' : ''}</div>}
         </div>
       ) : (
-        <div style={styles.ammoBox}>
-          <div style={styles.weaponLabel}>
-            {weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}
-          </div>
+        <div style={ammoBoxStyle}>
+          <div style={weaponLabelStyle}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
           <div style={styles.caliberLabel}>{CALIBER_LABELS[weapon]}</div>
           {isReloading ? (
-            <div style={styles.reloading}>RELOADING…</div>
+            <div style={{ ...styles.reloading, ...(isMobile ? styles.mobileReloading : {}) }}>RELOADING…</div>
           ) : (
             <div style={{
-              ...styles.ammoCount,
+              ...ammoCountStyle,
               color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
             }}>
               {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
             </div>
           )}
+          {!isMobile && <div style={reloadHintStyle}>R — reload · Q — knife</div>}
           {/* Bullet pip row */}
-          <div style={{ ...styles.pips, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
+          <div style={{ ...pipsStyle, flexWrap: 'wrap', maxWidth: isMobile ? 72 : (clipSize <= 10 ? 'auto' : 90) }}>
             {Array.from({ length: clipSize }).map((_, i) => (
               <div key={i} style={{
-                ...styles.pip,
+                ...pipStyle,
                 background: i < bulletsInClip ? '#ffe066' : '#333',
               }} />
             ))}
@@ -328,6 +333,15 @@ const styles = {
     gap: 4,
     fontFamily: 'Courier New, monospace',
   },
+  mobileAmmoBox: {
+    right: 'max(18px, env(safe-area-inset-right))',
+    bottom: 'max(154px, calc(env(safe-area-inset-bottom) + 154px))',
+    gap: 2,
+    padding: '6px 8px',
+    borderRadius: 8,
+    background: 'rgba(0,0,0,0.42)',
+    border: '1px solid rgba(255,255,255,0.12)',
+  },
   weaponLabel: {
     color: '#888',
     fontSize: 11,
@@ -340,11 +354,20 @@ const styles = {
     letterSpacing: 3,
     marginBottom: 2,
   },
+  mobileWeaponLabel: {
+    fontSize: 8,
+    letterSpacing: 1.5,
+    marginBottom: 0,
+  },
   ammoCount: {
     fontSize: 36,
     fontWeight: 'bold',
     letterSpacing: 2,
     lineHeight: 1,
+  },
+  mobileAmmoCount: {
+    fontSize: 22,
+    letterSpacing: 1,
   },
   ammoSep: {
     color: '#555',
@@ -363,11 +386,18 @@ const styles = {
     fontWeight: 'bold',
     animation: 'none',
   },
+  mobileReloading: {
+    fontSize: 12,
+    letterSpacing: 2,
+  },
   reloadHint: {
     color: '#444',
     fontSize: 11,
     letterSpacing: 2,
     marginTop: 2,
+  },
+  mobileReloadHint: {
+    display: 'none',
   },
   boardPrompt: {
     position: 'absolute',
@@ -403,11 +433,21 @@ const styles = {
     gap: 3,
     marginTop: 4,
   },
+  mobilePips: {
+    gap: 2,
+    marginTop: 2,
+    justifyContent: 'flex-end',
+  },
   pip: {
     width: 6,
     height: 14,
     borderRadius: 2,
     transition: 'background 0.1s',
+  },
+  mobilePip: {
+    width: 4,
+    height: 9,
+    borderRadius: 1,
   },
   cooldownTrack: {
     width: 100,
