@@ -13,17 +13,12 @@ export default function useMobileViewport() {
   useEffect(() => {
     setViewportVars()
 
-    const viewport = window.visualViewport
     window.addEventListener('resize', setViewportVars)
     window.addEventListener('orientationchange', setViewportVars)
-    viewport?.addEventListener('resize', setViewportVars)
-    viewport?.addEventListener('scroll', setViewportVars)
 
     return () => {
       window.removeEventListener('resize', setViewportVars)
       window.removeEventListener('orientationchange', setViewportVars)
-      viewport?.removeEventListener('resize', setViewportVars)
-      viewport?.removeEventListener('scroll', setViewportVars)
     }
   }, [])
 }

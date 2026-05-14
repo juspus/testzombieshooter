@@ -378,8 +378,10 @@ export default function Player() {
     if (mobilePressed.interact) {
       if (shopOpenRef.current) {
         closeShop()
+        shopOpenRef.current = false
       } else if (nearChestRef.current) {
         openShop()
+        shopOpenRef.current = true
       }
     }
 
@@ -387,7 +389,7 @@ export default function Player() {
       toggleItem()
     }
 
-    if (shopOpen || pausedRef.current) return
+    if (shopOpenRef.current || pausedRef.current) return
 
     if (mobileLook.x !== 0 || mobileLook.y !== 0) {
       yaw.current -= mobileLook.x * MOBILE_LOOK_SENSITIVITY
