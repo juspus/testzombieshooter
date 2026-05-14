@@ -14,6 +14,7 @@ function getIsMobileHud() {
 
 export default function HUD() {
   const [isMobile, setIsMobile] = useState(getIsMobileHud)
+  const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
   const zombieCount = useGameStore((s) => s.zombies.length)
@@ -48,6 +49,7 @@ export default function HUD() {
   const statStyle = isMobile ? { ...styles.stat, ...styles.mobileStat } : styles.stat
   const labelStyle = isMobile ? { ...styles.label, ...styles.mobileLabel } : styles.label
   const valueStyle = isMobile ? { ...styles.value, ...styles.mobileValue } : styles.value
+  const showTopBar = !(isMobile && phase === 'intermission')
 
   useEffect(() => {
     const update = () => setIsMobile(getIsMobileHud())
@@ -70,22 +72,24 @@ export default function HUD() {
       <div style={styles.crosshairV} />
 
       {/* Top bar */}
-      <div style={topBarStyle}>
-        <div style={statStyle}>
-          <span style={labelStyle}>WAVE</span>
-          <span style={valueStyle}>{wave}</span>
+      {showTopBar && (
+        <div style={topBarStyle}>
+          <div style={statStyle}>
+            <span style={labelStyle}>WAVE</span>
+            <span style={valueStyle}>{wave}</span>
+          </div>
+          <div style={statStyle}>
+            <span style={labelStyle}>KILLS</span>
+            <span style={valueStyle}>{waveKills} / {total}</span>
+          </div>
+          <div style={statStyle}>
+            <span style={labelStyle}>MONEY</span>
+            <span style={{ ...valueStyle, color: canAfford ? '#ffe066' : '#ff6644' }}>
+              €{money.toFixed(2)}
+            </span>
+          </div>
         </div>
-        <div style={statStyle}>
-          <span style={labelStyle}>KILLS</span>
-          <span style={valueStyle}>{waveKills} / {total}</span>
-        </div>
-        <div style={statStyle}>
-          <span style={labelStyle}>MONEY</span>
-          <span style={{ ...valueStyle, color: canAfford ? '#ffe066' : '#ff6644' }}>
-            €{money.toFixed(2)}
-          </span>
-        </div>
-      </div>
+      )}
 
       {unlockedTypes.length > 0 && (
         <div style={styles.threatBox}>

@@ -3,6 +3,14 @@ import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 
+function getIsMobileScreen() {
+  if (typeof window === 'undefined') return false
+  const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+  const touchPoints = navigator.maxTouchPoints > 0
+  const mobileSized = Math.min(window.innerWidth, window.innerHeight) <= 900
+  return Boolean(coarsePointer || (touchPoints && mobileSized))
+}
+
 export default function Screens() {
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
@@ -143,56 +151,64 @@ const styles = {
 }
 
 function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress }) {
+  const [isMobile, setIsMobile] = useState(getIsMobileScreen)
   const seconds = Math.ceil(intermissionLeft)
   const urgent = seconds <= 3
 
+  useEffect(() => {
+    const update = () => setIsMobile(getIsMobileScreen())
+    const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    media?.addEventListener?.('change', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+      media?.removeEventListener?.('change', update)
+    }
+  }, [])
+
+  const panelStyle = isMobile ? { ...intermissionStyles.panel, ...intermissionStyles.mobilePanel } : intermissionStyles.panel
+  const titleStyle = isMobile ? { ...intermissionStyles.title, ...intermissionStyles.mobileTitle } : intermissionStyles.title
+  const timerStyle = isMobile ? { ...intermissionStyles.timer, ...intermissionStyles.mobileTimer } : intermissionStyles.timer
+  const rewardStyle = isMobile ? { ...intermissionStyles.reward, ...intermissionStyles.mobileReward } : intermissionStyles.reward
+  const hintStyle = isMobile ? { ...intermissionStyles.hint, ...intermissionStyles.mobileHint } : intermissionStyles.hint
+  const skipStyle = isMobile ? { ...intermissionStyles.skipWrap, ...intermissionStyles.mobileSkipWrap } : intermissionStyles.skipWrap
+
   return (
     <div style={{
-      position: 'absolute',
-      top: 80,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 4,
-      background: 'rgba(0,0,0,0.65)',
+      ...panelStyle,
       border: `1px solid ${urgent ? 'rgba(255,50,0,0.6)' : 'rgba(255,200,0,0.3)'}`,
-      borderRadius: 6,
-      padding: '10px 28px 14px',
-      fontFamily: 'Courier New, monospace',
-      pointerEvents: 'none',
-      transition: 'border-color 0.3s',
     }}>
-      <div style={{ fontSize: 11, letterSpacing: 6, color: '#888', fontWeight: 'bold' }}>
+      <div style={titleStyle}>
         WAVE {wave} INCOMING — {zombieCount} ZOMBIES
       </div>
       <div style={{
-        fontSize: 48,
-        fontWeight: 'bold',
+        ...timerStyle,
         color: urgent ? '#ff3300' : '#ffe066',
         textShadow: urgent ? '0 0 20px rgba(255,50,0,0.8)' : '0 0 12px rgba(255,200,0,0.5)',
-        lineHeight: 1,
-        transition: 'color 0.3s, text-shadow 0.3s',
       }}>
         {seconds}s
       </div>
       {wave > 1 && (
-        <div style={{ fontSize: 12, letterSpacing: 3, color: '#88cc44', marginTop: 2 }}>
+        <div style={rewardStyle}>
           +€15.00 WAVE REWARD
         </div>
       )}
-      <div style={{ fontSize: 11, letterSpacing: 2, color: '#555', marginTop: 2 }}>
-        HOLD E NEAR WINDOWS TO BOARD · €2.50 PER PLANK
+      <div style={hintStyle}>
+        {isMobile ? 'HOLD USE NEAR WINDOWS · €2.50/PLANK' : 'HOLD E NEAR WINDOWS TO BOARD · €2.50 PER PLANK'}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginTop: 6 }}>
-        <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>
-          HOLD T TO SKIP
+      {!isMobile && (
+        <div style={skipStyle}>
+          <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>
+            HOLD T TO SKIP
+          </div>
+          <div style={{ width: 140, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${skipProgress * 100}%`, background: '#aaa', borderRadius: 2, transition: 'width 0.05s linear' }} />
+          </div>
         </div>
-        <div style={{ width: 140, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${skipProgress * 100}%`, background: '#aaa', borderRadius: 2, transition: 'width 0.05s linear' }} />
-        </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -388,6 +404,87 @@ function BackBtn({ onClick }) {
       ← BACK
     </button>
   )
+}
+
+const intermissionStyles = {
+  panel: {
+    position: 'absolute',
+    top: 80,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    background: 'rgba(0,0,0,0.65)',
+    borderRadius: 6,
+    padding: '10px 28px 14px',
+    fontFamily: 'Courier New, monospace',
+    pointerEvents: 'none',
+    transition: 'border-color 0.3s',
+  },
+  mobilePanel: {
+    top: 'max(38px, calc(env(safe-area-inset-top) + 28px))',
+    gap: 1,
+    padding: '5px 12px 7px',
+    borderRadius: 5,
+    background: 'rgba(0,0,0,0.48)',
+    maxWidth: 'calc(var(--app-width, 100vw) - 220px)',
+    minWidth: 220,
+  },
+  title: {
+    fontSize: 11,
+    letterSpacing: 6,
+    color: '#888',
+    fontWeight: 'bold',
+  },
+  mobileTitle: {
+    fontSize: 8,
+    letterSpacing: 2,
+    whiteSpace: 'nowrap',
+  },
+  timer: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    lineHeight: 1,
+    transition: 'color 0.3s, text-shadow 0.3s',
+  },
+  mobileTimer: {
+    fontSize: 26,
+  },
+  reward: {
+    fontSize: 12,
+    letterSpacing: 3,
+    color: '#88cc44',
+    marginTop: 2,
+  },
+  mobileReward: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    marginTop: 0,
+  },
+  hint: {
+    fontSize: 11,
+    letterSpacing: 2,
+    color: '#555',
+    marginTop: 2,
+  },
+  mobileHint: {
+    fontSize: 8,
+    letterSpacing: 1,
+    marginTop: 1,
+    whiteSpace: 'nowrap',
+  },
+  skipWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  mobileSkipWrap: {
+    marginTop: 2,
+  },
 }
 
 function Overlay({ children, dim = 0.78 }) {

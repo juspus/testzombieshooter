@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
 
 const ITEMS = [
@@ -30,6 +31,14 @@ const ITEMS = [
     oneTime: false,
   },
 ]
+
+function getIsMobileShop() {
+  if (typeof window === 'undefined') return false
+  const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+  const touchPoints = navigator.maxTouchPoints > 0
+  const mobileSized = Math.min(window.innerWidth, window.innerHeight) <= 900
+  return Boolean(coarsePointer || (touchPoints && mobileSized))
+}
 
 const PERKS = [
   {
@@ -71,6 +80,7 @@ const PERKS = [
 ]
 
 export default function Shop() {
+  const [isMobile, setIsMobile] = useState(getIsMobileShop)
   const shopOpen = useGameStore((s) => s.shopOpen)
   const closeShop = useGameStore((s) => s.closeShop)
   const buyItem = useGameStore((s) => s.buyItem)
@@ -82,15 +92,42 @@ export default function Shop() {
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
 
+  useEffect(() => {
+    const update = () => setIsMobile(getIsMobileShop())
+    const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    media?.addEventListener?.('change', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+      media?.removeEventListener?.('change', update)
+    }
+  }, [])
+
   if (!shopOpen) return null
 
-  return (
-    <div style={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) closeShop() }}>
-      <div style={styles.panel}>
+  const overlayStyle = isMobile ? { ...styles.overlay, ...styles.mobileOverlay } : styles.overlay
+  const panelStyle = isMobile ? { ...styles.panel, ...styles.mobilePanel } : styles.panel
+  const headerStyle = isMobile ? { ...styles.header, ...styles.mobileHeader } : styles.header
+  const titleStyle = isMobile ? { ...styles.title, ...styles.mobileTitle } : styles.title
+  const moneyStyle = isMobile ? { ...styles.money, ...styles.mobileMoney } : styles.money
+  const rowStyle = isMobile ? { ...styles.row, ...styles.mobileRow } : styles.row
+  const rowNameStyle = isMobile ? { ...styles.rowName, ...styles.mobileRowName } : styles.rowName
+  const rowDescStyle = isMobile ? { ...styles.rowDesc, ...styles.mobileRowDesc } : styles.rowDesc
+  const rowRightStyle = isMobile ? { ...styles.rowRight, ...styles.mobileRowRight } : styles.rowRight
+  const rowPriceStyle = isMobile ? { ...styles.rowPrice, ...styles.mobileRowPrice } : styles.rowPrice
+  const btnStyle = isMobile ? { ...styles.btn, ...styles.mobileBtn } : styles.btn
 
-        <div style={styles.header}>
-          <span style={styles.title}>SUPPLY CHEST</span>
-          <span style={styles.money}>€{money.toFixed(2)}</span>
+  return (
+    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) closeShop() }}>
+      <div style={panelStyle}>
+
+        <div style={headerStyle}>
+          <span style={titleStyle}>SUPPLY CHEST</span>
+          <span style={moneyStyle}>€{money.toFixed(2)}</span>
+          {isMobile && <button type="button" style={styles.closeBtn} onClick={closeShop}>×</button>}
         </div>
 
         <div style={styles.divider} />
@@ -102,19 +139,19 @@ export default function Shop() {
             const canAfford = money >= item.price
             const disabled = owned || !canAfford
             return (
-              <div key={item.id} style={{ ...styles.row, opacity: disabled && !owned ? 0.45 : 1 }}>
+              <div key={item.id} style={{ ...rowStyle, opacity: disabled && !owned ? 0.45 : 1 }}>
                 <div style={styles.rowLeft}>
-                  <span style={{ ...styles.rowName, color: isActive ? '#4a8a2a' : owned ? '#6aaa4a' : '#ddd' }}>
+                  <span style={{ ...rowNameStyle, color: isActive ? '#4a8a2a' : owned ? '#6aaa4a' : '#ddd' }}>
                     {item.name}{isActive ? ' ◆' : ''}
                   </span>
-                  <span style={styles.rowDesc}>{typeof item.desc === 'function' ? item.desc(perks, weapon) : item.desc}</span>
+                  <span style={rowDescStyle}>{typeof item.desc === 'function' ? item.desc(perks, weapon) : item.desc}</span>
                 </div>
-                <div style={styles.rowRight}>
-                  <span style={{ ...styles.rowPrice, color: canAfford || owned ? '#ffe066' : '#884422' }}>
+                <div style={rowRightStyle}>
+                  <span style={{ ...rowPriceStyle, color: canAfford || owned ? '#ffe066' : '#884422' }}>
                     {owned ? '—' : `€${item.price.toFixed(2)}`}
                   </span>
                   <button
-                    style={{ ...styles.btn, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    style={{ ...btnStyle, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
                     disabled={disabled}
                     onClick={() => buyItem(item.id)}
                   >
@@ -133,17 +170,17 @@ export default function Shop() {
             const canAfford = money >= perk.price
             const disabled = owned || !canAfford
             return (
-              <div key={perk.id} style={{ ...styles.row, opacity: disabled && !owned ? 0.45 : 1 }}>
+              <div key={perk.id} style={{ ...rowStyle, opacity: disabled && !owned ? 0.45 : 1 }}>
                 <div style={styles.rowLeft}>
-                  <span style={{ ...styles.rowName, color: owned ? '#4a8a2a' : '#ddd' }}>{perk.name}</span>
-                  <span style={styles.rowDesc}>{perk.desc}</span>
+                  <span style={{ ...rowNameStyle, color: owned ? '#4a8a2a' : '#ddd' }}>{perk.name}</span>
+                  <span style={rowDescStyle}>{perk.desc}</span>
                 </div>
-                <div style={styles.rowRight}>
-                  <span style={{ ...styles.rowPrice, color: canAfford || owned ? '#ffe066' : '#884422' }}>
+                <div style={rowRightStyle}>
+                  <span style={{ ...rowPriceStyle, color: canAfford || owned ? '#ffe066' : '#884422' }}>
                     {owned ? '—' : `€${perk.price.toFixed(2)}`}
                   </span>
                   <button
-                    style={{ ...styles.btn, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    style={{ ...btnStyle, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
                     disabled={disabled}
                     onClick={() => buyPerk(perk.id)}
                   >
@@ -156,19 +193,19 @@ export default function Shop() {
 
           <div style={styles.divider} />
           {/* Strong Planks toggle */}
-          <div style={styles.row}>
+          <div style={rowStyle}>
             <div style={styles.rowLeft}>
-              <span style={{ ...styles.rowName, color: strongPlanksMode ? '#aaccee' : '#ddd' }}>Strong Planks</span>
-              <span style={styles.rowDesc}>
+              <span style={{ ...rowNameStyle, color: strongPlanksMode ? '#aaccee' : '#ddd' }}>Strong Planks</span>
+              <span style={rowDescStyle}>
                 Metal-reinforced · €{STRONG_PLANK_COST.toFixed(2)}/plank · 20 hits · upgrades existing
               </span>
             </div>
-            <div style={styles.rowRight}>
-              <span style={{ ...styles.rowPrice, color: strongPlanksMode ? '#778899' : '#ffe066' }}>
+            <div style={rowRightStyle}>
+              <span style={{ ...rowPriceStyle, color: strongPlanksMode ? '#778899' : '#ffe066' }}>
                 {strongPlanksMode ? 'ACTIVE' : `€${STRONG_PLANK_COST.toFixed(2)}`}
               </span>
               <button
-                style={{ ...styles.btn, ...(strongPlanksMode ? styles.btnStrong : styles.btnBuy) }}
+                style={{ ...btnStyle, ...(strongPlanksMode ? styles.btnStrong : styles.btnBuy) }}
                 onClick={toggleStrongPlanksMode}
               >
                 {strongPlanksMode ? 'DISABLE' : 'ENABLE'}
@@ -178,7 +215,7 @@ export default function Shop() {
         </div>
 
         <div style={styles.divider} />
-        <div style={styles.hint}>E / ESC — close</div>
+        <div style={styles.hint}>{isMobile ? 'Tap × or outside to close' : 'E / ESC — close'}</div>
       </div>
     </div>
   )
@@ -194,6 +231,12 @@ const styles = {
     justifyContent: 'center',
     zIndex: 10,
   },
+  mobileOverlay: {
+    background: 'rgba(0,0,0,0.42)',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    padding: 'max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))',
+  },
   panel: {
     background: 'rgba(10,8,4,0.98)',
     border: '1px solid #5a3a10',
@@ -208,10 +251,22 @@ const styles = {
     fontFamily: 'Courier New, monospace',
     boxShadow: '0 0 40px rgba(180,100,0,0.2)',
   },
+  mobilePanel: {
+    width: 'min(520px, calc(var(--app-width, 100vw) - 20px))',
+    maxHeight: 'calc(var(--app-height, 100dvh) - 16px)',
+    padding: '10px 12px 8px',
+    gap: 7,
+    borderRadius: 7,
+    background: 'rgba(12,9,5,0.94)',
+  },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'baseline',
+  },
+  mobileHeader: {
+    alignItems: 'center',
+    gap: 10,
   },
   title: {
     color: '#c8801a',
@@ -219,11 +274,19 @@ const styles = {
     letterSpacing: 6,
     fontWeight: 'bold',
   },
+  mobileTitle: {
+    fontSize: 12,
+    letterSpacing: 3,
+  },
   money: {
     color: '#ffe066',
     fontSize: 22,
     fontWeight: 'bold',
     letterSpacing: 2,
+  },
+  mobileMoney: {
+    fontSize: 16,
+    letterSpacing: 1,
   },
   divider: {
     borderBottom: '1px solid #2a1a08',
@@ -248,6 +311,10 @@ const styles = {
     gap: 16,
     borderBottom: '1px solid #1a1008',
   },
+  mobileRow: {
+    padding: '6px 2px',
+    gap: 8,
+  },
   rowLeft: {
     display: 'flex',
     flexDirection: 'column',
@@ -259,10 +326,18 @@ const styles = {
     fontWeight: 'bold',
     letterSpacing: 2,
   },
+  mobileRowName: {
+    fontSize: 11,
+    letterSpacing: 1.5,
+  },
   rowDesc: {
     color: '#666',
     fontSize: 10,
     letterSpacing: 1,
+  },
+  mobileRowDesc: {
+    fontSize: 8,
+    letterSpacing: 0.5,
   },
   rowRight: {
     display: 'flex',
@@ -270,12 +345,19 @@ const styles = {
     gap: 14,
     flexShrink: 0,
   },
+  mobileRowRight: {
+    gap: 7,
+  },
   rowPrice: {
     fontSize: 15,
     fontWeight: 'bold',
     letterSpacing: 1,
     minWidth: 72,
     textAlign: 'right',
+  },
+  mobileRowPrice: {
+    fontSize: 12,
+    minWidth: 54,
   },
   btn: {
     padding: '6px 14px',
@@ -287,6 +369,23 @@ const styles = {
     fontWeight: 'bold',
     cursor: 'pointer',
     minWidth: 72,
+  },
+  mobileBtn: {
+    padding: '6px 8px',
+    minWidth: 54,
+    fontSize: 9,
+    letterSpacing: 1.5,
+  },
+  closeBtn: {
+    border: '1px solid rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    width: 30,
+    height: 30,
+    background: 'rgba(255,255,255,0.08)',
+    color: '#ddd',
+    fontSize: 20,
+    lineHeight: 1,
+    flexShrink: 0,
   },
   btnBuy: {
     background: '#c8801a',
