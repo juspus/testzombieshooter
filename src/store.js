@@ -58,10 +58,10 @@ function zombieTypeForSpawn(wave, index) {
   const unlocked = zombieTypesForWave(wave).filter((type) => type !== 'boss')
   if (unlocked.length === 0) return 'walker'
 
-  if (wave >= 9 && index % 5 === 4) return 'crawler'
-  if (wave >= 7 && index % 6 === 2) return 'screamer'
+  if (wave >= 9 && index % 5 === 4) return 'screamer'
+  if (wave >= 7 && index % 6 === 2) return 'runner'
   if (wave >= 5 && index % 4 === 1) return 'brute'
-  if (wave >= 3 && index % 3 === 0) return 'runner'
+  if (wave >= 3 && index % 3 === 0) return 'crawler'
   return 'walker'
 }
 
