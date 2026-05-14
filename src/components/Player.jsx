@@ -11,6 +11,7 @@ import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import { send, isConnected } from '../net'
+import { mobileInput, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
 import * as THREE from 'three'
 
 function netSend(event, data) {
@@ -37,6 +38,7 @@ function isIronSightsHeadshot(zombieRef, point, perks) {
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
 const LOOK_SENSITIVITY = 0.002
+const MOBILE_LOOK_SENSITIVITY = 0.004
 const ARENA_BOUND = 18.5
 const STEP_INTERVAL = 0.42
 
@@ -369,7 +371,38 @@ export default function Player() {
 
   useFrame((_, delta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
+
+    const mobilePressed = consumeMobilePressed()
+    const mobileLook = consumeMobileLook()
+
+    if (mobilePressed.interact) {
+      if (shopOpenRef.current) {
+        closeShop()
+      } else if (nearChestRef.current) {
+        openShop()
+      }
+    }
+
+    if (mobilePressed.swap && !shopOpenRef.current) {
+      toggleItem()
+    }
+
     if (shopOpen || pausedRef.current) return
+
+    if (mobileLook.x !== 0 || mobileLook.y !== 0) {
+      yaw.current -= mobileLook.x * MOBILE_LOOK_SENSITIVITY
+      pitch.current -= mobileLook.y * MOBILE_LOOK_SENSITIVITY
+      pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
+    }
+
+    if (mobilePressed.shoot && phase === 'playing') {
+      if (activeItemRef.current === 'knife') {
+        knifeSwing()
+      } else {
+        shoot()
+        akFireTimerRef.current = 0.1
+      }
+    }
 
     // Chest proximity
     {
@@ -419,7 +452,7 @@ export default function Player() {
     {
       const BOARD_TIME = boardTimeForPerks(perksRef.current)
       const nearId = prevNearWindowRef.current
-      const eHeld = keys.current['KeyE']
+      const eHeld = keys.current['KeyE'] || mobileInput.interactHeld
       const plankCount = windowPlanksRef.current[nearId] ?? 0
       const isStrong = windowPlankStrongRef.current[nearId] ?? false
       const strongMode = strongPlanksModeRef.current
@@ -455,7 +488,7 @@ export default function Player() {
     }
 
     // AK-47 auto-fire at 10 rounds/s while mouse held (deagle is semi-auto only; no auto-fire for knife)
-    if (phase === 'playing' && weaponRef.current === 'ak47' && activeItemRef.current === 'gun' && mouseHeldRef.current && locked.current) {
+    if (phase === 'playing' && weaponRef.current === 'ak47' && activeItemRef.current === 'gun' && ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld)) {
       akFireTimerRef.current -= delta
       if (akFireTimerRef.current <= 0) {
         shoot()
@@ -491,6 +524,8 @@ export default function Player() {
     if (keys.current['KeyS'] || keys.current['ArrowDown']) dir.sub(forward)
     if (keys.current['KeyA'] || keys.current['ArrowLeft']) dir.sub(right)
     if (keys.current['KeyD'] || keys.current['ArrowRight']) dir.add(right)
+    if (mobileInput.moveY !== 0) dir.addScaledVector(forward, mobileInput.moveY)
+    if (mobileInput.moveX !== 0) dir.addScaledVector(right, mobileInput.moveX)
 
     if (dir.lengthSq() > 0) {
       dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current) * delta)
