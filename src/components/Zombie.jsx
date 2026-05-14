@@ -454,6 +454,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const visualHeightScale = isCrawler ? 0.7 : isScreamer ? heightScale * 1.08 : heightScale
   const modelPosition = isCrawler ? [0, -0.36, 0.10] : [0, 0, 0]
   const modelRotation = isCrawler ? [-0.82, 0, 0] : isScreamer ? [0.16, 0, 0] : [0, 0, 0]
+  // Keep the crawler head in the existing crawl pose, but counter-rotate the torso
+  // so the chest pitches forward into the ground instead of arching backward.
+  const bodyRotation = isCrawler ? [1.64, 0, 0] : [0, 0, 0]
   const leftArmPosition = isCrawler ? [-0.285, 0.310, 0.055] : isScreamer ? [-0.270, 0.345, 0.015] : [-0.248, 0.365, 0]
   const rightArmPosition = isCrawler ? [0.285, 0.310, 0.055] : isScreamer ? [0.270, 0.345, 0.015] : [0.248, 0.365, 0]
 
@@ -613,6 +616,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       <mesh geometry={bg(0.008, 0.080, 0.005)} position={[-0.095, 0.918, -0.082]} rotation={[0.38, 0.28, 0.18]} userData={{ zombieId: id, isHead: true }} material={sm(hair, 1)} />
       <mesh geometry={bg(0.006, 0.062, 0.005)} position={[0.070, 0.924, -0.090]} rotation={[0.30, -0.20, -0.12]} userData={{ zombieId: id, isHead: true }} material={sm(hair, 1)} />
 
+      <group rotation={bodyRotation}>
       {/* ══ NECK ══ */}
       <mesh geometry={bg(0.15, 0.11, 0.14)} position={[0, 0.535, 0]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
       {/* Collar / torn shirt edge */}
@@ -727,6 +731,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       {type !== 'walker' && (
         <mesh geometry={bg(isBoss ? 0.30 : 0.18, isBoss ? 0.055 : 0.035, 0.028)} position={[0, 0.455, 0.126]} userData={{ zombieId: id, isHead: false }} material={sm(accent, 0.75, 0, accent, isBoss ? 2.8 : isRunner ? 1.5 : 0.7)} />
       )}
+      </group>
       </group>
 
       {/* Bullet holes */}
