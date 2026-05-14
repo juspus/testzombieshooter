@@ -46,7 +46,7 @@ export default function Game() {
         shadows
         gl={{ preserveDrawingBuffer: true }}
         camera={{ fov: 75, near: 0.1, far: 200 }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', willChange: 'transform' }}
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         <ForestSkybox />

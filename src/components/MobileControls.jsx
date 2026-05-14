@@ -244,10 +244,9 @@ export default function MobileControls() {
 }
 
 const glass = {
-  background: 'rgba(10, 12, 16, 0.34)',
+  background: 'rgba(10, 12, 16, 0.55)',
   border: '1px solid rgba(255, 255, 255, 0.22)',
   boxShadow: '0 0 18px rgba(0,0,0,0.35)',
-  backdropFilter: 'blur(4px)',
 }
 
 const styles = {
@@ -356,10 +355,9 @@ const styles = {
     gap: 12,
     padding: '10px 12px',
     borderRadius: 12,
-    background: 'rgba(0, 0, 0, 0.70)',
+    background: 'rgba(0, 0, 0, 0.88)',
     border: '1px solid rgba(200, 128, 26, 0.55)',
     boxShadow: '0 0 24px rgba(0,0,0,0.45)',
-    backdropFilter: 'blur(5px)',
   },
   installTitle: {
     color: '#c8801a',
