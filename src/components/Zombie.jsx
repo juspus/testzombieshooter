@@ -444,22 +444,49 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const { skin, skinDark, skinVein, shirt, shirtTear, accent, eye } = colors
   const heightScale = archetype.heightScale ?? 1
   const bodyScale = hidden ? 0.001 : 1
+  const isCrawler = type === 'crawler'
+  const isScreamer = type === 'screamer'
+  const isRunner = type === 'runner'
+  const isBrute = type === 'brute'
+  const isBoss = archetype.boss
+  const widthScale = isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.08 : isScreamer ? 0.82 : 1
+  const depthScale = isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.22 : isScreamer ? 0.88 : 1
+  const visualHeightScale = isCrawler ? 0.7 : isScreamer ? heightScale * 1.08 : heightScale
+  const modelPosition = isCrawler ? [0, -0.36, 0.10] : [0, 0, 0]
+  const modelRotation = isCrawler ? [-0.82, 0, 0] : isScreamer ? [0.16, 0, 0] : [0, 0, 0]
+  const headPosition = isCrawler ? [0, -0.70, 0.63] : [0, 0, 0]
+  // Keep the crawler head in the existing crawl pose, but counter-rotate the torso
+  // so the chest pitches forward into the ground instead of arching backward.
+  const bodyRotation = isCrawler ? [1.64, 0, 0] : [0, 0, 0]
+  const leftArmPosition = isCrawler ? [-0.285, 0.310, 0.055] : isScreamer ? [-0.270, 0.345, 0.015] : [-0.248, 0.365, 0]
+  const rightArmPosition = isCrawler ? [0.285, 0.310, 0.055] : isScreamer ? [0.270, 0.345, 0.015] : [0.248, 0.365, 0]
 
   return (
     <group ref={ref} scale={bodyScale}>
-      {archetype.boss && (
-        <mesh geometry={cg(0.68, 0.88, 0.08, 20)} position={[0, -0.868, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <meshBasicMaterial color="#4a0909" transparent opacity={0.45} depthWrite={false} />
-        </mesh>
+      {isBoss && (
+        <>
+          <mesh geometry={cg(0.95, 1.22, 0.08, 24)} position={[0, -0.868, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <meshBasicMaterial color="#7a0505" transparent opacity={0.52} depthWrite={false} />
+          </mesh>
+          <mesh geometry={cg(1.18, 1.48, 0.05, 28)} position={[0, -0.866, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <meshBasicMaterial color="#ff1700" transparent opacity={0.18} depthWrite={false} />
+          </mesh>
+        </>
       )}
-      {type === 'screamer' && (
+      {isScreamer && (
         <mesh geometry={cg(archetype.auraRadius, archetype.auraRadius, 0.018, 48)} position={[0, -0.865, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <meshBasicMaterial color="#6520aa" transparent opacity={0.12} depthWrite={false} />
         </mesh>
       )}
-      <group scale={[archetype.boss ? 1.28 : type === 'brute' ? 1.15 : type === 'runner' ? 0.88 : 1, heightScale, archetype.boss ? 1.28 : type === 'brute' ? 1.15 : type === 'runner' ? 0.88 : 1]}>
+      {isRunner && (
+        <mesh geometry={cg(0.42, 0.58, 0.045, 20)} position={[0, -0.866, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <meshBasicMaterial color="#ff6a00" transparent opacity={0.22} depthWrite={false} />
+        </mesh>
+      )}
+      <group position={modelPosition} rotation={modelRotation} scale={[widthScale, visualHeightScale, depthScale]}>
 
       {/* ══ HEAD ══ */}
+      <group position={headPosition}>
 
       {/* Main skull dome */}
       <mesh geometry={bg(0.30, 0.38, 0.28)} position={[0, 0.760, 0]} castShadow userData={{ zombieId: id, isHead: true }} material={sm(skullBone, 0.85)} />
@@ -590,7 +617,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       {/* Hair wisps */}
       <mesh geometry={bg(0.008, 0.080, 0.005)} position={[-0.095, 0.918, -0.082]} rotation={[0.38, 0.28, 0.18]} userData={{ zombieId: id, isHead: true }} material={sm(hair, 1)} />
       <mesh geometry={bg(0.006, 0.062, 0.005)} position={[0.070, 0.924, -0.090]} rotation={[0.30, -0.20, -0.12]} userData={{ zombieId: id, isHead: true }} material={sm(hair, 1)} />
+      </group>
 
+      <group rotation={bodyRotation}>
       {/* ══ NECK ══ */}
       <mesh geometry={bg(0.15, 0.11, 0.14)} position={[0, 0.535, 0]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
       {/* Collar / torn shirt edge */}
@@ -617,10 +646,29 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       {/* Belt buckle */}
       <mesh geometry={bg(0.06, 0.045, 0.012)} position={[0, -0.085, 0.120]} material={sm("#888060", 0.4, 0.7)} />
       {/* Hips */}
-      <mesh geometry={bg(0.38, 0.16, 0.21)} position={[0, -0.175, 0]} userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
+      <mesh geometry={bg(0.38, 0.16, 0.21)} position={[0, -0.175, 0]} userData={{ zombieId: id, isHead: false }} material={sm(isScreamer ? '#d8d0c0' : pants, 0.95)} />
+
+      {isScreamer && (
+        <>
+          <mesh geometry={bg(0.50, 0.78, 0.045)} position={[0, 0.055, 0.137]} rotation={[0.08, 0, 0]} material={sm('#d9d2c3', 0.98)} />
+          <mesh geometry={bg(0.42, 0.50, 0.04)} position={[0, -0.245, 0.132]} rotation={[0.18, 0, 0]} material={sm('#bfb6a8', 1)} />
+          <mesh geometry={bg(0.030, 0.62, 0.035)} position={[-0.152, 0.615, 0.020]} rotation={[0.30, 0, -0.15]} material={sm('#090706', 1)} />
+          <mesh geometry={bg(0.034, 0.68, 0.040)} position={[0.148, 0.590, 0.010]} rotation={[0.34, 0, 0.13]} material={sm('#090706', 1)} />
+          <mesh geometry={bg(0.20, 0.46, 0.055)} position={[0, 0.710, -0.090]} rotation={[0.20, 0, 0]} material={sm('#090706', 1)} />
+        </>
+      )}
+
+      {isCrawler && (
+        <>
+          <mesh geometry={bg(0.34, 0.080, 0.22)} position={[0, -0.282, -0.020]} userData={{ zombieId: id, isHead: false }} material={sm(blood, 1)} />
+          <mesh geometry={bg(0.12, 0.065, 0.18)} position={[-0.115, -0.272, -0.070]} rotation={[0, 0, -0.25]} userData={{ zombieId: id, isHead: false }} material={sm(bone, 0.85)} />
+          <mesh geometry={bg(0.12, 0.065, 0.18)} position={[0.115, -0.272, -0.070]} rotation={[0, 0, 0.25]} userData={{ zombieId: id, isHead: false }} material={sm(bone, 0.85)} />
+          <mesh geometry={bg(0.48, 0.055, 0.60)} position={[0, -0.315, -0.180]} material={sm('#210807', 1, 0, '#3a0908', 0.45)} />
+        </>
+      )}
 
       {/* ══ LEFT ARM — pivot at shoulder ══ */}
-      <group ref={leftArmRef} position={[-0.248, 0.365, 0]}>
+      <group ref={leftArmRef} position={leftArmPosition}>
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[-0.057, -0.170, 0.095]} rotation={[-0.55, 0, -0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[-0.070, -0.330, 0.195]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
@@ -630,10 +678,17 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         <mesh geometry={bg(0.025, 0.07, 0.022)} position={[-0.097, -0.433, 0.510]} rotation={[-1.05, -0.15, -0.05]} material={sm(skullBone, 0.85)} />
         <mesh geometry={bg(0.025, 0.075, 0.022)} position={[-0.072, -0.427, 0.512]} rotation={[-1.05, 0, -0.04]} material={sm(skullBone, 0.85)} />
         <mesh geometry={bg(0.025, 0.068, 0.022)} position={[-0.048, -0.433, 0.508]} rotation={[-1.05, 0.14, -0.03]} material={sm(skullBone, 0.85)} />
+        {isScreamer && (
+          <>
+            <mesh geometry={bg(0.012, 0.18, 0.010)} position={[-0.112, -0.505, 0.572]} rotation={[-1.12, -0.20, -0.06]} material={sm('#1b120f', 0.6)} />
+            <mesh geometry={bg(0.012, 0.20, 0.010)} position={[-0.075, -0.500, 0.582]} rotation={[-1.12, 0, -0.05]} material={sm('#1b120f', 0.6)} />
+            <mesh geometry={bg(0.012, 0.17, 0.010)} position={[-0.037, -0.505, 0.570]} rotation={[-1.12, 0.18, -0.04]} material={sm('#1b120f', 0.6)} />
+          </>
+        )}
       </group>
 
       {/* ══ RIGHT ARM — pivot at shoulder ══ */}
-      <group ref={rightArmRef} position={[0.248, 0.365, 0]}>
+      <group ref={rightArmRef} position={rightArmPosition}>
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[0.057, -0.170, 0.095]} rotation={[-0.45, 0, 0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[0.068, -0.310, 0.185]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
@@ -643,8 +698,17 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         <mesh geometry={bg(0.025, 0.07, 0.022)} position={[0.096, -0.405, 0.483]} rotation={[-0.95, -0.15, 0.04]} material={sm(skullBone, 0.85)} />
         <mesh geometry={bg(0.025, 0.075, 0.022)} position={[0.071, -0.401, 0.486]} rotation={[-0.95, 0, 0.03]} material={sm(skullBone, 0.85)} />
         <mesh geometry={bg(0.025, 0.068, 0.022)} position={[0.047, -0.407, 0.481]} rotation={[-0.95, 0.14, 0.02]} material={sm(skullBone, 0.85)} />
+        {isScreamer && (
+          <>
+            <mesh geometry={bg(0.012, 0.18, 0.010)} position={[0.112, -0.478, 0.545]} rotation={[-1.02, -0.20, 0.05]} material={sm('#1b120f', 0.6)} />
+            <mesh geometry={bg(0.012, 0.20, 0.010)} position={[0.075, -0.474, 0.555]} rotation={[-1.02, 0, 0.04]} material={sm('#1b120f', 0.6)} />
+            <mesh geometry={bg(0.012, 0.17, 0.010)} position={[0.037, -0.480, 0.543]} rotation={[-1.02, 0.18, 0.03]} material={sm('#1b120f', 0.6)} />
+          </>
+        )}
       </group>
 
+      {!isCrawler && (
+        <>
       {/* ══ LEFT LEG — pivot at hip ══ */}
       <group ref={leftLegRef} position={[-0.12, -0.175, 0]}>
         <mesh geometry={bg(0.16, 0.36, 0.17)} position={[0, -0.200, 0]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
@@ -664,10 +728,13 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         <mesh geometry={bg(0.135, 0.06, 0.235)} position={[0, -0.697, 0.055]} userData={{ zombieId: id, isHead: false }} material={sm(boot, 0.8)} />
         <mesh geometry={bg(0.140, 0.015, 0.240)} position={[0, -0.728, 0.055]} material={sm(bootSole, 0.6)} />
       </group>
+        </>
+      )}
 
       {type !== 'walker' && (
-        <mesh geometry={bg(0.18, 0.035, 0.028)} position={[0, 0.455, 0.126]} userData={{ zombieId: id, isHead: false }} material={sm(accent, 0.75, 0, accent, archetype.boss ? 1.8 : 0.7)} />
+        <mesh geometry={bg(isBoss ? 0.30 : 0.18, isBoss ? 0.055 : 0.035, 0.028)} position={[0, 0.455, 0.126]} userData={{ zombieId: id, isHead: false }} material={sm(accent, 0.75, 0, accent, isBoss ? 2.8 : isRunner ? 1.5 : 0.7)} />
       )}
+      </group>
       </group>
 
       {/* Bullet holes */}
