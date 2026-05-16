@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
 
 const ITEMS = [
@@ -91,6 +91,7 @@ export default function Shop() {
   const perks = useGameStore((s) => s.perks)
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
+  const openedAtRef = useRef(0)
 
   useEffect(() => {
     const update = () => setIsMobile(getIsMobileShop())
@@ -105,6 +106,10 @@ export default function Shop() {
       media?.removeEventListener?.('change', update)
     }
   }, [])
+
+  useEffect(() => {
+    if (shopOpen) openedAtRef.current = performance.now()
+  }, [shopOpen])
 
   if (!shopOpen) return null
 
@@ -121,7 +126,7 @@ export default function Shop() {
   const btnStyle = isMobile ? { ...styles.btn, ...styles.mobileBtn } : styles.btn
 
   return (
-    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget) closeShop() }}>
+    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget && performance.now() - openedAtRef.current > 400) closeShop() }}>
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
 
         <div style={headerStyle}>
