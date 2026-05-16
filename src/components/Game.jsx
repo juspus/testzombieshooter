@@ -41,7 +41,7 @@ export default function Game() {
   }, [inGame])
 
   return (
-    <div style={{ width: 'var(--app-width, 100vw)', height: 'var(--app-height, 100dvh)', position: 'relative', background: '#000', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#000', overflow: 'hidden' }}>
       <Canvas
         shadows
         gl={{ preserveDrawingBuffer: true }}
