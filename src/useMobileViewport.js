@@ -9,12 +9,13 @@ function setViewportVars() {
   document.documentElement.style.setProperty('--app-height', `${height}px`)
 }
 
+// Run at import time so CSS vars are set before React's first render
+setViewportVars()
+
 export default function useMobileViewport() {
   useEffect(() => {
     setViewportVars()
-
     window.addEventListener('orientationchange', setViewportVars)
-
     return () => {
       window.removeEventListener('orientationchange', setViewportVars)
     }
