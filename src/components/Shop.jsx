@@ -238,6 +238,7 @@ const styles = {
     justifyContent: 'center',
     padding: 'max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left))',
     zIndex: 30,
+    touchAction: 'none',
   },
   panel: {
     background: 'rgba(10,8,4,0.98)',
@@ -262,6 +263,7 @@ const styles = {
     background: 'linear-gradient(180deg, rgba(34,22,10,0.98), rgba(13,10,7,0.98))',
     border: '2px solid rgba(200,128,26,0.75)',
     boxShadow: '0 0 0 1px rgba(255,224,102,0.12), 0 0 28px rgba(0,0,0,0.55)',
+    touchAction: 'pan-y',
   },
   header: {
     display: 'flex',
