@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
 
 const ITEMS = [
@@ -106,6 +106,12 @@ export default function Shop() {
     }
   }, [])
 
+  const openedAtRef = useRef(Infinity)
+  useLayoutEffect(() => {
+    if (shopOpen) openedAtRef.current = performance.now()
+    else openedAtRef.current = Infinity
+  }, [shopOpen])
+
   if (!shopOpen) return null
 
   const overlayStyle = isMobile ? { ...styles.overlay, ...styles.mobileOverlay } : styles.overlay
@@ -121,7 +127,7 @@ export default function Shop() {
   const btnStyle = isMobile ? { ...styles.btn, ...styles.mobileBtn } : styles.btn
 
   return (
-    <div style={overlayStyle} onClick={isMobile ? undefined : (e) => { if (e.target === e.currentTarget) closeShop() }}>
+    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget && performance.now() - openedAtRef.current > 500) closeShop() }}>
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
 
         <div style={headerStyle}>
