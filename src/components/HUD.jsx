@@ -1,4 +1,4 @@
-import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
+import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, WEAPON_CALIBER } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -9,8 +9,9 @@ export default function HUD() {
   const waveKills = useGameStore((s) => s.waveKills)
   const zombieCount = useGameStore((s) => s.zombies.length)
   const total = useGameStore((s) => s.getZombiesForWave())
-  const bulletsInClip = useGameStore((s) => s.bulletsInClip)
-  const reserveBullets = useGameStore((s) => s.reserveBullets)
+  const clipAmmo = useGameStore((s) => s.clipAmmo)
+  const reserveAmmo = useGameStore((s) => s.reserveAmmo)
+  const ownedWeapons = useGameStore((s) => s.ownedWeapons)
   const isReloading = useGameStore((s) => s.isReloading)
   const nearWindowId = useGameStore((s) => s.nearWindowId)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
@@ -25,6 +26,11 @@ export default function HUD() {
   const nearChest = useGameStore((s) => s.nearChest)
   const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
+  const bulletsInClip = clipAmmo[weapon] ?? 0
+  const reserveBullets = reserveAmmo[WEAPON_CALIBER[weapon]] ?? 0
+
+  const WEAPON_DISPLAY = { pistol: 'PISTOL', ak47: 'AK-47', deagle: 'DEAGLE', shotgun: 'SHOTGUN' }
+  const CALIBER_LABEL = { pistol_ammo: 'PISTOL', rifle_ammo: 'RIFLE', shotgun_ammo: 'SHELL' }
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const nearPlanksAreStrong = nearWindowId >= 0 ? (windowPlankStrong[nearWindowId] ?? false) : false
   const canAddPlank = nearPlankCount < 2
@@ -93,7 +99,25 @@ export default function HUD() {
         </div>
       ) : (
         <div style={styles.ammoBox}>
-          <div style={styles.weaponLabel}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
+          {/* Weapon selector — only shown when player owns more than one weapon */}
+          {ownedWeapons.length > 1 && (
+            <div style={styles.weaponSelector}>
+              {ownedWeapons.map((w) => (
+                <div key={w} style={{
+                  ...styles.weaponChip,
+                  background: w === weapon ? '#c8801a' : 'rgba(30,20,10,0.85)',
+                  color: w === weapon ? '#000' : '#555',
+                  border: w === weapon ? '1px solid #c8801a' : '1px solid #333',
+                }}>
+                  {WEAPON_DISPLAY[w]}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={styles.weaponLabel}>
+            {weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}
+            <span style={styles.caliberLabel}> · {CALIBER_LABEL[WEAPON_CALIBER[weapon]]}</span>
+          </div>
           {isReloading ? (
             <div style={styles.reloading}>RELOADING…</div>
           ) : (
@@ -104,7 +128,7 @@ export default function HUD() {
               {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
             </div>
           )}
-          <div style={styles.reloadHint}>R — reload · Q — knife</div>
+          <div style={styles.reloadHint}>R — reload · Q — knife{ownedWeapons.length > 1 ? ' · SCROLL — switch' : ''}</div>
           {/* Bullet pip row */}
           <div style={{ ...styles.pips, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
             {Array.from({ length: clipSize }).map((_, i) => (
@@ -271,11 +295,30 @@ const styles = {
     gap: 4,
     fontFamily: 'Courier New, monospace',
   },
+  weaponSelector: {
+    display: 'flex',
+    gap: 4,
+    marginBottom: 6,
+    justifyContent: 'flex-end',
+  },
+  weaponChip: {
+    fontSize: 9,
+    letterSpacing: 2,
+    fontWeight: 'bold',
+    padding: '3px 7px',
+    borderRadius: 3,
+    fontFamily: 'Courier New, monospace',
+  },
   weaponLabel: {
     color: '#888',
     fontSize: 11,
     letterSpacing: 3,
     marginBottom: 2,
+  },
+  caliberLabel: {
+    color: '#555',
+    fontSize: 9,
+    letterSpacing: 2,
   },
   ammoCount: {
     fontSize: 36,

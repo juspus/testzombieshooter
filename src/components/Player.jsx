@@ -56,6 +56,7 @@ export default function Player() {
   const openShop = useGameStore((s) => s.openShop)
   const closeShop = useGameStore((s) => s.closeShop)
   const setNearChest = useGameStore((s) => s.setNearChest)
+  const switchWeapon = useGameStore((s) => s.switchWeapon)
   const shopOpen = useGameStore((s) => s.shopOpen)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
   const windowPlankStrong = useGameStore((s) => s.windowPlankStrong)
@@ -94,7 +95,10 @@ export default function Player() {
   useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
   useEffect(() => { windowPlankStrongRef.current = windowPlankStrong }, [windowPlankStrong])
   useEffect(() => { strongPlanksModeRef.current = strongPlanksMode }, [strongPlanksMode])
-  useEffect(() => { weaponRef.current = weapon }, [weapon])
+  useEffect(() => {
+    weaponRef.current = weapon
+    reloadTimer.current = 0  // cancel in-progress reload when switching
+  }, [weapon])
   useEffect(() => { activeItemRef.current = activeItem }, [activeItem])
   useEffect(() => { perksRef.current = perks }, [perks])
 
@@ -151,15 +155,22 @@ export default function Player() {
     }
     const onKeyUp = (e) => { keys.current[e.code] = false }
 
+    const onWheel = (e) => {
+      if (!locked.current || shopOpenRef.current) return
+      switchWeapon(e.deltaY > 0 ? 1 : -1)
+    }
+
     document.addEventListener('pointerlockchange', onLockChange)
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('keydown', onKeyDown)
     document.addEventListener('keyup', onKeyUp)
+    gl.domElement.addEventListener('wheel', onWheel, { passive: true })
     return () => {
       document.removeEventListener('pointerlockchange', onLockChange)
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('keyup', onKeyUp)
+      gl.domElement.removeEventListener('wheel', onWheel)
     }
   }, [gl])
 

@@ -14,6 +14,23 @@ const SHOTGUN_COST = 150
 const AMMO_PACK_COST = 10
 const AMMO_PACK_AMOUNT = 20
 const DEEP_POCKETS_AMMO_PACK_AMOUNT = 30
+const RIFLE_AMMO_PACK_AMOUNT = 30
+const RIFLE_AMMO_PACK_DEEP = 45
+const SHOTGUN_AMMO_PACK_AMOUNT = 10
+const SHOTGUN_AMMO_PACK_DEEP = 15
+
+export const WEAPON_CALIBER = {
+  pistol: 'pistol_ammo',
+  deagle: 'pistol_ammo',
+  ak47: 'rifle_ammo',
+  shotgun: 'shotgun_ammo',
+}
+
+const CALIBER_PACK_AMOUNTS = {
+  pistol_ammo: { normal: AMMO_PACK_AMOUNT, deep: DEEP_POCKETS_AMMO_PACK_AMOUNT },
+  rifle_ammo:  { normal: RIFLE_AMMO_PACK_AMOUNT, deep: RIFLE_AMMO_PACK_DEEP },
+  shotgun_ammo: { normal: SHOTGUN_AMMO_PACK_AMOUNT, deep: SHOTGUN_AMMO_PACK_DEEP },
+}
 const PERK_COSTS = {
   fast_hands: 80,
   deep_pockets: 60,
@@ -79,13 +96,14 @@ const KNIFE_KILL_BONUS = 2
 const NO_PLANK_LOSS_BONUS = 10
 const FAST_CLEAR_BONUS = 8
 const fastClearParForWave = (wave) => 10 + wave * 2
-export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, RIFLE_AMMO_PACK_AMOUNT, RIFLE_AMMO_PACK_DEEP, SHOTGUN_AMMO_PACK_AMOUNT, SHOTGUN_AMMO_PACK_DEEP, CALIBER_PACK_AMOUNTS, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
-  weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
-  activeItem: 'gun',  // 'gun' | 'knife'
+  weapon: 'pistol',         // active weapon: 'pistol' | 'ak47' | 'deagle' | 'shotgun'
+  ownedWeapons: ['pistol'], // ordered list of weapons the player has bought
+  activeItem: 'gun',        // 'gun' | 'knife'
   perks: {},       // one-time perk unlocks bought from the supply chest
   knifeCooldown: 0,   // seconds remaining until knife ready again
   shopOpen: false,
@@ -105,8 +123,9 @@ export const useGameStore = create((set, get) => ({
   zombies: [],
   pendingSpawns: [],  // zombies queued to enter 10-per-frame
   nextId: 0,
-  bulletsInClip: CLIP_SIZE,
-  reserveBullets: 0,
+  // per-weapon clip ammo and per-caliber reserve ammo
+  clipAmmo: { pistol: CLIP_SIZE, ak47: 0, deagle: 0, shotgun: 0 },
+  reserveAmmo: { pistol_ammo: 0, rifle_ammo: 0, shotgun_ammo: 0 },
   isReloading: false,
   waveElapsed: 0,
   waveHeadshots: 0,
@@ -125,6 +144,7 @@ export const useGameStore = create((set, get) => ({
       phase: 'intermission',
       money: 10,
       weapon: 'pistol',
+      ownedWeapons: ['pistol'],
       activeItem: 'gun',
       perks: {},
       knifeCooldown: 0,
@@ -141,8 +161,8 @@ export const useGameStore = create((set, get) => ({
       zombies: [],
       pendingSpawns: [],
       nextId: 0,
-      bulletsInClip: clip,
-      reserveBullets: total - clip,
+      clipAmmo: { pistol: clip, ak47: 0, deagle: 0, shotgun: 0 },
+      reserveAmmo: { pistol_ammo: total - clip, rifle_ammo: 0, shotgun_ammo: 0 },
       isReloading: false,
       waveElapsed: 0,
       waveHeadshots: 0,
@@ -154,7 +174,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   nextWave: () => {
-    const { wave: prevWave, windowPlanks, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
+    const { wave: prevWave, windowPlanks, money, clipAmmo, reserveAmmo, waveKills: prevWaveKills, lastWaveBonuses } = get()
     const wave = prevWave + 1
     buildGrid(allWallSegments(windowPlanks))
     const walls = playerCollisionWalls()
@@ -169,8 +189,8 @@ export const useGameStore = create((set, get) => ({
       intermissionLeft: intermissionForWave(wave),
       zombies: [],
       pendingSpawns: [],
-      bulletsInClip,
-      reserveBullets,
+      clipAmmo,
+      reserveAmmo,
       isReloading: false,
       knifeCooldown: 0,
       waveElapsed: 0,
@@ -182,25 +202,31 @@ export const useGameStore = create((set, get) => ({
   },
 
   consumeBullet: () => {
-    const { bulletsInClip, isReloading } = get()
-    if (isReloading || bulletsInClip <= 0) return false
-    set({ bulletsInClip: bulletsInClip - 1 })
+    const { weapon, clipAmmo, isReloading } = get()
+    if (isReloading || clipAmmo[weapon] <= 0) return false
+    set({ clipAmmo: { ...clipAmmo, [weapon]: clipAmmo[weapon] - 1 } })
     return true
   },
 
   beginReload: () => {
-    const { bulletsInClip, reserveBullets, isReloading, weapon } = get()
+    const { weapon, clipAmmo, reserveAmmo, isReloading } = get()
     const clipSize = clipSizeForWeapon(weapon)
-    if (isReloading || reserveBullets === 0 || bulletsInClip === clipSize) return false
+    const caliber = WEAPON_CALIBER[weapon]
+    if (isReloading || reserveAmmo[caliber] === 0 || clipAmmo[weapon] === clipSize) return false
     set({ isReloading: true })
     return true
   },
 
   finishReload: () => {
-    const { bulletsInClip, reserveBullets, weapon } = get()
+    const { weapon, clipAmmo, reserveAmmo } = get()
     const clipSize = clipSizeForWeapon(weapon)
-    const toLoad = Math.min(clipSize - bulletsInClip, reserveBullets)
-    set({ bulletsInClip: bulletsInClip + toLoad, reserveBullets: reserveBullets - toLoad, isReloading: false })
+    const caliber = WEAPON_CALIBER[weapon]
+    const toLoad = Math.min(clipSize - clipAmmo[weapon], reserveAmmo[caliber])
+    set({
+      clipAmmo: { ...clipAmmo, [weapon]: clipAmmo[weapon] + toLoad },
+      reserveAmmo: { ...reserveAmmo, [caliber]: reserveAmmo[caliber] - toLoad },
+      isReloading: false,
+    })
   },
 
   hitZombie: (id, isHeadshot, source = 'gun') => {
@@ -352,6 +378,14 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
+  switchWeapon: (direction) => {
+    const { weapon, ownedWeapons } = get()
+    if (ownedWeapons.length <= 1) return
+    const idx = ownedWeapons.indexOf(weapon)
+    const next = (idx + direction + ownedWeapons.length) % ownedWeapons.length
+    set({ weapon: ownedWeapons[next], isReloading: false })
+  },
+
   toggleItem: () => set((s) => ({ activeItem: s.activeItem === 'gun' ? 'knife' : 'gun' })),
   setKnifeCooldown: (v) => set({ knifeCooldown: v }),
 
@@ -359,27 +393,52 @@ export const useGameStore = create((set, get) => ({
   closeShop: () => set({ shopOpen: false }),
 
   buyItem: (itemId) => {
-    const { money, weapon, reserveBullets, perks } = get()
+    const { money, ownedWeapons, clipAmmo, reserveAmmo, perks } = get()
     if (itemId === 'ak47') {
-      if (weapon === 'ak47' || money < AK_COST) return false
-      set({ money: money - AK_COST, weapon: 'ak47', bulletsInClip: AK_CLIP, reserveBullets: 0 })
+      if (ownedWeapons.includes('ak47') || money < AK_COST) return false
+      set({
+        money: money - AK_COST,
+        weapon: 'ak47',
+        ownedWeapons: [...ownedWeapons, 'ak47'],
+        clipAmmo: { ...clipAmmo, ak47: AK_CLIP },
+        isReloading: false,
+      })
       return true
     }
     if (itemId === 'deagle') {
-      if (weapon === 'deagle' || money < DEAGLE_COST) return false
-      set({ money: money - DEAGLE_COST, weapon: 'deagle', bulletsInClip: DEAGLE_CLIP, reserveBullets: 0 })
+      if (ownedWeapons.includes('deagle') || money < DEAGLE_COST) return false
+      set({
+        money: money - DEAGLE_COST,
+        weapon: 'deagle',
+        ownedWeapons: [...ownedWeapons, 'deagle'],
+        clipAmmo: { ...clipAmmo, deagle: DEAGLE_CLIP },
+        isReloading: false,
+      })
       return true
     }
     if (itemId === 'shotgun') {
-      if (weapon === 'shotgun' || money < SHOTGUN_COST) return false
-      set({ money: money - SHOTGUN_COST, weapon: 'shotgun', bulletsInClip: SHOTGUN_CLIP, reserveBullets: 0 })
+      if (ownedWeapons.includes('shotgun') || money < SHOTGUN_COST) return false
+      set({
+        money: money - SHOTGUN_COST,
+        weapon: 'shotgun',
+        ownedWeapons: [...ownedWeapons, 'shotgun'],
+        clipAmmo: { ...clipAmmo, shotgun: SHOTGUN_CLIP },
+        isReloading: false,
+      })
       return true
     }
-    if (itemId === 'ammo_pack') {
+    // Caliber-specific ammo packs
+    const caliberAmmoId = itemId === 'ammo_pistol' ? 'pistol_ammo'
+      : itemId === 'ammo_rifle' ? 'rifle_ammo'
+      : itemId === 'ammo_shotgun' ? 'shotgun_ammo'
+      : null
+    if (caliberAmmoId) {
       if (money < AMMO_PACK_COST) return false
+      const amounts = CALIBER_PACK_AMOUNTS[caliberAmmoId]
+      const add = perks.deep_pockets ? amounts.deep : amounts.normal
       set({
         money: money - AMMO_PACK_COST,
-        reserveBullets: reserveBullets + (perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT),
+        reserveAmmo: { ...reserveAmmo, [caliberAmmoId]: reserveAmmo[caliberAmmoId] + add },
       })
       return true
     }

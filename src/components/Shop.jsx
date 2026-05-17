@@ -1,33 +1,50 @@
-import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST } from '../store'
+import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, CALIBER_PACK_AMOUNTS, PERK_COSTS, STRONG_PLANK_COST } from '../store'
 
-const ITEMS = [
+const WEAPONS = [
   {
     id: 'ak47',
     name: 'AK-47',
-    desc: `Full-auto · 2 body shots · ${AK_CLIP}-rd mag`,
+    desc: `Full-auto · 2 body shots · ${AK_CLIP}-rd mag · Rifle caliber`,
     price: AK_COST,
-    oneTime: true,
   },
   {
     id: 'deagle',
     name: 'Desert Eagle',
-    desc: `Semi-auto · Instant kill · Pierces 3 · ${DEAGLE_CLIP}-rd mag`,
+    desc: `Semi-auto · Instant kill · Pierces 3 · ${DEAGLE_CLIP}-rd mag · Pistol caliber`,
     price: DEAGLE_COST,
-    oneTime: true,
   },
   {
     id: 'shotgun',
     name: 'Pump Shotgun',
-    desc: `Pump-action · 12 pellets/shot · ${SHOTGUN_CLIP}-shell mag`,
+    desc: `Pump-action · 12 pellets/shot · ${SHOTGUN_CLIP}-shell mag · Shotgun caliber`,
     price: SHOTGUN_COST,
-    oneTime: true,
+  },
+]
+
+const AMMO_PACKS = [
+  {
+    id: 'ammo_pistol',
+    caliber: 'pistol_ammo',
+    name: 'Pistol Ammo',
+    weapons: ['pistol', 'deagle'],
+    desc: (perks) => `+${perks.deep_pockets ? CALIBER_PACK_AMOUNTS.pistol_ammo.deep : CALIBER_PACK_AMOUNTS.pistol_ammo.normal} rounds · Pistol & Desert Eagle`,
+    price: AMMO_PACK_COST,
   },
   {
-    id: 'ammo_pack',
-    name: 'Ammo Pack',
-    desc: (perks) => `+${perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT} rounds to reserve`,
+    id: 'ammo_rifle',
+    caliber: 'rifle_ammo',
+    name: 'Rifle Ammo',
+    weapons: ['ak47'],
+    desc: (perks) => `+${perks.deep_pockets ? CALIBER_PACK_AMOUNTS.rifle_ammo.deep : CALIBER_PACK_AMOUNTS.rifle_ammo.normal} rounds · AK-47`,
     price: AMMO_PACK_COST,
-    oneTime: false,
+  },
+  {
+    id: 'ammo_shotgun',
+    caliber: 'shotgun_ammo',
+    name: 'Shotgun Shells',
+    weapons: ['shotgun'],
+    desc: (perks) => `+${perks.deep_pockets ? CALIBER_PACK_AMOUNTS.shotgun_ammo.deep : CALIBER_PACK_AMOUNTS.shotgun_ammo.normal} shells · Pump Shotgun`,
+    price: AMMO_PACK_COST,
   },
 ]
 
@@ -76,7 +93,7 @@ export default function Shop() {
   const buyItem = useGameStore((s) => s.buyItem)
   const buyPerk = useGameStore((s) => s.buyPerk)
   const money = useGameStore((s) => s.money)
-  const weapon = useGameStore((s) => s.weapon)
+  const ownedWeapons = useGameStore((s) => s.ownedWeapons)
   const perks = useGameStore((s) => s.perks)
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
@@ -95,15 +112,16 @@ export default function Shop() {
         <div style={styles.divider} />
 
         <div style={styles.list}>
-          {ITEMS.map((item) => {
-            const owned = item.oneTime && weapon === item.id
+          <div style={styles.sectionLabel}>WEAPONS</div>
+          {WEAPONS.map((item) => {
+            const owned = ownedWeapons.includes(item.id)
             const canAfford = money >= item.price
             const disabled = owned || !canAfford
             return (
               <div key={item.id} style={{ ...styles.row, opacity: disabled && !owned ? 0.45 : 1 }}>
                 <div style={styles.rowLeft}>
                   <span style={{ ...styles.rowName, color: owned ? '#4a8a2a' : '#ddd' }}>{item.name}</span>
-                  <span style={styles.rowDesc}>{typeof item.desc === 'function' ? item.desc(perks) : item.desc}</span>
+                  <span style={styles.rowDesc}>{item.desc}</span>
                 </div>
                 <div style={styles.rowRight}>
                   <span style={{ ...styles.rowPrice, color: canAfford || owned ? '#ffe066' : '#884422' }}>
@@ -115,6 +133,34 @@ export default function Shop() {
                     onClick={() => buyItem(item.id)}
                   >
                     {owned ? 'OWNED' : 'BUY'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          <div style={styles.divider} />
+          <div style={styles.sectionLabel}>AMMO</div>
+          {AMMO_PACKS.map((item) => {
+            const hasWeapon = item.weapons.some((w) => ownedWeapons.includes(w))
+            const canAfford = money >= item.price
+            const disabled = !hasWeapon || !canAfford
+            return (
+              <div key={item.id} style={{ ...styles.row, opacity: !hasWeapon ? 0.35 : !canAfford ? 0.45 : 1 }}>
+                <div style={styles.rowLeft}>
+                  <span style={{ ...styles.rowName, color: hasWeapon ? '#ddd' : '#555' }}>{item.name}</span>
+                  <span style={styles.rowDesc}>{typeof item.desc === 'function' ? item.desc(perks) : item.desc}</span>
+                </div>
+                <div style={styles.rowRight}>
+                  <span style={{ ...styles.rowPrice, color: canAfford && hasWeapon ? '#ffe066' : '#884422' }}>
+                    €{item.price.toFixed(2)}
+                  </span>
+                  <button
+                    style={{ ...styles.btn, ...(!hasWeapon || !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    disabled={disabled}
+                    onClick={() => buyItem(item.id)}
+                  >
+                    BUY
                   </button>
                 </div>
               </div>
