@@ -23,6 +23,7 @@ function handleData(data) {
   const store = useGameStore.getState()
   if (data.type === 'input' && role === 'host') {
     store.setRemoteInput(data.payload)
+    if (typeof data.payload?.seq === 'number') store.setLastRemoteInputSeq(data.payload.seq)
   }
   if (data.type === 'snapshot' && role === 'guest') {
     store.applyHostSnapshot(data.payload)

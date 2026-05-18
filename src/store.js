@@ -106,6 +106,8 @@ export const useGameStore = create((set, get) => ({
   hostView: { x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0 },
   guestInput: { forward: 0, strafe: 0, mouseDX: 0, mouseDY: 0, shooting: false },
   remoteInput: { forward: 0, strafe: 0, mouseDX: 0, mouseDY: 0, shooting: false },
+  lastRemoteInputSeq: 0,
+  hostAckSeq: 0,
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
   weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
@@ -438,6 +440,8 @@ export const useGameStore = create((set, get) => ({
   setHostView: (hostView) => set({ hostView }),
   setGuestInput: (guestInput) => set({ guestInput }),
   setRemoteInput: (remoteInput) => set({ remoteInput }),
+  setLastRemoteInputSeq: (lastRemoteInputSeq) => set({ lastRemoteInputSeq }),
+  setHostAckSeq: (hostAckSeq) => set({ hostAckSeq }),
   buildSnapshot: () => {
     const s = get()
     return {
@@ -451,6 +455,7 @@ export const useGameStore = create((set, get) => ({
       windowPlankStrong: s.windowPlankStrong,
       hostView: s.hostView,
       remotePlayer: s.remotePlayer,
+      hostAckSeq: s.lastRemoteInputSeq,
     }
   },
   applyHostSnapshot: (snap) => {
@@ -466,6 +471,7 @@ export const useGameStore = create((set, get) => ({
       windowPlankStrong: snap.windowPlankStrong ?? {},
       hostView: snap.hostView ?? { x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0 },
       remotePlayer: snap.remotePlayer ?? { x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0 },
+      hostAckSeq: snap.hostAckSeq ?? 0,
     })
   },
 }))

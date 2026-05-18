@@ -84,6 +84,7 @@ export default function Player() {
   const setRemoteInput = useGameStore((s) => s.setRemoteInput)
   const remotePlayer = useGameStore((s) => s.remotePlayer)
   const remoteInput = useGameStore((s) => s.remoteInput)
+  const hostAckSeq = useGameStore((s) => s.hostAckSeq)
   const weaponRef = useRef(weapon)
   const activeItemRef = useRef(activeItem)
   const perksRef = useRef(perks)
@@ -97,6 +98,8 @@ export default function Player() {
   const stepTimer = useRef(0)
   const remoteShotSeqRef = useRef(0)
   const processedRemoteShotRef = useRef(0)
+  const guestPredictedRef = useRef({ x: 0, y: PLAYER_HEIGHT, z: 0, yaw: 0, pitch: 0 })
+  const guestSeqRef = useRef(0)
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
@@ -118,6 +121,7 @@ export default function Player() {
       camera.position.set(0, PLAYER_HEIGHT, 0)
       yaw.current = 0
       pitch.current = 0
+      guestPredictedRef.current = { x: 0, y: PLAYER_HEIGHT, z: 0, yaw: 0, pitch: 0 }
     }
   }, [phase, wave, camera])
 
@@ -140,6 +144,9 @@ export default function Player() {
     const onMouseMove = (e) => {
       if (!locked.current) return
       if (multiplayerRole === 'guest') {
+        const p = guestPredictedRef.current
+        p.yaw -= e.movementX * LOOK_SENSITIVITY
+        p.pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, p.pitch - e.movementY * LOOK_SENSITIVITY))
         setGuestInput({ ...useGameStore.getState().guestInput, mouseDX: e.movementX, mouseDY: e.movementY })
         return
       }
@@ -378,12 +385,35 @@ export default function Player() {
     if (phase !== 'playing' && phase !== 'intermission') return
     if (shopOpen) return
     if (multiplayerRole === 'guest') {
-      camera.position.set(remotePlayer.x, remotePlayer.y, remotePlayer.z)
-      camera.rotation.y = remotePlayer.yaw
-      camera.rotation.x = remotePlayer.pitch
       const forward = (keys.current['KeyW'] || keys.current['ArrowUp'] ? 1 : 0) - (keys.current['KeyS'] || keys.current['ArrowDown'] ? 1 : 0)
       const strafe = (keys.current['KeyD'] || keys.current['ArrowRight'] ? 1 : 0) - (keys.current['KeyA'] || keys.current['ArrowLeft'] ? 1 : 0)
-      setGuestInput({ ...useGameStore.getState().guestInput, forward, strafe, shooting: mouseHeldRef.current, shotSeq: remoteShotSeqRef.current })
+      const p = guestPredictedRef.current
+      const reconLerp = hostAckSeq > 0 ? 0.25 : 0.08
+      p.x += (remotePlayer.x - p.x) * reconLerp
+      p.z += (remotePlayer.z - p.z) * reconLerp
+      p.yaw += (remotePlayer.yaw - p.yaw) * reconLerp
+      p.pitch += (remotePlayer.pitch - p.pitch) * reconLerp
+      const fwd = new THREE.Vector3(-Math.sin(p.yaw), 0, -Math.cos(p.yaw))
+      const right = new THREE.Vector3(Math.cos(p.yaw), 0, -Math.sin(p.yaw))
+      const inputDir = fwd.multiplyScalar(forward).add(right.multiplyScalar(strafe))
+      if (inputDir.lengthSq() > 0) {
+        inputDir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current) * delta)
+        p.x += inputDir.x
+        p.z += inputDir.z
+      }
+      camera.position.set(p.x, PLAYER_HEIGHT, p.z)
+      camera.rotation.y = p.yaw
+      camera.rotation.x = p.pitch
+      guestSeqRef.current += 1
+      setGuestInput({
+        ...useGameStore.getState().guestInput,
+        seq: guestSeqRef.current,
+        forward,
+        strafe,
+        shooting: mouseHeldRef.current,
+        shotSeq: remoteShotSeqRef.current,
+        predicted: { x: p.x, y: PLAYER_HEIGHT, z: p.z, yaw: p.yaw, pitch: p.pitch },
+      })
       return
     }
 
@@ -544,14 +574,25 @@ export default function Player() {
       const right = new THREE.Vector3(Math.cos(nextYaw), 0, -Math.sin(nextYaw))
       const inputDir = fwd.multiplyScalar(ri.forward ?? 0).add(right.multiplyScalar(ri.strafe ?? 0))
       const ghostDir = inputDir.lengthSq() > 0 ? inputDir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current) * delta) : new THREE.Vector3()
-      setRemotePlayer({
+      const nextRemote = {
         ...rp,
         x: rp.x + ghostDir.x,
         z: rp.z + ghostDir.z,
         y: PLAYER_HEIGHT,
         yaw: nextYaw,
         pitch: nextPitch,
-      })
+      }
+      const pred = ri.predicted
+      if (pred && Number.isFinite(pred.x) && Number.isFinite(pred.z)) {
+        const dx = pred.x - nextRemote.x
+        const dz = pred.z - nextRemote.z
+        const d2 = dx * dx + dz * dz
+        if (d2 > 4) {
+          nextRemote.x = rp.x + dx * 0.15
+          nextRemote.z = rp.z + dz * 0.15
+        }
+      }
+      setRemotePlayer(nextRemote)
       if ((ri.shotSeq ?? 0) > processedRemoteShotRef.current) {
         processedRemoteShotRef.current = ri.shotSeq ?? 0
         shootFromRemote()
