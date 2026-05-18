@@ -53,16 +53,34 @@ export function zombieTypesForWave(wave) {
     .map(([type]) => type)
 }
 
-function zombieTypeForSpawn(wave, index) {
-  if (wave >= 10 && index === 0) return 'boss'
-  const unlocked = zombieTypesForWave(wave).filter((type) => type !== 'boss')
-  if (unlocked.length === 0) return 'walker'
+function specialProbsForWave(wave) {
+  const probs = []
+  if (wave >= 3)  probs.push(['crawler',  Math.min(0.18, 0.05 + (wave - 3)  * 0.02)])
+  if (wave >= 5)  probs.push(['brute',    Math.min(0.15, 0.04 + (wave - 5)  * 0.02)])
+  if (wave >= 7)  probs.push(['runner',   Math.min(0.12, 0.03 + (wave - 7)  * 0.015)])
+  if (wave >= 9)  probs.push(['screamer', Math.min(0.12, 0.03 + (wave - 9)  * 0.015)])
+  return probs
+}
 
-  if (wave >= 9 && index % 5 === 4) return 'screamer'
-  if (wave >= 7 && index % 6 === 2) return 'runner'
-  if (wave >= 5 && index % 4 === 1) return 'brute'
-  if (wave >= 3 && index % 3 === 0) return 'crawler'
-  return 'walker'
+function buildTypeList(wave, count) {
+  const list = []
+  if (wave >= 10) list.push('boss')
+  const unlocked = zombieTypesForWave(wave).filter((t) => t !== 'boss')
+  // Guarantee 1 of each unlocked archetype, shuffled into the front of the list
+  const guaranteed = [...unlocked].sort(() => Math.random() - 0.5)
+  list.push(...guaranteed)
+  const probs = specialProbsForWave(wave)
+  while (list.length < count) {
+    const r = Math.random()
+    let cumulative = 0
+    let chosen = 'walker'
+    for (const [type, prob] of probs) {
+      cumulative += prob
+      if (r < cumulative) { chosen = type; break }
+    }
+    list.push(chosen)
+  }
+  return list
 }
 
 const clipSizeForWeapon = (w) =>
@@ -452,13 +470,14 @@ function getSpawnBasis(edge) {
 
 function spawnZombies(wave, startId) {
   const count = zombiesForWave(wave)
+  const typeList = buildTypeList(wave, count)
   const zombies = []
   for (let i = 0; i < count; i++) {
     const cluster = SPAWN_CLUSTERS[i % SPAWN_CLUSTERS.length]
     const basis = getSpawnBasis(cluster.edge)
     const tangentJitter = (Math.random() - 0.5) * SPAWN_TANGENT_SPREAD
     const inwardJitter = Math.random() * 1.3
-    const type = zombieTypeForSpawn(wave, i)
+    const type = typeList[i]
     const archetype = getZombieArchetype(type)
     const spawnOffset = SPAWN_EDGE_OFFSET + inwardJitter
     const bossEntranceOffset = archetype.boss ? 6 : 0
