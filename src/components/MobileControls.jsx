@@ -103,7 +103,10 @@ export default function MobileControls() {
     )
   }
 
-  if (!active || shopOpen) return null
+  if (!active) return null
+  // Keep root div mounted when shop is open so iOS doesn't destroy/recreate
+  // the compositor layer simultaneously with the shop overlay becoming visible.
+  if (shopOpen) return <div style={{ ...styles.root, opacity: 0, pointerEvents: 'none', willChange: 'opacity' }} />
 
   const onMoveStart = (e) => {
     e.preventDefault()

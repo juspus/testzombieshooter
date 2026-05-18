@@ -4,6 +4,7 @@ import { render } from '@testing-library/react'
 // Mock everything that Game.jsx imports so we don't need WebGL
 vi.mock('@react-three/fiber', () => ({
   Canvas: ({ children }) => <div data-testid="canvas">{children}</div>,
+  useThree: () => ({ gl: { render: vi.fn() }, scene: {}, camera: {} }),
 }))
 vi.mock('../Arena', () => ({ default: () => null }))
 vi.mock('../Player', () => ({ default: () => null }))

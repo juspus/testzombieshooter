@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { useEffect, useLayoutEffect } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { startEerieMusic, stopEerieMusic } from '../sounds'
 import Arena from './Arena'
@@ -42,6 +42,15 @@ class FilteredResizeObserver {
   observe(el) { this._inner.observe(el) }
   unobserve(el) { this._inner.unobserve(el) }
   disconnect() { this._inner.disconnect() }
+}
+
+function ForceRenderOnShopOpen() {
+  const shopOpen = useGameStore((s) => s.shopOpen)
+  const { gl, scene, camera } = useThree()
+  useLayoutEffect(() => {
+    if (shopOpen) gl.render(scene, camera)
+  }, [shopOpen, gl, scene, camera])
+  return null
 }
 
 export default function Game() {
@@ -98,6 +107,7 @@ export default function Game() {
         <ShellCasings />
         <RemotePlayer />
         <NetManager />
+        <ForceRenderOnShopOpen />
       </Canvas>
 
       {isActive && <HUD />}
