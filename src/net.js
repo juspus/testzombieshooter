@@ -34,7 +34,7 @@ function startHostBroadcast() {
   snapshotTimer = setInterval(() => {
     const s = useGameStore.getState()
     send({ type: 'snapshot', payload: s.buildSnapshot() })
-  }, 100)
+  }, 33)
 }
 
 function startGuestInput() {
@@ -42,7 +42,7 @@ function startGuestInput() {
   inputTimer = setInterval(() => {
     const s = useGameStore.getState()
     send({ type: 'input', payload: s.guestInput })
-  }, 50)
+  }, 33)
 }
 
 export function hostRoom(id) {
