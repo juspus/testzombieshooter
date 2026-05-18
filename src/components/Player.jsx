@@ -81,6 +81,7 @@ export default function Player() {
   const setHostView = useGameStore((s) => s.setHostView)
   const setRemotePlayer = useGameStore((s) => s.setRemotePlayer)
   const setGuestInput = useGameStore((s) => s.setGuestInput)
+  const remotePlayer = useGameStore((s) => s.remotePlayer)
   const weaponRef = useRef(weapon)
   const activeItemRef = useRef(activeItem)
   const perksRef = useRef(perks)
@@ -345,9 +346,9 @@ export default function Player() {
     if (phase !== 'playing' && phase !== 'intermission') return
     if (shopOpen) return
     if (multiplayerRole === 'guest') {
-      camera.position.set(hostView.x, hostView.y, hostView.z)
-      camera.rotation.y = hostView.yaw
-      camera.rotation.x = hostView.pitch
+      camera.position.set(remotePlayer.x, remotePlayer.y, remotePlayer.z)
+      camera.rotation.y = remotePlayer.yaw
+      camera.rotation.x = remotePlayer.pitch
       const forward = (keys.current['KeyW'] || keys.current['ArrowUp'] ? 1 : 0) - (keys.current['KeyS'] || keys.current['ArrowDown'] ? 1 : 0)
       const strafe = (keys.current['KeyD'] || keys.current['ArrowRight'] ? 1 : 0) - (keys.current['KeyA'] || keys.current['ArrowLeft'] ? 1 : 0)
       setGuestInput({ ...useGameStore.getState().guestInput, forward, strafe, shooting: mouseHeldRef.current })
@@ -503,12 +504,28 @@ export default function Player() {
       stepTimer.current = 0
     }
     const ri = useGameStore.getState().remoteInput
-    if (ri && (Math.abs(ri.forward) > 0 || Math.abs(ri.strafe) > 0)) {
-      const fwd = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
-      const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
-      const ghostDir = fwd.multiplyScalar(ri.forward).add(right.multiplyScalar(ri.strafe)).normalize().multiplyScalar(5 * delta)
+    if (ri) {
       const rp = useGameStore.getState().remotePlayer
-      setRemotePlayer({ ...rp, x: rp.x + (isFinite(ghostDir.x) ? ghostDir.x : 0), z: rp.z + (isFinite(ghostDir.z) ? ghostDir.z : 0) })
+      const nextYaw = rp.yaw - (ri.mouseDX ?? 0) * LOOK_SENSITIVITY
+      const nextPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rp.pitch - (ri.mouseDY ?? 0) * LOOK_SENSITIVITY))
+      const fwd = new THREE.Vector3(-Math.sin(nextYaw), 0, -Math.cos(nextYaw))
+      const right = new THREE.Vector3(Math.cos(nextYaw), 0, -Math.sin(nextYaw))
+      const inputDir = fwd.multiplyScalar(ri.forward ?? 0).add(right.multiplyScalar(ri.strafe ?? 0))
+      const ghostDir = inputDir.lengthSq() > 0 ? inputDir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current) * delta) : new THREE.Vector3()
+      setRemotePlayer({
+        ...rp,
+        x: rp.x + ghostDir.x,
+        z: rp.z + ghostDir.z,
+        y: PLAYER_HEIGHT,
+        yaw: nextYaw,
+        pitch: nextPitch,
+      })
+      if (ri.shooting) {
+        const shotDir = new THREE.Vector3(-Math.sin(nextYaw), 0, -Math.cos(nextYaw))
+        const muzzle = new THREE.Vector3(rp.x, rp.y - 0.1, rp.z)
+        const aimTarget = muzzle.clone().addScaledVector(shotDir, 40)
+        BulletTrails.add(muzzle, aimTarget)
+      }
     }
   })
 
