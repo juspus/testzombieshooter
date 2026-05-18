@@ -75,10 +75,6 @@ export default function Game() {
         style={{ width: '100%', height: '100%', willChange: 'transform' }}
         resize={{ polyfill: FilteredResizeObserver }}
         onCreated={({ gl }) => {
-          // Promote the actual <canvas> element to its own GPU compositing layer
-          // so iOS doesn't blank it when new fixed-position overlays are added.
-          gl.domElement.style.willChange = 'transform'
-
           // Secondary guard: block setSize() calls that aren't genuine resizes.
           const _setSize = gl.setSize.bind(gl)
           gl.setSize = (w, h, updateStyle) => {
