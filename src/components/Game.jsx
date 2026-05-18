@@ -47,6 +47,22 @@ export default function Game() {
         gl={{ preserveDrawingBuffer: true }}
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%', willChange: 'transform' }}
+        onCreated={({ gl }) => {
+          // iOS Safari fires spurious ResizeObserver events when the address bar
+          // shows/hides. WebGL clears the canvas whenever canvas.width is assigned —
+          // even to the same value — making the screen go black. Block setSize()
+          // calls that aren't genuine size changes (same dimensions) or are only a
+          // small height delta caused by the address bar (~4% of viewport height).
+          const _setSize = gl.setSize.bind(gl)
+          gl.setSize = (w, h, updateStyle) => {
+            const dpr = gl.getPixelRatio()
+            const cw = gl.domElement.width / dpr
+            const ch = gl.domElement.height / dpr
+            if (Math.abs(w - cw) < 1 && Math.abs(h - ch) < 1) return
+            if (Math.abs(w - cw) < 1 && Math.abs(h - ch) / ch < 0.15) return
+            _setSize(w, h, updateStyle)
+          }
+        }}
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         <ForestSkybox />
