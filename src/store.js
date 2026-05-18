@@ -100,6 +100,12 @@ const fastClearParForWave = (wave) => 10 + wave * 2
 export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
 export const useGameStore = create((set, get) => ({
+  multiplayerRole: 'solo', // solo | host | guest
+  netStatus: 'offline',
+  remotePlayer: { x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0 },
+  hostView: { x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0 },
+  guestInput: { forward: 0, strafe: 0, mouseDX: 0, mouseDY: 0, shooting: false },
+  remoteInput: { forward: 0, strafe: 0, mouseDX: 0, mouseDY: 0, shooting: false },
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
   weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
@@ -426,6 +432,42 @@ export const useGameStore = create((set, get) => ({
 
   getZombieSpeed: () => speedForWave(get().wave),
   getZombiesForWave: () => zombiesForWave(get().wave),
+  setMultiplayerRole: (multiplayerRole) => set({ multiplayerRole }),
+  setNetStatus: (netStatus) => set({ netStatus }),
+  setRemotePlayer: (remotePlayer) => set({ remotePlayer }),
+  setHostView: (hostView) => set({ hostView }),
+  setGuestInput: (guestInput) => set({ guestInput }),
+  setRemoteInput: (remoteInput) => set({ remoteInput }),
+  buildSnapshot: () => {
+    const s = get()
+    return {
+      phase: s.phase,
+      wave: s.wave,
+      kills: s.kills,
+      waveKills: s.waveKills,
+      intermissionLeft: s.intermissionLeft,
+      zombies: s.zombies,
+      windowPlanks: s.windowPlanks,
+      windowPlankStrong: s.windowPlankStrong,
+      hostView: s.hostView,
+      remotePlayer: s.remotePlayer,
+    }
+  },
+  applyHostSnapshot: (snap) => {
+    if (!snap) return
+    set({
+      phase: snap.phase,
+      wave: snap.wave,
+      kills: snap.kills,
+      waveKills: snap.waveKills,
+      intermissionLeft: snap.intermissionLeft,
+      zombies: snap.zombies ?? [],
+      windowPlanks: snap.windowPlanks ?? {},
+      windowPlankStrong: snap.windowPlankStrong ?? {},
+      hostView: snap.hostView ?? { x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0 },
+      remotePlayer: snap.remotePlayer ?? { x: 0, y: 1.7, z: 0, yaw: 0, pitch: 0 },
+    })
+  },
 }))
 
 function countPlanks(windowPlanks) {

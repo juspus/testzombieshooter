@@ -76,6 +76,11 @@ export default function Player() {
   const shotgunCooldownRef = useRef(0)
   const knifeCooldownRef = useRef(0)
   const weapon = useGameStore((s) => s.weapon)
+  const multiplayerRole = useGameStore((s) => s.multiplayerRole)
+  const hostView = useGameStore((s) => s.hostView)
+  const setHostView = useGameStore((s) => s.setHostView)
+  const setRemotePlayer = useGameStore((s) => s.setRemotePlayer)
+  const setGuestInput = useGameStore((s) => s.setGuestInput)
   const weaponRef = useRef(weapon)
   const activeItemRef = useRef(activeItem)
   const perksRef = useRef(perks)
@@ -129,6 +134,10 @@ export default function Player() {
     }
     const onMouseMove = (e) => {
       if (!locked.current) return
+      if (multiplayerRole === 'guest') {
+        setGuestInput({ ...useGameStore.getState().guestInput, mouseDX: e.movementX, mouseDY: e.movementY })
+        return
+      }
       yaw.current -= e.movementX * LOOK_SENSITIVITY
       pitch.current -= e.movementY * LOOK_SENSITIVITY
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
@@ -161,7 +170,7 @@ export default function Player() {
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('keyup', onKeyUp)
     }
-  }, [gl])
+  }, [gl, multiplayerRole, setGuestInput])
 
   const shoot = useCallback(() => {
     const raycaster = new THREE.Raycaster()
@@ -335,6 +344,15 @@ export default function Player() {
   useFrame((_, delta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
     if (shopOpen) return
+    if (multiplayerRole === 'guest') {
+      camera.position.set(hostView.x, hostView.y, hostView.z)
+      camera.rotation.y = hostView.yaw
+      camera.rotation.x = hostView.pitch
+      const forward = (keys.current['KeyW'] || keys.current['ArrowUp'] ? 1 : 0) - (keys.current['KeyS'] || keys.current['ArrowDown'] ? 1 : 0)
+      const strafe = (keys.current['KeyD'] || keys.current['ArrowRight'] ? 1 : 0) - (keys.current['KeyA'] || keys.current['ArrowLeft'] ? 1 : 0)
+      setGuestInput({ ...useGameStore.getState().guestInput, forward, strafe, shooting: mouseHeldRef.current })
+      return
+    }
 
     // Chest proximity
     {
@@ -473,6 +491,7 @@ export default function Player() {
       camera.position.x = nx
       camera.position.z = nz
       camera.position.y = PLAYER_HEIGHT
+      setHostView({ x: camera.position.x, y: camera.position.y, z: camera.position.z, yaw: yaw.current, pitch: pitch.current })
 
       // Footstep rhythm
       stepTimer.current -= delta
@@ -482,6 +501,14 @@ export default function Player() {
       }
     } else {
       stepTimer.current = 0
+    }
+    const ri = useGameStore.getState().remoteInput
+    if (ri && (Math.abs(ri.forward) > 0 || Math.abs(ri.strafe) > 0)) {
+      const fwd = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
+      const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
+      const ghostDir = fwd.multiplyScalar(ri.forward).add(right.multiplyScalar(ri.strafe)).normalize().multiplyScalar(5 * delta)
+      const rp = useGameStore.getState().remotePlayer
+      setRemotePlayer({ ...rp, x: rp.x + (isFinite(ghostDir.x) ? ghostDir.x : 0), z: rp.z + (isFinite(ghostDir.z) ? ghostDir.z : 0) })
     }
   })
 

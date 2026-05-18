@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
+import { hostRoom, joinRoom } from '../net'
 
 export default function Screens() {
   const phase = useGameStore((s) => s.phase)
@@ -16,6 +17,9 @@ export default function Screens() {
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
   const perks = useGameStore((s) => s.perks)
+  const setMultiplayerRole = useGameStore((s) => s.setMultiplayerRole)
+  const netStatus = useGameStore((s) => s.netStatus)
+  const [roomId, setRoomId] = useState('')
 
   if (phase === 'start') {
     return (
@@ -25,6 +29,12 @@ export default function Screens() {
         <Controls>
           WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot
         </Controls>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={roomId} onChange={(e) => setRoomId(e.target.value)} placeholder="room id" style={{ padding: 8, fontFamily: 'monospace' }} />
+          <Btn onClick={() => { setMultiplayerRole('host'); hostRoom(roomId || `room-${Math.floor(Math.random() * 9999)}`) }}>HOST</Btn>
+          <Btn onClick={() => { setMultiplayerRole('guest'); joinRoom(roomId) }}>JOIN</Btn>
+        </div>
+        <Sub style={{ fontSize: 12 }}>Network: {netStatus}</Sub>
         <Btn onClick={startGame}>START GAME</Btn>
       </Overlay>
     )
