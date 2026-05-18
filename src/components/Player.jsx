@@ -81,6 +81,7 @@ export default function Player() {
   const setHostView = useGameStore((s) => s.setHostView)
   const setRemotePlayer = useGameStore((s) => s.setRemotePlayer)
   const setGuestInput = useGameStore((s) => s.setGuestInput)
+  const setRemoteInput = useGameStore((s) => s.setRemoteInput)
   const remotePlayer = useGameStore((s) => s.remotePlayer)
   const remoteInput = useGameStore((s) => s.remoteInput)
   const weaponRef = useRef(weapon)
@@ -554,6 +555,9 @@ export default function Player() {
       if ((ri.shotSeq ?? 0) > processedRemoteShotRef.current) {
         processedRemoteShotRef.current = ri.shotSeq ?? 0
         shootFromRemote()
+      }
+      if ((ri.mouseDX ?? 0) !== 0 || (ri.mouseDY ?? 0) !== 0) {
+        setRemoteInput({ ...ri, mouseDX: 0, mouseDY: 0 })
       }
     }
   })
