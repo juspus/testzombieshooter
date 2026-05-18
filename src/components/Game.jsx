@@ -18,6 +18,32 @@ import NetManager from './NetManager'
 import MobileControls from './MobileControls'
 import useMobileViewport from '../useMobileViewport'
 
+// Blocks iOS address-bar-triggered resize events (small height-only changes < 15%)
+// at the ResizeObserver level so R3F never calls setSize for spurious viewport shifts.
+class FilteredResizeObserver {
+  constructor(cb) {
+    this._cb = cb
+    this._lastW = 0
+    this._lastH = 0
+    this._inner = new ResizeObserver((entries) => {
+      const pass = entries.filter((e) => {
+        const w = e.contentRect.width
+        const h = e.contentRect.height
+        const dw = Math.abs(w - this._lastW)
+        const dh = Math.abs(h - this._lastH)
+        if (this._lastH > 0 && dw < 1 && dh / this._lastH < 0.15) return false
+        this._lastW = w
+        this._lastH = h
+        return true
+      })
+      if (pass.length > 0) this._cb(pass)
+    })
+  }
+  observe(el) { this._inner.observe(el) }
+  unobserve(el) { this._inner.unobserve(el) }
+  disconnect() { this._inner.disconnect() }
+}
+
 export default function Game() {
   useMobileViewport()
   const phase = useGameStore((s) => s.phase)
@@ -47,12 +73,13 @@ export default function Game() {
         gl={{ preserveDrawingBuffer: true }}
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%', willChange: 'transform' }}
+        resize={{ polyfill: FilteredResizeObserver }}
         onCreated={({ gl }) => {
-          // iOS Safari fires spurious ResizeObserver events when the address bar
-          // shows/hides. WebGL clears the canvas whenever canvas.width is assigned —
-          // even to the same value — making the screen go black. Block setSize()
-          // calls that aren't genuine size changes (same dimensions) or are only a
-          // small height delta caused by the address bar (~4% of viewport height).
+          // Promote the actual <canvas> element to its own GPU compositing layer
+          // so iOS doesn't blank it when new fixed-position overlays are added.
+          gl.domElement.style.willChange = 'transform'
+
+          // Secondary guard: block setSize() calls that aren't genuine resizes.
           const _setSize = gl.setSize.bind(gl)
           gl.setSize = (w, h, updateStyle) => {
             const dpr = gl.getPixelRatio()

@@ -112,8 +112,8 @@ export default function Shop() {
     else openedAtRef.current = Infinity
   }, [shopOpen])
 
-  if (!shopOpen) return null
-
+  // Always render so iOS never needs to create a new GPU compositing layer
+  // when the shop opens — layer creation on top of the WebGL canvas can blank it.
   const overlayStyle = isMobile ? { ...styles.overlay, ...styles.mobileOverlay } : styles.overlay
   const panelStyle = isMobile ? { ...styles.panel, ...styles.mobilePanel } : styles.panel
   const headerStyle = isMobile ? { ...styles.header, ...styles.mobileHeader } : styles.header
@@ -127,7 +127,10 @@ export default function Shop() {
   const btnStyle = isMobile ? { ...styles.btn, ...styles.mobileBtn } : styles.btn
 
   return (
-    <div style={overlayStyle} onClick={(e) => { if (e.target === e.currentTarget && performance.now() - openedAtRef.current > 500) closeShop() }}>
+    <div
+      style={{ ...overlayStyle, visibility: shopOpen ? 'visible' : 'hidden', pointerEvents: shopOpen ? 'auto' : 'none' }}
+      onClick={(e) => { if (e.target === e.currentTarget && performance.now() - openedAtRef.current > 500) closeShop() }}
+    >
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
 
         <div style={headerStyle}>

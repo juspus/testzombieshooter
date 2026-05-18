@@ -39,10 +39,14 @@ function setupStore(overrides = {}) {
 }
 
 describe('Shop visibility', () => {
-  it('renders nothing when shopOpen is false', () => {
+  it('is CSS-hidden (not unmounted) when shopOpen is false', () => {
     setupStore({ shopOpen: false })
     const { container } = render(<Shop />)
-    expect(container.firstChild).toBeNull()
+    // Shop always stays in DOM so iOS never creates a new GPU compositing layer
+    // on open (which would blank the WebGL canvas). Check CSS visibility instead.
+    expect(container.firstChild).not.toBeNull()
+    expect(container.firstChild.style.visibility).toBe('hidden')
+    expect(container.firstChild.style.pointerEvents).toBe('none')
   })
 
   it('renders the overlay when shopOpen is true', () => {
