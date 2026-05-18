@@ -128,7 +128,7 @@ export default function Shop() {
 
   return (
     <div
-      style={{ ...overlayStyle, visibility: shopOpen ? 'visible' : 'hidden', pointerEvents: shopOpen ? 'auto' : 'none' }}
+      style={{ ...overlayStyle, willChange: 'opacity', opacity: shopOpen ? 1 : 0, pointerEvents: shopOpen ? 'auto' : 'none' }}
       onClick={(e) => { if (e.target === e.currentTarget && performance.now() - openedAtRef.current > 500) closeShop() }}
     >
       <div style={panelStyle} onClick={(e) => e.stopPropagation()}>

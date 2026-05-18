@@ -43,9 +43,10 @@ describe('Shop visibility', () => {
     setupStore({ shopOpen: false })
     const { container } = render(<Shop />)
     // Shop always stays in DOM so iOS never creates a new GPU compositing layer
-    // on open (which would blank the WebGL canvas). Check CSS visibility instead.
+    // on open (which would blank the WebGL canvas). opacity:0 keeps the overlay
+    // in the compositor tree at all times; will-change:opacity locks in the layer.
     expect(container.firstChild).not.toBeNull()
-    expect(container.firstChild.style.visibility).toBe('hidden')
+    expect(container.firstChild.style.opacity).toBe('0')
     expect(container.firstChild.style.pointerEvents).toBe('none')
   })
 
