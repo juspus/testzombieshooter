@@ -28,7 +28,7 @@ const speedForWave = (wave) => 1.5 + (wave - 1) * 0.05
 
 export const ZOMBIE_ARCHETYPES = {
   walker: { label: 'Walker', health: 2, speedMultiplier: 1, plankHits: 1 },
-  runner: { label: 'Runner', health: 1, speedMultiplier: 1.55, plankHits: 1 },
+  runner: { label: 'Runner', health: 1, speedMultiplier: 1.65, plankHits: 1 },
   brute: { label: 'Brute', health: 7, speedMultiplier: 0.68, plankHits: 3 },
   screamer: { label: 'Screamer', health: 2, speedMultiplier: 0.92, plankHits: 1, auraRadius: 6, auraSpeedMultiplier: 1.35 },
   crawler: { label: 'Crawler', health: 2, speedMultiplier: 0.86, plankHits: 1, heightScale: 0.55 },

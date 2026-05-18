@@ -4,7 +4,7 @@ import { getZombieArchetype, useGameStore } from '../store'
 import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
-import { playZombieFootstep, playPlankHit } from '../sounds'
+import { playZombieFootstep, playPlankHit, playScreamerScreech } from '../sounds'
 import * as THREE from 'three'
 
 const _geoCache = new Map()
@@ -28,6 +28,26 @@ function sm(color, roughness = 1, metalness = 0, emissive = null, emissiveIntens
   }
   return _matCache.get(key)
 }
+
+const _screamerAuraTexture = (() => {
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    const grad = ctx.createRadialGradient(size / 2, size / 2, size * 0.10, size / 2, size / 2, size * 0.5)
+    grad.addColorStop(0, 'rgba(130,70,220,0.65)')
+    grad.addColorStop(0.45, 'rgba(130,70,220,0.28)')
+    grad.addColorStop(0.78, 'rgba(130,70,220,0.08)')
+    grad.addColorStop(1, 'rgba(130,70,220,0)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, size, size)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.needsUpdate = true
+  return texture
+})()
 
 function cg(rt, rb, h, segs = 6) {
   const k = `${rt},${rb},${h},${segs}`
@@ -164,7 +184,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const windowPlanksRef = useRef(windowPlanks)
   const zombieWallsRef  = useRef(cabinWallSegments())
   const stepTimerRef    = useRef(Math.random() * 0.6)
-  const isAggressorRef  = useRef(Math.random() < 0.2)
+  const isAggressorRef  = useRef(false)
   const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
   const isAttackingRef  = useRef(false)
   const leftLegRef      = useRef()
@@ -197,6 +217,17 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       delete _zombieGroups[id]
     }
   }, [id, startX, startZ, archetype.heightScale, hidden])
+
+  useEffect(() => {
+    if (hidden) return
+    if (type === 'screamer') playScreamerScreech()
+    const plankAggroChance = type === 'runner' || type === 'screamer'
+      ? 0
+      : type === 'brute'
+        ? 0.72
+        : 0.38
+    isAggressorRef.current = Math.random() < plankAggroChance
+  }, [hidden, type])
 
   // Keep collision wall list in sync with plank state.
   // Zombies collide with cabin walls (window gaps open) + any boarded window faces.
@@ -291,7 +322,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0)
 
       // Consider switching to attack_window mode
-      if (modeRef.current !== 'attack_window' && boardedWins.length > 0) {
+      if (type !== 'runner' && type !== 'screamer' && modeRef.current !== 'attack_window' && boardedWins.length > 0) {
         let nearWin = boardedWins[0], nearDist = Infinity
         for (const win of boardedWins) {
           const dx = pos.x - win.ax, dz = pos.z - win.az
@@ -326,7 +357,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         if (newPath && newPath.length > 1) {
           pathRef.current = newPath
           wpIdxRef.current = 1
-        } else if (!isBlocked(px, pz)) {
+        } else if (type !== 'runner' && type !== 'screamer' && !isBlocked(px, pz)) {
           // Player unreachable via open path — force nearest window attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
@@ -474,8 +505,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         </>
       )}
       {isScreamer && (
-        <mesh geometry={cg(archetype.auraRadius, archetype.auraRadius, 0.018, 48)} position={[0, -0.865, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <meshBasicMaterial color="#6520aa" transparent opacity={0.12} depthWrite={false} />
+        <mesh position={[0, -0.865, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[archetype.auraRadius * 2, archetype.auraRadius * 2]} />
+          <meshBasicMaterial map={_screamerAuraTexture} color="#7c42cd" transparent opacity={0.06} depthWrite={false} />
         </mesh>
       )}
       {isRunner && (
