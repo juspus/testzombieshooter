@@ -230,6 +230,42 @@ export function playPlankHit() {
   playTone(ac, t + 0.02, 370, 190, 0.08, 0.13)
 }
 
+export function playScreamerScreech() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Main piercing scream body
+  const osc1 = ac.createOscillator()
+  osc1.type = 'sawtooth'
+  osc1.frequency.setValueAtTime(980, t)
+  osc1.frequency.exponentialRampToValueAtTime(1460, t + 0.22)
+  osc1.frequency.exponentialRampToValueAtTime(820, t + 0.65)
+
+  const bp1 = ac.createBiquadFilter()
+  bp1.type = 'bandpass'
+  bp1.frequency.setValueAtTime(1650, t)
+  bp1.Q.value = 3.2
+
+  const g1 = ac.createGain()
+  g1.gain.setValueAtTime(0.001, t)
+  g1.gain.exponentialRampToValueAtTime(0.34, t + 0.04)
+  g1.gain.exponentialRampToValueAtTime(0.18, t + 0.35)
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.7)
+
+  osc1.connect(bp1)
+  bp1.connect(g1)
+  g1.connect(ac.destination)
+  osc1.start(t)
+  osc1.stop(t + 0.72)
+
+  // Airy rasp layer
+  const raspBuf = noiseBuffer(ac, 0.5)
+  playNoise(ac, raspBuf, t + 0.03, 0.42, 0.13, 'bandpass', 2300, 2.5)
+
+  // Low menace undertone
+  playTone(ac, t + 0.02, 220, 130, 0.5, 0.08)
+}
+
 export function playPlankBreak() {
   const ac = ctx()
   const t = ac.currentTime
