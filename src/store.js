@@ -240,7 +240,8 @@ export const useGameStore = create((set, get) => ({
       const newZombies = zombies.map((z) => z.id === id ? { ...z, health: 0, dying: true } : z)
       const withNext = nextPending ? [...newZombies, nextPending] : newZombies
       const activeCount = withNext.filter((z) => !z.dying).length
-      const waveOver = activeCount === 0 && newPending.length === 0
+      const isGuest = get().mpRole === 'guest'
+      const waveOver = !isGuest && activeCount === 0 && newPending.length === 0
       const statUpdate = {
         zombies: withNext,
         pendingSpawns: newPending,
@@ -276,7 +277,8 @@ export const useGameStore = create((set, get) => ({
     const { zombies, pendingSpawns, phase, wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed } = get()
     const newZombies = zombies.filter((z) => z.id !== id)
     const activeCount = newZombies.filter((z) => !z.dying).length
-    const waveOver = activeCount === 0 && pendingSpawns.length === 0 && phase === 'playing'
+    const isGuest = get().mpRole === 'guest'
+    const waveOver = !isGuest && activeCount === 0 && pendingSpawns.length === 0 && phase === 'playing'
     set(waveOver
       ? {
         zombies: newZombies,
@@ -295,7 +297,7 @@ export const useGameStore = create((set, get) => ({
     )
   },
 
-  tick: (delta) => {
+  tick: (delta, guestMode = false) => {
     const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed } = get()
     if (phase === 'playing') {
       set({ waveElapsed: waveElapsed + delta })
@@ -304,6 +306,11 @@ export const useGameStore = create((set, get) => ({
     if (phase === 'intermission') {
       const next = intermissionLeft - delta
       if (next <= 0) {
+        if (guestMode) {
+          // Guest waits for host's wave_start event; just zero out the timer
+          set({ intermissionLeft: 0 })
+          return
+        }
         const all = spawnZombies(wave, nextId)
         const cap = Math.min(25, all.length)
         set({
@@ -426,6 +433,17 @@ export const useGameStore = create((set, get) => ({
 
   getZombieSpeed: () => speedForWave(get().wave),
   getZombiesForWave: () => zombiesForWave(get().wave),
+
+  // ── Multiplayer ──────────────────────────────────────────────────────────
+  mpRole: null,       // 'host' | 'guest' | null
+  mpConnected: false,
+  remotePlayer: null, // { x, y, z, yaw, pitch }
+  roomCode: null,
+
+  setMpRole: (role, code = null) => set({ mpRole: role, roomCode: code }),
+  setMpConnected: (v) => set({ mpConnected: v }),
+  setRemotePlayer: (data) => set({ remotePlayer: data }),
+  clearMp: () => set({ mpRole: null, mpConnected: false, remotePlayer: null, roomCode: null }),
 }))
 
 function countPlanks(windowPlanks) {

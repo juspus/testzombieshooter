@@ -10,7 +10,12 @@ import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, p
 import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
+import { send, isConnected } from '../net'
 import * as THREE from 'three'
+
+function netSend(event, data) {
+  if (isConnected()) send('game_event', { event, data })
+}
 
 const CHEST_RADIUS_SQ = 1.5 * 1.5
 const BASE_KNIFE_COOLDOWN = 0.4
@@ -226,6 +231,7 @@ export default function Player() {
           if (!bestHead) bestHead = isIronSightsHeadshot(zombieRefs.current[bestId], bestPoint, perksRef.current)
           const died = hitZombie(bestId, bestHead)
           if (died && !killed.has(bestId)) { killed.add(bestId); playZombieDie() }
+          netSend('hit_zombie', { id: bestId, isHeadshot: bestHead, source: 'gun' })
         }
       }
     } else if (weaponRef.current === 'deagle') {
@@ -242,6 +248,7 @@ export default function Player() {
       BulletTrails.add(muzzle, trailEnd)
       for (const target of targets) {
         if (hitZombie(target.id, true)) playZombieDie()
+        netSend('hit_zombie', { id: target.id, isHeadshot: true, source: 'gun' })
       }
     } else {
       // Single target
@@ -271,6 +278,7 @@ export default function Player() {
           Zombie.addBulletHole(id, localPos, hitFaceNormal)
         }
         if (hitZombie(id, isHeadshot)) playZombieDie()
+        netSend('hit_zombie', { id, isHeadshot, source: 'gun' })
       }
     }
   }, [camera, hitZombie, consumeBullet])
@@ -302,7 +310,9 @@ export default function Player() {
     }
 
     if (closestId !== null) {
-      if (hitZombie(Number(closestId), true, 'knife')) playZombieDie()
+      const kid = Number(closestId)
+      if (hitZombie(kid, true, 'knife')) playZombieDie()
+      netSend('hit_zombie', { id: kid, isHeadshot: true, source: 'knife' })
     }
   }, [camera, hitZombie, setKnifeCooldown])
 
@@ -401,8 +411,12 @@ export default function Player() {
         const progress = Math.min(boardTimerRef.current / BOARD_TIME, 1)
         setBoardingProgress(progress)
         if (boardTimerRef.current >= BOARD_TIME) {
-          if (canAddPlank) addPlank(nearId)
-          else upgradePlanks(nearId)
+          if (canAddPlank) {
+            addPlank(nearId)
+            netSend('add_plank', { windowId: nearId })
+          } else {
+            upgradePlanks(nearId)
+          }
           boardTimerRef.current = 0
           setBoardingProgress(0)
         }
@@ -433,6 +447,7 @@ export default function Player() {
           skipTimerRef.current = 0
           setSkipProgress(0)
           skipIntermission()
+          netSend('skip_intermission', {})
         }
       } else if (skipTimerRef.current > 0) {
         skipTimerRef.current = 0

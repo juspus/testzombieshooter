@@ -75,8 +75,27 @@ const _moveDir = new THREE.Vector3()
 const _holeAdders = {}
 // Position registry so zombies can compare distances to windows
 const _zombieGroups = {}
+// Guest-mode position corrections sent by host (id → { x, z })
+const _guestPositions = {}
+
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
+
+// Called by NetManager on host to collect current zombie positions for broadcast
+export function getZombiePositions() {
+  const out = {}
+  for (const [id, group] of Object.entries(_zombieGroups)) {
+    out[id] = { x: group.position.x, z: group.position.z }
+  }
+  return out
+}
+
+// Called by NetManager on guest to apply host's authoritative positions
+export function applyRemoteZombiePositions(posMap) {
+  for (const [id, pos] of Object.entries(posMap)) {
+    _guestPositions[id] = pos
+  }
+}
 
 // Static zombie colors (shared across all instances)
 const pants     = '#18180f'
@@ -389,7 +408,10 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
-          for (let i = 0; i < archetype.plankHits; i++) hitPlank(win.id)
+          // Only host applies plank damage (prevents double-damage in multiplayer)
+          if (!useGameStore.getState().mpRole || useGameStore.getState().mpRole === 'host') {
+            for (let i = 0; i < archetype.plankHits; i++) hitPlank(win.id)
+          }
           playPlankHit()
         }
       } else {
@@ -465,6 +487,13 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(t) * 0.32
       if (leftArmRef.current)  leftArmRef.current.rotation.x  = -Math.sin(t) * 0.20
       if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
+    }
+
+    // Guest mode: lerp toward host's authoritative position each frame
+    const gp = _guestPositions[id]
+    if (gp) {
+      pos.x += (gp.x - pos.x) * 0.25
+      pos.z += (gp.z - pos.z) * 0.25
     }
 
     const dx = px - pos.x, dz = pz - pos.z

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
+import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 
 export default function Screens() {
   const phase = useGameStore((s) => s.phase)
@@ -18,16 +19,7 @@ export default function Screens() {
   const perks = useGameStore((s) => s.perks)
 
   if (phase === 'start') {
-    return (
-      <Overlay>
-        <Title>CABIN</Title>
-        <Sub>Survive the waves. Kill all zombies to advance.</Sub>
-        <Controls>
-          WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot
-        </Controls>
-        <Btn onClick={startGame}>START GAME</Btn>
-      </Overlay>
-    )
+    return <StartScreen startGame={startGame} />
   }
 
   if (phase === 'wave_clear') {
@@ -47,10 +39,16 @@ export default function Screens() {
 }
 
 function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
+  const mpRole = useGameStore((s) => s.mpRole)
   useEffect(() => {
-    const id = setTimeout(nextWave, 3200)
+    // Only host drives the wave transition; guest waits for host's game_event
+    if (mpRole === 'guest') return
+    const id = setTimeout(() => {
+      nextWave()
+      if (isConnected()) send('game_event', { event: 'next_wave', data: {} })
+    }, 3200)
     return () => clearTimeout(id)
-  }, [nextWave])
+  }, [nextWave, mpRole])
 
   return (
     <Overlay>
@@ -186,6 +184,170 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Multiplayer lobby ──────────────────────────────────────────────────────
+
+function StartScreen({ startGame }) {
+  const [view, setView] = useState('main') // 'main' | 'host' | 'join'
+  const [roomCode, setRoomCode] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [status, setStatus] = useState('')
+  const [connected, setConnected] = useState(false)
+  const [mpRole, setMpRoleLocal] = useState(null)
+
+  const setMpRole = useGameStore((s) => s.setMpRole)
+  const setMpConnected = useGameStore((s) => s.setMpConnected)
+
+  const onDisconnected = useCallback(() => {
+    setConnected(false)
+    setStatus('Disconnected.')
+    setMpConnected(false)
+    useGameStore.getState().clearMp()
+  }, [setMpConnected])
+
+  const handleHost = useCallback(() => {
+    setView('host')
+    setStatus('Generating room code…')
+    setMpRoleLocal('host')
+    setMpRole('host')
+    createRoom(
+      (code) => {
+        setRoomCode(code)
+        setStatus('Share this code with Player 2')
+      },
+      () => {
+        setConnected(true)
+        setStatus('Player 2 connected!')
+        setMpConnected(true)
+      },
+      onDisconnected,
+    )
+  }, [setMpRole, setMpConnected, onDisconnected])
+
+  const handleJoin = useCallback(() => {
+    if (!joinCode.trim()) return
+    setStatus('Connecting…')
+    setMpRoleLocal('guest')
+    setMpRole('guest')
+    joinRoom(
+      joinCode.trim(),
+      () => {
+        setConnected(true)
+        setStatus('Connected! Host will start the game.')
+        setMpConnected(true)
+        // Guests don't call startGame — they wait for the host's start_game event
+      },
+      (err) => {
+        setStatus(`Failed: ${err?.type ?? 'connection error'}`)
+        useGameStore.getState().clearMp()
+      },
+      onDisconnected,
+    )
+  }, [joinCode, setMpRole, setMpConnected, onDisconnected])
+
+  const handleStartGame = useCallback(() => {
+    startGame()
+    if (isConnected()) send('game_event', { event: 'start_game', data: {} })
+  }, [startGame])
+
+  const handleBack = useCallback(() => {
+    disconnect()
+    setView('main')
+    setRoomCode('')
+    setJoinCode('')
+    setStatus('')
+    setConnected(false)
+    setMpRoleLocal(null)
+    useGameStore.getState().clearMp()
+  }, [])
+
+  return (
+    <Overlay>
+      <Title>CABIN</Title>
+      <Sub>Survive the waves. Kill all zombies to advance.</Sub>
+      <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>
+
+      {view === 'main' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
+          <Btn onClick={startGame}>SOLO</Btn>
+          <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Btn onClick={handleHost}>HOST GAME</Btn>
+            <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
+          </div>
+        </div>
+      )}
+
+      {view === 'host' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          {roomCode ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: '#666', fontSize: 11, letterSpacing: 4 }}>ROOM CODE</div>
+              <div style={{
+                color: '#ffe066',
+                fontSize: 36,
+                fontFamily: 'Courier New, monospace',
+                letterSpacing: 8,
+                textShadow: '0 0 20px rgba(255,224,102,0.5)',
+                marginTop: 4,
+              }}>{roomCode}</div>
+            </div>
+          ) : null}
+          <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
+          {connected && <Btn onClick={handleStartGame}>START GAME</Btn>}
+          <BackBtn onClick={handleBack} />
+        </div>
+      )}
+
+      {view === 'join' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          <input
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+            placeholder="ENTER ROOM CODE"
+            maxLength={32}
+            style={{
+              background: 'rgba(0,0,0,0.6)',
+              border: '1px solid #555',
+              color: '#ffe066',
+              padding: '10px 16px',
+              fontSize: 20,
+              letterSpacing: 6,
+              fontFamily: 'Courier New, monospace',
+              textAlign: 'center',
+              outline: 'none',
+              width: 280,
+            }}
+          />
+          {status && <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>}
+          {!connected && <Btn onClick={handleJoin}>CONNECT</Btn>}
+          <BackBtn onClick={handleBack} />
+        </div>
+      )}
+    </Overlay>
+  )
+}
+
+function BackBtn({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: 'transparent',
+        border: 'none',
+        color: '#555',
+        fontSize: 12,
+        letterSpacing: 3,
+        fontFamily: 'Courier New, monospace',
+        cursor: 'pointer',
+        marginTop: 4,
+      }}
+    >
+      ← BACK
+    </button>
   )
 }
 
