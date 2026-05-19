@@ -171,6 +171,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const hitPlank = useGameStore((s) => s.hitPlank)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
   const removeDyingZombie = useGameStore((s) => s.removeDyingZombie)
+  const remotePlayer = useGameStore((s) => s.remotePlayer)
 
   const [holes, setHoles] = useState([])
 
@@ -297,6 +298,11 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     if (phase !== 'playing') return
     const pos = ref.current.position
     const px = camera.position.x, pz = camera.position.z
+    const rx = remotePlayer.x, rz = remotePlayer.z
+    const hostDist2 = (px - pos.x) * (px - pos.x) + (pz - pos.z) * (pz - pos.z)
+    const guestDist2 = (rx - pos.x) * (rx - pos.x) + (rz - pos.z) * (rz - pos.z)
+    const targetX = guestDist2 < hostDist2 ? rx : px
+    const targetZ = guestDist2 < hostDist2 ? rz : pz
     const planks = windowPlanksRef.current
 
     // Revert attack mode if the target plank was destroyed or zombie entered the cabin
@@ -353,11 +359,11 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           wpIdxRef.current = 1
         }
       } else {
-        const newPath = findPath(pos.x, pos.z, px, pz)
+        const newPath = findPath(pos.x, pos.z, targetX, targetZ)
         if (newPath && newPath.length > 1) {
           pathRef.current = newPath
           wpIdxRef.current = 1
-        } else if (type !== 'runner' && type !== 'screamer' && !isBlocked(px, pz)) {
+        } else if (type !== 'runner' && type !== 'screamer' && !isBlocked(targetX, targetZ)) {
           // Player unreachable via open path — force nearest window attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
@@ -404,13 +410,13 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         }
       }
     } else {
-      ref.current.lookAt(px, pos.y, pz)
-      if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
-        const dx = px - pos.x, dz = pz - pos.z
+      ref.current.lookAt(targetX, pos.y, targetZ)
+      if (hasDirectPath(pos.x, pos.z, targetX, targetZ, zombieWallsRef.current)) {
+        const dx = targetX - pos.x, dz = targetZ - pos.z
         const dist = Math.sqrt(dx * dx + dz * dz)
         if (dist > 0.01) moveDir = _moveDir.set(dx / dist, 0, dz / dist)
       } else {
-        moveDir = followPath(pos, px, pz)
+        moveDir = followPath(pos, targetX, targetZ)
       }
     }
 
@@ -468,7 +474,11 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     }
 
     const dx = px - pos.x, dz = pz - pos.z
+    const rdx = rx - pos.x, rdz = rz - pos.z
     if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
+    if (rdx * rdx + rdz * rdz < KILL_DISTANCE * KILL_DISTANCE) {
+      useGameStore.getState().setRemotePlayer({ ...remotePlayer, x: 0, y: 1.7, z: 0 })
+    }
   })
 
   const colors = getZombieColors(type, health, archetype.health)

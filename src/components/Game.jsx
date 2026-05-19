@@ -13,6 +13,7 @@ import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
 import ForestSkybox from './ForestSkybox'
+import RemotePlayer from './RemotePlayer'
 
 export default function Game() {
   const phase = useGameStore((s) => s.phase)
@@ -46,6 +47,7 @@ export default function Game() {
         <ForestSkybox />
         <Arena />
         <Player />
+        <RemotePlayer />
         <Gun />
         <Knife />
         <ZombieManager />

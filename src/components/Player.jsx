@@ -76,6 +76,14 @@ export default function Player() {
   const shotgunCooldownRef = useRef(0)
   const knifeCooldownRef = useRef(0)
   const weapon = useGameStore((s) => s.weapon)
+  const multiplayerRole = useGameStore((s) => s.multiplayerRole)
+  const hostView = useGameStore((s) => s.hostView)
+  const setHostView = useGameStore((s) => s.setHostView)
+  const setRemotePlayer = useGameStore((s) => s.setRemotePlayer)
+  const setGuestInput = useGameStore((s) => s.setGuestInput)
+  const setRemoteInput = useGameStore((s) => s.setRemoteInput)
+  const remotePlayer = useGameStore((s) => s.remotePlayer)
+  const remoteInput = useGameStore((s) => s.remoteInput)
   const weaponRef = useRef(weapon)
   const activeItemRef = useRef(activeItem)
   const perksRef = useRef(perks)
@@ -87,6 +95,8 @@ export default function Player() {
   const zombieRefs = useRef({})
   const reloadTimer = useRef(0)
   const stepTimer = useRef(0)
+  const remoteShotSeqRef = useRef(0)
+  const processedRemoteShotRef = useRef(0)
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
@@ -129,6 +139,10 @@ export default function Player() {
     }
     const onMouseMove = (e) => {
       if (!locked.current) return
+      if (multiplayerRole === 'guest') {
+        setGuestInput({ ...useGameStore.getState().guestInput, mouseDX: e.movementX, mouseDY: e.movementY })
+        return
+      }
       yaw.current -= e.movementX * LOOK_SENSITIVITY
       pitch.current -= e.movementY * LOOK_SENSITIVITY
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
@@ -161,7 +175,7 @@ export default function Player() {
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('keyup', onKeyUp)
     }
-  }, [gl])
+  }, [gl, multiplayerRole, setGuestInput])
 
   const shoot = useCallback(() => {
     const raycaster = new THREE.Raycaster()
@@ -306,6 +320,31 @@ export default function Player() {
     }
   }, [camera, hitZombie, setKnifeCooldown])
 
+  const shootFromRemote = useCallback(() => {
+    const rp = useGameStore.getState().remotePlayer
+    const origin = new THREE.Vector3(rp.x, rp.y, rp.z)
+    const dir = new THREE.Vector3(
+      -Math.sin(rp.yaw) * Math.cos(rp.pitch),
+      Math.sin(rp.pitch),
+      -Math.cos(rp.yaw) * Math.cos(rp.pitch),
+    ).normalize()
+    const rc = new THREE.Raycaster(origin, dir, 0, 60)
+    let closest = null, closestDist = Infinity, isHeadshot = false
+    for (const [id, ref] of Object.entries(zombieRefs.current)) {
+      if (!ref) continue
+      const intersects = rc.intersectObject(ref, true)
+      if (intersects.length > 0 && intersects[0].distance < closestDist) {
+        closestDist = intersects[0].distance
+        closest = Number(id)
+        isHeadshot = intersects[0].object.userData.isHead === true
+      }
+    }
+    const muzzle = origin.clone().addScaledVector(dir, 0.35)
+    const end = closestDist < Infinity ? origin.clone().addScaledVector(dir, closestDist) : origin.clone().addScaledVector(dir, 45)
+    BulletTrails.add(muzzle, end)
+    if (closest !== null && hitZombie(closest, isHeadshot)) playZombieDie()
+  }, [hitZombie])
+
   useEffect(() => {
     const onMouseDown = (e) => {
       if (e.button !== 0) return
@@ -315,6 +354,9 @@ export default function Player() {
       if (activeItemRef.current === 'knife') {
         knifeSwing()
         return
+      }
+      if (multiplayerRole === 'guest') {
+        remoteShotSeqRef.current += 1
       }
       shoot()
       mouseHeldRef.current = true
@@ -330,11 +372,20 @@ export default function Player() {
       gl.domElement.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('mouseup', onMouseUp)
     }
-  }, [gl, phase, requestLock, shoot, knifeSwing])
+  }, [gl, phase, requestLock, shoot, knifeSwing, multiplayerRole])
 
   useFrame((_, delta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
     if (shopOpen) return
+    if (multiplayerRole === 'guest') {
+      camera.position.set(remotePlayer.x, remotePlayer.y, remotePlayer.z)
+      camera.rotation.y = remotePlayer.yaw
+      camera.rotation.x = remotePlayer.pitch
+      const forward = (keys.current['KeyW'] || keys.current['ArrowUp'] ? 1 : 0) - (keys.current['KeyS'] || keys.current['ArrowDown'] ? 1 : 0)
+      const strafe = (keys.current['KeyD'] || keys.current['ArrowRight'] ? 1 : 0) - (keys.current['KeyA'] || keys.current['ArrowLeft'] ? 1 : 0)
+      setGuestInput({ ...useGameStore.getState().guestInput, forward, strafe, shooting: mouseHeldRef.current, shotSeq: remoteShotSeqRef.current })
+      return
+    }
 
     // Chest proximity
     {
@@ -473,6 +524,7 @@ export default function Player() {
       camera.position.x = nx
       camera.position.z = nz
       camera.position.y = PLAYER_HEIGHT
+      setHostView({ x: camera.position.x, y: camera.position.y, z: camera.position.z, yaw: yaw.current, pitch: pitch.current })
 
       // Footstep rhythm
       stepTimer.current -= delta
@@ -482,6 +534,31 @@ export default function Player() {
       }
     } else {
       stepTimer.current = 0
+    }
+    const ri = remoteInput
+    if (ri) {
+      const rp = useGameStore.getState().remotePlayer
+      const nextYaw = rp.yaw - (ri.mouseDX ?? 0) * LOOK_SENSITIVITY
+      const nextPitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rp.pitch - (ri.mouseDY ?? 0) * LOOK_SENSITIVITY))
+      const fwd = new THREE.Vector3(-Math.sin(nextYaw), 0, -Math.cos(nextYaw))
+      const right = new THREE.Vector3(Math.cos(nextYaw), 0, -Math.sin(nextYaw))
+      const inputDir = fwd.multiplyScalar(ri.forward ?? 0).add(right.multiplyScalar(ri.strafe ?? 0))
+      const ghostDir = inputDir.lengthSq() > 0 ? inputDir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current) * delta) : new THREE.Vector3()
+      setRemotePlayer({
+        ...rp,
+        x: rp.x + ghostDir.x,
+        z: rp.z + ghostDir.z,
+        y: PLAYER_HEIGHT,
+        yaw: nextYaw,
+        pitch: nextPitch,
+      })
+      if ((ri.shotSeq ?? 0) > processedRemoteShotRef.current) {
+        processedRemoteShotRef.current = ri.shotSeq ?? 0
+        shootFromRemote()
+      }
+      if ((ri.mouseDX ?? 0) !== 0 || (ri.mouseDY ?? 0) !== 0) {
+        setRemoteInput({ ...ri, mouseDX: 0, mouseDY: 0 })
+      }
     }
   })
 
