@@ -3,11 +3,12 @@ import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { send, onMessage, offMessage } from '../net'
 import { getZombiePositions, applyRemoteZombiePositions } from './Zombie'
+import { pushRemotePlayerSample } from './RemotePlayer'
 import { buildGrid } from '../walls'
 import { allWallSegments } from '../cabin'
 
-const POS_INTERVAL    = 0.05  // 20 /s
-const ZOMBIE_INTERVAL = 0.05  // 20 /s
+const POS_INTERVAL    = 1 / 30  // 30 /s  (~33 ms)
+const ZOMBIE_INTERVAL = 0.05    // 20 /s  (50 ms)
 
 export default function NetManager() {
   const mpRole      = useGameStore((s) => s.mpRole)
@@ -58,7 +59,7 @@ export default function NetManager() {
     if (!mpConnected) return
 
     onMessage('pos', (data) => {
-      useGameStore.getState().setRemotePlayer(data)
+      pushRemotePlayerSample(data)
     })
 
     onMessage('game_event', ({ event, data }) => {

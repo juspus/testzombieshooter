@@ -489,11 +489,22 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
     }
 
-    // Guest mode: lerp toward host's authoritative position each frame
+    // Converge toward host's authoritative position (guest mode)
     const gp = _guestPositions[id]
     if (gp) {
-      pos.x += (gp.x - pos.x) * 0.25
-      pos.z += (gp.z - pos.z) * 0.25
+      const ex = gp.x - pos.x, ez = gp.z - pos.z
+      const err = Math.sqrt(ex * ex + ez * ez)
+      if (err > 2.0) {
+        // Large divergence — snap immediately (teleport / respawn edge case)
+        pos.x = gp.x
+        pos.z = gp.z
+      } else {
+        // Time-based exponential convergence: ~80% of error closed per 100ms
+        // independent of frame rate (unlike a fixed 0.25/frame)
+        const f = Math.min(1, delta * 16)
+        pos.x += ex * f
+        pos.z += ez * f
+      }
     }
 
     const dx = px - pos.x, dz = pz - pos.z
