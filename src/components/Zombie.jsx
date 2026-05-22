@@ -5,6 +5,7 @@ import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
 import { playZombieFootstep, playPlankHit, playScreamerScreech } from '../sounds'
+import { getRemotePlayerPos } from './RemotePlayer'
 import * as THREE from 'three'
 
 const _geoCache = new Map()
@@ -315,7 +316,22 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
     if (phase !== 'playing') return
     const pos = ref.current.position
-    const px = camera.position.x, pz = camera.position.z
+
+    // Local player position (also used for kill detection — always local)
+    const lx = camera.position.x, lz = camera.position.z
+
+    // Pick the closest player as the chase/face target
+    const rp = getRemotePlayerPos()
+    let px, pz
+    if (rp) {
+      const dl2 = (pos.x - lx) ** 2 + (pos.z - lz) ** 2
+      const dr2 = (pos.x - rp.x) ** 2 + (pos.z - rp.z) ** 2
+      px = dr2 < dl2 ? rp.x : lx
+      pz = dr2 < dl2 ? rp.z : lz
+    } else {
+      px = lx; pz = lz
+    }
+
     const planks = windowPlanksRef.current
 
     // Revert attack mode if the target plank was destroyed or zombie entered the cabin
@@ -456,8 +472,8 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       const step = speed * speedMultiplier * delta
       applyMove(pos, moveDir.x * step, moveDir.z * step, zombieWallsRef.current)
 
-      // Footstep sound — only when close enough for player to hear
-      const sdx = px - pos.x, sdz = pz - pos.z
+      // Footstep sound — proximity to local player's ears
+      const sdx = lx - pos.x, sdz = lz - pos.z
       if (sdx * sdx + sdz * sdz < 144) {
         stepTimerRef.current -= delta
         if (stepTimerRef.current <= 0) {
@@ -507,8 +523,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       }
     }
 
-    const dx = px - pos.x, dz = pz - pos.z
-    if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
+    // Kill detection: local player only — remote machine handles its own player
+    const kdx = lx - pos.x, kdz = lz - pos.z
+    if (kdx * kdx + kdz * kdz < KILL_DISTANCE * KILL_DISTANCE) die()
   })
 
   const colors = getZombieColors(type, health, archetype.health)

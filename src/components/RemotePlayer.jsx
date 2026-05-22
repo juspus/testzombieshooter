@@ -7,6 +7,10 @@ const _buffer = []  // { t: ms, x, y, z, yaw }
 const INTERP_DELAY = 100  // render this many ms in the past; must be > send interval (33ms)
 const MAX_SAMPLES  = 60   // ~2s at 30/s
 
+// Current interpolated remote player position — read by ZombieComponent for targeting
+let _currentPos = null
+export function getRemotePlayerPos() { return _currentPos }
+
 export function pushRemotePlayerSample(sample) {
   _buffer.push({ t: performance.now(), ...sample })
   if (_buffer.length > MAX_SAMPLES) _buffer.shift()
@@ -29,6 +33,7 @@ export default function RemotePlayer() {
 
     if (!mpConnected || _buffer.length === 0) {
       g.visible = false
+      _currentPos = null
       return
     }
     g.visible = true
@@ -70,6 +75,9 @@ export default function RemotePlayer() {
       g.position.z = s.z
       g.rotation.y = s.yaw
     }
+
+    // Expose current position for zombie targeting
+    _currentPos = { x: g.position.x, z: g.position.z }
 
     // Prune samples older than 2s
     const cutoff = performance.now() - 2000
