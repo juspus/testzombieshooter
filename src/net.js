@@ -5,6 +5,14 @@ let _conn = null
 let _role = null
 const _listeners = new Map()
 
+// Unambiguous alphabet: no 0/O, 1/I/L
+const _CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+function _roomCode() {
+  let c = ''
+  for (let i = 0; i < 5; i++) c += _CHARS[Math.floor(Math.random() * _CHARS.length)]
+  return c
+}
+
 export function getRole() { return _role }
 export function isConnected() { return _conn?.open === true }
 
@@ -19,10 +27,11 @@ export function send(type, data) {
 export function createRoom(onCode, onConnected, onDisconnected) {
   _teardown()
   _role = 'host'
-  _peer = new Peer()
+  const code = _roomCode()
+  _peer = new Peer(code)
   _peer.on('error', (err) => console.error('[net]', err))
-  _peer.on('open', (id) => {
-    onCode(id)
+  _peer.on('open', () => {
+    onCode(code)
     _peer.on('connection', (conn) => {
       _conn = conn
       _setupConn(onConnected, onDisconnected)
@@ -36,7 +45,7 @@ export function joinRoom(roomCode, onConnected, onError, onDisconnected) {
   _peer = new Peer()
   _peer.on('error', onError)
   _peer.on('open', () => {
-    _conn = _peer.connect(roomCode.trim().toLowerCase())
+    _conn = _peer.connect(roomCode.trim().toUpperCase())
     _setupConn(onConnected, onDisconnected)
     _conn.on('error', onError)
   })

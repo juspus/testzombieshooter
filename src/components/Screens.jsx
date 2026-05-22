@@ -305,10 +305,10 @@ function StartScreen({ startGame }) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
           <input
             value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]/g, '').slice(0, 5))}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-            placeholder="ENTER ROOM CODE"
-            maxLength={32}
+            placeholder="XXXXX"
+            maxLength={5}
             style={{
               background: 'rgba(0,0,0,0.6)',
               border: '1px solid #555',
