@@ -100,12 +100,15 @@ export default function NetManager() {
     if (posTimer.current >= POS_INTERVAL) {
       posTimer.current = 0
       const cam = state.camera
+      const { weapon, activeItem } = useGameStore.getState()
       send('pos', {
         x: cam.position.x,
         y: cam.position.y,
         z: cam.position.z,
         yaw: cam.rotation.y,
         pitch: cam.rotation.x,
+        weapon,
+        activeItem,
       })
     }
 
