@@ -17,6 +17,7 @@ export default function Screens() {
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
   const perks = useGameStore((s) => s.perks)
+  const mpRole = useGameStore((s) => s.mpRole)
 
   if (phase === 'start') {
     return <StartScreen startGame={startGame} />
@@ -32,7 +33,11 @@ export default function Screens() {
   }
 
   if (phase === 'dead') {
-    return <YouDied onRestart={startGame} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} />
+    const handleRestart = () => {
+      startGame()
+      if (isConnected()) send('game_event', { event: 'start_game', data: {} })
+    }
+    return <YouDied onRestart={handleRestart} mpRole={mpRole} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} />
   }
 
   return null
@@ -446,7 +451,7 @@ function Controls({ children }) {
   )
 }
 
-function YouDied({ onRestart, wave, kills, money, weapon, perks }) {
+function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
@@ -564,9 +569,25 @@ function YouDied({ onRestart, wave, kills, money, weapon, perks }) {
           <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
             Share Run
           </DeathButton>
-          <DeathButton onClick={onRestart}>
-            Start New Game
-          </DeathButton>
+          {mpRole === 'guest' ? (
+            <div style={{
+              padding: '14px 36px',
+              minWidth: 210,
+              border: '1px solid rgba(180,0,0,0.3)',
+              color: 'rgba(150,150,150,0.6)',
+              fontSize: 13,
+              letterSpacing: 3,
+              fontFamily: 'Courier New, monospace',
+              textAlign: 'center',
+              textTransform: 'uppercase',
+            }}>
+              Waiting for host…
+            </div>
+          ) : (
+            <DeathButton onClick={onRestart}>
+              Start New Game
+            </DeathButton>
+          )}
         </div>
         <div style={{
           minHeight: 18,
