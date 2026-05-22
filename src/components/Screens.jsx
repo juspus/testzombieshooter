@@ -189,6 +189,46 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
 
 // ── Multiplayer lobby ──────────────────────────────────────────────────────
 
+function RoomCodeDisplay({ code }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(code).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ color: '#666', fontSize: 11, letterSpacing: 4, marginBottom: 6 }}>ROOM CODE</div>
+      <div
+        onClick={handleCopy}
+        title="Click to copy"
+        style={{
+          color: copied ? '#88cc44' : '#ffe066',
+          fontSize: 36,
+          fontFamily: 'Courier New, monospace',
+          letterSpacing: 10,
+          textShadow: copied
+            ? '0 0 20px rgba(136,204,68,0.6)'
+            : '0 0 20px rgba(255,224,102,0.5)',
+          cursor: 'pointer',
+          userSelect: 'all',
+          padding: '6px 14px',
+          border: `1px solid ${copied ? 'rgba(136,204,68,0.4)' : 'rgba(255,224,102,0.2)'}`,
+          borderRadius: 4,
+          transition: 'color 0.2s, text-shadow 0.2s, border-color 0.2s',
+        }}
+      >
+        {code}
+      </div>
+      <div style={{ color: copied ? '#88cc44' : '#555', fontSize: 11, letterSpacing: 3, marginTop: 6, transition: 'color 0.2s' }}>
+        {copied ? 'COPIED!' : 'CLICK TO COPY'}
+      </div>
+    </div>
+  )
+}
+
 function StartScreen({ startGame }) {
   const [view, setView] = useState('main') // 'main' | 'host' | 'join'
   const [roomCode, setRoomCode] = useState('')
@@ -215,7 +255,8 @@ function StartScreen({ startGame }) {
     createRoom(
       (code) => {
         setRoomCode(code)
-        setStatus('Share this code with Player 2')
+        navigator.clipboard?.writeText(code).catch(() => {})
+        setStatus('Code copied to clipboard — share with Player 2')
       },
       () => {
         setConnected(true)
@@ -282,19 +323,7 @@ function StartScreen({ startGame }) {
 
       {view === 'host' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
-          {roomCode ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ color: '#666', fontSize: 11, letterSpacing: 4 }}>ROOM CODE</div>
-              <div style={{
-                color: '#ffe066',
-                fontSize: 36,
-                fontFamily: 'Courier New, monospace',
-                letterSpacing: 8,
-                textShadow: '0 0 20px rgba(255,224,102,0.5)',
-                marginTop: 4,
-              }}>{roomCode}</div>
-            </div>
-          ) : null}
+          {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
           <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
           {connected && <Btn onClick={handleStartGame}>START GAME</Btn>}
           <BackBtn onClick={handleBack} />
