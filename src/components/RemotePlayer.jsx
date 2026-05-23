@@ -22,7 +22,6 @@ function lerpAngle(a, b, t) {
 }
 
 // ── Appearance constants ──────────────────────────────────────────────────
-const SHIRT   = '#2b5090'
 const PANTS   = '#7a6040'
 const SKIN    = '#c8956c'
 const HAIR    = '#1c110a'
@@ -34,12 +33,17 @@ const STUBBLE = '#6b4c3b'   // jaw shadow
 const EYE     = '#111'
 const BUCKLE  = '#b8860b'   // dark-gold belt buckle
 const SOLE    = '#0d0d0d'   // rubber boot sole
-const CUFF    = '#1e3870'   // slightly darker shirt cuff
-
 // ── Component ─────────────────────────────────────────────────────────────
 export default function RemotePlayer() {
   const groupRef    = useRef()
   const mpConnected = useGameStore((s) => s.mpConnected)
+  const mpRole      = useGameStore((s) => s.mpRole)
+
+  // Remote player is always the opposite role:
+  // local = host → remote is guest (white shirt)
+  // local = guest → remote is host (blue shirt)
+  const SHIRT = mpRole === 'host' ? '#dde4ec' : '#2b5090'
+  const CUFF  = mpRole === 'host' ? '#b0bac8' : '#1e3870'
 
   // Body refs for walk animation
   const leftLegRef  = useRef()
