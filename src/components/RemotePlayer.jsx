@@ -22,14 +22,19 @@ function lerpAngle(a, b, t) {
 }
 
 // ── Appearance constants ──────────────────────────────────────────────────
-const SHIRT  = '#2b5090'
-const PANTS  = '#7a6040'
-const SKIN   = '#c8956c'
-const HAIR   = '#1c110a'
-const BOOTS  = '#1a1210'
-const BELT   = '#3a2010'
-const METAL  = '#888'
-const WOOD   = '#8B5E3C'
+const SHIRT   = '#2b5090'
+const PANTS   = '#7a6040'
+const SKIN    = '#c8956c'
+const HAIR    = '#1c110a'
+const BOOTS   = '#1a1210'
+const BELT    = '#3a2010'
+const METAL   = '#888'
+const WOOD    = '#8B5E3C'
+const STUBBLE = '#6b4c3b'   // jaw shadow
+const EYE     = '#111'
+const BUCKLE  = '#b8860b'   // dark-gold belt buckle
+const SOLE    = '#0d0d0d'   // rubber boot sole
+const CUFF    = '#1e3870'   // slightly darker shirt cuff
 
 // ── Component ─────────────────────────────────────────────────────────────
 export default function RemotePlayer() {
@@ -155,11 +160,40 @@ export default function RemotePlayer() {
         <boxGeometry args={[0.52, 0.72, 0.28]} />
         <meshStandardMaterial color={SHIRT} />
       </mesh>
-
+      {/* Shirt collar band */}
+      <mesh position={[0, 1.43, -0.135]}>
+        <boxGeometry args={[0.22, 0.05, 0.02]} />
+        <meshStandardMaterial color={CUFF} />
+      </mesh>
+      {/* Left collar flap */}
+      <mesh position={[-0.05, 1.40, -0.142]}>
+        <boxGeometry args={[0.08, 0.10, 0.015]} />
+        <meshStandardMaterial color={CUFF} />
+      </mesh>
+      {/* Right collar flap */}
+      <mesh position={[0.05, 1.40, -0.142]}>
+        <boxGeometry args={[0.08, 0.10, 0.015]} />
+        <meshStandardMaterial color={CUFF} />
+      </mesh>
+      {/* Chest pocket */}
+      <mesh position={[-0.13, 1.18, -0.143]}>
+        <boxGeometry args={[0.09, 0.08, 0.015]} />
+        <meshStandardMaterial color={CUFF} />
+      </mesh>
+      {/* Pocket flap */}
+      <mesh position={[-0.13, 1.225, -0.143]}>
+        <boxGeometry args={[0.09, 0.02, 0.015]} />
+        <meshStandardMaterial color={CUFF} />
+      </mesh>
       {/* Belt */}
       <mesh position={[0, 0.68, 0]}>
         <boxGeometry args={[0.54, 0.07, 0.30]} />
         <meshStandardMaterial color={BELT} />
+      </mesh>
+      {/* Belt buckle */}
+      <mesh position={[0, 0.68, -0.156]}>
+        <boxGeometry args={[0.07, 0.055, 0.015]} />
+        <meshStandardMaterial color={BUCKLE} metalness={0.6} roughness={0.3} />
       </mesh>
 
       {/* ── Head ── */}
@@ -167,6 +201,46 @@ export default function RemotePlayer() {
         {/* Face */}
         <mesh>
           <boxGeometry args={[0.32, 0.34, 0.30]} />
+          <meshStandardMaterial color={SKIN} />
+        </mesh>
+        {/* Jaw / chin — slightly darker for stubble */}
+        <mesh position={[0, -0.10, -0.148]}>
+          <boxGeometry args={[0.26, 0.09, 0.018]} />
+          <meshStandardMaterial color={STUBBLE} />
+        </mesh>
+        {/* Left eye */}
+        <mesh position={[-0.09, 0.04, -0.154]}>
+          <boxGeometry args={[0.065, 0.05, 0.015]} />
+          <meshStandardMaterial color={EYE} />
+        </mesh>
+        {/* Right eye */}
+        <mesh position={[0.09, 0.04, -0.154]}>
+          <boxGeometry args={[0.065, 0.05, 0.015]} />
+          <meshStandardMaterial color={EYE} />
+        </mesh>
+        {/* Left eyebrow */}
+        <mesh position={[-0.09, 0.11, -0.154]}>
+          <boxGeometry args={[0.075, 0.02, 0.012]} />
+          <meshStandardMaterial color={HAIR} />
+        </mesh>
+        {/* Right eyebrow */}
+        <mesh position={[0.09, 0.11, -0.154]}>
+          <boxGeometry args={[0.075, 0.02, 0.012]} />
+          <meshStandardMaterial color={HAIR} />
+        </mesh>
+        {/* Nose */}
+        <mesh position={[0, 0.01, -0.163]}>
+          <boxGeometry args={[0.05, 0.06, 0.025]} />
+          <meshStandardMaterial color={SKIN} />
+        </mesh>
+        {/* Left ear */}
+        <mesh position={[-0.172, 0.02, 0.02]}>
+          <boxGeometry args={[0.025, 0.07, 0.05]} />
+          <meshStandardMaterial color={SKIN} />
+        </mesh>
+        {/* Right ear */}
+        <mesh position={[0.172, 0.02, 0.02]}>
+          <boxGeometry args={[0.025, 0.07, 0.05]} />
           <meshStandardMaterial color={SKIN} />
         </mesh>
         {/* Hair top */}
@@ -179,6 +253,16 @@ export default function RemotePlayer() {
           <boxGeometry args={[0.30, 0.20, 0.06]} />
           <meshStandardMaterial color={HAIR} />
         </mesh>
+        {/* Left sideburn */}
+        <mesh position={[-0.172, 0.06, 0.06]}>
+          <boxGeometry args={[0.025, 0.14, 0.09]} />
+          <meshStandardMaterial color={HAIR} />
+        </mesh>
+        {/* Right sideburn */}
+        <mesh position={[0.172, 0.06, 0.06]}>
+          <boxGeometry args={[0.025, 0.14, 0.09]} />
+          <meshStandardMaterial color={HAIR} />
+        </mesh>
       </group>
 
       {/* ── Neck ── */}
@@ -189,114 +273,223 @@ export default function RemotePlayer() {
 
       {/* ── Left arm (swings with walk) ── */}
       <group ref={leftArmRef} position={[-0.32, 1.08, 0]}>
+        {/* Shoulder cap */}
+        <mesh position={[0, 0.01, 0]}>
+          <boxGeometry args={[0.17, 0.07, 0.17]} />
+          <meshStandardMaterial color={SHIRT} />
+        </mesh>
         {/* Upper arm */}
         <mesh position={[0, -0.15, 0]}>
           <boxGeometry args={[0.14, 0.30, 0.14]} />
           <meshStandardMaterial color={SHIRT} />
         </mesh>
-        {/* Forearm / hand */}
-        <mesh position={[0, -0.40, 0]}>
-          <boxGeometry args={[0.12, 0.24, 0.12]} />
+        {/* Elbow bump */}
+        <mesh position={[0, -0.30, 0.04]}>
+          <boxGeometry args={[0.13, 0.07, 0.07]} />
+          <meshStandardMaterial color={SHIRT} />
+        </mesh>
+        {/* Forearm */}
+        <mesh position={[0, -0.42, 0]}>
+          <boxGeometry args={[0.11, 0.22, 0.11]} />
+          <meshStandardMaterial color={SKIN} />
+        </mesh>
+        {/* Shirt cuff */}
+        <mesh position={[0, -0.525, 0]}>
+          <boxGeometry args={[0.13, 0.04, 0.13]} />
+          <meshStandardMaterial color={CUFF} />
+        </mesh>
+        {/* Hand */}
+        <mesh position={[0, -0.60, -0.01]}>
+          <boxGeometry args={[0.10, 0.08, 0.10]} />
           <meshStandardMaterial color={SKIN} />
         </mesh>
       </group>
 
       {/* ── Right arm (weapon arm, swings with walk) ── */}
       <group ref={rightArmRef} position={[0.32, 1.08, 0]}>
+        {/* Shoulder cap */}
+        <mesh position={[0, 0.01, 0]}>
+          <boxGeometry args={[0.17, 0.07, 0.17]} />
+          <meshStandardMaterial color={SHIRT} />
+        </mesh>
         {/* Upper arm */}
         <mesh position={[0, -0.15, 0]}>
           <boxGeometry args={[0.14, 0.30, 0.14]} />
           <meshStandardMaterial color={SHIRT} />
         </mesh>
-        {/* Forearm / hand */}
-        <mesh position={[0, -0.40, 0]}>
-          <boxGeometry args={[0.12, 0.24, 0.12]} />
+        {/* Elbow bump */}
+        <mesh position={[0, -0.30, 0.04]}>
+          <boxGeometry args={[0.13, 0.07, 0.07]} />
+          <meshStandardMaterial color={SHIRT} />
+        </mesh>
+        {/* Forearm */}
+        <mesh position={[0, -0.42, 0]}>
+          <boxGeometry args={[0.11, 0.22, 0.11]} />
+          <meshStandardMaterial color={SKIN} />
+        </mesh>
+        {/* Shirt cuff */}
+        <mesh position={[0, -0.525, 0]}>
+          <boxGeometry args={[0.13, 0.04, 0.13]} />
+          <meshStandardMaterial color={CUFF} />
+        </mesh>
+        {/* Hand */}
+        <mesh position={[0, -0.60, -0.01]}>
+          <boxGeometry args={[0.10, 0.08, 0.10]} />
           <meshStandardMaterial color={SKIN} />
         </mesh>
 
         {/* ── Weapons (attached to right hand) ── */}
 
         {/* Pistol */}
-        <group ref={pistolRef} position={[0.02, -0.58, -0.10]} visible={false}>
+        <group ref={pistolRef} position={[0.02, -0.64, -0.10]} visible={false}>
           {/* Grip */}
-          <mesh position={[0, 0, 0]}>
+          <mesh>
             <boxGeometry args={[0.07, 0.14, 0.07]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
-          {/* Barrel */}
-          <mesh position={[0, 0.04, -0.10]}>
-            <boxGeometry args={[0.05, 0.06, 0.18]} />
+          {/* Slide / barrel */}
+          <mesh position={[0, 0.06, -0.09]}>
+            <boxGeometry args={[0.055, 0.055, 0.20]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Trigger guard */}
+          <mesh position={[0, -0.04, -0.05]}>
+            <boxGeometry args={[0.03, 0.025, 0.09]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Front sight */}
+          <mesh position={[0, 0.095, -0.185]}>
+            <boxGeometry args={[0.015, 0.02, 0.01]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
         </group>
 
         {/* Deagle */}
-        <group ref={deagleRef} position={[0.02, -0.58, -0.10]} visible={false}>
+        <group ref={deagleRef} position={[0.02, -0.64, -0.10]} visible={false}>
           {/* Grip */}
-          <mesh position={[0, 0, 0]}>
-            <boxGeometry args={[0.08, 0.16, 0.08]} />
+          <mesh>
+            <boxGeometry args={[0.08, 0.17, 0.08]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
-          {/* Barrel (longer/heftier) */}
-          <mesh position={[0, 0.05, -0.13]}>
-            <boxGeometry args={[0.06, 0.07, 0.24]} />
+          {/* Slide / barrel (heftier) */}
+          <mesh position={[0, 0.07, -0.13]}>
+            <boxGeometry args={[0.065, 0.07, 0.26]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Trigger guard */}
+          <mesh position={[0, -0.04, -0.06]}>
+            <boxGeometry args={[0.03, 0.025, 0.10]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Rear sight */}
+          <mesh position={[0, 0.11, 0.00]}>
+            <boxGeometry args={[0.055, 0.025, 0.02]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Front sight */}
+          <mesh position={[0, 0.11, -0.245]}>
+            <boxGeometry args={[0.015, 0.025, 0.01]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
         </group>
 
         {/* AK-47 */}
-        <group ref={ak47Ref} position={[0.02, -0.52, -0.14]} visible={false}>
+        <group ref={ak47Ref} position={[0.02, -0.58, -0.14]} visible={false}>
           {/* Stock */}
-          <mesh position={[0, 0, 0.20]}>
-            <boxGeometry args={[0.06, 0.10, 0.22]} />
+          <mesh position={[0, 0, 0.21]}>
+            <boxGeometry args={[0.06, 0.10, 0.24]} />
             <meshStandardMaterial color={WOOD} />
           </mesh>
-          {/* Body */}
+          {/* Stock cheek rest */}
+          <mesh position={[0, 0.06, 0.18]}>
+            <boxGeometry args={[0.06, 0.04, 0.16]} />
+            <meshStandardMaterial color={WOOD} />
+          </mesh>
+          {/* Receiver body */}
           <mesh position={[0, 0.02, 0]}>
             <boxGeometry args={[0.07, 0.10, 0.28]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
+          {/* Handguard (wood) */}
+          <mesh position={[0, 0.00, -0.17]}>
+            <boxGeometry args={[0.065, 0.08, 0.16]} />
+            <meshStandardMaterial color={WOOD} />
+          </mesh>
           {/* Barrel */}
-          <mesh position={[0, 0.03, -0.26]}>
-            <boxGeometry args={[0.04, 0.05, 0.28]} />
+          <mesh position={[0, 0.03, -0.30]}>
+            <boxGeometry args={[0.035, 0.04, 0.32]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
-          {/* Mag */}
+          {/* Gas tube */}
+          <mesh position={[0, 0.07, -0.20]}>
+            <boxGeometry args={[0.025, 0.025, 0.22]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Magazine */}
           <mesh position={[0, -0.09, 0.04]}>
-            <boxGeometry args={[0.05, 0.14, 0.07]} />
+            <boxGeometry args={[0.05, 0.16, 0.07]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Front sight post */}
+          <mesh position={[0, 0.075, -0.455]}>
+            <boxGeometry args={[0.03, 0.06, 0.03]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
         </group>
 
         {/* Shotgun */}
-        <group ref={shotgunRef} position={[0.02, -0.52, -0.14]} visible={false}>
+        <group ref={shotgunRef} position={[0.02, -0.58, -0.14]} visible={false}>
           {/* Stock */}
-          <mesh position={[0, 0, 0.22]}>
-            <boxGeometry args={[0.07, 0.10, 0.24]} />
+          <mesh position={[0, 0, 0.24]}>
+            <boxGeometry args={[0.07, 0.11, 0.26]} />
             <meshStandardMaterial color={WOOD} />
           </mesh>
-          {/* Body */}
-          <mesh position={[0, 0.01, 0]}>
-            <boxGeometry args={[0.09, 0.09, 0.30]} />
+          {/* Receiver */}
+          <mesh position={[0, 0.01, 0.04]}>
+            <boxGeometry args={[0.09, 0.09, 0.22]} />
             <meshStandardMaterial color={WOOD} />
           </mesh>
-          {/* Barrel (wide double) */}
-          <mesh position={[0, 0.03, -0.28]}>
-            <boxGeometry args={[0.08, 0.06, 0.30]} />
+          {/* Pump handguard */}
+          <mesh position={[0, -0.01, -0.10]}>
+            <boxGeometry args={[0.085, 0.07, 0.14]} />
+            <meshStandardMaterial color={WOOD} />
+          </mesh>
+          {/* Double barrel */}
+          <mesh position={[0.022, 0.025, -0.28]}>
+            <boxGeometry args={[0.03, 0.06, 0.30]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          <mesh position={[-0.022, 0.025, -0.28]}>
+            <boxGeometry args={[0.03, 0.06, 0.30]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Shell tube under barrel */}
+          <mesh position={[0, -0.03, -0.14]}>
+            <boxGeometry args={[0.04, 0.04, 0.26]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
         </group>
 
         {/* Knife */}
-        <group ref={knifeRef} position={[0.02, -0.58, -0.08]} visible={false}>
-          {/* Handle */}
-          <mesh position={[0, 0, 0]}>
-            <boxGeometry args={[0.06, 0.06, 0.14]} />
+        <group ref={knifeRef} position={[0.02, -0.64, -0.08]} visible={false}>
+          {/* Handle / wrap */}
+          <mesh>
+            <boxGeometry args={[0.06, 0.06, 0.15]} />
             <meshStandardMaterial color={WOOD} />
           </mesh>
+          {/* Crossguard */}
+          <mesh position={[0, 0.01, -0.09]}>
+            <boxGeometry args={[0.11, 0.03, 0.03]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
           {/* Blade */}
-          <mesh position={[0, 0.01, -0.13]}>
-            <boxGeometry args={[0.03, 0.05, 0.18]} />
+          <mesh position={[0, 0.005, -0.20]}>
+            <boxGeometry args={[0.025, 0.055, 0.22]} />
+            <meshStandardMaterial color={METAL} />
+          </mesh>
+          {/* Blade spine (top ridge) */}
+          <mesh position={[0, 0.03, -0.20]}>
+            <boxGeometry args={[0.01, 0.015, 0.20]} />
             <meshStandardMaterial color={METAL} />
           </mesh>
         </group>
@@ -310,14 +503,39 @@ export default function RemotePlayer() {
           <boxGeometry args={[0.16, 0.34, 0.18]} />
           <meshStandardMaterial color={PANTS} />
         </mesh>
-        {/* Shin */}
-        <mesh position={[0, -0.46, 0]}>
-          <boxGeometry args={[0.14, 0.28, 0.16]} />
+        {/* Cargo pocket on thigh */}
+        <mesh position={[-0.085, -0.22, 0]}>
+          <boxGeometry args={[0.015, 0.12, 0.12]} />
+          <meshStandardMaterial color={BELT} />
+        </mesh>
+        {/* Knee cap */}
+        <mesh position={[0, -0.355, -0.092]}>
+          <boxGeometry args={[0.13, 0.07, 0.04]} />
           <meshStandardMaterial color={PANTS} />
         </mesh>
-        {/* Boot */}
-        <mesh position={[0, -0.66, 0.03]}>
+        {/* Shin */}
+        <mesh position={[0, -0.47, 0]}>
+          <boxGeometry args={[0.13, 0.27, 0.15]} />
+          <meshStandardMaterial color={PANTS} />
+        </mesh>
+        {/* Boot upper */}
+        <mesh position={[0, -0.665, 0.025]}>
           <boxGeometry args={[0.15, 0.10, 0.22]} />
+          <meshStandardMaterial color={BOOTS} />
+        </mesh>
+        {/* Boot tongue detail */}
+        <mesh position={[0, -0.64, -0.105]}>
+          <boxGeometry args={[0.10, 0.06, 0.02]} />
+          <meshStandardMaterial color={BOOTS} />
+        </mesh>
+        {/* Boot sole */}
+        <mesh position={[0, -0.724, 0.025]}>
+          <boxGeometry args={[0.17, 0.03, 0.25]} />
+          <meshStandardMaterial color={SOLE} />
+        </mesh>
+        {/* Boot heel block */}
+        <mesh position={[0, -0.695, 0.122]}>
+          <boxGeometry args={[0.14, 0.055, 0.055]} />
           <meshStandardMaterial color={BOOTS} />
         </mesh>
       </group>
@@ -329,14 +547,39 @@ export default function RemotePlayer() {
           <boxGeometry args={[0.16, 0.34, 0.18]} />
           <meshStandardMaterial color={PANTS} />
         </mesh>
-        {/* Shin */}
-        <mesh position={[0, -0.46, 0]}>
-          <boxGeometry args={[0.14, 0.28, 0.16]} />
+        {/* Cargo pocket on thigh */}
+        <mesh position={[0.085, -0.22, 0]}>
+          <boxGeometry args={[0.015, 0.12, 0.12]} />
+          <meshStandardMaterial color={BELT} />
+        </mesh>
+        {/* Knee cap */}
+        <mesh position={[0, -0.355, -0.092]}>
+          <boxGeometry args={[0.13, 0.07, 0.04]} />
           <meshStandardMaterial color={PANTS} />
         </mesh>
-        {/* Boot */}
-        <mesh position={[0, -0.66, 0.03]}>
+        {/* Shin */}
+        <mesh position={[0, -0.47, 0]}>
+          <boxGeometry args={[0.13, 0.27, 0.15]} />
+          <meshStandardMaterial color={PANTS} />
+        </mesh>
+        {/* Boot upper */}
+        <mesh position={[0, -0.665, 0.025]}>
           <boxGeometry args={[0.15, 0.10, 0.22]} />
+          <meshStandardMaterial color={BOOTS} />
+        </mesh>
+        {/* Boot tongue detail */}
+        <mesh position={[0, -0.64, -0.105]}>
+          <boxGeometry args={[0.10, 0.06, 0.02]} />
+          <meshStandardMaterial color={BOOTS} />
+        </mesh>
+        {/* Boot sole */}
+        <mesh position={[0, -0.724, 0.025]}>
+          <boxGeometry args={[0.17, 0.03, 0.25]} />
+          <meshStandardMaterial color={SOLE} />
+        </mesh>
+        {/* Boot heel block */}
+        <mesh position={[0, -0.695, 0.122]}>
+          <boxGeometry args={[0.14, 0.055, 0.055]} />
           <meshStandardMaterial color={BOOTS} />
         </mesh>
       </group>
