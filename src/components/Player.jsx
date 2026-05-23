@@ -74,6 +74,10 @@ export default function Player() {
   const boardTimerRef = useRef(0)
   const boardingWindowRef = useRef(-1)
   const skipTimerRef = useRef(0)
+  const paused = useGameStore((s) => s.paused)
+  const pausedRef = useRef(false)
+  useEffect(() => { pausedRef.current = paused }, [paused])
+
   const shopOpenRef = useRef(false)
   const nearChestRef = useRef(false)
   const mouseHeldRef = useRef(false)
@@ -133,7 +137,7 @@ export default function Player() {
       locked.current = document.pointerLockElement === gl.domElement
     }
     const onMouseMove = (e) => {
-      if (!locked.current) return
+      if (!locked.current || pausedRef.current) return
       yaw.current -= e.movementX * LOOK_SENSITIVITY
       pitch.current -= e.movementY * LOOK_SENSITIVITY
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
@@ -169,6 +173,7 @@ export default function Player() {
   }, [gl])
 
   const shoot = useCallback(() => {
+    if (pausedRef.current) return
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera({ x: 0, y: 0 }, camera)
 
@@ -344,7 +349,7 @@ export default function Player() {
 
   useFrame((_, delta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
-    if (shopOpen) return
+    if (shopOpen || pausedRef.current) return
 
     // Chest proximity
     {
