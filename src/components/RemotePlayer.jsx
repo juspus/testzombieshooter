@@ -112,16 +112,16 @@ export default function RemotePlayer() {
 
     // ── Walk animation ────────────────────────────────────────────────────
     const lp = lastPos.current
-    let speed = 0
     if (lp) {
       const dx = px - lp.x, dz = pz - lp.z
-      speed = Math.sqrt(dx * dx + dz * dz) / (1 / 30) // approx units/s
+      const dist = Math.sqrt(dx * dx + dz * dz)
+      if (dist > 0.008) {
+        walkPhase.current += dist * 1.4   // ~1.8 Hz at max walk speed
+      } else {
+        walkPhase.current *= 0.88         // damp to rest when standing still
+      }
     }
     lastPos.current = { x: px, z: pz }
-
-    const isWalking = speed > 0.2
-    if (isWalking) walkPhase.current += speed * 0.35
-    else walkPhase.current *= 0.85  // damp to 0 when still
 
     const swing = Math.sin(walkPhase.current)
     if (leftLegRef.current)  leftLegRef.current.rotation.x  =  swing * 0.38
