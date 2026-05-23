@@ -281,6 +281,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
   useFrame((_, delta) => {
     if (hidden || !ref.current) return
+    if (useGameStore.getState().paused) return
 
     // Death fall animation — plays regardless of phase
     if (dying) {

@@ -19,6 +19,20 @@ export default function NetManager() {
   const posTimer    = useRef(0)
   const zombieTimer = useRef(0)
 
+  // ── Pause game when host switches tabs ────────────────────────────────
+  useEffect(() => {
+    if (!mpConnected || mpRole !== 'host') return
+
+    const handleVisibility = () => {
+      const hidden = document.hidden
+      useGameStore.setState({ paused: hidden })
+      send('game_event', { event: hidden ? 'pause' : 'resume', data: {} })
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [mpConnected, mpRole])
+
   // ── Broadcast phase transitions ────────────────────────────────────────
   useEffect(() => {
     if (!mpConnected) return
@@ -186,6 +200,12 @@ function applyRemoteEvent(event, data) {
     }
     case 'skip_intermission':
       store.skipIntermission()
+      break
+    case 'pause':
+      useGameStore.setState({ paused: true })
+      break
+    case 'resume':
+      useGameStore.setState({ paused: false })
       break
     default:
       break

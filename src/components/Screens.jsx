@@ -18,6 +18,11 @@ export default function Screens() {
   const weapon = useGameStore((s) => s.weapon)
   const perks = useGameStore((s) => s.perks)
   const mpRole = useGameStore((s) => s.mpRole)
+  const paused = useGameStore((s) => s.paused)
+
+  if (paused && mpRole === 'guest') {
+    return <PausedOverlay />
+  }
 
   if (phase === 'start') {
     return <StartScreen startGame={startGame} />
@@ -689,6 +694,36 @@ async function copyGameLink(gameUrl) {
   input.select()
   document.execCommand('copy')
   input.remove()
+}
+
+function PausedOverlay() {
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'rgba(0,0,0,0.72)',
+      gap: 12,
+      fontFamily: 'Courier New, monospace',
+      pointerEvents: 'none',
+    }}>
+      <div style={{
+        fontSize: 52,
+        fontWeight: 'bold',
+        letterSpacing: 12,
+        color: '#ffe066',
+        textShadow: '0 0 30px rgba(255,224,102,0.5)',
+      }}>
+        PAUSED
+      </div>
+      <div style={{ color: '#888', fontSize: 13, letterSpacing: 4 }}>
+        HOST SWITCHED TABS
+      </div>
+    </div>
+  )
 }
 
 function Btn({ children, onClick }) {

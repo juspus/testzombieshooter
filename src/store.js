@@ -132,6 +132,7 @@ export const useGameStore = create((set, get) => ({
   wavePlanksLost: 0,
   waveStartPlanks: 0,
   lastWaveBonuses: null,
+  paused: false,
 
   startGame: () => {
     const wave = 1
@@ -168,6 +169,7 @@ export const useGameStore = create((set, get) => ({
       wavePlanksLost: 0,
       waveStartPlanks: 0,
       lastWaveBonuses: null,
+      paused: false,
     })
   },
 
@@ -298,7 +300,8 @@ export const useGameStore = create((set, get) => ({
   },
 
   tick: (delta, guestMode = false) => {
-    const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed } = get()
+    const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed, paused } = get()
+    if (paused) return
     if (phase === 'playing') {
       set({ waveElapsed: waveElapsed + delta })
       return

@@ -8,6 +8,7 @@ export default function ZombieManager() {
   const mpRole = useGameStore((s) => s.mpRole)
 
   useFrame((_, rawDelta) => {
+    if (useGameStore.getState().paused) return
     tick(Math.min(rawDelta, 0.05), mpRole === 'guest')
   })
 
