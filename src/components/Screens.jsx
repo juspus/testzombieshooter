@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
+import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 
 export default function Screens() {
   const phase = useGameStore((s) => s.phase)
@@ -16,18 +17,15 @@ export default function Screens() {
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
   const perks = useGameStore((s) => s.perks)
+  const mpRole = useGameStore((s) => s.mpRole)
+  const paused = useGameStore((s) => s.paused)
+
+  if (paused && mpRole === 'guest') {
+    return <PausedOverlay />
+  }
 
   if (phase === 'start') {
-    return (
-      <Overlay>
-        <Title>CABIN</Title>
-        <Sub>Survive the waves. Kill all zombies to advance.</Sub>
-        <Controls>
-          WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot
-        </Controls>
-        <Btn onClick={startGame}>START GAME</Btn>
-      </Overlay>
-    )
+    return <StartScreen startGame={startGame} />
   }
 
   if (phase === 'wave_clear') {
@@ -40,17 +38,27 @@ export default function Screens() {
   }
 
   if (phase === 'dead') {
-    return <YouDied onRestart={startGame} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} />
+    const handleRestart = () => {
+      startGame()
+      if (isConnected()) send('game_event', { event: 'start_game', data: {} })
+    }
+    return <YouDied onRestart={handleRestart} mpRole={mpRole} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} />
   }
 
   return null
 }
 
 function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
+  const mpRole = useGameStore((s) => s.mpRole)
   useEffect(() => {
-    const id = setTimeout(nextWave, 3200)
+    // Only host drives the wave transition; guest waits for host's game_event
+    if (mpRole === 'guest') return
+    const id = setTimeout(() => {
+      nextWave()
+      if (isConnected()) send('game_event', { event: 'next_wave', data: {} })
+    }, 3200)
     return () => clearTimeout(id)
-  }, [nextWave])
+  }, [nextWave, mpRole])
 
   return (
     <Overlay>
@@ -189,6 +197,199 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
   )
 }
 
+// ── Multiplayer lobby ──────────────────────────────────────────────────────
+
+function RoomCodeDisplay({ code }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(code).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ color: '#666', fontSize: 11, letterSpacing: 4, marginBottom: 6 }}>ROOM CODE</div>
+      <div
+        onClick={handleCopy}
+        title="Click to copy"
+        style={{
+          color: copied ? '#88cc44' : '#ffe066',
+          fontSize: 36,
+          fontFamily: 'Courier New, monospace',
+          letterSpacing: 10,
+          textShadow: copied
+            ? '0 0 20px rgba(136,204,68,0.6)'
+            : '0 0 20px rgba(255,224,102,0.5)',
+          cursor: 'pointer',
+          userSelect: 'all',
+          padding: '6px 14px',
+          border: `1px solid ${copied ? 'rgba(136,204,68,0.4)' : 'rgba(255,224,102,0.2)'}`,
+          borderRadius: 4,
+          transition: 'color 0.2s, text-shadow 0.2s, border-color 0.2s',
+        }}
+      >
+        {code}
+      </div>
+      <div style={{ color: copied ? '#88cc44' : '#555', fontSize: 11, letterSpacing: 3, marginTop: 6, transition: 'color 0.2s' }}>
+        {copied ? 'COPIED!' : 'CLICK TO COPY'}
+      </div>
+    </div>
+  )
+}
+
+function StartScreen({ startGame }) {
+  const [view, setView] = useState('main') // 'main' | 'host' | 'join'
+  const [roomCode, setRoomCode] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [status, setStatus] = useState('')
+  const [connected, setConnected] = useState(false)
+  const [mpRole, setMpRoleLocal] = useState(null)
+
+  const setMpRole = useGameStore((s) => s.setMpRole)
+  const setMpConnected = useGameStore((s) => s.setMpConnected)
+
+  const onDisconnected = useCallback(() => {
+    setConnected(false)
+    setStatus('Disconnected.')
+    setMpConnected(false)
+    useGameStore.getState().clearMp()
+  }, [setMpConnected])
+
+  const handleHost = useCallback(() => {
+    setView('host')
+    setStatus('Generating room code…')
+    setMpRoleLocal('host')
+    setMpRole('host')
+    createRoom(
+      (code) => {
+        setRoomCode(code)
+        navigator.clipboard?.writeText(code).catch(() => {})
+        setStatus('Code copied to clipboard — share with Player 2')
+      },
+      () => {
+        setConnected(true)
+        setStatus('Player 2 connected!')
+        setMpConnected(true)
+      },
+      onDisconnected,
+    )
+  }, [setMpRole, setMpConnected, onDisconnected])
+
+  const handleJoin = useCallback(() => {
+    if (!joinCode.trim()) return
+    setStatus('Connecting…')
+    setMpRoleLocal('guest')
+    setMpRole('guest')
+    joinRoom(
+      joinCode.trim(),
+      () => {
+        setConnected(true)
+        setStatus('Connected! Host will start the game.')
+        setMpConnected(true)
+        // Guests don't call startGame — they wait for the host's start_game event
+      },
+      (err) => {
+        setStatus(`Failed: ${err?.type ?? 'connection error'}`)
+        useGameStore.getState().clearMp()
+      },
+      onDisconnected,
+    )
+  }, [joinCode, setMpRole, setMpConnected, onDisconnected])
+
+  const handleStartGame = useCallback(() => {
+    startGame()
+    if (isConnected()) send('game_event', { event: 'start_game', data: {} })
+  }, [startGame])
+
+  const handleBack = useCallback(() => {
+    disconnect()
+    setView('main')
+    setRoomCode('')
+    setJoinCode('')
+    setStatus('')
+    setConnected(false)
+    setMpRoleLocal(null)
+    useGameStore.getState().clearMp()
+  }, [])
+
+  return (
+    <Overlay>
+      <Title>CABIN</Title>
+      <Sub>Survive the waves. Kill all zombies to advance.</Sub>
+      <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>
+
+      {view === 'main' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
+          <Btn onClick={startGame}>SOLO</Btn>
+          <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Btn onClick={handleHost}>HOST GAME</Btn>
+            <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
+          </div>
+        </div>
+      )}
+
+      {view === 'host' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
+          <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
+          {connected && <Btn onClick={handleStartGame}>START GAME</Btn>}
+          <BackBtn onClick={handleBack} />
+        </div>
+      )}
+
+      {view === 'join' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          <input
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]/g, '').slice(0, 5))}
+            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+            placeholder="XXXXX"
+            maxLength={5}
+            style={{
+              background: 'rgba(0,0,0,0.6)',
+              border: '1px solid #555',
+              color: '#ffe066',
+              padding: '10px 16px',
+              fontSize: 20,
+              letterSpacing: 6,
+              fontFamily: 'Courier New, monospace',
+              textAlign: 'center',
+              outline: 'none',
+              width: 280,
+            }}
+          />
+          {status && <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>}
+          {!connected && <Btn onClick={handleJoin}>CONNECT</Btn>}
+          <BackBtn onClick={handleBack} />
+        </div>
+      )}
+    </Overlay>
+  )
+}
+
+function BackBtn({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: 'transparent',
+        border: 'none',
+        color: '#555',
+        fontSize: 12,
+        letterSpacing: 3,
+        fontFamily: 'Courier New, monospace',
+        cursor: 'pointer',
+        marginTop: 4,
+      }}
+    >
+      ← BACK
+    </button>
+  )
+}
+
 function Overlay({ children, dim = 0.78 }) {
   return (
     <div style={{
@@ -255,7 +456,7 @@ function Controls({ children }) {
   )
 }
 
-function YouDied({ onRestart, wave, kills, money, weapon, perks }) {
+function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
@@ -373,9 +574,25 @@ function YouDied({ onRestart, wave, kills, money, weapon, perks }) {
           <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
             Share Run
           </DeathButton>
-          <DeathButton onClick={onRestart}>
-            Start New Game
-          </DeathButton>
+          {mpRole === 'guest' ? (
+            <div style={{
+              padding: '14px 36px',
+              minWidth: 210,
+              border: '1px solid rgba(180,0,0,0.3)',
+              color: 'rgba(150,150,150,0.6)',
+              fontSize: 13,
+              letterSpacing: 3,
+              fontFamily: 'Courier New, monospace',
+              textAlign: 'center',
+              textTransform: 'uppercase',
+            }}>
+              Waiting for host…
+            </div>
+          ) : (
+            <DeathButton onClick={onRestart}>
+              Start New Game
+            </DeathButton>
+          )}
         </div>
         <div style={{
           minHeight: 18,
@@ -477,6 +694,36 @@ async function copyGameLink(gameUrl) {
   input.select()
   document.execCommand('copy')
   input.remove()
+}
+
+function PausedOverlay() {
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'rgba(0,0,0,0.72)',
+      gap: 12,
+      fontFamily: 'Courier New, monospace',
+      pointerEvents: 'none',
+    }}>
+      <div style={{
+        fontSize: 52,
+        fontWeight: 'bold',
+        letterSpacing: 12,
+        color: '#ffe066',
+        textShadow: '0 0 30px rgba(255,224,102,0.5)',
+      }}>
+        PAUSED
+      </div>
+      <div style={{ color: '#888', fontSize: 13, letterSpacing: 4 }}>
+        HOST SWITCHED TABS
+      </div>
+    </div>
+  )
 }
 
 function Btn({ children, onClick }) {

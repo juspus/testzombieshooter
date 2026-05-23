@@ -13,6 +13,8 @@ import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
 import ForestSkybox from './ForestSkybox'
+import RemotePlayer from './RemotePlayer'
+import NetManager from './NetManager'
 
 export default function Game() {
   const phase = useGameStore((s) => s.phase)
@@ -51,6 +53,8 @@ export default function Game() {
         <ZombieManager />
         <BulletTrails />
         <ShellCasings />
+        <RemotePlayer />
+        <NetManager />
       </Canvas>
 
       {isActive && <HUD />}

@@ -5,9 +5,11 @@ import ZombieComponent from './Zombie'
 export default function ZombieManager() {
   const zombies = useGameStore((s) => s.zombies)
   const tick = useGameStore((s) => s.tick)
+  const mpRole = useGameStore((s) => s.mpRole)
 
   useFrame((_, rawDelta) => {
-    tick(Math.min(rawDelta, 0.05))
+    if (useGameStore.getState().paused) return
+    tick(Math.min(rawDelta, 0.05), mpRole === 'guest')
   })
 
   return (

@@ -5,6 +5,7 @@ import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
 import { playZombieFootstep, playPlankHit, playScreamerScreech } from '../sounds'
+import { getRemotePlayerPos } from './RemotePlayer'
 import * as THREE from 'three'
 
 const _geoCache = new Map()
@@ -75,8 +76,27 @@ const _moveDir = new THREE.Vector3()
 const _holeAdders = {}
 // Position registry so zombies can compare distances to windows
 const _zombieGroups = {}
+// Guest-mode position corrections sent by host (id → { x, z })
+const _guestPositions = {}
+
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
+
+// Called by NetManager on host to collect current zombie positions for broadcast
+export function getZombiePositions() {
+  const out = {}
+  for (const [id, group] of Object.entries(_zombieGroups)) {
+    out[id] = { x: group.position.x, z: group.position.z }
+  }
+  return out
+}
+
+// Called by NetManager on guest to apply host's authoritative positions
+export function applyRemoteZombiePositions(posMap) {
+  for (const [id, pos] of Object.entries(posMap)) {
+    _guestPositions[id] = pos
+  }
+}
 
 // Static zombie colors (shared across all instances)
 const pants     = '#18180f'
@@ -261,6 +281,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
   useFrame((_, delta) => {
     if (hidden || !ref.current) return
+    if (useGameStore.getState().paused) return
 
     // Death fall animation — plays regardless of phase
     if (dying) {
@@ -296,7 +317,22 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
     if (phase !== 'playing') return
     const pos = ref.current.position
-    const px = camera.position.x, pz = camera.position.z
+
+    // Local player position (also used for kill detection — always local)
+    const lx = camera.position.x, lz = camera.position.z
+
+    // Pick the closest player as the chase/face target
+    const rp = getRemotePlayerPos()
+    let px, pz
+    if (rp) {
+      const dl2 = (pos.x - lx) ** 2 + (pos.z - lz) ** 2
+      const dr2 = (pos.x - rp.x) ** 2 + (pos.z - rp.z) ** 2
+      px = dr2 < dl2 ? rp.x : lx
+      pz = dr2 < dl2 ? rp.z : lz
+    } else {
+      px = lx; pz = lz
+    }
+
     const planks = windowPlanksRef.current
 
     // Revert attack mode if the target plank was destroyed or zombie entered the cabin
@@ -389,7 +425,10 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
-          for (let i = 0; i < archetype.plankHits; i++) hitPlank(win.id)
+          // Only host applies plank damage (prevents double-damage in multiplayer)
+          if (!useGameStore.getState().mpRole || useGameStore.getState().mpRole === 'host') {
+            for (let i = 0; i < archetype.plankHits; i++) hitPlank(win.id)
+          }
           playPlankHit()
         }
       } else {
@@ -434,8 +473,8 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       const step = speed * speedMultiplier * delta
       applyMove(pos, moveDir.x * step, moveDir.z * step, zombieWallsRef.current)
 
-      // Footstep sound — only when close enough for player to hear
-      const sdx = px - pos.x, sdz = pz - pos.z
+      // Footstep sound — proximity to local player's ears
+      const sdx = lx - pos.x, sdz = lz - pos.z
       if (sdx * sdx + sdz * sdz < 144) {
         stepTimerRef.current -= delta
         if (stepTimerRef.current <= 0) {
@@ -467,8 +506,27 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
     }
 
-    const dx = px - pos.x, dz = pz - pos.z
-    if (dx * dx + dz * dz < KILL_DISTANCE * KILL_DISTANCE) die()
+    // Converge toward host's authoritative position (guest mode)
+    const gp = _guestPositions[id]
+    if (gp) {
+      const ex = gp.x - pos.x, ez = gp.z - pos.z
+      const err = Math.sqrt(ex * ex + ez * ez)
+      if (err > 2.0) {
+        // Large divergence — snap immediately (teleport / respawn edge case)
+        pos.x = gp.x
+        pos.z = gp.z
+      } else {
+        // Time-based exponential convergence: ~80% of error closed per 100ms
+        // independent of frame rate (unlike a fixed 0.25/frame)
+        const f = Math.min(1, delta * 16)
+        pos.x += ex * f
+        pos.z += ez * f
+      }
+    }
+
+    // Kill detection: local player only — remote machine handles its own player
+    const kdx = lx - pos.x, kdz = lz - pos.z
+    if (kdx * kdx + kdz * kdz < KILL_DISTANCE * KILL_DISTANCE) die()
   })
 
   const colors = getZombieColors(type, health, archetype.health)
