@@ -20,18 +20,26 @@ src/
 ├── store.js                   # All game state + actions (Zustand)
 ├── cabin.js                   # Cabin dimension constants + window/door defs
 ├── walls.js                   # Wall segment geometry for pathfinding grid
+├── sounds.js                  # Audio helpers
+├── net.js                     # WebSocket multiplayer networking
 └── components/
     ├── Game.jsx               # Canvas setup, fog, scene root
     ├── Arena.jsx              # Full cabin interior + lighting + Roof component
     ├── ForestSkybox.jsx       # Single cylinder with baked panorama texture
-    ├── Player.jsx             # Pointer-lock camera, WASD, raycasting shoot
+    ├── Player.jsx             # Pointer-lock camera, WASD, raycasting shoot, scroll weapon switch
+    ├── Gun.jsx                # 3-D gun models (Pistol, AK-47, Desert Eagle, Shotgun)
+    ├── Knife.jsx              # Melee knife model + swing animation
     ├── Zombie.jsx             # Single zombie mesh + AI + animation
     ├── ZombieManager.jsx      # Renders all live zombies + shader warmer
     ├── BulletTrails.jsx
     ├── ShellCasings.jsx
+    ├── BulletPickups.jsx      # Ammo crates that spawn during waves
     ├── HUD.jsx
     ├── Shop.jsx
-    └── Screens.jsx
+    ├── Screens.jsx            # Start / Wave Cleared / Intermission / YOU DIED
+    ├── Walls.jsx              # Visible wall geometry
+    ├── NetManager.jsx         # Multiplayer event bus
+    └── RemotePlayer.jsx       # Ghost mesh for the co-op partner
 ```
 
 ### Cabin dimensions (cabin.js)
@@ -43,6 +51,72 @@ WALL_T   = 0.3  // wall thickness
 WIN_Y0   = 0.5  // window sill height
 WIN_Y1   = 2.0  // window lintel height
 ```
+
+---
+
+## Weapon & ammo system
+
+### Weapons
+| Weapon | Caliber | Clip | Cost | Fire mode | Notes |
+|---|---|---|---|---|---|
+| Pistol | 9mm | 10 | free | Semi-auto | Starting weapon |
+| Pump Shotgun | 12ga | 8 | €150 | Pump | 12 pellets/shot, 0.5 s cooldown |
+| AK-47 | 5.45mm | 30 | €270 | Full-auto | 10 rds/s while mouse held |
+| Desert Eagle | .50 AE | 7 | €700 | Semi-auto | Instant kill, pierces up to 3 targets |
+
+### Caliber constants (store.js)
+```js
+export const CALIBER_LABELS = {
+  pistol:  '9mm',
+  ak47:    '5.45mm',
+  shotgun: '12ga',
+  deagle:  '.50 AE',
+}
+export const ALL_WEAPONS = ['pistol', 'shotgun', 'ak47', 'deagle']
+```
+
+### Per-weapon ammo pools
+Each weapon keeps its own clip and reserve independently. The active weapon's
+live ammo lives in `bulletsInClip` / `reserveBullets`; inactive weapons' ammo
+is parked in the `savedClips` / `savedReserves` maps.
+
+```js
+// Store state (relevant fields)
+weapon:        'pistol'   // currently equipped
+ownedWeapons:  ['pistol'] // grows as weapons are purchased
+savedClips:    { pistol: 0, ak47: 0, shotgun: 0, deagle: 0 }
+savedReserves: { pistol: 0, ak47: 0, shotgun: 0, deagle: 0 }
+bulletsInClip: 10         // active weapon's clip (live)
+reserveBullets: 25        // active weapon's reserve (live)
+```
+
+### switchWeapon(nextWeapon)
+Saves the active weapon's clip/reserve into `savedClips`/`savedReserves`,
+loads the target weapon's saved values into `bulletsInClip`/`reserveBullets`,
+and sets `isReloading: false`. `Player.jsx` also resets `reloadTimer.current = 0`
+via a `useEffect` on `weapon`.
+
+### Weapon switching — scroll wheel
+`Player.jsx` listens to `wheel` on `document` (passive). Scroll down = next
+weapon in `ownedWeapons`, scroll up = previous. Ignored when the shop is open
+or pointer lock is not held. The HUD shows the "Scroll — switch" hint only when
+2+ weapons are owned.
+
+### Buying a weapon (buyItem)
+Saves the current weapon's clip/reserve, immediately switches to the purchased
+weapon (full clip, 0 reserve), and appends it to `ownedWeapons`. Buying a
+weapon you already own is blocked.
+
+### Ammo Pack
+Adds to `reserveBullets` (the active weapon's reserve). The shop description
+dynamically shows the active weapon's caliber. Deep Pockets perk raises the
+pack amount from +20 to +30 rounds.
+
+### Ammo crate pickups (BulletPickups.jsx)
+During a wave, glowing ammo crates spawn every 10 s at one of four interior
+corners (`±5.5, 0, ±7.5`). At most one crate per corner at a time. Walking
+within 1.8 units auto-collects it and adds +10 rounds to the active weapon's
+reserve via `addBullets()` in the store.
 
 ---
 
@@ -163,9 +237,33 @@ Total: 1 shadow-casting light. Point light shadow maps are cube maps (6 render p
 
 ---
 
+## Economy
+
+| Source | Amount |
+|---|---|
+| Starting money | €10 |
+| Wave clear (base) | €15 |
+| Per kill | €1 |
+| Headshot kill bonus | €0.50 |
+| Knife kill bonus | €2 |
+| No planks lost bonus | €10 (requires pre-wave planks) |
+| Fast clear bonus | €8 (finish under par time) |
+
+---
+
+## Multiplayer (co-op)
+
+Two-player co-op over WebSocket (`net.js`). One player is **host**, one is **guest**.
+- Host drives wave spawning, zombie logic, and wave-clear detection
+- Guest receives `wave_start` / `hit_zombie` / `add_plank` events and stays in sync
+- `NetManager.jsx` handles the event bus; `RemotePlayer.jsx` renders the partner
+- Store fields: `mpRole`, `mpConnected`, `remotePlayer`, `roomCode`
+
+---
+
 ## Known performance notes
 
 - Each unique material config = one WebGL shader program. Avoid adding new `transparent`, `metalness`, or `envMap` combinations to materials that mount/unmount frequently.
 - `meshBasicMaterial` skips all lighting — use it for skybox, UI planes, purely decorative non-lit geometry.
-- `scene.traverseVisible()` is called every frame for the shadow map. Every node with `castShadow=true` adds a shadow draw call. The Arena has ~43 `castShadow` meshes; keep zombie count at 6 per zombie.
+- `scene.traverseVisible()` is called every frame for the shadow map. Every node with `castShadow=true` adds a shadow draw call. The Arena has ~43 `castShadow` meshes; keep zombie shadow casters at 6 per zombie.
 - The geometry cache in `Zombie.jsx` is module-level (singleton). It is never cleared. This is intentional.
