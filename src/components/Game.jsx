@@ -48,7 +48,11 @@ function ForceRenderOnShopOpen() {
   const shopOpen = useGameStore((s) => s.shopOpen)
   const { gl, scene, camera } = useThree()
   useLayoutEffect(() => {
-    if (shopOpen) gl.render(scene, camera)
+    if (shopOpen) {
+      console.log('[ForceRender] shopOpen=true → calling gl.render at', performance.now().toFixed(1))
+      gl.render(scene, camera)
+      console.log('[ForceRender] gl.render done at', performance.now().toFixed(1))
+    }
   }, [shopOpen, gl, scene, camera])
   return null
 }
@@ -84,14 +88,25 @@ export default function Game() {
         style={{ width: '100%', height: '100%', willChange: 'transform' }}
         resize={{ polyfill: FilteredResizeObserver }}
         onCreated={({ gl }) => {
+          // LOG: WebGL context loss
+          gl.domElement.addEventListener('webglcontextlost', (e) => {
+            console.error('[WebGL] context LOST', e.statusMessage)
+            e.preventDefault()
+          })
+          gl.domElement.addEventListener('webglcontextrestored', () => {
+            console.log('[WebGL] context restored')
+          })
+
           // Secondary guard: block setSize() calls that aren't genuine resizes.
           const _setSize = gl.setSize.bind(gl)
           gl.setSize = (w, h, updateStyle) => {
             const dpr = gl.getPixelRatio()
             const cw = gl.domElement.width / dpr
             const ch = gl.domElement.height / dpr
-            if (Math.abs(w - cw) < 1 && Math.abs(h - ch) < 1) return
-            if (Math.abs(w - cw) < 1 && Math.abs(h - ch) / ch < 0.15) return
+            const blocked = (Math.abs(w - cw) < 1 && Math.abs(h - ch) < 1) ||
+                            (Math.abs(w - cw) < 1 && Math.abs(h - ch) / ch < 0.15)
+            console.log(`[setSize] ${cw}x${ch} → ${w}x${h} ${blocked ? 'BLOCKED' : 'ALLOWED'}`)
+            if (blocked) return
             _setSize(w, h, updateStyle)
           }
         }}
