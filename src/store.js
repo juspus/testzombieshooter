@@ -113,7 +113,7 @@ const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0 }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
-  money: 10,
+  money: 10000,
   weapon: 'pistol',        // currently equipped weapon
   ownedWeapons: ['pistol'], // all purchased weapons (determines scroll-cycle pool)
   // Per-weapon ammo saved when the weapon is not active.
@@ -159,7 +159,7 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
-      money: 10,
+      money: 10000,
       weapon: 'pistol',
       ownedWeapons: ['pistol'],
       savedClips:    { ...EMPTY_SAVED },
