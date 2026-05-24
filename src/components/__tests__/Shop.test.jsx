@@ -15,6 +15,7 @@ vi.mock('../../store', () => ({
     runners_breath: 300, carpenter: 200, knife_mastery: 300,
   },
   STRONG_PLANK_COST: 25,
+  CALIBER_LABELS: { pistol: '9mm', ak47: '7.62mm', deagle: '.50 AE', shotgun: '12ga' },
 }))
 
 function makeStore(overrides = {}) {
@@ -25,6 +26,7 @@ function makeStore(overrides = {}) {
     buyPerk: vi.fn(),
     money: 500,
     weapon: 'pistol',
+    ownedWeapons: ['pistol'],
     perks: {},
     strongPlanksMode: false,
     toggleStrongPlanksMode: vi.fn(),

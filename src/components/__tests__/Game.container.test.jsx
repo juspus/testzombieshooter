@@ -17,9 +17,12 @@ vi.mock('../HUD', () => ({ default: () => null }))
 vi.mock('../Screens', () => ({ default: () => null }))
 vi.mock('../Shop', () => ({ default: () => null }))
 vi.mock('../ForestSkybox', () => ({ default: () => null }))
+vi.mock('../RemotePlayer', () => ({ default: () => null }))
+vi.mock('../NetManager', () => ({ default: () => null }))
 vi.mock('../MobileControls', () => ({ default: () => null }))
 vi.mock('../../useMobileViewport', () => ({ default: () => {} }))
 vi.mock('../../sounds', () => ({ startEerieMusic: vi.fn(), stopEerieMusic: vi.fn() }))
+vi.mock('../../net', () => ({ send: vi.fn(), isConnected: vi.fn(() => false), disconnect: vi.fn() }))
 vi.mock('../../store', () => ({
   useGameStore: vi.fn((sel) => sel({ phase: 'menu' })),
 }))
