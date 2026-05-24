@@ -67,7 +67,7 @@ export default function Game() {
   // Release pointer lock only when leaving active gameplay entirely
   useEffect(() => {
     if (!isActive && document.pointerLockElement) {
-      document.exitPointerLock()
+      document.exitPointerLock?.()
     }
   }, [isActive])
 
@@ -85,13 +85,14 @@ export default function Game() {
         shadows
         gl={{ preserveDrawingBuffer: true }}
         camera={{ fov: 75, near: 0.1, far: 200 }}
-        style={{ width: '100%', height: '100%', willChange: 'transform' }}
+        style={{ width: '100%', height: '100%' }}
         resize={{ polyfill: FilteredResizeObserver }}
         onCreated={({ gl }) => {
-          // LOG: WebGL context loss
+          // iOS rarely restores WebGL contexts — reload is better than a permanent black screen.
           gl.domElement.addEventListener('webglcontextlost', (e) => {
-            console.error('[WebGL] context LOST', e.statusMessage)
+            console.error('[WebGL] context LOST — reloading')
             e.preventDefault()
+            setTimeout(() => window.location.reload(), 100)
           })
           gl.domElement.addEventListener('webglcontextrestored', () => {
             console.log('[WebGL] context restored')

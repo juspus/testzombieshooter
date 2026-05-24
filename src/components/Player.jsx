@@ -132,7 +132,7 @@ export default function Player() {
   // Sync shopOpen ref and manage pointer lock
   useEffect(() => {
     shopOpenRef.current = shopOpen
-    if (shopOpen) document.exitPointerLock()
+    if (shopOpen) document.exitPointerLock?.()
   }, [shopOpen])
 
   const requestLock = useCallback(() => {
