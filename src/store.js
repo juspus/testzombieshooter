@@ -14,6 +14,16 @@ const SHOTGUN_COST = 150
 const AMMO_PACK_COST = 10
 const AMMO_PACK_AMOUNT = 20
 const DEEP_POCKETS_AMMO_PACK_AMOUNT = 30
+
+export const CALIBER_LABELS = {
+  pistol: '9mm',
+  ak47: '5.45mm',
+  shotgun: '12ga',
+  deagle: '.50 AE',
+}
+
+// Ordered list of all weapons; used for scroll-wheel cycling
+export const ALL_WEAPONS = ['pistol', 'shotgun', 'ak47', 'deagle']
 const PERK_COSTS = {
   fast_hands: 80,
   deep_pockets: 80,
@@ -99,10 +109,17 @@ const FAST_CLEAR_BONUS = 8
 const fastClearParForWave = (wave) => 10 + wave * 2
 export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
 
+const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0 }
+
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   money: 10,
-  weapon: 'pistol',   // 'pistol' | 'ak47' | 'deagle'
+  weapon: 'pistol',        // currently equipped weapon
+  ownedWeapons: ['pistol'], // all purchased weapons (determines scroll-cycle pool)
+  // Per-weapon ammo saved when the weapon is not active.
+  // The active weapon's live ammo is always in bulletsInClip / reserveBullets.
+  savedClips:    { ...EMPTY_SAVED },
+  savedReserves: { ...EMPTY_SAVED },
   activeItem: 'gun',  // 'gun' | 'knife'
   perks: {},       // one-time perk unlocks bought from the supply chest
   knifeCooldown: 0,   // seconds remaining until knife ready again
@@ -144,6 +161,9 @@ export const useGameStore = create((set, get) => ({
       phase: 'intermission',
       money: 10,
       weapon: 'pistol',
+      ownedWeapons: ['pistol'],
+      savedClips:    { ...EMPTY_SAVED },
+      savedReserves: { ...EMPTY_SAVED },
       activeItem: 'gun',
       perks: {},
       knifeCooldown: 0,
@@ -383,32 +403,47 @@ export const useGameStore = create((set, get) => ({
   toggleItem: () => set((s) => ({ activeItem: s.activeItem === 'gun' ? 'knife' : 'gun' })),
   setKnifeCooldown: (v) => set({ knifeCooldown: v }),
 
+  // Scroll-wheel weapon switch — saves current clip/reserve, loads next weapon's saved values
+  switchWeapon: (nextWeapon) => {
+    const { weapon, bulletsInClip, reserveBullets, savedClips, savedReserves, ownedWeapons } = get()
+    if (nextWeapon === weapon || !ownedWeapons.includes(nextWeapon)) return
+    set({
+      weapon: nextWeapon,
+      bulletsInClip:  savedClips[nextWeapon],
+      reserveBullets: savedReserves[nextWeapon],
+      savedClips:    { ...savedClips,    [weapon]: bulletsInClip  },
+      savedReserves: { ...savedReserves, [weapon]: reserveBullets },
+      isReloading: false,
+    })
+  },
+
   openShop: () => set({ shopOpen: true }),
   closeShop: () => set({ shopOpen: false }),
 
   buyItem: (itemId) => {
-    const { money, weapon, reserveBullets, perks } = get()
-    if (itemId === 'ak47') {
-      if (weapon === 'ak47' || money < AK_COST) return false
-      set({ money: money - AK_COST, weapon: 'ak47', bulletsInClip: AK_CLIP, reserveBullets: 0 })
+    const { money, weapon, bulletsInClip, reserveBullets, perks, ownedWeapons, savedClips, savedReserves } = get()
+    // Helper: save current weapon state then equip a newly bought weapon
+    const buyWeapon = (id, cost, clip) => {
+      if (ownedWeapons.includes(id) || money < cost) return false
+      set({
+        money: money - cost,
+        weapon: id,
+        bulletsInClip: clip,
+        reserveBullets: 0,
+        ownedWeapons: [...ownedWeapons, id],
+        savedClips:    { ...savedClips,    [weapon]: bulletsInClip  },
+        savedReserves: { ...savedReserves, [weapon]: reserveBullets },
+        isReloading: false,
+      })
       return true
     }
-    if (itemId === 'deagle') {
-      if (weapon === 'deagle' || money < DEAGLE_COST) return false
-      set({ money: money - DEAGLE_COST, weapon: 'deagle', bulletsInClip: DEAGLE_CLIP, reserveBullets: 0 })
-      return true
-    }
-    if (itemId === 'shotgun') {
-      if (weapon === 'shotgun' || money < SHOTGUN_COST) return false
-      set({ money: money - SHOTGUN_COST, weapon: 'shotgun', bulletsInClip: SHOTGUN_CLIP, reserveBullets: 0 })
-      return true
-    }
+    if (itemId === 'ak47')    return buyWeapon('ak47',    AK_COST,     AK_CLIP)
+    if (itemId === 'deagle')  return buyWeapon('deagle',  DEAGLE_COST, DEAGLE_CLIP)
+    if (itemId === 'shotgun') return buyWeapon('shotgun', SHOTGUN_COST, SHOTGUN_CLIP)
     if (itemId === 'ammo_pack') {
       if (money < AMMO_PACK_COST) return false
-      set({
-        money: money - AMMO_PACK_COST,
-        reserveBullets: reserveBullets + (perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT),
-      })
+      const amount = perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT
+      set({ money: money - AMMO_PACK_COST, reserveBullets: reserveBullets + amount })
       return true
     }
     return false

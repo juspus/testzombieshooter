@@ -85,7 +85,10 @@ export default function Player() {
   const shotgunCooldownRef = useRef(0)
   const knifeCooldownRef = useRef(0)
   const weapon = useGameStore((s) => s.weapon)
+  const ownedWeapons = useGameStore((s) => s.ownedWeapons)
+  const switchWeapon = useGameStore((s) => s.switchWeapon)
   const weaponRef = useRef(weapon)
+  const ownedWeaponsRef = useRef(ownedWeapons)
   const activeItemRef = useRef(activeItem)
   const perksRef = useRef(perks)
 
@@ -104,8 +107,12 @@ export default function Player() {
   useEffect(() => { windowPlankStrongRef.current = windowPlankStrong }, [windowPlankStrong])
   useEffect(() => { strongPlanksModeRef.current = strongPlanksMode }, [strongPlanksMode])
   useEffect(() => { weaponRef.current = weapon }, [weapon])
+  useEffect(() => { ownedWeaponsRef.current = ownedWeapons }, [ownedWeapons])
   useEffect(() => { activeItemRef.current = activeItem }, [activeItem])
   useEffect(() => { perksRef.current = perks }, [perks])
+
+  // Cancel any in-progress reload when the player switches weapons
+  useEffect(() => { reloadTimer.current = 0 }, [weapon])
 
   useEffect(() => {
     camera.rotation.order = 'YXZ'
@@ -160,17 +167,30 @@ export default function Player() {
     }
     const onKeyUp = (e) => { keys.current[e.code] = false }
 
+    const onWheel = (e) => {
+      if (shopOpenRef.current || pausedRef.current) return
+      if (!locked.current) return
+      const weapons = ownedWeaponsRef.current
+      if (weapons.length <= 1) return
+      const idx = weapons.indexOf(weaponRef.current)
+      const dir = e.deltaY > 0 ? 1 : -1
+      const next = (idx + dir + weapons.length) % weapons.length
+      switchWeapon(weapons[next])
+    }
+
     document.addEventListener('pointerlockchange', onLockChange)
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('keydown', onKeyDown)
     document.addEventListener('keyup', onKeyUp)
+    document.addEventListener('wheel', onWheel, { passive: true })
     return () => {
       document.removeEventListener('pointerlockchange', onLockChange)
       document.removeEventListener('mousemove', onMouseMove)
       document.removeEventListener('keydown', onKeyDown)
       document.removeEventListener('keyup', onKeyUp)
+      document.removeEventListener('wheel', onWheel)
     }
-  }, [gl])
+  }, [gl, switchWeapon])
 
   const shoot = useCallback(() => {
     if (pausedRef.current) return
