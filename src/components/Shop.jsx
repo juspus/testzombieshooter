@@ -264,10 +264,10 @@ const styles = {
     boxShadow: '0 0 40px rgba(180,100,0,0.2)',
   },
   mobilePanel: {
-    width: 'min(540px, calc(var(--app-width, 100vw) - 20px))',
-    maxHeight: 'calc(var(--app-height, 100dvh) - 16px)',
-    padding: '10px 12px 8px',
-    gap: 7,
+    width: 'min(540px, calc(var(--app-width, 100vw) - 16px))',
+    maxHeight: 'calc(var(--app-height, 100dvh) - 12px)',
+    padding: '7px 10px 6px',
+    gap: 5,
     borderRadius: 10,
     background: 'linear-gradient(180deg, rgba(34,22,10,0.98), rgba(13,10,7,0.98))',
     border: '2px solid rgba(200,128,26,0.75)',
@@ -281,7 +281,7 @@ const styles = {
   },
   mobileHeader: {
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   title: {
     color: '#c8801a',
@@ -290,8 +290,8 @@ const styles = {
     fontWeight: 'bold',
   },
   mobileTitle: {
-    fontSize: 13,
-    letterSpacing: 3,
+    fontSize: 11,
+    letterSpacing: 2,
     color: '#ffb347',
   },
   money: {
@@ -301,7 +301,7 @@ const styles = {
     letterSpacing: 2,
   },
   mobileMoney: {
-    fontSize: 17,
+    fontSize: 14,
     letterSpacing: 1,
     color: '#ffe066',
   },
@@ -329,8 +329,8 @@ const styles = {
     borderBottom: '1px solid #1a1008',
   },
   mobileRow: {
-    padding: '7px 3px',
-    gap: 8,
+    padding: '5px 2px',
+    gap: 6,
     background: 'rgba(255,255,255,0.025)',
     borderBottom: '1px solid rgba(200,128,26,0.16)',
   },
@@ -346,8 +346,8 @@ const styles = {
     letterSpacing: 2,
   },
   mobileRowName: {
-    fontSize: 12,
-    letterSpacing: 1.4,
+    fontSize: 11,
+    letterSpacing: 1,
   },
   rowDesc: {
     color: '#666',
@@ -356,8 +356,8 @@ const styles = {
   },
   mobileRowDesc: {
     color: '#9a8a72',
-    fontSize: 9,
-    letterSpacing: 0.4,
+    fontSize: 8,
+    letterSpacing: 0.3,
   },
   rowRight: {
     display: 'flex',
@@ -366,7 +366,7 @@ const styles = {
     flexShrink: 0,
   },
   mobileRowRight: {
-    gap: 7,
+    gap: 5,
   },
   rowPrice: {
     fontSize: 15,
@@ -376,8 +376,8 @@ const styles = {
     textAlign: 'right',
   },
   mobileRowPrice: {
-    fontSize: 12,
-    minWidth: 54,
+    fontSize: 11,
+    minWidth: 44,
   },
   btn: {
     padding: '6px 14px',
@@ -391,20 +391,20 @@ const styles = {
     minWidth: 72,
   },
   mobileBtn: {
-    padding: '8px 9px',
-    minWidth: 58,
-    fontSize: 10,
-    letterSpacing: 1.4,
+    padding: '6px 7px',
+    minWidth: 50,
+    fontSize: 9,
+    letterSpacing: 1.2,
     touchAction: 'manipulation',
   },
   closeBtn: {
     border: '1px solid rgba(255,224,102,0.35)',
     borderRadius: 999,
-    width: 34,
-    height: 34,
+    width: 28,
+    height: 28,
     background: 'rgba(255,255,255,0.12)',
     color: '#ffe8a3',
-    fontSize: 22,
+    fontSize: 17,
     lineHeight: 1,
     flexShrink: 0,
     touchAction: 'manipulation',

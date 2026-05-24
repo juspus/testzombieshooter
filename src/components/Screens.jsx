@@ -71,7 +71,7 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
   return (
     <Overlay>
       <Badge style={{ color: '#00ff88' }}>WAVE {wave} CLEARED</Badge>
-      <Title style={{ fontSize: 48 }}>NICE SHOT!</Title>
+      <Title style={{ fontSize: 'clamp(20px, 6vmin, 48px)' }}>NICE SHOT!</Title>
       <Sub>Kills this wave: {waveKills}</Sub>
       <Sub style={{ marginTop: 4, color: '#888' }}>Total kills: {kills}</Sub>
       {bonuses && <BonusBreakdown bonuses={bonuses} />}
@@ -114,30 +114,30 @@ function formatSeconds(value) {
 
 const styles = {
   bonusPanel: {
-    width: 360,
-    marginTop: 12,
-    padding: '12px 16px',
+    width: 'min(360px, 92vw)',
+    marginTop: 'clamp(4px, 1.5vmin, 12px)',
+    padding: 'clamp(7px, 1.5vmin, 12px) clamp(10px, 2vmin, 16px)',
     background: 'rgba(0,0,0,0.45)',
     border: '1px solid rgba(255,224,102,0.3)',
     borderRadius: 6,
     color: '#bbb',
     fontFamily: 'Courier New, monospace',
-    fontSize: 13,
+    fontSize: 'clamp(9px, 2vmin, 13px)',
     letterSpacing: 1,
   },
   bonusTitle: {
     color: '#ffe066',
-    fontSize: 11,
+    fontSize: 'clamp(8px, 1.5vmin, 11px)',
     letterSpacing: 4,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 'clamp(4px, 1vmin, 8px)',
     textAlign: 'center',
   },
   bonusRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    gap: 16,
-    marginTop: 4,
+    gap: 'clamp(8px, 2vmin, 16px)',
+    marginTop: 'clamp(2px, 0.8vmin, 4px)',
   },
   bonusValue: {
     color: '#88cc44',
@@ -146,7 +146,7 @@ const styles = {
   bonusDivider: {
     height: 1,
     background: 'rgba(255,255,255,0.12)',
-    margin: '8px 0',
+    margin: 'clamp(4px, 1vmin, 8px) 0',
   },
 }
 
@@ -394,11 +394,11 @@ function BackBtn({ onClick }) {
         background: 'transparent',
         border: 'none',
         color: '#555',
-        fontSize: 12,
+        fontSize: 'clamp(9px, 1.8vmin, 12px)',
         letterSpacing: 3,
         fontFamily: 'Courier New, monospace',
         cursor: 'pointer',
-        marginTop: 4,
+        marginTop: 'clamp(2px, 0.8vmin, 4px)',
       }}
     >
       ← BACK
@@ -450,7 +450,7 @@ const intermissionStyles = {
     transition: 'color 0.3s, text-shadow 0.3s',
   },
   mobileTimer: {
-    fontSize: 26,
+    fontSize: 20,
   },
   reward: {
     fontSize: 12,
@@ -497,7 +497,7 @@ function Overlay({ children, dim = 0.78 }) {
       alignItems: 'center',
       justifyContent: 'center',
       background: `rgba(0,0,0,${dim})`,
-      gap: 12,
+      gap: 'clamp(5px, 1.5vmin, 12px)',
       fontFamily: 'Courier New, monospace',
     }}>
       {children}
@@ -509,9 +509,9 @@ function Title({ children, style }) {
   return (
     <h1 style={{
       color: '#fff',
-      fontSize: 64,
+      fontSize: 'clamp(26px, 8vmin, 64px)',
       fontWeight: 'bold',
-      letterSpacing: 8,
+      letterSpacing: 'max(3px, 1.5vmin)',
       textShadow: '0 0 30px rgba(255,50,0,0.8)',
       margin: 0,
       ...style,
@@ -522,8 +522,8 @@ function Title({ children, style }) {
 function Badge({ children, style }) {
   return (
     <div style={{
-      fontSize: 14,
-      letterSpacing: 6,
+      fontSize: 'clamp(9px, 2.2vmin, 14px)',
+      letterSpacing: 'max(2px, 1vmin)',
       fontWeight: 'bold',
       ...style,
     }}>{children}</div>
@@ -534,7 +534,7 @@ function Sub({ children, style }) {
   return (
     <p style={{
       color: '#aaa',
-      fontSize: 16,
+      fontSize: 'clamp(10px, 2.2vmin, 16px)',
       margin: 0,
       letterSpacing: 1,
       ...style,
@@ -546,8 +546,8 @@ function Controls({ children }) {
   return (
     <p style={{
       color: '#666',
-      fontSize: 13,
-      margin: '8px 0',
+      fontSize: 'clamp(8px, 1.7vmin, 13px)',
+      margin: 'clamp(4px, 1vmin, 8px) 0',
       letterSpacing: 1,
     }}>{children}</p>
   )
@@ -622,7 +622,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
     }}>
       <h1 style={{
         color: `rgba(180,0,0,${opacity})`,
-        fontSize: 'clamp(60px, 12vw, 120px)',
+        fontSize: 'clamp(38px, 11vmin, 120px)',
         fontWeight: 'bold',
         letterSpacing: '0.15em',
         margin: 0,
@@ -635,9 +635,9 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
       <div style={{
         opacity: opacity * 0.6,
         color: '#888',
-        fontSize: 14,
+        fontSize: 'clamp(10px, 2vmin, 14px)',
         letterSpacing: 4,
-        marginTop: 16,
+        marginTop: 'clamp(6px, 1.5vmin, 16px)',
         fontFamily: 'Courier New, monospace',
         textTransform: 'uppercase',
       }}>
@@ -647,10 +647,10 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
       <div style={{
         opacity: opacity * 0.7,
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(100px, 1fr))',
-        gap: 12,
-        width: 'min(520px, 88vw)',
-        marginTop: 28,
+        gridTemplateColumns: 'repeat(3, minmax(80px, 1fr))',
+        gap: 'clamp(5px, 1.5vmin, 12px)',
+        width: 'min(480px, 88vw)',
+        marginTop: 'clamp(8px, 2.5vmin, 28px)',
         fontFamily: 'Courier New, monospace',
       }}>
         <DeathStat label="Cash" value={`€${money.toFixed(2)}`} />
@@ -659,13 +659,13 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
       </div>
 
       <div style={{
-        marginTop: 56,
+        marginTop: 'clamp(10px, 3.5vmin, 56px)',
         opacity: btnVisible ? 1 : 0,
         transition: 'opacity 0.8s ease',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 12,
+        gap: 'clamp(6px, 1.5vmin, 12px)',
       }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
@@ -673,11 +673,11 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
           </DeathButton>
           {mpRole === 'guest' ? (
             <div style={{
-              padding: '14px 36px',
-              minWidth: 210,
+              padding: 'clamp(7px, 1.5vmin, 14px) clamp(16px, 4vmin, 36px)',
+              minWidth: 'clamp(120px, 25vmin, 210px)',
               border: '1px solid rgba(180,0,0,0.3)',
               color: 'rgba(150,150,150,0.6)',
-              fontSize: 13,
+              fontSize: 'clamp(10px, 2vmin, 13px)',
               letterSpacing: 3,
               fontFamily: 'Courier New, monospace',
               textAlign: 'center',
@@ -711,12 +711,12 @@ function DeathStat({ label, value }) {
     <div style={{
       border: '1px solid rgba(180,0,0,0.35)',
       background: 'rgba(0,0,0,0.35)',
-      padding: '10px 12px',
+      padding: 'clamp(5px, 1.2vmin, 10px) clamp(6px, 1.5vmin, 12px)',
       textAlign: 'center',
       textTransform: 'uppercase',
     }}>
-      <div style={{ color: '#666', fontSize: 10, letterSpacing: 3 }}>{label}</div>
-      <div style={{ color: '#ccc', fontSize: 16, letterSpacing: 2, marginTop: 4 }}>{value}</div>
+      <div style={{ color: '#666', fontSize: 'clamp(8px, 1.4vmin, 10px)', letterSpacing: 2 }}>{label}</div>
+      <div style={{ color: '#ccc', fontSize: 'clamp(11px, 2.5vmin, 16px)', letterSpacing: 2, marginTop: 'clamp(2px, 0.5vmin, 4px)' }}>{value}</div>
     </div>
   )
 }
@@ -726,13 +726,13 @@ function DeathButton({ children, onClick, accent = 'rgba(180,0,0,0.7)' }) {
     <button
       onClick={onClick}
       style={{
-        padding: '14px 36px',
-        minWidth: 210,
+        padding: 'clamp(7px, 1.5vmin, 14px) clamp(16px, 4vmin, 36px)',
+        minWidth: 'clamp(120px, 25vmin, 210px)',
         background: 'transparent',
         border: `1px solid ${accent}`,
         color: 'rgba(200,200,200,0.9)',
-        fontSize: 15,
-        letterSpacing: 5,
+        fontSize: 'clamp(10px, 2vmin, 15px)',
+        letterSpacing: 'clamp(2px, 0.8vmin, 5px)',
         fontFamily: 'Courier New, monospace',
         cursor: 'pointer',
         textTransform: 'uppercase',
@@ -828,12 +828,12 @@ function Btn({ children, onClick }) {
     <button
       onClick={onClick}
       style={{
-        marginTop: 24,
-        padding: '14px 48px',
+        marginTop: 'clamp(8px, 2.5vmin, 24px)',
+        padding: 'clamp(7px, 1.5vmin, 14px) clamp(20px, 5vmin, 48px)',
         background: 'transparent',
         border: '2px solid #ff3300',
         color: '#ff3300',
-        fontSize: 18,
+        fontSize: 'clamp(11px, 2.5vmin, 18px)',
         letterSpacing: 4,
         fontFamily: 'Courier New, monospace',
         cursor: 'pointer',
