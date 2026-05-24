@@ -1,4 +1,4 @@
-import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST } from '../store'
+import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -19,6 +19,7 @@ export default function HUD() {
   const boardingProgress = useGameStore((s) => s.boardingProgress)
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
+  const ownedWeapons = useGameStore((s) => s.ownedWeapons)
   const activeItem = useGameStore((s) => s.activeItem)
   const perks = useGameStore((s) => s.perks)
   const knifeCooldown = useGameStore((s) => s.knifeCooldown)
@@ -93,7 +94,10 @@ export default function HUD() {
         </div>
       ) : (
         <div style={styles.ammoBox}>
-          <div style={styles.weaponLabel}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
+          <div style={styles.weaponLabel}>
+            {weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}
+          </div>
+          <div style={styles.caliberLabel}>{CALIBER_LABELS[weapon]}</div>
           {isReloading ? (
             <div style={styles.reloading}>RELOADING…</div>
           ) : (
@@ -104,7 +108,6 @@ export default function HUD() {
               {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
             </div>
           )}
-          <div style={styles.reloadHint}>R — reload · Q — knife</div>
           {/* Bullet pip row */}
           <div style={{ ...styles.pips, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
             {Array.from({ length: clipSize }).map((_, i) => (
@@ -113,6 +116,9 @@ export default function HUD() {
                 background: i < bulletsInClip ? '#ffe066' : '#333',
               }} />
             ))}
+          </div>
+          <div style={styles.reloadHint}>
+            {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}R — reload · Q — knife
           </div>
         </div>
       )}
@@ -274,6 +280,12 @@ const styles = {
   weaponLabel: {
     color: '#888',
     fontSize: 11,
+    letterSpacing: 3,
+    marginBottom: 0,
+  },
+  caliberLabel: {
+    color: '#c8801a',
+    fontSize: 10,
     letterSpacing: 3,
     marginBottom: 2,
   },
