@@ -31,6 +31,16 @@ function clampVector(x, y) {
   return { x: x / length, y: y / length }
 }
 
+// Icon button content — large glyph + tiny label beneath
+function BtnContent({ icon, label }) {
+  return (
+    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, lineHeight: 1 }}>
+      <span style={{ fontSize: 19, lineHeight: 1 }}>{icon}</span>
+      <span style={{ fontSize: 7, letterSpacing: 1, opacity: 0.7, fontFamily: 'Courier New, monospace' }}>{label}</span>
+    </span>
+  )
+}
+
 export default function MobileControls() {
   const phase = useGameStore((s) => s.phase)
   const shopOpen = useGameStore((s) => s.shopOpen)
@@ -73,7 +83,6 @@ export default function MobileControls() {
   useEffect(() => () => resetMobileInput(), [])
 
   const showInteractHint = nearChest || nearWindowId >= 0
-  const swapLabel = activeItem === 'gun' ? 'KNIFE' : 'GUN'
   const showInstallHint = !isStandalone && !installHintDismissed
 
   const dismissInstallHint = () => {
@@ -106,7 +115,7 @@ export default function MobileControls() {
   if (!active) return null
   // Keep root div mounted when shop is open so iOS doesn't destroy/recreate
   // the compositor layer simultaneously with the shop overlay becoming visible.
-  if (shopOpen) return <div style={{ ...styles.root, opacity: 0, pointerEvents: 'none', willChange: 'opacity' }} />
+  if (shopOpen) return <div style={{ ...styles.root, opacity: 0, pointerEvents: 'none' }} />
 
   const onMoveStart = (e) => {
     e.preventDefault()
@@ -121,8 +130,8 @@ export default function MobileControls() {
     if (movePointerRef.current !== e.pointerId) return
     e.preventDefault()
     const center = stickCenterRef.current
-    const rawX = (e.clientX - center.x) / 54
-    const rawY = (e.clientY - center.y) / 54
+    const rawX = (e.clientX - center.x) / 40
+    const rawY = (e.clientY - center.y) / 40
     const clamped = clampVector(rawX, rawY)
     mobileInput.moveX = clamped.x
     mobileInput.moveY = -clamped.y
@@ -160,7 +169,7 @@ export default function MobileControls() {
     lookPointerRef.current = null
   }
 
-  const actionButton = (label, handlers, extraStyle = {}) => (
+  const actionButton = (content, handlers, extraStyle = {}) => (
     <button
       type="button"
       style={{ ...styles.actionButton, ...extraStyle }}
@@ -178,9 +187,12 @@ export default function MobileControls() {
         handlers.up?.()
       }}
     >
-      {label}
+      {content}
     </button>
   )
+
+  const interactIcon = showInteractHint ? '✋' : '✋'
+  const interactLabel = showInteractHint ? 'USE' : 'USE'
 
   return (
     <div style={styles.root} {...touchGuards}>
@@ -194,6 +206,7 @@ export default function MobileControls() {
         </div>
       )}
 
+      {/* Left joystick */}
       <div
         style={styles.moveZone}
         onPointerDown={onMoveStart}
@@ -202,11 +215,12 @@ export default function MobileControls() {
         onPointerCancel={onMoveEnd}
       >
         <div style={styles.stickBase}>
-          <div style={{ ...styles.stickKnob, transform: `translate(${stick.x * 54}px, ${stick.y * 54}px)` }} />
+          <div style={{ ...styles.stickKnob, transform: `translate(${stick.x * 40}px, ${stick.y * 40}px)` }} />
         </div>
         <div style={styles.zoneLabel}>MOVE</div>
       </div>
 
+      {/* Look zone */}
       <div
         style={styles.lookZone}
         onPointerDown={onLookStart}
@@ -217,30 +231,31 @@ export default function MobileControls() {
         <div style={styles.lookLabel}>DRAG TO LOOK</div>
       </div>
 
+      {/* Action buttons — shoot (tall) + 3 small on the right */}
       <div style={styles.actions}>
-        {actionButton('SHOOT', {
-          down: () => {
-            mobileInput.shootHeld = true
-            mobileInput.shootPressed = true
+        {actionButton(
+          <BtnContent icon="●" label="SHOOT" />,
+          {
+            down: () => { mobileInput.shootHeld = true; mobileInput.shootPressed = true },
+            up: () => { mobileInput.shootHeld = false },
           },
-          up: () => {
-            mobileInput.shootHeld = false
+          styles.shootButton,
+        )}
+        {actionButton(
+          <BtnContent icon="↻" label="RELOAD" />,
+          { down: () => { mobileInput.reloadPressed = true } },
+        )}
+        {actionButton(
+          <BtnContent icon={interactIcon} label={interactLabel} />,
+          {
+            down: () => { mobileInput.interactHeld = true; mobileInput.interactPressed = true },
+            up: () => { mobileInput.interactHeld = false },
           },
-        }, styles.shootButton)}
-        {actionButton(showInteractHint ? 'INTERACT' : 'USE', {
-          down: () => {
-            mobileInput.interactHeld = true
-            mobileInput.interactPressed = true
-          },
-          up: () => {
-            mobileInput.interactHeld = false
-          },
-        })}
-        {actionButton(swapLabel, {
-          down: () => {
-            mobileInput.swapPressed = true
-          },
-        })}
+        )}
+        {actionButton(
+          <BtnContent icon={activeItem === 'gun' ? '🗡️' : '⇄'} label={activeItem === 'gun' ? 'KNIFE' : 'GUN'} />,
+          { down: () => { mobileInput.swapPressed = true } },
+        )}
       </div>
     </div>
   )
@@ -249,7 +264,7 @@ export default function MobileControls() {
 const glass = {
   background: 'rgba(10, 12, 16, 0.55)',
   border: '1px solid rgba(255, 255, 255, 0.22)',
-  boxShadow: '0 0 18px rgba(0,0,0,0.35)',
+  boxShadow: '0 0 14px rgba(0,0,0,0.35)',
 }
 
 const styles = {
@@ -261,12 +276,13 @@ const styles = {
     touchAction: 'none',
     fontFamily: 'Courier New, monospace',
   },
+  // Joystick — smaller than before (was 150/118/54)
   moveZone: {
     position: 'absolute',
-    left: 'max(20px, env(safe-area-inset-left))',
-    bottom: 'max(18px, env(safe-area-inset-bottom))',
-    width: 150,
-    height: 150,
+    left: 'max(14px, env(safe-area-inset-left))',
+    bottom: 'max(14px, env(safe-area-inset-bottom))',
+    width: 116,
+    height: 116,
     borderRadius: 999,
     pointerEvents: 'auto',
     touchAction: 'none',
@@ -276,16 +292,16 @@ const styles = {
   },
   stickBase: {
     ...glass,
-    width: 118,
-    height: 118,
+    width: 90,
+    height: 90,
     borderRadius: 999,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stickKnob: {
-    width: 54,
-    height: 54,
+    width: 40,
+    height: 40,
     borderRadius: 999,
     background: 'rgba(220, 230, 240, 0.46)',
     border: '1px solid rgba(255,255,255,0.45)',
@@ -293,8 +309,8 @@ const styles = {
   zoneLabel: {
     position: 'absolute',
     bottom: -2,
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 10,
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 8,
     letterSpacing: 2,
     fontWeight: 'bold',
   },
@@ -309,41 +325,44 @@ const styles = {
   },
   lookLabel: {
     position: 'absolute',
-    right: 132,
-    top: 18,
-    color: 'rgba(255,255,255,0.28)',
-    fontSize: 10,
+    right: 120,
+    top: 16,
+    color: 'rgba(255,255,255,0.22)',
+    fontSize: 9,
     letterSpacing: 2,
     fontWeight: 'bold',
   },
+  // 2-col grid: shoot (wide, tall) | 3 small stacked
   actions: {
     position: 'absolute',
-    right: 'max(18px, env(safe-area-inset-right))',
-    bottom: 'max(18px, env(safe-area-inset-bottom))',
+    right: 'max(14px, env(safe-area-inset-right))',
+    bottom: 'max(14px, env(safe-area-inset-bottom))',
     display: 'grid',
-    gridTemplateColumns: '74px 74px',
-    gap: 10,
+    gridTemplateColumns: '58px 46px',
+    gridTemplateRows: 'repeat(3, 42px)',
+    gap: 6,
     pointerEvents: 'auto',
   },
   actionButton: {
     ...glass,
-    height: 58,
-    borderRadius: 14,
+    borderRadius: 12,
     color: '#f4efe4',
     fontFamily: 'Courier New, monospace',
-    fontSize: 11,
     fontWeight: 'bold',
-    letterSpacing: 1.5,
     textShadow: '0 1px 2px rgba(0,0,0,0.8)',
     touchAction: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 0,
   },
   shootButton: {
-    gridRow: 'span 2',
-    height: 126,
-    borderRadius: 18,
+    gridRow: 'span 3',
+    // height fills all 3 rows + 2 gaps automatically via grid
+    borderRadius: 16,
     color: '#ffd6c0',
     border: '1px solid rgba(255, 130, 90, 0.48)',
-    background: 'rgba(80, 18, 12, 0.48)',
+    background: 'rgba(80, 18, 12, 0.52)',
   },
   installHint: {
     position: 'absolute',
@@ -356,32 +375,32 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    padding: '10px 12px',
-    borderRadius: 12,
+    padding: '8px 12px',
+    borderRadius: 10,
     background: 'rgba(0, 0, 0, 0.88)',
     border: '1px solid rgba(200, 128, 26, 0.55)',
-    boxShadow: '0 0 24px rgba(0,0,0,0.45)',
+    boxShadow: '0 0 20px rgba(0,0,0,0.45)',
   },
   installTitle: {
     color: '#c8801a',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     letterSpacing: 3,
   },
   installText: {
     color: '#ddd',
-    fontSize: 11,
+    fontSize: 10,
     lineHeight: 1.35,
   },
   installDismiss: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     flex: '0 0 auto',
     borderRadius: 999,
     border: '1px solid rgba(255,255,255,0.25)',
     background: 'rgba(255,255,255,0.08)',
     color: '#f4efe4',
-    fontSize: 20,
+    fontSize: 18,
     lineHeight: 1,
     touchAction: 'none',
   },

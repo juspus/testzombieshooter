@@ -8,6 +8,7 @@ export const mobileInput = {
   interactHeld: false,
   interactPressed: false,
   swapPressed: false,
+  reloadPressed: false,
 }
 
 export function consumeMobileLook() {
@@ -25,10 +26,12 @@ export function consumeMobilePressed() {
     shoot: mobileInput.shootPressed,
     interact: mobileInput.interactPressed,
     swap: mobileInput.swapPressed,
+    reload: mobileInput.reloadPressed,
   }
   mobileInput.shootPressed = false
   mobileInput.interactPressed = false
   mobileInput.swapPressed = false
+  mobileInput.reloadPressed = false
   return pressed
 }
 
@@ -42,4 +45,5 @@ export function resetMobileInput() {
   mobileInput.interactHeld = false
   mobileInput.interactPressed = false
   mobileInput.swapPressed = false
+  mobileInput.reloadPressed = false
 }

@@ -389,6 +389,11 @@ export default function Player() {
       toggleItem()
     }
 
+    if (mobilePressed.reload && !shopOpenRef.current && activeItemRef.current === 'gun' && beginReload()) {
+      reloadTimer.current = reloadTimeForPerks(perksRef.current)
+      playReload()
+    }
+
     if (shopOpenRef.current || pausedRef.current) return
 
     if (mobileLook.x !== 0 || mobileLook.y !== 0) {

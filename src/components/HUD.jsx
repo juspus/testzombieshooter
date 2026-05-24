@@ -262,9 +262,9 @@ const styles = {
     border: '1px solid #333',
   },
   mobileTopBar: {
-    gap: 10,
+    gap: 8,
     marginTop: 'max(6px, env(safe-area-inset-top))',
-    padding: '5px 10px',
+    padding: '4px 8px',
     borderRadius: 6,
     background: 'rgba(0,0,0,0.46)',
   },
@@ -275,7 +275,7 @@ const styles = {
     gap: 2,
   },
   mobileStat: {
-    minWidth: 44,
+    minWidth: 38,
     gap: 0,
   },
   label: {
@@ -285,7 +285,7 @@ const styles = {
     fontFamily: 'Courier New, monospace',
   },
   mobileLabel: {
-    fontSize: 8,
+    fontSize: 7,
     letterSpacing: 1.5,
   },
   value: {
@@ -296,7 +296,7 @@ const styles = {
     letterSpacing: 2,
   },
   mobileValue: {
-    fontSize: 16,
+    fontSize: 13,
     letterSpacing: 1,
     lineHeight: 1.05,
   },
@@ -334,11 +334,11 @@ const styles = {
     fontFamily: 'Courier New, monospace',
   },
   mobileAmmoBox: {
-    right: 'max(18px, env(safe-area-inset-right))',
-    bottom: 'max(154px, calc(env(safe-area-inset-bottom) + 154px))',
-    gap: 2,
-    padding: '6px 8px',
-    borderRadius: 8,
+    right: 'max(14px, env(safe-area-inset-right))',
+    bottom: 'max(148px, calc(env(safe-area-inset-bottom) + 148px))',
+    gap: 1,
+    padding: '4px 6px',
+    borderRadius: 7,
     background: 'rgba(0,0,0,0.42)',
     border: '1px solid rgba(255,255,255,0.12)',
   },
@@ -355,7 +355,7 @@ const styles = {
     marginBottom: 2,
   },
   mobileWeaponLabel: {
-    fontSize: 8,
+    fontSize: 7,
     letterSpacing: 1.5,
     marginBottom: 0,
   },
@@ -366,7 +366,7 @@ const styles = {
     lineHeight: 1,
   },
   mobileAmmoCount: {
-    fontSize: 22,
+    fontSize: 17,
     letterSpacing: 1,
   },
   ammoSep: {
@@ -435,7 +435,7 @@ const styles = {
   },
   mobilePips: {
     gap: 2,
-    marginTop: 2,
+    marginTop: 1,
     justifyContent: 'flex-end',
   },
   pip: {
@@ -445,8 +445,8 @@ const styles = {
     transition: 'background 0.1s',
   },
   mobilePip: {
-    width: 4,
-    height: 9,
+    width: 3,
+    height: 7,
     borderRadius: 1,
   },
   cooldownTrack: {
