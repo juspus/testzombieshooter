@@ -161,22 +161,22 @@ export default function HUD() {
 
       {/* Chest prompt */}
       {nearChest && !showBoardPrompt && (
-        <div style={{ ...styles.boardPrompt, borderColor: '#5a3a10', bottom: 90 }}>
-          <span style={{ color: '#c8801a' }}>E — open supply chest</span>
+        <div style={{ ...styles.boardPrompt, ...(isMobile ? styles.mobileBoardPrompt : {}), borderColor: '#5a3a10', bottom: isMobile ? 8 : 90 }}>
+          <span style={{ color: '#c8801a' }}>{isMobile ? 'USE — open chest' : 'E — open supply chest'}</span>
         </div>
       )}
 
       {/* Window board prompt */}
       {showBoardPrompt && (
-        <div style={{ ...styles.boardPrompt, borderColor: canAfford ? (strongPlanksMode ? '#446688' : '#554400') : '#552200' }}>
+        <div style={{ ...styles.boardPrompt, ...(isMobile ? styles.mobileBoardPrompt : {}), borderColor: canAfford ? (strongPlanksMode ? '#446688' : '#554400') : '#552200' }}>
           <span style={{ color: canAfford ? (strongPlanksMode ? '#aaccee' : '#ffe066') : '#ff6644' }}>
             {canUpgrade
               ? canAfford
-                ? `HOLD E — upgrade to STRONG (€${upgradeCost.toFixed(2)})`
-                : `NOT ENOUGH MONEY — €${upgradeCost.toFixed(2)} needed`
+                ? isMobile ? `UPGRADE STRONG €${upgradeCost.toFixed(2)}` : `HOLD E — upgrade to STRONG (€${upgradeCost.toFixed(2)})`
+                : isMobile ? `NEED €${upgradeCost.toFixed(2)}` : `NOT ENOUGH MONEY — €${upgradeCost.toFixed(2)} needed`
               : canAfford
-                ? `HOLD E — board window (€${activeCost.toFixed(2)}) [${nearPlankCount}/2]${strongPlanksMode ? ' ⚡' : ''}`
-                : `NOT ENOUGH MONEY — €${activeCost.toFixed(2)} needed`}
+                ? isMobile ? `BOARD [${nearPlankCount}/2] €${activeCost.toFixed(2)}${strongPlanksMode ? ' ⚡' : ''}` : `HOLD E — board window (€${activeCost.toFixed(2)}) [${nearPlankCount}/2]${strongPlanksMode ? ' ⚡' : ''}`
+                : isMobile ? `NEED €${activeCost.toFixed(2)}` : `NOT ENOUGH MONEY — €${activeCost.toFixed(2)} needed`}
           </span>
           {canAfford && (
             <div style={styles.boardBar}>
@@ -335,7 +335,8 @@ const styles = {
   },
   mobileAmmoBox: {
     right: 'max(14px, env(safe-area-inset-right))',
-    bottom: 'max(148px, calc(env(safe-area-inset-bottom) + 148px))',
+    // buttons: 12px safe + (36+7+58)px cluster = 113px; add 10px gap
+    bottom: 'max(123px, calc(env(safe-area-inset-bottom) + 123px))',
     gap: 1,
     padding: '4px 6px',
     borderRadius: 7,
@@ -414,6 +415,15 @@ const styles = {
     flexDirection: 'column',
     gap: 6,
     minWidth: 220,
+  },
+  mobileBoardPrompt: {
+    bottom: 8,
+    fontSize: 9,
+    letterSpacing: 1,
+    padding: '3px 9px 4px',
+    borderRadius: 3,
+    gap: 3,
+    minWidth: 0,
   },
   boardBar: {
     width: '100%',

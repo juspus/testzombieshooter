@@ -424,13 +424,13 @@ const intermissionStyles = {
     transition: 'border-color 0.3s',
   },
   mobilePanel: {
-    top: 'max(38px, calc(env(safe-area-inset-top) + 28px))',
-    gap: 1,
-    padding: '5px 12px 7px',
-    borderRadius: 5,
-    background: 'rgba(0,0,0,0.48)',
-    maxWidth: 'calc(var(--app-width, 100vw) - 220px)',
-    minWidth: 220,
+    top: 'max(28px, calc(env(safe-area-inset-top) + 18px))',
+    gap: 0,
+    padding: '3px 10px 4px',
+    borderRadius: 4,
+    background: 'rgba(0,0,0,0.52)',
+    maxWidth: 'calc(var(--app-width, 100vw) - 200px)',
+    minWidth: 160,
   },
   title: {
     fontSize: 11,
@@ -439,8 +439,8 @@ const intermissionStyles = {
     fontWeight: 'bold',
   },
   mobileTitle: {
-    fontSize: 8,
-    letterSpacing: 2,
+    fontSize: 7,
+    letterSpacing: 1.5,
     whiteSpace: 'nowrap',
   },
   timer: {
@@ -450,7 +450,8 @@ const intermissionStyles = {
     transition: 'color 0.3s, text-shadow 0.3s',
   },
   mobileTimer: {
-    fontSize: 20,
+    fontSize: 16,
+    lineHeight: 1.1,
   },
   reward: {
     fontSize: 12,
@@ -459,8 +460,8 @@ const intermissionStyles = {
     marginTop: 2,
   },
   mobileReward: {
-    fontSize: 9,
-    letterSpacing: 1.5,
+    fontSize: 8,
+    letterSpacing: 1,
     marginTop: 0,
   },
   hint: {
@@ -470,9 +471,9 @@ const intermissionStyles = {
     marginTop: 2,
   },
   mobileHint: {
-    fontSize: 8,
-    letterSpacing: 1,
-    marginTop: 1,
+    fontSize: 7,
+    letterSpacing: 0.8,
+    marginTop: 0,
     whiteSpace: 'nowrap',
   },
   skipWrap: {

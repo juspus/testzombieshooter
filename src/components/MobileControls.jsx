@@ -31,16 +31,6 @@ function clampVector(x, y) {
   return { x: x / length, y: y / length }
 }
 
-// Icon button content — large glyph + tiny label beneath
-function BtnContent({ icon, label }) {
-  return (
-    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, lineHeight: 1 }}>
-      <span style={{ fontSize: 19, lineHeight: 1 }}>{icon}</span>
-      <span style={{ fontSize: 7, letterSpacing: 1, opacity: 0.7, fontFamily: 'Courier New, monospace' }}>{label}</span>
-    </span>
-  )
-}
-
 export default function MobileControls() {
   const phase = useGameStore((s) => s.phase)
   const shopOpen = useGameStore((s) => s.shopOpen)
@@ -113,8 +103,6 @@ export default function MobileControls() {
   }
 
   if (!active) return null
-  // Keep root div mounted when shop is open so iOS doesn't destroy/recreate
-  // the compositor layer simultaneously with the shop overlay becoming visible.
   if (shopOpen) return <div style={{ ...styles.root, opacity: 0, pointerEvents: 'none' }} />
 
   const onMoveStart = (e) => {
@@ -169,10 +157,11 @@ export default function MobileControls() {
     lookPointerRef.current = null
   }
 
-  const actionButton = (content, handlers, extraStyle = {}) => (
+  // COD-style round button helper
+  const roundBtn = (icon, handlers, extraStyle = {}) => (
     <button
       type="button"
-      style={{ ...styles.actionButton, ...extraStyle }}
+      style={{ ...styles.roundBtn, ...extraStyle }}
       onPointerDown={(e) => {
         e.preventDefault()
         e.currentTarget.setPointerCapture(e.pointerId)
@@ -187,12 +176,14 @@ export default function MobileControls() {
         handlers.up?.()
       }}
     >
-      {content}
+      {icon}
     </button>
   )
 
-  const interactIcon = showInteractHint ? '✋' : '✋'
-  const interactLabel = showInteractHint ? 'USE' : 'USE'
+  const swapIcon = activeItem === 'gun' ? '🔪' : '🔫'
+  const interactBtnStyle = showInteractHint
+    ? { ...styles.interactBtn, ...styles.interactActive }
+    : styles.interactBtn
 
   return (
     <div style={styles.root} {...touchGuards}>
@@ -231,31 +222,24 @@ export default function MobileControls() {
         <div style={styles.lookLabel}>DRAG TO LOOK</div>
       </div>
 
-      {/* Action buttons — shoot (tall) + 3 small on the right */}
+      {/* COD-style round action buttons */}
       <div style={styles.actions}>
-        {actionButton(
-          <BtnContent icon="●" label="SHOOT" />,
-          {
-            down: () => { mobileInput.shootHeld = true; mobileInput.shootPressed = true },
-            up: () => { mobileInput.shootHeld = false },
-          },
-          styles.shootButton,
-        )}
-        {actionButton(
-          <BtnContent icon="↻" label="RELOAD" />,
-          { down: () => { mobileInput.reloadPressed = true } },
-        )}
-        {actionButton(
-          <BtnContent icon={interactIcon} label={interactLabel} />,
-          {
+        {/* Top row: small utility buttons */}
+        <div style={styles.actionsRow}>
+          {roundBtn('↻', { down: () => { mobileInput.reloadPressed = true } }, styles.reloadBtn)}
+          {roundBtn(swapIcon, { down: () => { mobileInput.swapPressed = true } }, styles.swapBtn)}
+        </div>
+        {/* Bottom row: interact + shoot */}
+        <div style={styles.actionsRow}>
+          {roundBtn('✋', {
             down: () => { mobileInput.interactHeld = true; mobileInput.interactPressed = true },
             up: () => { mobileInput.interactHeld = false },
-          },
-        )}
-        {actionButton(
-          <BtnContent icon={activeItem === 'gun' ? '🗡️' : '⇄'} label={activeItem === 'gun' ? 'KNIFE' : 'GUN'} />,
-          { down: () => { mobileInput.swapPressed = true } },
-        )}
+          }, interactBtnStyle)}
+          {roundBtn('●', {
+            down: () => { mobileInput.shootHeld = true; mobileInput.shootPressed = true },
+            up: () => { mobileInput.shootHeld = false },
+          }, styles.shootBtn)}
+        </div>
       </div>
     </div>
   )
@@ -276,7 +260,6 @@ const styles = {
     touchAction: 'none',
     fontFamily: 'Courier New, monospace',
   },
-  // Joystick — smaller than before (was 150/118/54)
   moveZone: {
     position: 'absolute',
     left: 'max(14px, env(safe-area-inset-left))',
@@ -325,44 +308,76 @@ const styles = {
   },
   lookLabel: {
     position: 'absolute',
-    right: 120,
+    right: 148,
     top: 16,
     color: 'rgba(255,255,255,0.22)',
     fontSize: 9,
     letterSpacing: 2,
     fontWeight: 'bold',
   },
-  // 2-col grid: shoot (wide, tall) | 3 small stacked
+  // COD-style button cluster — flex column, bottom-right
   actions: {
     position: 'absolute',
-    right: 'max(14px, env(safe-area-inset-right))',
-    bottom: 'max(14px, env(safe-area-inset-bottom))',
-    display: 'grid',
-    gridTemplateColumns: '58px 46px',
-    gridTemplateRows: 'repeat(3, 42px)',
-    gap: 6,
+    right: 'max(12px, env(safe-area-inset-right))',
+    bottom: 'max(12px, env(safe-area-inset-bottom))',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 7,
     pointerEvents: 'auto',
   },
-  actionButton: {
-    ...glass,
-    borderRadius: 12,
-    color: '#f4efe4',
-    fontFamily: 'Courier New, monospace',
-    fontWeight: 'bold',
-    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-    touchAction: 'none',
+  actionsRow: {
+    display: 'flex',
+    gap: 8,
+    alignItems: 'flex-end',
+  },
+  // Base round button
+  roundBtn: {
+    borderRadius: 999,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    ...glass,
+    color: '#f4efe4',
+    fontWeight: 'bold',
+    textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+    touchAction: 'none',
     padding: 0,
   },
-  shootButton: {
-    gridRow: 'span 3',
-    // height fills all 3 rows + 2 gaps automatically via grid
-    borderRadius: 16,
+  // Large SHOOT circle
+  shootBtn: {
+    width: 58,
+    height: 58,
+    fontSize: 24,
+    background: 'rgba(120,20,8,0.68)',
+    border: '2px solid rgba(255,100,60,0.6)',
+    boxShadow: '0 0 18px rgba(180,40,20,0.45)',
     color: '#ffd6c0',
-    border: '1px solid rgba(255, 130, 90, 0.48)',
-    background: 'rgba(80, 18, 12, 0.52)',
+  },
+  // Medium INTERACT circle — glows gold when near interactable
+  interactBtn: {
+    width: 46,
+    height: 46,
+    fontSize: 20,
+  },
+  interactActive: {
+    border: '1px solid rgba(255,200,50,0.7)',
+    background: 'rgba(70,46,0,0.68)',
+    boxShadow: '0 0 14px rgba(210,160,0,0.4)',
+  },
+  // Small RELOAD circle
+  reloadBtn: {
+    width: 36,
+    height: 36,
+    fontSize: 15,
+    color: 'rgba(200,220,240,0.75)',
+    background: 'rgba(8,12,22,0.55)',
+  },
+  // Small SWAP/KNIFE circle
+  swapBtn: {
+    width: 36,
+    height: 36,
+    fontSize: 15,
   },
   installHint: {
     position: 'absolute',
@@ -437,3 +452,4 @@ const styles = {
     lineHeight: 1.5,
   },
 }
+
