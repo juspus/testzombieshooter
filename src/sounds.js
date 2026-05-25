@@ -62,11 +62,97 @@ function mechanicalClick(ac, t, gainVal = 0.5) {
 
 // ─── public sounds ───────────────────────────────────────────────────────────
 
-export function playGunshot() {
-  const ac = ctx()
-  const t = ac.currentTime
+// ─── per-weapon gunshot implementations ─────────────────────────────────────
 
-  // Crack — shaped white noise with a sharp attack
+// Glock 17 / 9mm pistol
+// Character: sharp, crisp "BANG" with high-mid emphasis, modest low end,
+//            followed by the semi-auto slide cycling back and snapping forward.
+function _playPistolShot(ac, t) {
+  // 1. Muzzle blast — the dominant sound
+  //    Broadband noise, highpass to kill sub-bass mud (pistol ≠ cannon),
+  //    peaking boost at 2.5 kHz for the distinctive 9mm snap/crack.
+  //    Very steep gain envelope: loud instant attack, 80% gone by 30 ms.
+  const blastBuf = noiseBuffer(ac, 0.10)
+  const blastSrc = ac.createBufferSource()
+  blastSrc.buffer = blastBuf
+
+  const blastHP = ac.createBiquadFilter()
+  blastHP.type = 'highpass'
+  blastHP.frequency.value = 380   // cut boom, keep punch
+
+  const blastSnap = ac.createBiquadFilter()
+  blastSnap.type = 'peaking'
+  blastSnap.frequency.value = 2500
+  blastSnap.gain.value = 10       // add the 9mm snap character
+  blastSnap.Q.value = 0.85
+
+  const blastGain = ac.createGain()
+  blastGain.gain.setValueAtTime(1.7, t)
+  blastGain.gain.exponentialRampToValueAtTime(0.06, t + 0.028)   // very steep drop
+  blastGain.gain.exponentialRampToValueAtTime(0.001, t + 0.095)
+
+  blastSrc.connect(blastHP)
+  blastHP.connect(blastSnap)
+  blastSnap.connect(blastGain)
+  blastGain.connect(ac.destination)
+  blastSrc.start(t)
+  blastSrc.stop(t + 0.10)
+
+  // 2. High-frequency crack — supersonic pressure front
+  //    Very short bandpass burst at ~4 kHz. Decays in ~20 ms.
+  //    Gives that sharp "crack" on top of the body.
+  const crackBuf = noiseBuffer(ac, 0.025)
+  const crackSrc = ac.createBufferSource()
+  crackSrc.buffer = crackBuf
+
+  const crackFilt = ac.createBiquadFilter()
+  crackFilt.type = 'bandpass'
+  crackFilt.frequency.value = 4200
+  crackFilt.Q.value = 1.8
+
+  const crackGain = ac.createGain()
+  crackGain.gain.setValueAtTime(1.3, t)
+  crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.022)
+
+  crackSrc.connect(crackFilt)
+  crackFilt.connect(crackGain)
+  crackGain.connect(ac.destination)
+  crackSrc.start(t)
+  crackSrc.stop(t + 0.025)
+
+  // 3. Pressure pop — short muzzle pressure wave, NOT a long bass sweep
+  //    9mm has less low-end than .45 or .357; decays in ~40 ms max.
+  //    This is what distinguishes a pistol "thump" from a snare-drum "boom".
+  const popOsc = ac.createOscillator()
+  popOsc.type = 'sine'
+  popOsc.frequency.setValueAtTime(115, t)
+  popOsc.frequency.exponentialRampToValueAtTime(42, t + 0.038)
+
+  const popGain = ac.createGain()
+  popGain.gain.setValueAtTime(0.85, t)
+  popGain.gain.exponentialRampToValueAtTime(0.001, t + 0.042)
+
+  popOsc.connect(popGain)
+  popGain.connect(ac.destination)
+  popOsc.start(t)
+  popOsc.stop(t + 0.045)
+
+  // 4. Slide cycling back (~78 ms) — the semi-auto fingerprint
+  //    Polymer frame + metal slide: two overlapping short bursts.
+  //    The slight delay distinguishes this sound from any percussion hit.
+  const slideBackBuf = noiseBuffer(ac, 0.032)
+  playNoise(ac, slideBackBuf, t + 0.076, 0.030, 0.48, 'bandpass', 2700, 4.5)
+  playTone(ac, t + 0.076, 165, 82, 0.028, 0.30)
+
+  // 5. Slide snapping forward + chambering (~118 ms)
+  //    Slightly sharper/higher than the back-stroke (spring loaded return).
+  const slideFwdBuf = noiseBuffer(ac, 0.026)
+  playNoise(ac, slideFwdBuf, t + 0.116, 0.024, 0.58, 'bandpass', 3300, 5.5)
+  playTone(ac, t + 0.116, 205, 100, 0.022, 0.36)
+}
+
+// Generic fallback (used while other weapon sounds are not yet implemented)
+function _playGenericShot(ac, t) {
   const crackBuf = noiseBuffer(ac, 0.18)
   const crack = ac.createBufferSource()
   crack.buffer = crackBuf
@@ -86,11 +172,15 @@ export function playGunshot() {
   crack.start(t)
   crack.stop(t + 0.18)
 
-  // Bass thump — pitch drops fast (muzzle pressure wave)
   playTone(ac, t, 220, 35, 0.12, 1.2)
-
-  // Short sub rumble
   playTone(ac, t + 0.02, 80, 30, 0.1, 0.5)
+}
+
+export function playGunshot(weapon = 'pistol') {
+  const ac = ctx()
+  const t  = ac.currentTime
+  if (weapon === 'pistol') return _playPistolShot(ac, t)
+  _playGenericShot(ac, t)
 }
 
 export function playEmptyClick() {
