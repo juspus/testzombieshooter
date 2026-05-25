@@ -56,6 +56,7 @@ export default function HUD() {
   const reloadHintStyle = isMobile ? { ...styles.reloadHint, ...styles.mobileReloadHint } : styles.reloadHint
   const pipsStyle = isMobile ? { ...styles.pips, ...styles.mobilePips } : styles.pips
   const pipStyle = isMobile ? { ...styles.pip, ...styles.mobilePip } : styles.pip
+  const barOuterStyle = isMobile ? { ...styles.barOuter, ...styles.mobileBarOuter } : styles.barOuter
 
   useEffect(() => {
     const update = () => setIsMobile(getIsMobileHud())
@@ -115,7 +116,7 @@ export default function HUD() {
               <div style={{ ...ammoCountStyle, color: '#ff6600', fontSize: isMobile ? 13 : 20, letterSpacing: isMobile ? 1.5 : 3 }}>
                 COOLDOWN
               </div>
-              <div style={styles.cooldownTrack}>
+              <div style={{ ...styles.cooldownTrack, ...(isMobile ? styles.mobileCooldownTrack : {}) }}>
                 <div style={{
                   ...styles.cooldownFill,
                   width: `${Math.max(0, Math.min(1, (knifeCooldownMax - knifeCooldown) / knifeCooldownMax)) * 100}%`,
@@ -144,18 +145,22 @@ export default function HUD() {
             </div>
           )}
           {!isMobile && <div style={reloadHintStyle}>R — reload · Q — knife</div>}
-          {/* Bullet pip row */}
-          <div style={{ ...pipsStyle, flexWrap: 'wrap', maxWidth: isMobile ? 72 : (clipSize <= 10 ? 'auto' : 90) }}>
-            {Array.from({ length: clipSize }).map((_, i) => (
-              <div key={i} style={{
-                ...pipStyle,
-                background: i < bulletsInClip ? '#ffe066' : '#333',
-              }} />
-            ))}
-          </div>
-          <div style={styles.reloadHint}>
-            {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}R — reload · Q — knife
-          </div>
+          {/* Bullet pip row — hidden on mobile */}
+          {!isMobile && (
+            <div style={{ ...pipsStyle, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
+              {Array.from({ length: clipSize }).map((_, i) => (
+                <div key={i} style={{
+                  ...pipStyle,
+                  background: i < bulletsInClip ? '#ffe066' : '#333',
+                }} />
+              ))}
+            </div>
+          )}
+          {!isMobile && (
+            <div style={styles.reloadHint}>
+              {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}R — reload · Q — knife
+            </div>
+          )}
         </div>
       )}
 
@@ -190,7 +195,7 @@ export default function HUD() {
       {!isMobile && <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>}
 
       {/* Zombie count bar */}
-      <div style={styles.barOuter}>
+      <div style={barOuterStyle}>
         <div
           style={{
             ...styles.barInner,
@@ -317,6 +322,11 @@ const styles = {
     borderRadius: 3,
     overflow: 'hidden',
   },
+  mobileBarOuter: {
+    bottom: 8,
+    width: 120,
+    height: 3,
+  },
   barInner: {
     height: '100%',
     background: '#00ff88',
@@ -334,14 +344,18 @@ const styles = {
     fontFamily: 'Courier New, monospace',
   },
   mobileAmmoBox: {
-    right: 'max(14px, env(safe-area-inset-right))',
-    // buttons: 12px safe + (36+7+58)px cluster = 113px; add 10px gap
-    bottom: 'max(123px, calc(env(safe-area-inset-bottom) + 123px))',
-    gap: 1,
-    padding: '4px 6px',
-    borderRadius: 7,
-    background: 'rgba(0,0,0,0.42)',
-    border: '1px solid rgba(255,255,255,0.12)',
+    // Center at the very bottom of the screen, above the kill bar
+    left: '50%',
+    transform: 'translateX(-50%)',
+    bottom: 'max(22px, calc(env(safe-area-inset-bottom) + 16px))',
+    right: 'auto',
+    alignItems: 'center',
+    gap: 0,
+    padding: '2px 10px 3px',
+    borderRadius: 5,
+    background: 'rgba(0,0,0,0.40)',
+    border: '1px solid rgba(255,255,255,0.09)',
+    whiteSpace: 'nowrap',
   },
   weaponLabel: {
     color: '#888',
@@ -466,6 +480,11 @@ const styles = {
     borderRadius: 3,
     overflow: 'hidden',
     marginTop: 6,
+  },
+  mobileCooldownTrack: {
+    width: 56,
+    height: 4,
+    marginTop: 3,
   },
   cooldownFill: {
     height: '100%',

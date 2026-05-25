@@ -193,7 +193,20 @@ export default function MobileControls() {
             <div style={styles.installTitle}>FULLSCREEN MODE</div>
             <div style={styles.installText}>For more playable space in Safari: Share → Add to Home Screen, then launch Cabin from the icon.</div>
           </div>
-          <button type="button" style={styles.installDismiss} onPointerDown={(e) => { e.preventDefault(); dismissInstallHint() }}>×</button>
+          <button
+            type="button"
+            style={styles.installDismiss}
+            onPointerDown={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              e.currentTarget.setPointerCapture(e.pointerId)
+            }}
+            onPointerUp={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              dismissInstallHint()
+            }}
+          >×</button>
         </div>
       )}
 
@@ -208,7 +221,6 @@ export default function MobileControls() {
         <div style={styles.stickBase}>
           <div style={{ ...styles.stickKnob, transform: `translate(${stick.x * 40}px, ${stick.y * 40}px)` }} />
         </div>
-        <div style={styles.zoneLabel}>MOVE</div>
       </div>
 
       {/* Look zone */}
@@ -218,9 +230,7 @@ export default function MobileControls() {
         onPointerMove={onLookMove}
         onPointerUp={onLookEnd}
         onPointerCancel={onLookEnd}
-      >
-        <div style={styles.lookLabel}>DRAG TO LOOK</div>
-      </div>
+      />
 
       {/* COD-style round action buttons */}
       <div style={styles.actions}>
@@ -289,14 +299,6 @@ const styles = {
     background: 'rgba(220, 230, 240, 0.46)',
     border: '1px solid rgba(255,255,255,0.45)',
   },
-  zoneLabel: {
-    position: 'absolute',
-    bottom: -2,
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 8,
-    letterSpacing: 2,
-    fontWeight: 'bold',
-  },
   lookZone: {
     position: 'absolute',
     top: 0,
@@ -306,20 +308,11 @@ const styles = {
     pointerEvents: 'auto',
     touchAction: 'none',
   },
-  lookLabel: {
-    position: 'absolute',
-    right: 148,
-    top: 16,
-    color: 'rgba(255,255,255,0.22)',
-    fontSize: 9,
-    letterSpacing: 2,
-    fontWeight: 'bold',
-  },
-  // COD-style button cluster — flex column, bottom-right
+  // COD-style button cluster — pulled inward from right edge toward center
   actions: {
     position: 'absolute',
-    right: 'max(12px, env(safe-area-inset-right))',
-    bottom: 'max(12px, env(safe-area-inset-bottom))',
+    right: 'clamp(12px, 18vw, 170px)',
+    bottom: 'max(14px, env(safe-area-inset-bottom))',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-end',
