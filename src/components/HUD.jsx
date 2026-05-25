@@ -1,10 +1,20 @@
+import { useEffect, useState } from 'react'
 import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
 
+function getIsMobileHud() {
+  if (typeof window === 'undefined') return false
+  const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+  const touchPoints = navigator.maxTouchPoints > 0
+  const mobileSized = Math.min(window.innerWidth, window.innerHeight) <= 900
+  return Boolean(coarsePointer || (touchPoints && mobileSized))
+}
 
 export default function HUD() {
+  const [isMobile, setIsMobile] = useState(getIsMobileHud)
+  const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
   const zombieCount = useGameStore((s) => s.zombies.length)
@@ -35,6 +45,32 @@ export default function HUD() {
   const upgradeCost = STRONG_PLANK_COST * nearPlankCount
   const canAfford = canUpgrade ? money >= upgradeCost : money >= activeCost
   const unlockedTypes = zombieTypesForWave(wave)
+  const topBarStyle = isMobile ? { ...styles.topBar, ...styles.mobileTopBar } : styles.topBar
+  const statStyle = isMobile ? { ...styles.stat, ...styles.mobileStat } : styles.stat
+  const labelStyle = isMobile ? { ...styles.label, ...styles.mobileLabel } : styles.label
+  const valueStyle = isMobile ? { ...styles.value, ...styles.mobileValue } : styles.value
+  const showTopBar = !(isMobile && phase === 'intermission')
+  const ammoBoxStyle = isMobile ? { ...styles.ammoBox, ...styles.mobileAmmoBox } : styles.ammoBox
+  const weaponLabelStyle = isMobile ? { ...styles.weaponLabel, ...styles.mobileWeaponLabel } : styles.weaponLabel
+  const ammoCountStyle = isMobile ? { ...styles.ammoCount, ...styles.mobileAmmoCount } : styles.ammoCount
+  const reloadHintStyle = isMobile ? { ...styles.reloadHint, ...styles.mobileReloadHint } : styles.reloadHint
+  const pipsStyle = isMobile ? { ...styles.pips, ...styles.mobilePips } : styles.pips
+  const pipStyle = isMobile ? { ...styles.pip, ...styles.mobilePip } : styles.pip
+  const barOuterStyle = isMobile ? { ...styles.barOuter, ...styles.mobileBarOuter } : styles.barOuter
+
+  useEffect(() => {
+    const update = () => setIsMobile(getIsMobileHud())
+    const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('orientationchange', update)
+    media?.addEventListener?.('change', update)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('orientationchange', update)
+      media?.removeEventListener?.('change', update)
+    }
+  }, [])
 
   return (
     <div style={styles.hud}>
@@ -43,22 +79,24 @@ export default function HUD() {
       <div style={styles.crosshairV} />
 
       {/* Top bar */}
-      <div style={styles.topBar}>
-        <div style={styles.stat}>
-          <span style={styles.label}>WAVE</span>
-          <span style={styles.value}>{wave}</span>
+      {showTopBar && (
+        <div style={topBarStyle}>
+          <div style={statStyle}>
+            <span style={labelStyle}>WAVE</span>
+            <span style={valueStyle}>{wave}</span>
+          </div>
+          <div style={statStyle}>
+            <span style={labelStyle}>KILLS</span>
+            <span style={valueStyle}>{waveKills} / {total}</span>
+          </div>
+          <div style={statStyle}>
+            <span style={labelStyle}>MONEY</span>
+            <span style={{ ...valueStyle, color: canAfford ? '#ffe066' : '#ff6644' }}>
+              €{money.toFixed(2)}
+            </span>
+          </div>
         </div>
-        <div style={styles.stat}>
-          <span style={styles.label}>KILLS</span>
-          <span style={styles.value}>{waveKills} / {total}</span>
-        </div>
-        <div style={styles.stat}>
-          <span style={styles.label}>MONEY</span>
-          <span style={{ ...styles.value, color: canAfford ? '#ffe066' : '#ff6644' }}>
-            €{money.toFixed(2)}
-          </span>
-        </div>
-      </div>
+      )}
 
       {unlockedTypes.length > 0 && (
         <div style={styles.threatBox}>
@@ -71,14 +109,14 @@ export default function HUD() {
 
       {/* Weapon info — bottom right */}
       {activeItem === 'knife' ? (
-        <div style={styles.ammoBox}>
-          <div style={styles.weaponLabel}>KNIFE</div>
+        <div style={ammoBoxStyle}>
+          <div style={weaponLabelStyle}>KNIFE</div>
           {knifeCooldown > 0 ? (
             <>
-              <div style={{ ...styles.ammoCount, color: '#ff6600', fontSize: 20, letterSpacing: 3 }}>
+              <div style={{ ...ammoCountStyle, color: '#ff6600', fontSize: isMobile ? 13 : 20, letterSpacing: isMobile ? 1.5 : 3 }}>
                 COOLDOWN
               </div>
-              <div style={styles.cooldownTrack}>
+              <div style={{ ...styles.cooldownTrack, ...(isMobile ? styles.mobileCooldownTrack : {}) }}>
                 <div style={{
                   ...styles.cooldownFill,
                   width: `${Math.max(0, Math.min(1, (knifeCooldownMax - knifeCooldown) / knifeCooldownMax)) * 100}%`,
@@ -86,61 +124,64 @@ export default function HUD() {
               </div>
             </>
           ) : (
-            <div style={{ ...styles.ammoCount, color: '#00ff88', fontSize: 20, letterSpacing: 3 }}>
+            <div style={{ ...ammoCountStyle, color: '#00ff88', fontSize: isMobile ? 13 : 20, letterSpacing: isMobile ? 1.5 : 3 }}>
               READY
             </div>
           )}
-          <div style={styles.reloadHint}>Q — switch to gun{perks.knife_mastery ? ' · mastery' : ''}</div>
+          {!isMobile && <div style={reloadHintStyle}>Q — switch to gun{perks.knife_mastery ? ' · mastery' : ''}</div>}
         </div>
       ) : (
-        <div style={styles.ammoBox}>
-          <div style={styles.weaponLabel}>
-            {weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}
-          </div>
+        <div style={ammoBoxStyle}>
+          <div style={weaponLabelStyle}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
           <div style={styles.caliberLabel}>{CALIBER_LABELS[weapon]}</div>
           {isReloading ? (
-            <div style={styles.reloading}>RELOADING…</div>
+            <div style={{ ...styles.reloading, ...(isMobile ? styles.mobileReloading : {}) }}>RELOADING…</div>
           ) : (
             <div style={{
-              ...styles.ammoCount,
+              ...ammoCountStyle,
               color: bulletsInClip === 0 ? '#ff3300' : bulletsInClip <= 3 ? '#ffaa00' : '#fff',
             }}>
               {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
             </div>
           )}
-          {/* Bullet pip row */}
-          <div style={{ ...styles.pips, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
-            {Array.from({ length: clipSize }).map((_, i) => (
-              <div key={i} style={{
-                ...styles.pip,
-                background: i < bulletsInClip ? '#ffe066' : '#333',
-              }} />
-            ))}
-          </div>
-          <div style={styles.reloadHint}>
-            {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}R — reload · Q — knife
-          </div>
+          {!isMobile && <div style={reloadHintStyle}>R — reload · Q — knife</div>}
+          {/* Bullet pip row — hidden on mobile */}
+          {!isMobile && (
+            <div style={{ ...pipsStyle, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
+              {Array.from({ length: clipSize }).map((_, i) => (
+                <div key={i} style={{
+                  ...pipStyle,
+                  background: i < bulletsInClip ? '#ffe066' : '#333',
+                }} />
+              ))}
+            </div>
+          )}
+          {!isMobile && (
+            <div style={styles.reloadHint}>
+              {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}R — reload · Q — knife
+            </div>
+          )}
         </div>
       )}
 
       {/* Chest prompt */}
       {nearChest && !showBoardPrompt && (
-        <div style={{ ...styles.boardPrompt, borderColor: '#5a3a10', bottom: 90 }}>
-          <span style={{ color: '#c8801a' }}>E — open supply chest</span>
+        <div style={{ ...styles.boardPrompt, ...(isMobile ? styles.mobileBoardPrompt : {}), borderColor: '#5a3a10', bottom: isMobile ? 8 : 90 }}>
+          <span style={{ color: '#c8801a' }}>{isMobile ? 'USE — open chest' : 'E — open supply chest'}</span>
         </div>
       )}
 
       {/* Window board prompt */}
       {showBoardPrompt && (
-        <div style={{ ...styles.boardPrompt, borderColor: canAfford ? (strongPlanksMode ? '#446688' : '#554400') : '#552200' }}>
+        <div style={{ ...styles.boardPrompt, ...(isMobile ? styles.mobileBoardPrompt : {}), borderColor: canAfford ? (strongPlanksMode ? '#446688' : '#554400') : '#552200' }}>
           <span style={{ color: canAfford ? (strongPlanksMode ? '#aaccee' : '#ffe066') : '#ff6644' }}>
             {canUpgrade
               ? canAfford
-                ? `HOLD E — upgrade to STRONG (€${upgradeCost.toFixed(2)})`
-                : `NOT ENOUGH MONEY — €${upgradeCost.toFixed(2)} needed`
+                ? isMobile ? `UPGRADE STRONG €${upgradeCost.toFixed(2)}` : `HOLD E — upgrade to STRONG (€${upgradeCost.toFixed(2)})`
+                : isMobile ? `NEED €${upgradeCost.toFixed(2)}` : `NOT ENOUGH MONEY — €${upgradeCost.toFixed(2)} needed`
               : canAfford
-                ? `HOLD E — board window (€${activeCost.toFixed(2)}) [${nearPlankCount}/2]${strongPlanksMode ? ' ⚡' : ''}`
-                : `NOT ENOUGH MONEY — €${activeCost.toFixed(2)} needed`}
+                ? isMobile ? `BOARD [${nearPlankCount}/2] €${activeCost.toFixed(2)}${strongPlanksMode ? ' ⚡' : ''}` : `HOLD E — board window (€${activeCost.toFixed(2)}) [${nearPlankCount}/2]${strongPlanksMode ? ' ⚡' : ''}`
+                : isMobile ? `NEED €${activeCost.toFixed(2)}` : `NOT ENOUGH MONEY — €${activeCost.toFixed(2)} needed`}
           </span>
           {canAfford && (
             <div style={styles.boardBar}>
@@ -151,10 +192,10 @@ export default function HUD() {
       )}
 
       {/* Bottom hint */}
-      <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>
+      {!isMobile && <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>}
 
       {/* Zombie count bar */}
-      <div style={styles.barOuter}>
+      <div style={barOuterStyle}>
         <div
           style={{
             ...styles.barInner,
@@ -225,11 +266,22 @@ const styles = {
     borderRadius: 8,
     border: '1px solid #333',
   },
+  mobileTopBar: {
+    gap: 8,
+    marginTop: 'max(6px, env(safe-area-inset-top))',
+    padding: '4px 8px',
+    borderRadius: 6,
+    background: 'rgba(0,0,0,0.46)',
+  },
   stat: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: 2,
+  },
+  mobileStat: {
+    minWidth: 38,
+    gap: 0,
   },
   label: {
     color: '#888',
@@ -237,12 +289,21 @@ const styles = {
     letterSpacing: 3,
     fontFamily: 'Courier New, monospace',
   },
+  mobileLabel: {
+    fontSize: 7,
+    letterSpacing: 1.5,
+  },
   value: {
     color: '#fff',
     fontSize: 28,
     fontWeight: 'bold',
     fontFamily: 'Courier New, monospace',
     letterSpacing: 2,
+  },
+  mobileValue: {
+    fontSize: 13,
+    letterSpacing: 1,
+    lineHeight: 1.05,
   },
   hint: {
     position: 'absolute',
@@ -261,6 +322,11 @@ const styles = {
     borderRadius: 3,
     overflow: 'hidden',
   },
+  mobileBarOuter: {
+    bottom: 8,
+    width: 120,
+    height: 3,
+  },
   barInner: {
     height: '100%',
     background: '#00ff88',
@@ -277,6 +343,20 @@ const styles = {
     gap: 4,
     fontFamily: 'Courier New, monospace',
   },
+  mobileAmmoBox: {
+    // Center at the very bottom of the screen, above the kill bar
+    left: '50%',
+    transform: 'translateX(-50%)',
+    bottom: 'max(22px, calc(env(safe-area-inset-bottom) + 16px))',
+    right: 'auto',
+    alignItems: 'center',
+    gap: 0,
+    padding: '2px 10px 3px',
+    borderRadius: 5,
+    background: 'rgba(0,0,0,0.40)',
+    border: '1px solid rgba(255,255,255,0.09)',
+    whiteSpace: 'nowrap',
+  },
   weaponLabel: {
     color: '#888',
     fontSize: 11,
@@ -289,11 +369,20 @@ const styles = {
     letterSpacing: 3,
     marginBottom: 2,
   },
+  mobileWeaponLabel: {
+    fontSize: 7,
+    letterSpacing: 1.5,
+    marginBottom: 0,
+  },
   ammoCount: {
     fontSize: 36,
     fontWeight: 'bold',
     letterSpacing: 2,
     lineHeight: 1,
+  },
+  mobileAmmoCount: {
+    fontSize: 17,
+    letterSpacing: 1,
   },
   ammoSep: {
     color: '#555',
@@ -312,11 +401,18 @@ const styles = {
     fontWeight: 'bold',
     animation: 'none',
   },
+  mobileReloading: {
+    fontSize: 12,
+    letterSpacing: 2,
+  },
   reloadHint: {
     color: '#444',
     fontSize: 11,
     letterSpacing: 2,
     marginTop: 2,
+  },
+  mobileReloadHint: {
+    display: 'none',
   },
   boardPrompt: {
     position: 'absolute',
@@ -333,6 +429,15 @@ const styles = {
     flexDirection: 'column',
     gap: 6,
     minWidth: 220,
+  },
+  mobileBoardPrompt: {
+    bottom: 8,
+    fontSize: 9,
+    letterSpacing: 1,
+    padding: '3px 9px 4px',
+    borderRadius: 3,
+    gap: 3,
+    minWidth: 0,
   },
   boardBar: {
     width: '100%',
@@ -352,11 +457,21 @@ const styles = {
     gap: 3,
     marginTop: 4,
   },
+  mobilePips: {
+    gap: 2,
+    marginTop: 1,
+    justifyContent: 'flex-end',
+  },
   pip: {
     width: 6,
     height: 14,
     borderRadius: 2,
     transition: 'background 0.1s',
+  },
+  mobilePip: {
+    width: 3,
+    height: 7,
+    borderRadius: 1,
   },
   cooldownTrack: {
     width: 100,
@@ -365,6 +480,11 @@ const styles = {
     borderRadius: 3,
     overflow: 'hidden',
     marginTop: 6,
+  },
+  mobileCooldownTrack: {
+    width: 56,
+    height: 4,
+    marginTop: 3,
   },
   cooldownFill: {
     height: '100%',
