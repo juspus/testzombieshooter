@@ -19,7 +19,7 @@ function noiseBuffer(ac, seconds) {
   return buf
 }
 
-function playNoise(ac, buf, t, duration, gainVal, filterType, freq, q = 1) {
+function playNoise(ac, buf, t, duration, gainVal, filterType, freq, q = 1, dest = null) {
   const src = ac.createBufferSource()
   src.buffer = buf
 
@@ -34,12 +34,12 @@ function playNoise(ac, buf, t, duration, gainVal, filterType, freq, q = 1) {
 
   src.connect(filt)
   filt.connect(gain)
-  gain.connect(ac.destination)
+  gain.connect(dest ?? ac.destination)
   src.start(t)
   src.stop(t + duration)
 }
 
-function playTone(ac, t, startFreq, endFreq, duration, gainVal) {
+function playTone(ac, t, startFreq, endFreq, duration, gainVal, dest = null) {
   const osc = ac.createOscillator()
   osc.frequency.setValueAtTime(startFreq, t)
   osc.frequency.exponentialRampToValueAtTime(endFreq, t + duration)
@@ -49,9 +49,53 @@ function playTone(ac, t, startFreq, endFreq, duration, gainVal) {
   gain.gain.exponentialRampToValueAtTime(0.001, t + duration)
 
   osc.connect(gain)
-  gain.connect(ac.destination)
+  gain.connect(dest ?? ac.destination)
   osc.start(t)
   osc.stop(t + duration)
+}
+
+// Tanh soft-clip curve for WaveShaperNode.
+// drive 1 = subtle warmth, 2 = moderate crunch, 3+ = heavy saturation.
+// Normalised so |output| ≤ 1 and unity gain for small signals.
+function _makeTanhCurve(drive = 2) {
+  const n = 512
+  const curve = new Float32Array(n)
+  const norm = Math.tanh(drive)
+  for (let i = 0; i < n; i++) {
+    const x = (i * 2) / n - 1   // map index → [-1, +1]
+    curve[i] = Math.tanh(x * drive) / norm
+  }
+  return curve
+}
+
+// Build a shared signal chain: inputGain → WaveShaper → Compressor → destination.
+// Returns the inputGain node — connect audio sources to it.
+// satDrive:  tanh saturation drive (1 = subtle, 2 = crunchy)
+// threshold: compressor threshold in dBFS (e.g. -14)
+function _makeShotChain(ac, satDrive = 2, threshold = -14) {
+  const inputGain = ac.createGain()
+  inputGain.gain.value = 1.0
+
+  const sat = ac.createWaveShaper()
+  sat.curve = _makeTanhCurve(satDrive)
+  sat.oversample = '4x'          // reduce aliasing from clipping
+
+  const comp = ac.createDynamicsCompressor()
+  comp.threshold.value = threshold
+  comp.knee.value      = 6       // soft knee — gentler onset
+  comp.ratio.value     = 6       // 6 : 1
+  comp.attack.value    = 0.010   // 10 ms — lets the transient peak through, then tames
+  comp.release.value   = 0.080   // 80 ms — quick recovery so body feels full
+
+  const makeupGain = ac.createGain()
+  makeupGain.gain.value = 2.2    // restore level lost to compression
+
+  inputGain.connect(sat)
+  sat.connect(comp)
+  comp.connect(makeupGain)
+  makeupGain.connect(ac.destination)
+
+  return inputGain
 }
 
 function mechanicalClick(ac, t, gainVal = 0.5) {
@@ -65,42 +109,66 @@ function mechanicalClick(ac, t, gainVal = 0.5) {
 // ─── per-weapon gunshot implementations ─────────────────────────────────────
 
 // Glock 17 / 9mm pistol
-// Character: sharp, crisp "BANG" with high-mid emphasis, modest low end,
+// Character: sharp, powerful "BANG" with sub punch + mid crack + HF snap,
+//            run through tanh saturation + compression for authority,
 //            followed by the semi-auto slide cycling back and snapping forward.
 function _playPistolShot(ac, t) {
-  // 1. Muzzle blast — the dominant sound
-  //    Broadband noise, highpass to kill sub-bass mud (pistol ≠ cannon),
-  //    peaking boost at 2.5 kHz for the distinctive 9mm snap/crack.
-  //    Very steep gain envelope: loud instant attack, 80% gone by 30 ms.
+  // Shared saturation + compression chain for all blast layers.
+  // tanh soft-clip adds harmonic density; compressor tames peaks and
+  // fattens the sustain — together they give the "power" quality a
+  // bare noise burst lacks.
+  const chain = _makeShotChain(ac, 2.2, -14)
+
+  // 1. Sub punch — the chest-thump pressure wave, very short.
+  //    80→28 Hz in 20 ms. Through the chain so saturation spreads
+  //    harmonics upward and the transient punches through the compressor.
+  const subOsc = ac.createOscillator()
+  subOsc.type = 'sine'
+  subOsc.frequency.setValueAtTime(80, t)
+  subOsc.frequency.exponentialRampToValueAtTime(28, t + 0.020)
+
+  const subGain = ac.createGain()
+  subGain.gain.setValueAtTime(2.5, t)
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.028)
+
+  subOsc.connect(subGain)
+  subGain.connect(chain)
+  subOsc.start(t)
+  subOsc.stop(t + 0.030)
+
+  // 2. Muzzle blast — the dominant body.
+  //    Highpass lowered to 220 Hz (was 380) so more body weight comes through.
+  //    Peaking boost at 2.5 kHz for the 9mm snap character.
+  //    Gain raised to 2.5; saturation chain prevents harsh clipping.
   const blastBuf = noiseBuffer(ac, 0.10)
   const blastSrc = ac.createBufferSource()
   blastSrc.buffer = blastBuf
 
   const blastHP = ac.createBiquadFilter()
   blastHP.type = 'highpass'
-  blastHP.frequency.value = 380   // cut boom, keep punch
+  blastHP.frequency.value = 220   // lower cut → more body weight
 
   const blastSnap = ac.createBiquadFilter()
   blastSnap.type = 'peaking'
   blastSnap.frequency.value = 2500
-  blastSnap.gain.value = 10       // add the 9mm snap character
+  blastSnap.gain.value = 10
   blastSnap.Q.value = 0.85
 
   const blastGain = ac.createGain()
-  blastGain.gain.setValueAtTime(1.7, t)
-  blastGain.gain.exponentialRampToValueAtTime(0.06, t + 0.028)   // very steep drop
+  blastGain.gain.setValueAtTime(2.5, t)                           // raised from 1.7
+  blastGain.gain.exponentialRampToValueAtTime(0.06, t + 0.028)
   blastGain.gain.exponentialRampToValueAtTime(0.001, t + 0.095)
 
   blastSrc.connect(blastHP)
   blastHP.connect(blastSnap)
   blastSnap.connect(blastGain)
-  blastGain.connect(ac.destination)
+  blastGain.connect(chain)           // → saturation → compression
   blastSrc.start(t)
   blastSrc.stop(t + 0.10)
 
-  // 2. High-frequency crack — supersonic pressure front
-  //    Very short bandpass burst at ~4 kHz. Decays in ~20 ms.
-  //    Gives that sharp "crack" on top of the body.
+  // 3. High-frequency crack — supersonic pressure front.
+  //    Short bandpass burst at ~4.2 kHz, routed through the chain so
+  //    it shares the same saturation colouring as the body.
   const crackBuf = noiseBuffer(ac, 0.025)
   const crackSrc = ac.createBufferSource()
   crackSrc.buffer = crackBuf
@@ -111,18 +179,17 @@ function _playPistolShot(ac, t) {
   crackFilt.Q.value = 1.8
 
   const crackGain = ac.createGain()
-  crackGain.gain.setValueAtTime(1.3, t)
+  crackGain.gain.setValueAtTime(1.6, t)
   crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.022)
 
   crackSrc.connect(crackFilt)
   crackFilt.connect(crackGain)
-  crackGain.connect(ac.destination)
+  crackGain.connect(chain)           // → saturation → compression
   crackSrc.start(t)
   crackSrc.stop(t + 0.025)
 
-  // 3. Pressure pop — short muzzle pressure wave, NOT a long bass sweep
-  //    9mm has less low-end than .45 or .357; decays in ~40 ms max.
-  //    This is what distinguishes a pistol "thump" from a snare-drum "boom".
+  // 4. Pressure pop — short muzzle wave, routed dry to destination
+  //    (already a pure sine; saturation would add unwanted harmonics here).
   const popOsc = ac.createOscillator()
   popOsc.type = 'sine'
   popOsc.frequency.setValueAtTime(115, t)
@@ -137,15 +204,12 @@ function _playPistolShot(ac, t) {
   popOsc.start(t)
   popOsc.stop(t + 0.045)
 
-  // 4. Slide cycling back (~78 ms) — the semi-auto fingerprint
-  //    Polymer frame + metal slide: two overlapping short bursts.
-  //    The slight delay distinguishes this sound from any percussion hit.
+  // 5. Slide cycling back (~78 ms) — mechanical, stays dry (no saturation)
   const slideBackBuf = noiseBuffer(ac, 0.032)
   playNoise(ac, slideBackBuf, t + 0.076, 0.030, 0.48, 'bandpass', 2700, 4.5)
   playTone(ac, t + 0.076, 165, 82, 0.028, 0.30)
 
-  // 5. Slide snapping forward + chambering (~118 ms)
-  //    Slightly sharper/higher than the back-stroke (spring loaded return).
+  // 6. Slide snapping forward + chambering (~118 ms)
   const slideFwdBuf = noiseBuffer(ac, 0.026)
   playNoise(ac, slideFwdBuf, t + 0.116, 0.024, 0.58, 'bandpass', 3300, 5.5)
   playTone(ac, t + 0.116, 205, 100, 0.022, 0.36)
