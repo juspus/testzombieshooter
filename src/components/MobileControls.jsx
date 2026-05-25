@@ -31,6 +31,9 @@ function clampVector(x, y) {
   return { x: x / length, y: y / length }
 }
 
+// How many pixels of movement turns a tap into a drag
+const DRAG_THRESHOLD = 10
+
 export default function MobileControls() {
   const phase = useGameStore((s) => s.phase)
   const shopOpen = useGameStore((s) => s.shopOpen)
@@ -42,11 +45,30 @@ export default function MobileControls() {
   const [isStandalone, setIsStandalone] = useState(getIsStandalone)
   const [installHintDismissed, setInstallHintDismissed] = useState(getInstallHintDismissed)
   const [stick, setStick] = useState({ x: 0, y: 0 })
+
+  // Joystick
   const movePointerRef = useRef(null)
-  const lookPointerRef = useRef(null)
   const stickCenterRef = useRef({ x: 0, y: 0 })
+
+  // Look zone
+  const lookPointerRef = useRef(null)
   const lastLookRef = useRef({ x: 0, y: 0 })
+  const lookStartRef = useRef({ x: 0, y: 0 })
+  const lookBtnRef = useRef(null)      // which button was under the touch start (null = open area)
+  const lookDraggedRef = useRef(false) // did the touch travel past DRAG_THRESHOLD?
+  const holdTimerRef = useRef(null)    // setTimeout to activate held-fire after 60 ms
+  const holdFiredRef = useRef(false)   // did the hold timer activate?
+
+  // Button element refs – used ONLY for getBoundingClientRect() hit testing.
+  // The visual divs have pointer-events:none; the look zone handles all input.
+  const shootBtnRef = useRef(null)
+  const interactBtnRef = useRef(null)
+  const reloadBtnRef = useRef(null)
+  const swapBtnRef = useRef(null)
+
   const active = phase === 'playing' || phase === 'intermission'
+  const showInteractHint = nearChest || nearWindowId >= 0
+  const showInstallHint = !isStandalone && !installHintDismissed
 
   useEffect(() => {
     const update = () => {
@@ -70,10 +92,7 @@ export default function MobileControls() {
     if (!isMobile || !active || shopOpen) resetMobileInput()
   }, [isMobile, active, shopOpen])
 
-  useEffect(() => () => resetMobileInput(), [])
-
-  const showInteractHint = nearChest || nearWindowId >= 0
-  const showInstallHint = !isStandalone && !installHintDismissed
+  useEffect(() => () => { resetMobileInput(); clearTimeout(holdTimerRef.current) }, [])
 
   const dismissInstallHint = () => {
     window.localStorage?.setItem('cabinInstallHintDismissed', '1')
@@ -85,6 +104,8 @@ export default function MobileControls() {
     onPointerCancel: () => {
       movePointerRef.current = null
       lookPointerRef.current = null
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
       resetMobileInput()
       setStick({ x: 0, y: 0 })
     },
@@ -104,6 +125,8 @@ export default function MobileControls() {
 
   if (!active) return null
   if (shopOpen) return <div style={{ ...styles.root, opacity: 0, pointerEvents: 'none' }} />
+
+  // ── Joystick handlers ──────────────────────────────────────────────────────
 
   const onMoveStart = (e) => {
     e.preventDefault()
@@ -135,64 +158,136 @@ export default function MobileControls() {
     setStick({ x: 0, y: 0 })
   }
 
+  // ── Hit-test helper ────────────────────────────────────────────────────────
+
+  function hitButton(x, y) {
+    for (const [ref, id] of [
+      [shootBtnRef, 'shoot'],
+      [interactBtnRef, 'interact'],
+      [reloadBtnRef, 'reload'],
+      [swapBtnRef, 'swap'],
+    ]) {
+      const el = ref.current
+      if (!el) continue
+      const r = el.getBoundingClientRect()
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return id
+    }
+    return null
+  }
+
+  // ── Look-zone handlers (cover the whole right half + button area) ──────────
+  //
+  // Design contract:
+  //   • ANY drag → camera movement (regardless of where the touch started)
+  //   • Touch starts on a button AND moves < DRAG_THRESHOLD → button tap
+  //   • Touch starts on a held button AND stays stationary 60 ms → held-fire,
+  //     but if it later drags the hold is cancelled and camera takes over
+  //   • Touch starts in open space → pure camera look
+
+  const cancelHold = () => {
+    clearTimeout(holdTimerRef.current)
+    holdTimerRef.current = null
+    mobileInput.shootHeld = false
+    mobileInput.interactHeld = false
+  }
+
   const onLookStart = (e) => {
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
     lookPointerRef.current = e.pointerId
     lastLookRef.current = { x: e.clientX, y: e.clientY }
+    lookStartRef.current = { x: e.clientX, y: e.clientY }
+    lookDraggedRef.current = false
+    holdFiredRef.current = false
+    clearTimeout(holdTimerRef.current)
+    holdTimerRef.current = null
+
+    const hit = hitButton(e.clientX, e.clientY)
+    lookBtnRef.current = hit
+
+    // Schedule held-fire for shoot / interact buttons
+    if (hit === 'shoot' || hit === 'interact') {
+      holdTimerRef.current = setTimeout(() => {
+        holdTimerRef.current = null
+        if (lookDraggedRef.current) return // was dragged – don't activate
+        holdFiredRef.current = true
+        if (hit === 'shoot') {
+          mobileInput.shootHeld = true
+          mobileInput.shootPressed = true
+        } else {
+          mobileInput.interactHeld = true
+          mobileInput.interactPressed = true
+        }
+      }, 60)
+    }
   }
 
   const onLookMove = (e) => {
     if (lookPointerRef.current !== e.pointerId) return
     e.preventDefault()
+
+    // Camera always moves on drag
     const last = lastLookRef.current
     mobileInput.lookDeltaX += e.clientX - last.x
     mobileInput.lookDeltaY += e.clientY - last.y
     lastLookRef.current = { x: e.clientX, y: e.clientY }
+
+    // First time past threshold: mark as drag and cancel any button hold
+    if (!lookDraggedRef.current) {
+      const dx = e.clientX - lookStartRef.current.x
+      const dy = e.clientY - lookStartRef.current.y
+      if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+        lookDraggedRef.current = true
+        cancelHold()
+      }
+    }
   }
 
   const onLookEnd = (e) => {
     if (lookPointerRef.current !== e.pointerId) return
     e.preventDefault()
     lookPointerRef.current = null
+    clearTimeout(holdTimerRef.current)
+    holdTimerRef.current = null
+
+    const hit = lookBtnRef.current
+    const dragged = lookDraggedRef.current
+    const holdFired = holdFiredRef.current
+
+    // Release held buttons
+    mobileInput.shootHeld = false
+    mobileInput.interactHeld = false
+
+    // Tap: finger up without dragging, and hold timer didn't already activate
+    if (!dragged && hit && !holdFired) {
+      if (hit === 'shoot') mobileInput.shootPressed = true
+      else if (hit === 'interact') mobileInput.interactPressed = true
+      else if (hit === 'reload') mobileInput.reloadPressed = true
+      else if (hit === 'swap') mobileInput.swapPressed = true
+    }
+
+    lookBtnRef.current = null
+    lookDraggedRef.current = false
+    holdFiredRef.current = false
   }
 
-  // COD-style round button helper
-  const roundBtn = (icon, handlers, extraStyle = {}) => (
-    <button
-      type="button"
-      style={{ ...styles.roundBtn, ...extraStyle }}
-      onPointerDown={(e) => {
-        e.preventDefault()
-        e.currentTarget.setPointerCapture(e.pointerId)
-        handlers.down?.()
-      }}
-      onPointerUp={(e) => {
-        e.preventDefault()
-        handlers.up?.()
-      }}
-      onPointerCancel={(e) => {
-        e.preventDefault()
-        handlers.up?.()
-      }}
-    >
-      {icon}
-    </button>
-  )
+  const onLookCancel = (e) => {
+    if (lookPointerRef.current !== e.pointerId) return
+    lookPointerRef.current = null
+    cancelHold()
+    lookBtnRef.current = null
+    lookDraggedRef.current = false
+    holdFiredRef.current = false
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   const swapIcon = activeItem === 'gun' ? '🔪' : '🔫'
-  const interactBtnStyle = showInteractHint
-    ? { ...styles.interactBtn, ...styles.interactActive }
-    : styles.interactBtn
 
   return (
     <div style={styles.root} {...touchGuards}>
       {showInstallHint && (
-        // Tap anywhere on the banner to dismiss — most reliable on iOS Safari
-        <div
-          style={styles.installHint}
-          onClick={dismissInstallHint}
-        >
+        <div style={styles.installHint} onClick={dismissInstallHint}>
           <div>
             <div style={styles.installTitle}>FULLSCREEN MODE</div>
             <div style={styles.installText}>For more playable space in Safari: Share → Add to Home Screen, then launch Cabin from the icon.</div>
@@ -218,32 +313,30 @@ export default function MobileControls() {
         </div>
       </div>
 
-      {/* Look zone */}
+      {/* Look zone — covers the entire right portion including the button area.
+          All drag events here move the camera; button actions are triggered only
+          by taps (or sustained holds) detected via hit-testing. */}
       <div
         style={styles.lookZone}
         onPointerDown={onLookStart}
         onPointerMove={onLookMove}
         onPointerUp={onLookEnd}
-        onPointerCancel={onLookEnd}
+        onPointerCancel={onLookCancel}
       />
 
-      {/* COD-style round action buttons */}
+      {/* Visual-only button cluster — pointer-events:none, look zone handles input.
+          Refs are used purely for getBoundingClientRect() hit testing above. */}
       <div style={styles.actions}>
-        {/* Top row: small utility buttons */}
         <div style={styles.actionsRow}>
-          {roundBtn('↻', { down: () => { mobileInput.reloadPressed = true } }, styles.reloadBtn)}
-          {roundBtn(swapIcon, { down: () => { mobileInput.swapPressed = true } }, styles.swapBtn)}
+          <div ref={reloadBtnRef} style={{ ...styles.roundBtn, ...styles.reloadBtn }}>↻</div>
+          <div ref={swapBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>{swapIcon}</div>
         </div>
-        {/* Bottom row: interact + shoot */}
         <div style={styles.actionsRow}>
-          {roundBtn('✋', {
-            down: () => { mobileInput.interactHeld = true; mobileInput.interactPressed = true },
-            up: () => { mobileInput.interactHeld = false },
-          }, interactBtnStyle)}
-          {roundBtn('●', {
-            down: () => { mobileInput.shootHeld = true; mobileInput.shootPressed = true },
-            up: () => { mobileInput.shootHeld = false },
-          }, styles.shootBtn)}
+          <div
+            ref={interactBtnRef}
+            style={{ ...styles.roundBtn, ...styles.interactBtn, ...(showInteractHint ? styles.interactActive : {}) }}
+          >✋</div>
+          <div ref={shootBtnRef} style={{ ...styles.roundBtn, ...styles.shootBtn }}>●</div>
         </div>
       </div>
     </div>
@@ -294,32 +387,34 @@ const styles = {
     background: 'rgba(220, 230, 240, 0.46)',
     border: '1px solid rgba(255,255,255,0.45)',
   },
+  // Look zone covers everything right of the joystick area
   lookZone: {
     position: 'absolute',
     top: 0,
+    left: 120,
     right: 0,
     bottom: 0,
-    width: '58vw',
     pointerEvents: 'auto',
     touchAction: 'none',
   },
-  // COD-style button cluster — pulled inward from right edge toward center
+  // Button cluster — raised up from the bottom, pulled inward from right edge.
+  // pointer-events:none — the look zone handles all input via hit testing.
   actions: {
     position: 'absolute',
     right: 'clamp(12px, 18vw, 170px)',
-    bottom: 'max(14px, env(safe-area-inset-bottom))',
+    bottom: 'clamp(50px, 15vh, 110px)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-end',
     gap: 7,
-    pointerEvents: 'auto',
+    pointerEvents: 'none',
   },
   actionsRow: {
     display: 'flex',
     gap: 8,
     alignItems: 'flex-end',
   },
-  // Base round button
+  // Base round button (visual only)
   roundBtn: {
     borderRadius: 999,
     display: 'flex',
@@ -329,10 +424,8 @@ const styles = {
     color: '#f4efe4',
     fontWeight: 'bold',
     textShadow: '0 1px 3px rgba(0,0,0,0.9)',
-    touchAction: 'none',
-    padding: 0,
+    userSelect: 'none',
   },
-  // Large SHOOT circle
   shootBtn: {
     width: 58,
     height: 58,
@@ -342,7 +435,6 @@ const styles = {
     boxShadow: '0 0 18px rgba(180,40,20,0.45)',
     color: '#ffd6c0',
   },
-  // Medium INTERACT circle — glows gold when near interactable
   interactBtn: {
     width: 46,
     height: 46,
@@ -353,7 +445,6 @@ const styles = {
     background: 'rgba(70,46,0,0.68)',
     boxShadow: '0 0 14px rgba(210,160,0,0.4)',
   },
-  // Small RELOAD circle
   reloadBtn: {
     width: 36,
     height: 36,
@@ -361,7 +452,6 @@ const styles = {
     color: 'rgba(200,220,240,0.75)',
     background: 'rgba(8,12,22,0.55)',
   },
-  // Small SWAP/KNIFE circle
   swapBtn: {
     width: 36,
     height: 36,
@@ -383,6 +473,7 @@ const styles = {
     background: 'rgba(0, 0, 0, 0.88)',
     border: '1px solid rgba(200, 128, 26, 0.55)',
     boxShadow: '0 0 20px rgba(0,0,0,0.45)',
+    cursor: 'pointer',
   },
   installTitle: {
     color: '#c8801a',
@@ -440,4 +531,3 @@ const styles = {
     lineHeight: 1.5,
   },
 }
-
