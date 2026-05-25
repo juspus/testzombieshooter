@@ -5,7 +5,7 @@ import * as THREE from 'three'
 
 const SWING_DUR = 0.35  // seconds for full swing arc
 
-function HuntingKnifeModel() {
+export function HuntingKnifeModel() {
   const metal  = <meshStandardMaterial color="#b8b8b8" metalness={0.95} roughness={0.10} />
   const spine  = <meshStandardMaterial color="#1a1a1a" metalness={0.80} roughness={0.35} />
   const bolster = <meshStandardMaterial color="#888888" metalness={0.85} roughness={0.25} />

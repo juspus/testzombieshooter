@@ -5,7 +5,7 @@ import * as THREE from 'three'
 
 const _muzzleWorld = new THREE.Vector3()
 
-function PistolModel({ gunMat }) {
+export function PistolModel({ gunMat }) {
   return (
     <>
       {/* Slide / upper receiver */}
@@ -47,7 +47,7 @@ function PistolModel({ gunMat }) {
   )
 }
 
-function AKModel({ gunMat }) {
+export function AKModel({ gunMat }) {
   const metal  = (color) => gunMat(color, 0.8, 0.25)
   const wood   = (color) => gunMat(color, 0.0, 0.92)
   const grip   = ()      => gunMat('#252525', 0.1, 0.9)
@@ -129,7 +129,7 @@ function AKModel({ gunMat }) {
   )
 }
 
-function DeagleModel({ gunMat }) {
+export function DeagleModel({ gunMat }) {
   const chrome = (r = 0.15) => gunMat('#aaaaaa', 0.9, r)
   const dark   = ()         => gunMat('#2e2e2e', 0.8, 0.2)
   return (
@@ -193,7 +193,7 @@ function DeagleModel({ gunMat }) {
   )
 }
 
-function ShotgunModel({ gunMat, pumpRef }) {
+export function ShotgunModel({ gunMat, pumpRef }) {
   const metal = (c) => gunMat(c, 0.75, 0.3)
   const wood  = (c) => gunMat(c, 0.0,  0.9)
   return (
