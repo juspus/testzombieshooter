@@ -188,7 +188,11 @@ export default function MobileControls() {
   return (
     <div style={styles.root} {...touchGuards}>
       {showInstallHint && (
-        <div style={styles.installHint}>
+        // Tap anywhere on the banner to dismiss — most reliable on iOS Safari
+        <div
+          style={styles.installHint}
+          onClick={dismissInstallHint}
+        >
           <div>
             <div style={styles.installTitle}>FULLSCREEN MODE</div>
             <div style={styles.installText}>For more playable space in Safari: Share → Add to Home Screen, then launch Cabin from the icon.</div>
@@ -196,16 +200,7 @@ export default function MobileControls() {
           <button
             type="button"
             style={styles.installDismiss}
-            onPointerDown={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              e.currentTarget.setPointerCapture(e.pointerId)
-            }}
-            onPointerUp={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              dismissInstallHint()
-            }}
+            onClick={(e) => { e.stopPropagation(); dismissInstallHint() }}
           >×</button>
         </div>
       )}
@@ -410,7 +405,7 @@ const styles = {
     color: '#f4efe4',
     fontSize: 18,
     lineHeight: 1,
-    touchAction: 'none',
+    cursor: 'pointer',
   },
   rotateOverlay: {
     position: 'fixed',
