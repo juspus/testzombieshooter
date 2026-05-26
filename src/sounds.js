@@ -219,6 +219,126 @@ function _playPistolShot(ac, t) {
   playTone(ac, t + 0.116, 205, 100, 0.022, 0.36)
 }
 
+// 12-gauge pump shotgun
+// Character: massive deep BOOM — heavy chest-impact sub, wide low-mid body
+// decaying 350 ms, a distinct pellet-spray burst, and a long room tail that
+// fills the cabin. Completely different in scale from the pistol.
+function _playShotgunShot(ac, t) {
+  // Stronger chain — more saturation drive, harder compression.
+  // The shotgun's extreme transients need more clamping to stay cohesive.
+  const chain = _makeShotChain(ac, 3.0, -10)
+
+  // 1. Deep sub-bass cannon punch — 55→22 Hz, 65 ms.
+  //    Much lower, longer and louder than the pistol sub.
+  //    This is what moves the air and rumbles the floor.
+  const subOsc = ac.createOscillator()
+  subOsc.type = 'sine'
+  subOsc.frequency.setValueAtTime(55, t)
+  subOsc.frequency.exponentialRampToValueAtTime(22, t + 0.065)
+  const subGain = ac.createGain()
+  subGain.gain.setValueAtTime(4.5, t)
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.075)
+  subOsc.connect(subGain)
+  subGain.connect(chain)
+  subOsc.start(t)
+  subOsc.stop(t + 0.080)
+
+  // 2. Massive low body — 120 Hz, very wide Q (0.45), 350 ms decay.
+  //    The core BOOM — three times longer than the pistol body.
+  //    Wide Q covers 60–240 Hz as a wall of low energy.
+  const bodyBuf = noiseBuffer(ac, 0.40)
+  const bodySrc = ac.createBufferSource()
+  bodySrc.buffer = bodyBuf
+  const bodyFilt = ac.createBiquadFilter()
+  bodyFilt.type = 'bandpass'
+  bodyFilt.frequency.value = 120
+  bodyFilt.Q.value = 0.45         // very wide → 60-240 Hz coverage
+  const bodyGain = ac.createGain()
+  bodyGain.gain.setValueAtTime(5.0, t)
+  bodyGain.gain.exponentialRampToValueAtTime(0.6, t + 0.040)
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
+  bodySrc.connect(bodyFilt)
+  bodyFilt.connect(bodyGain)
+  bodyGain.connect(chain)
+  bodySrc.start(t)
+  bodySrc.stop(t + 0.38)
+
+  // 3. Mid bark — 290 Hz, 180 ms.
+  //    Bark on top of the low boom; gives definition so it doesn't
+  //    just sound like a low rumble.
+  const midBuf = noiseBuffer(ac, 0.22)
+  const midSrc = ac.createBufferSource()
+  midSrc.buffer = midBuf
+  const midFilt = ac.createBiquadFilter()
+  midFilt.type = 'bandpass'
+  midFilt.frequency.value = 290
+  midFilt.Q.value = 0.8
+  const midGain = ac.createGain()
+  midGain.gain.setValueAtTime(3.2, t)
+  midGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+  midSrc.connect(midFilt)
+  midFilt.connect(midGain)
+  midGain.connect(chain)
+  midSrc.start(t)
+  midSrc.stop(t + 0.20)
+
+  // 4. Pellet spray — 850 Hz bandpass, 40 ms.
+  //    12 pellets exiting simultaneously create a dense grainy burst
+  //    at mid frequencies — the defining texture of a shotgun blast.
+  const sprayBuf = noiseBuffer(ac, 0.045)
+  const spraySrc = ac.createBufferSource()
+  spraySrc.buffer = sprayBuf
+  const sprayFilt = ac.createBiquadFilter()
+  sprayFilt.type = 'bandpass'
+  sprayFilt.frequency.value = 850
+  sprayFilt.Q.value = 1.1
+  const sprayGain = ac.createGain()
+  sprayGain.gain.setValueAtTime(2.5, t)
+  sprayGain.gain.exponentialRampToValueAtTime(0.001, t + 0.038)
+  spraySrc.connect(sprayFilt)
+  sprayFilt.connect(sprayGain)
+  sprayGain.connect(chain)
+  spraySrc.start(t)
+  spraySrc.stop(t + 0.045)
+
+  // 5. Muzzle crack — HP above 1.5 kHz, 20 ms.
+  //    Initial sharp edge; subtler than pellet spray so the boom dominates.
+  const crackBuf = noiseBuffer(ac, 0.022)
+  const crackSrc = ac.createBufferSource()
+  crackSrc.buffer = crackBuf
+  const crackHP = ac.createBiquadFilter()
+  crackHP.type = 'highpass'
+  crackHP.frequency.value = 1500
+  const crackGain = ac.createGain()
+  crackGain.gain.setValueAtTime(2.0, t)
+  crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.018)
+  crackSrc.connect(crackHP)
+  crackHP.connect(crackGain)
+  crackGain.connect(chain)
+  crackSrc.start(t)
+  crackSrc.stop(t + 0.022)
+
+  // 6. Long room resonance tail — 90 Hz, delayed onset, 500 ms decay.
+  //    Shotgun fills a room far more than a pistol. Goes dry to
+  //    destination — no extra saturation on the tail.
+  const roomBuf = noiseBuffer(ac, 0.60)
+  const roomSrc = ac.createBufferSource()
+  roomSrc.buffer = roomBuf
+  const roomFilt = ac.createBiquadFilter()
+  roomFilt.type = 'bandpass'
+  roomFilt.frequency.value = 90
+  roomFilt.Q.value = 1.0
+  const roomGain = ac.createGain()
+  roomGain.gain.setValueAtTime(0.001, t)
+  roomGain.gain.linearRampToValueAtTime(0.80, t + 0.030)   // room fills slower
+  roomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.50)
+  roomSrc.connect(roomFilt)
+  roomFilt.connect(roomGain)
+  roomGain.connect(ac.destination)
+  roomSrc.start(t)
+  roomSrc.stop(t + 0.55)
+}
+
 // Generic fallback (used while other weapon sounds are not yet implemented)
 function _playGenericShot(ac, t) {
   const crackBuf = noiseBuffer(ac, 0.18)
@@ -247,7 +367,8 @@ function _playGenericShot(ac, t) {
 export function playGunshot(weapon = 'pistol') {
   const ac = ctx()
   const t  = ac.currentTime
-  if (weapon === 'pistol') return _playPistolShot(ac, t)
+  if (weapon === 'pistol')  return _playPistolShot(ac, t)
+  if (weapon === 'shotgun') return _playShotgunShot(ac, t)
   _playGenericShot(ac, t)
 }
 
