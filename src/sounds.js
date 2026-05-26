@@ -338,11 +338,10 @@ function _playShotgunShot(ac, t) {
   const crackBuf = noiseBuffer(ac, 0.014)
   playNoise(ac, crackBuf, t, 0.012, 0.22, 'highpass', 2000, 0.8, out)
 
-  // 8. Room resonance tail — 60 Hz, τ = 500 ms, 1.6 s total.
-  //    Fills to 2.5 in 45 ms then decays slowly.
-  //    At 500 ms it's still at -7 dBFS; at 1 s it's at -15 dBFS.
+  // 8. Room resonance tail — 60 Hz, τ = 1200 ms, 4 s total.
+  //    At 1 s: -7 dBFS. At 2 s: -15 dBFS. At 3 s: -24 dBFS.
   //    This is what makes the room feel like it shook.
-  const roomBuf = noiseBuffer(ac, 1.80)
+  const roomBuf = noiseBuffer(ac, 4.20)
   const roomSrc = ac.createBufferSource()
   roomSrc.buffer = roomBuf
   const roomFilt = ac.createBiquadFilter()
@@ -352,12 +351,12 @@ function _playShotgunShot(ac, t) {
   const roomGain = ac.createGain()
   roomGain.gain.setValueAtTime(0.001, t)
   roomGain.gain.linearRampToValueAtTime(2.5, t + 0.045)       // room fills fast
-  roomGain.gain.setTargetAtTime(0.001, t + 0.045, 0.50)       // τ=500 ms slow decay
+  roomGain.gain.setTargetAtTime(0.001, t + 0.045, 1.20)       // τ=1200 ms — very long decay
   roomSrc.connect(roomFilt)
   roomFilt.connect(roomGain)
   roomGain.connect(out)
   roomSrc.start(t)
-  roomSrc.stop(t + 1.80)
+  roomSrc.stop(t + 4.20)
 }
 
 // Generic fallback (used while other weapon sounds are not yet implemented)
