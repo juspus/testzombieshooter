@@ -219,112 +219,120 @@ function _playPistolShot(ac, t) {
   playTone(ac, t + 0.116, 205, 100, 0.022, 0.36)
 }
 
-// 12-gauge pump shotgun
-// Character: massive deep BOOM — heavy chest-impact sub, wide low-mid body
-// decaying 350 ms, a distinct pellet-spray burst, and a long room tail that
-// fills the cabin. Completely different in scale from the pistol.
+// 12-gauge pump shotgun — cannon
+// No saturation chain: WaveShaper at drive 3 converts 60-120 Hz content
+// into midrange harmonics, killing the guttural low body.
+// Clean routing + sawtooth growl + setTargetAtTime sustained decay.
 function _playShotgunShot(ac, t) {
-  // Stronger chain — more saturation drive, harder compression.
-  const chain = _makeShotChain(ac, 3.0, -10)
+  // All layers → out(0.60) → limiter → destination.
+  // out.gain 0.60 keeps shotgun noticeably louder than pistol while
+  // the limiter prevents hard clipping.
+  const out = ac.createGain()
+  out.gain.value = 0.60
 
-  // 1. Deep sub-bass cannon punch — 55→22 Hz, 65 ms.
+  const limiter = ac.createDynamicsCompressor()
+  limiter.threshold.value = -3
+  limiter.knee.value     = 1
+  limiter.ratio.value    = 20
+  limiter.attack.value   = 0.002
+  limiter.release.value  = 0.200
+  out.connect(limiter)
+  limiter.connect(ac.destination)
+
+  // 1. Sub hit — 60→25 Hz clean sine, 95 ms.
+  //    Clean sine = no midrange artifacts from saturation.
   const subOsc = ac.createOscillator()
   subOsc.type = 'sine'
-  subOsc.frequency.setValueAtTime(55, t)
-  subOsc.frequency.exponentialRampToValueAtTime(22, t + 0.065)
+  subOsc.frequency.setValueAtTime(60, t)
+  subOsc.frequency.exponentialRampToValueAtTime(25, t + 0.095)
   const subGain = ac.createGain()
-  subGain.gain.setValueAtTime(4.5, t)
-  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.075)
+  subGain.gain.setValueAtTime(4.0, t)
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.105)
   subOsc.connect(subGain)
-  subGain.connect(chain)
+  subGain.connect(out)
   subOsc.start(t)
-  subOsc.stop(t + 0.080)
+  subOsc.stop(t + 0.110)
 
-  // 2. Massive low body — 120 Hz, very wide Q (0.45), 350 ms decay.
-  const bodyBuf = noiseBuffer(ac, 0.40)
+  // 2. Sawtooth growl — 55→22 Hz, LP 220 Hz, τ=280 ms.
+  //    Harmonics at 55, 110, 165, 220 Hz give the "grrr" cannon texture.
+  const growlOsc = ac.createOscillator()
+  growlOsc.type = 'sawtooth'
+  growlOsc.frequency.setValueAtTime(55, t)
+  growlOsc.frequency.exponentialRampToValueAtTime(22, t + 0.300)
+  const growlFilt = ac.createBiquadFilter()
+  growlFilt.type = 'lowpass'
+  growlFilt.frequency.value = 220
+  const growlGain = ac.createGain()
+  growlGain.gain.setValueAtTime(3.2, t)
+  growlGain.gain.setTargetAtTime(0.001, t, 0.28)
+  growlOsc.connect(growlFilt)
+  growlFilt.connect(growlGain)
+  growlGain.connect(out)
+  growlOsc.start(t)
+  growlOsc.stop(t + 0.500)
+
+  // 3. Core boom body — 85 Hz, Q 0.40 (covers 45–160 Hz).
+  //    setTargetAtTime τ=350 ms keeps it above the limiter threshold
+  //    until ~400 ms, then natural slow decay to ~1 s.
+  const bodyBuf = noiseBuffer(ac, 1.00)
   const bodySrc = ac.createBufferSource()
   bodySrc.buffer = bodyBuf
   const bodyFilt = ac.createBiquadFilter()
   bodyFilt.type = 'bandpass'
-  bodyFilt.frequency.value = 120
-  bodyFilt.Q.value = 0.45
+  bodyFilt.frequency.value = 85
+  bodyFilt.Q.value = 0.40
   const bodyGain = ac.createGain()
-  bodyGain.gain.setValueAtTime(5.0, t)
-  bodyGain.gain.exponentialRampToValueAtTime(0.6, t + 0.040)
-  bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
+  bodyGain.gain.setValueAtTime(4.5, t)
+  bodyGain.gain.setTargetAtTime(0.001, t + 0.040, 0.35)
   bodySrc.connect(bodyFilt)
   bodyFilt.connect(bodyGain)
-  bodyGain.connect(chain)
+  bodyGain.connect(out)
   bodySrc.start(t)
-  bodySrc.stop(t + 0.38)
+  bodySrc.stop(t + 1.10)
 
-  // 3. Mid bark — 290 Hz, 180 ms.
-  const midBuf = noiseBuffer(ac, 0.22)
-  const midSrc = ac.createBufferSource()
-  midSrc.buffer = midBuf
-  const midFilt = ac.createBiquadFilter()
-  midFilt.type = 'bandpass'
-  midFilt.frequency.value = 290
-  midFilt.Q.value = 0.8
-  const midGain = ac.createGain()
-  midGain.gain.setValueAtTime(3.2, t)
-  midGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
-  midSrc.connect(midFilt)
-  midFilt.connect(midGain)
-  midGain.connect(chain)
-  midSrc.start(t)
-  midSrc.stop(t + 0.20)
+  // 4. Upper body — 220 Hz, 200 ms.
+  const upBuf = noiseBuffer(ac, 0.24)
+  const upSrc = ac.createBufferSource()
+  upSrc.buffer = upBuf
+  const upFilt = ac.createBiquadFilter()
+  upFilt.type = 'bandpass'
+  upFilt.frequency.value = 220
+  upFilt.Q.value = 0.8
+  const upGain = ac.createGain()
+  upGain.gain.setValueAtTime(2.5, t)
+  upGain.gain.exponentialRampToValueAtTime(0.001, t + 0.200)
+  upSrc.connect(upFilt)
+  upFilt.connect(upGain)
+  upGain.connect(out)
+  upSrc.start(t)
+  upSrc.stop(t + 0.220)
 
-  // 4. Pellet spray — 850 Hz bandpass, 40 ms.
-  const sprayBuf = noiseBuffer(ac, 0.045)
-  const spraySrc = ac.createBufferSource()
-  spraySrc.buffer = sprayBuf
-  const sprayFilt = ac.createBiquadFilter()
-  sprayFilt.type = 'bandpass'
-  sprayFilt.frequency.value = 850
-  sprayFilt.Q.value = 1.1
-  const sprayGain = ac.createGain()
-  sprayGain.gain.setValueAtTime(2.5, t)
-  sprayGain.gain.exponentialRampToValueAtTime(0.001, t + 0.038)
-  spraySrc.connect(sprayFilt)
-  sprayFilt.connect(sprayGain)
-  sprayGain.connect(chain)
-  spraySrc.start(t)
-  spraySrc.stop(t + 0.045)
+  // 5. Pellet spray — 750 Hz, 32 ms. Shotgun texture, not dominant.
+  const sprayBuf = noiseBuffer(ac, 0.036)
+  playNoise(ac, sprayBuf, t, 0.030, 1.2, 'bandpass', 750, 1.0, out)
 
-  // 5. Muzzle crack — HP above 1.5 kHz, 20 ms.
-  const crackBuf = noiseBuffer(ac, 0.022)
-  const crackSrc = ac.createBufferSource()
-  crackSrc.buffer = crackBuf
-  const crackHP = ac.createBiquadFilter()
-  crackHP.type = 'highpass'
-  crackHP.frequency.value = 1500
-  const crackGain = ac.createGain()
-  crackGain.gain.setValueAtTime(2.0, t)
-  crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.018)
-  crackSrc.connect(crackHP)
-  crackHP.connect(crackGain)
-  crackGain.connect(chain)
-  crackSrc.start(t)
-  crackSrc.stop(t + 0.022)
+  // 6. Muzzle crack — HP 1.5 kHz, 18 ms. Edge on the initial transient.
+  const crackBuf = noiseBuffer(ac, 0.020)
+  playNoise(ac, crackBuf, t, 0.016, 1.5, 'highpass', 1500, 0.8, out)
 
-  // 6. Room resonance tail — 90 Hz, delayed onset, 500 ms decay.
-  const roomBuf = noiseBuffer(ac, 0.60)
+  // 7. Room tail — 75 Hz, fills in 30 ms, τ=450 ms. Total ~800 ms.
+  //    Not 4 seconds — just enough to feel like the cabin shook.
+  const roomBuf = noiseBuffer(ac, 0.90)
   const roomSrc = ac.createBufferSource()
   roomSrc.buffer = roomBuf
   const roomFilt = ac.createBiquadFilter()
   roomFilt.type = 'bandpass'
-  roomFilt.frequency.value = 90
-  roomFilt.Q.value = 1.0
+  roomFilt.frequency.value = 75
+  roomFilt.Q.value = 0.9
   const roomGain = ac.createGain()
   roomGain.gain.setValueAtTime(0.001, t)
-  roomGain.gain.linearRampToValueAtTime(0.80, t + 0.030)
-  roomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.50)
+  roomGain.gain.linearRampToValueAtTime(2.0, t + 0.030)
+  roomGain.gain.setTargetAtTime(0.001, t + 0.030, 0.45)
   roomSrc.connect(roomFilt)
   roomFilt.connect(roomGain)
-  roomGain.connect(ac.destination)
+  roomGain.connect(out)
   roomSrc.start(t)
-  roomSrc.stop(t + 0.55)
+  roomSrc.stop(t + 0.90)
 }
 
 // Generic fallback (used while other weapon sounds are not yet implemented)
