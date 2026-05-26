@@ -72,7 +72,7 @@ function _makeTanhCurve(drive = 2) {
 // Returns the inputGain node — connect audio sources to it.
 // satDrive:  tanh saturation drive (1 = subtle, 2 = crunchy)
 // threshold: compressor threshold in dBFS (e.g. -14)
-function _makeShotChain(ac, satDrive = 2, threshold = -14) {
+function _makeShotChain(ac, satDrive = 2, threshold = -14, dest = null) {
   const inputGain = ac.createGain()
   inputGain.gain.value = 1.0
 
@@ -93,7 +93,7 @@ function _makeShotChain(ac, satDrive = 2, threshold = -14) {
   inputGain.connect(sat)
   sat.connect(comp)
   comp.connect(makeupGain)
-  makeupGain.connect(ac.destination)
+  makeupGain.connect(dest ?? ac.destination)
 
   return inputGain
 }
@@ -112,11 +112,11 @@ function mechanicalClick(ac, t, gainVal = 0.5) {
 // A real pistol shot is dominated by 150–400 Hz — heavy, guttural, slow to decay.
 // The "snare" mistake is too much 2–5 kHz (snare wire territory) and no sustained
 // low-mid body. This version leads with the gut and keeps HF as a subtle top-layer.
-function _playPistolShot(ac, t) {
+function _playPistolShot(ac, t, dest = null) {
   // Saturation + compression chain for all blast layers.
   // Drive 2.5 = strong harmonic spreading into the low-mids;
   // threshold -12 / ratio 6:1 compresses hard so the body stays fat.
-  const chain = _makeShotChain(ac, 2.5, -12)
+  const chain = _makeShotChain(ac, 2.5, -12, dest)
 
   // 1. Sub-bass punch — felt pressure impact, 70→28 Hz, 35 ms.
   //    Saturation spreads harmonics upward, filling 70–200 Hz.
@@ -204,26 +204,26 @@ function _playPistolShot(ac, t) {
   roomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.30)
   roomSrc.connect(roomFilt)
   roomFilt.connect(roomGain)
-  roomGain.connect(ac.destination)
+  roomGain.connect(dest ?? ac.destination)
   roomSrc.start(t)
   roomSrc.stop(t + 0.32)
 
   // 6. Slide cycling back (~78 ms) — mechanical, dry
   const slideBackBuf = noiseBuffer(ac, 0.032)
-  playNoise(ac, slideBackBuf, t + 0.076, 0.030, 0.48, 'bandpass', 2700, 4.5)
-  playTone(ac, t + 0.076, 165, 82, 0.028, 0.30)
+  playNoise(ac, slideBackBuf, t + 0.076, 0.030, 0.48, 'bandpass', 2700, 4.5, dest)
+  playTone(ac, t + 0.076, 165, 82, 0.028, 0.30, dest)
 
   // 7. Slide snapping forward + chambering (~118 ms)
   const slideFwdBuf = noiseBuffer(ac, 0.026)
-  playNoise(ac, slideFwdBuf, t + 0.116, 0.024, 0.58, 'bandpass', 3300, 5.5)
-  playTone(ac, t + 0.116, 205, 100, 0.022, 0.36)
+  playNoise(ac, slideFwdBuf, t + 0.116, 0.024, 0.58, 'bandpass', 3300, 5.5, dest)
+  playTone(ac, t + 0.116, 205, 100, 0.022, 0.36, dest)
 }
 
 // 12-gauge pump shotgun — cannon
 // No saturation chain: WaveShaper at drive 3 converts 60-120 Hz content
 // into midrange harmonics, killing the guttural low body.
 // Clean routing + sawtooth growl + setTargetAtTime sustained decay.
-function _playShotgunShot(ac, t) {
+function _playShotgunShot(ac, t, dest = null) {
   // All layers → out(0.55) → limiter → destination.
   // out.gain 0.55 keeps shotgun noticeably louder than pistol while
   // the limiter prevents hard clipping.
@@ -237,7 +237,7 @@ function _playShotgunShot(ac, t) {
   limiter.attack.value   = 0.002
   limiter.release.value  = 0.200
   out.connect(limiter)
-  limiter.connect(ac.destination)
+  limiter.connect(dest ?? ac.destination)
 
   // 1. Sub hit — 60→25 Hz clean sine, 95 ms.
   //    Clean sine = no midrange artifacts from saturation.
@@ -357,7 +357,7 @@ function _playShotgunShot(ac, t) {
 }
 
 // Generic fallback (used while other weapon sounds are not yet implemented)
-function _playGenericShot(ac, t) {
+function _playGenericShot(ac, t, dest = null) {
   const crackBuf = noiseBuffer(ac, 0.18)
   const crack = ac.createBufferSource()
   crack.buffer = crackBuf
@@ -373,12 +373,12 @@ function _playGenericShot(ac, t) {
 
   crack.connect(crackFilt)
   crackFilt.connect(crackGain)
-  crackGain.connect(ac.destination)
+  crackGain.connect(dest ?? ac.destination)
   crack.start(t)
   crack.stop(t + 0.18)
 
-  playTone(ac, t, 220, 35, 0.12, 1.2)
-  playTone(ac, t + 0.02, 80, 30, 0.1, 0.5)
+  playTone(ac, t, 220, 35, 0.12, 1.2, dest)
+  playTone(ac, t + 0.02, 80, 30, 0.1, 0.5, dest)
 }
 
 export function playGunshot(weapon = 'pistol') {
@@ -466,14 +466,14 @@ export function playZombieDie() {
   playNoise(ac, wheezeBuf, t + 0.25, 0.28, 0.25, 'bandpass', 700, 2)
 }
 
-export function playFootstep() {
+export function playFootstep(dest = null) {
   const ac = ctx()
   const t = ac.currentTime
 
   // Dull floor thud
   const buf = noiseBuffer(ac, 0.12)
-  playNoise(ac, buf, t, 0.1, 0.55, 'lowpass', 180, 0.7)
-  playTone(ac, t, 100, 40, 0.08, 0.3)
+  playNoise(ac, buf, t, 0.1, 0.55, 'lowpass', 180, 0.7, dest)
+  playTone(ac, t, 100, 40, 0.08, 0.3, dest)
 }
 
 // Pooled noise buffers for zombie footsteps — created once, reused every call.
@@ -621,7 +621,7 @@ export function playShellThonk() {
   osc.stop(t + 0.11)
 }
 
-export function playKnifeSwing() {
+export function playKnifeSwing(dest = null) {
   const ac = ctx()
   const t = ac.currentTime
 
@@ -640,7 +640,7 @@ export function playKnifeSwing() {
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22)
   src.connect(filt)
   filt.connect(gain)
-  gain.connect(ac.destination)
+  gain.connect(dest ?? ac.destination)
   src.start(t)
   src.stop(t + 0.22)
 
@@ -652,7 +652,7 @@ export function playKnifeSwing() {
   ringGain.gain.setValueAtTime(0.07, t + 0.04)
   ringGain.gain.exponentialRampToValueAtTime(0.001, t + 0.20)
   osc.connect(ringGain)
-  ringGain.connect(ac.destination)
+  ringGain.connect(dest ?? ac.destination)
   osc.start(t + 0.04)
   osc.stop(t + 0.20)
 }
@@ -749,6 +749,65 @@ export function stopFlamethrowerSound() {
     out.disconnect()
   }, 200)
 }
+
+// ─── remote player spatial audio ─────────────────────────────────────────────
+
+// Keep the AudioContext listener's pose in sync with the local camera each frame.
+// forwardX / forwardZ are the camera's -sin(yaw) / -cos(yaw) unit vector components.
+export function setListenerPose(x, y, z, forwardX, forwardZ) {
+  if (!_ctx) return
+  const ac = _ctx
+  ac.listener.positionX.value = x
+  ac.listener.positionY.value = y
+  ac.listener.positionZ.value = z
+  ac.listener.forwardX.value = forwardX
+  ac.listener.forwardY.value = 0
+  ac.listener.forwardZ.value = forwardZ
+  ac.listener.upX.value = 0
+  ac.listener.upY.value = 1
+  ac.listener.upZ.value = 0
+}
+
+// Create a PannerNode rooted at a world position and connected to ac.destination.
+// All audio routed through this node will be spatially positioned in 3-D.
+function _makeSpatialOutput(ac, x, y, z) {
+  const panner = ac.createPanner()
+  panner.panningModel   = 'equalpower'
+  panner.distanceModel  = 'linear'
+  panner.refDistance    = 1    // full volume up to 1 unit away
+  panner.maxDistance    = 32   // ~= cabin diagonal, inaudible beyond this
+  panner.rolloffFactor  = 1
+  panner.positionX.value = x
+  panner.positionY.value = y
+  panner.positionZ.value = z
+  panner.connect(ac.destination)
+  return panner
+}
+
+// Play a weapon-specific gunshot coming from the remote player's world position.
+export function playRemoteGunshot(weapon, x, y, z) {
+  const ac   = ctx()
+  const t    = ac.currentTime
+  const dest = _makeSpatialOutput(ac, x, y, z)
+  if (weapon === 'pistol')  return _playPistolShot(ac, t, dest)
+  if (weapon === 'shotgun') return _playShotgunShot(ac, t, dest)
+  _playGenericShot(ac, t, dest)   // ak47 / deagle fallback
+}
+
+// Play a footstep coming from the remote player's world position.
+export function playRemoteFootstep(x, y, z) {
+  const ac   = ctx()
+  const dest = _makeSpatialOutput(ac, x, y, z)
+  playFootstep(dest)
+}
+
+// Play a knife-swing whoosh coming from the remote player's world position.
+export function playRemoteKnifeSwing(x, y, z) {
+  const ac   = ctx()
+  const dest = _makeSpatialOutput(ac, x, y, z)
+  playKnifeSwing(dest)
+}
+
 
 // ─── background music ────────────────────────────────────────────────────────
 

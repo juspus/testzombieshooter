@@ -6,6 +6,7 @@ import { getZombiePositions, applyRemoteZombiePositions, Zombie } from './Zombie
 import { pushRemotePlayerSample } from './RemotePlayer'
 import { buildGrid } from '../walls'
 import { allWallSegments } from '../cabin'
+import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
 
 const POS_INTERVAL    = 1 / 30  // 30 /s  (~33 ms)
 const ZOMBIE_INTERVAL = 0.05    // 20 /s  (50 ms)
@@ -80,6 +81,12 @@ export default function NetManager() {
       applyRemoteEvent(event, data)
     })
 
+    onMessage('remote_sound', ({ sound, weapon, x, y, z }) => {
+      if (sound === 'gunshot')  playRemoteGunshot(weapon, x, y, z)
+      else if (sound === 'footstep') playRemoteFootstep(x, y, z)
+      else if (sound === 'knife')    playRemoteKnifeSwing(x, y, z)
+    })
+
     if (mpRole === 'guest') {
       onMessage('zombie_update', (posMap) => {
         applyRemoteZombiePositions(posMap)
@@ -103,6 +110,7 @@ export default function NetManager() {
       offMessage('pos')
       offMessage('game_event')
       offMessage('zombie_update')
+      offMessage('remote_sound')
     }
   }, [mpConnected, mpRole])
 
