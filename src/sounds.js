@@ -109,107 +109,111 @@ function mechanicalClick(ac, t, gainVal = 0.5) {
 // ─── per-weapon gunshot implementations ─────────────────────────────────────
 
 // Glock 17 / 9mm pistol
-// Character: sharp, powerful "BANG" with sub punch + mid crack + HF snap,
-//            run through tanh saturation + compression for authority,
-//            followed by the semi-auto slide cycling back and snapping forward.
+// A real pistol shot is dominated by 150–400 Hz — heavy, guttural, slow to decay.
+// The "snare" mistake is too much 2–5 kHz (snare wire territory) and no sustained
+// low-mid body. This version leads with the gut and keeps HF as a subtle top-layer.
 function _playPistolShot(ac, t) {
-  // Shared saturation + compression chain for all blast layers.
-  // tanh soft-clip adds harmonic density; compressor tames peaks and
-  // fattens the sustain — together they give the "power" quality a
-  // bare noise burst lacks.
-  const chain = _makeShotChain(ac, 2.2, -14)
+  // Saturation + compression chain for all blast layers.
+  // Drive 2.5 = strong harmonic spreading into the low-mids;
+  // threshold -12 / ratio 6:1 compresses hard so the body stays fat.
+  const chain = _makeShotChain(ac, 2.5, -12)
 
-  // 1. Sub punch — the chest-thump pressure wave, very short.
-  //    80→28 Hz in 20 ms. Through the chain so saturation spreads
-  //    harmonics upward and the transient punches through the compressor.
+  // 1. Sub-bass punch — felt pressure impact, 70→28 Hz, 35 ms.
+  //    Saturation spreads harmonics upward, filling 70–200 Hz.
   const subOsc = ac.createOscillator()
   subOsc.type = 'sine'
-  subOsc.frequency.setValueAtTime(80, t)
-  subOsc.frequency.exponentialRampToValueAtTime(28, t + 0.020)
-
+  subOsc.frequency.setValueAtTime(70, t)
+  subOsc.frequency.exponentialRampToValueAtTime(28, t + 0.035)
   const subGain = ac.createGain()
-  subGain.gain.setValueAtTime(2.5, t)
-  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.028)
-
+  subGain.gain.setValueAtTime(3.0, t)
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.042)
   subOsc.connect(subGain)
   subGain.connect(chain)
   subOsc.start(t)
-  subOsc.stop(t + 0.030)
+  subOsc.stop(t + 0.045)
 
-  // 2. Muzzle blast — the dominant body.
-  //    Highpass lowered to 220 Hz (was 380) so more body weight comes through.
-  //    Peaking boost at 2.5 kHz for the 9mm snap character.
-  //    Gain raised to 2.5; saturation chain prevents harsh clipping.
-  const blastBuf = noiseBuffer(ac, 0.10)
-  const blastSrc = ac.createBufferSource()
-  blastSrc.buffer = blastBuf
+  // 2. Guttural body — the core of the pistol "BANG".
+  //    Wide bandpass (Q 0.6) centred at 200 Hz, decays slowly over 200 ms.
+  //    This is what distinguishes a pistol from a snare.
+  //    No 2.5 kHz peaking — that was the snare wire rattle.
+  const bodyBuf = noiseBuffer(ac, 0.25)
+  const bodySrc = ac.createBufferSource()
+  bodySrc.buffer = bodyBuf
+  const bodyFilt = ac.createBiquadFilter()
+  bodyFilt.type = 'bandpass'
+  bodyFilt.frequency.value = 200
+  bodyFilt.Q.value = 0.6          // wide Q → broad low-mid energy
+  const bodyGain = ac.createGain()
+  bodyGain.gain.setValueAtTime(3.5, t)
+  bodyGain.gain.exponentialRampToValueAtTime(0.4, t + 0.035)
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.20)
+  bodySrc.connect(bodyFilt)
+  bodyFilt.connect(bodyGain)
+  bodyGain.connect(chain)
+  bodySrc.start(t)
+  bodySrc.stop(t + 0.22)
 
-  const blastHP = ac.createBiquadFilter()
-  blastHP.type = 'highpass'
-  blastHP.frequency.value = 220   // lower cut → more body weight
+  // 3. Bark layer — 380 Hz band, the "bark" on top of the body.
+  //    Shorter than the body (80 ms), adds definition without becoming snare.
+  const midBuf = noiseBuffer(ac, 0.12)
+  const midSrc = ac.createBufferSource()
+  midSrc.buffer = midBuf
+  const midFilt = ac.createBiquadFilter()
+  midFilt.type = 'bandpass'
+  midFilt.frequency.value = 380
+  midFilt.Q.value = 0.9
+  const midGain = ac.createGain()
+  midGain.gain.setValueAtTime(2.2, t)
+  midGain.gain.exponentialRampToValueAtTime(0.001, t + 0.085)
+  midSrc.connect(midFilt)
+  midFilt.connect(midGain)
+  midGain.connect(chain)
+  midSrc.start(t)
+  midSrc.stop(t + 0.09)
 
-  const blastSnap = ac.createBiquadFilter()
-  blastSnap.type = 'peaking'
-  blastSnap.frequency.value = 2500
-  blastSnap.gain.value = 10
-  blastSnap.Q.value = 0.85
-
-  const blastGain = ac.createGain()
-  blastGain.gain.setValueAtTime(2.5, t)                           // raised from 1.7
-  blastGain.gain.exponentialRampToValueAtTime(0.06, t + 0.028)
-  blastGain.gain.exponentialRampToValueAtTime(0.001, t + 0.095)
-
-  blastSrc.connect(blastHP)
-  blastHP.connect(blastSnap)
-  blastSnap.connect(blastGain)
-  blastGain.connect(chain)           // → saturation → compression
-  blastSrc.start(t)
-  blastSrc.stop(t + 0.10)
-
-  // 3. High-frequency crack — supersonic pressure front.
-  //    Short bandpass burst at ~4.2 kHz, routed through the chain so
-  //    it shares the same saturation colouring as the body.
-  const crackBuf = noiseBuffer(ac, 0.025)
+  // 4. Initial crack transient — very brief HP burst above 1.2 kHz.
+  //    Kept subtle (gain 1.0, 16 ms) so it gives edge not snare.
+  const crackBuf = noiseBuffer(ac, 0.018)
   const crackSrc = ac.createBufferSource()
   crackSrc.buffer = crackBuf
-
-  const crackFilt = ac.createBiquadFilter()
-  crackFilt.type = 'bandpass'
-  crackFilt.frequency.value = 4200
-  crackFilt.Q.value = 1.8
-
+  const crackHP = ac.createBiquadFilter()
+  crackHP.type = 'highpass'
+  crackHP.frequency.value = 1200  // not 4.2 kHz — that was the snare crack
   const crackGain = ac.createGain()
-  crackGain.gain.setValueAtTime(1.6, t)
-  crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.022)
-
-  crackSrc.connect(crackFilt)
-  crackFilt.connect(crackGain)
-  crackGain.connect(chain)           // → saturation → compression
+  crackGain.gain.setValueAtTime(1.0, t)
+  crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.016)
+  crackSrc.connect(crackHP)
+  crackHP.connect(crackGain)
+  crackGain.connect(chain)
   crackSrc.start(t)
-  crackSrc.stop(t + 0.025)
+  crackSrc.stop(t + 0.018)
 
-  // 4. Pressure pop — short muzzle wave, routed dry to destination
-  //    (already a pure sine; saturation would add unwanted harmonics here).
-  const popOsc = ac.createOscillator()
-  popOsc.type = 'sine'
-  popOsc.frequency.setValueAtTime(115, t)
-  popOsc.frequency.exponentialRampToValueAtTime(42, t + 0.038)
+  // 5. Room resonance tail — low-freq bloom, delayed onset (room fills).
+  //    130 Hz bandpass, rises 0→25 ms then decays over 280 ms.
+  //    Goes dry to destination — the tail shouldn't be re-saturated.
+  const roomBuf = noiseBuffer(ac, 0.35)
+  const roomSrc = ac.createBufferSource()
+  roomSrc.buffer = roomBuf
+  const roomFilt = ac.createBiquadFilter()
+  roomFilt.type = 'bandpass'
+  roomFilt.frequency.value = 130
+  roomFilt.Q.value = 1.2
+  const roomGain = ac.createGain()
+  roomGain.gain.setValueAtTime(0.001, t)
+  roomGain.gain.linearRampToValueAtTime(0.55, t + 0.025)  // room builds up
+  roomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.30)
+  roomSrc.connect(roomFilt)
+  roomFilt.connect(roomGain)
+  roomGain.connect(ac.destination)
+  roomSrc.start(t)
+  roomSrc.stop(t + 0.32)
 
-  const popGain = ac.createGain()
-  popGain.gain.setValueAtTime(0.85, t)
-  popGain.gain.exponentialRampToValueAtTime(0.001, t + 0.042)
-
-  popOsc.connect(popGain)
-  popGain.connect(ac.destination)
-  popOsc.start(t)
-  popOsc.stop(t + 0.045)
-
-  // 5. Slide cycling back (~78 ms) — mechanical, stays dry (no saturation)
+  // 6. Slide cycling back (~78 ms) — mechanical, dry
   const slideBackBuf = noiseBuffer(ac, 0.032)
   playNoise(ac, slideBackBuf, t + 0.076, 0.030, 0.48, 'bandpass', 2700, 4.5)
   playTone(ac, t + 0.076, 165, 82, 0.028, 0.30)
 
-  // 6. Slide snapping forward + chambering (~118 ms)
+  // 7. Slide snapping forward + chambering (~118 ms)
   const slideFwdBuf = noiseBuffer(ac, 0.026)
   playNoise(ac, slideFwdBuf, t + 0.116, 0.024, 0.58, 'bandpass', 3300, 5.5)
   playTone(ac, t + 0.116, 205, 100, 0.022, 0.36)
