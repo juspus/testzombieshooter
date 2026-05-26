@@ -220,12 +220,12 @@ function _playPistolShot(ac, t) {
 }
 
 // 12-gauge pump shotgun — "tuTUUUUF"
-// Shape: a short punchy "tu" click at t=0, then the main body SWELLS IN
-// over 80 ms before sustaining and decaying. Everything starting at peak
-// and dropping immediately sounds like a flat burst; the swell is what
-// creates the "opening up" character of TUUUUF.
+// Waveform target: near-instant rise → wide dense peak (300 ms) → smooth tail (1.5 s+).
+// The limiter holds output at max while the summed layers are above threshold,
+// creating the plateau automatically. Once layers drop below threshold, the
+// room tail (τ=1200 ms) carries the long decay.
+// "tu" = short 350 Hz click at t=0. "TUUUUF" = instant-onset boom + tail.
 function _playShotgunShot(ac, t) {
-  // All layers → out (0.50) → limiter → destination.
   const out = ac.createGain()
   out.gain.value = 0.50
 
@@ -238,10 +238,8 @@ function _playShotgunShot(ac, t) {
   out.connect(limiter)
   limiter.connect(ac.destination)
 
-  // ── "tu" phase (0–30 ms) ──────────────────────────────────────────────
-  // The short plosive before the main bloom. Bandpass click at 350 Hz
-  // + brief low sine = tight percussive "tu" that separates from the TUUUUF.
-
+  // ── "tu" — short percussive click, 0–30 ms ───────────────────────────
+  // 350 Hz bandpass + brief sine = the plosive onset before the main boom.
   const tuBuf = noiseBuffer(ac, 0.034)
   playNoise(ac, tuBuf, t, 0.030, 2.2, 'bandpass', 350, 1.8, out)
 
@@ -257,63 +255,60 @@ function _playShotgunShot(ac, t) {
   tuOsc.start(t)
   tuOsc.stop(t + 0.035)
 
-  // ── "TUUUUF" phase — everything swells in ────────────────────────────
-  // Linear ramp from near-zero to peak over 80 ms creates the "opening up"
-  // feeling. The limiter keeps the peak from clipping, so it arrives loud.
+  // ── "TUUUUF" — INSTANT onset, all layers at full gain from t=0 ───────
+  // No swell. The limiter pins everything at max while the sum is above
+  // threshold (~300–500 ms), then natural decay takes over.
 
-  // Sub: 62→24 Hz, swells to peak at 70 ms
+  // Sub: 62→24 Hz, 130 ms
   const subOsc = ac.createOscillator()
   subOsc.type = 'sine'
   subOsc.frequency.setValueAtTime(62, t)
-  subOsc.frequency.exponentialRampToValueAtTime(24, t + 0.155)
+  subOsc.frequency.exponentialRampToValueAtTime(24, t + 0.130)
   const subGain = ac.createGain()
-  subGain.gain.setValueAtTime(0.4, t)
-  subGain.gain.linearRampToValueAtTime(4.2, t + 0.070)
-  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.155)
+  subGain.gain.setValueAtTime(4.2, t)
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.140)
   subOsc.connect(subGain)
   subGain.connect(out)
   subOsc.start(t)
-  subOsc.stop(t + 0.160)
+  subOsc.stop(t + 0.145)
 
-  // Primary growl: 55→22 Hz sawtooth, LP 230 Hz, swells to peak at 80 ms
+  // Growl 1: 55→22 Hz sawtooth, LP 230 Hz — instant, τ=350 ms decay
   const g1Osc = ac.createOscillator()
   g1Osc.type = 'sawtooth'
   g1Osc.frequency.setValueAtTime(55, t)
-  g1Osc.frequency.exponentialRampToValueAtTime(22, t + 0.320)
+  g1Osc.frequency.exponentialRampToValueAtTime(22, t + 0.350)
   const g1Filt = ac.createBiquadFilter()
   g1Filt.type = 'lowpass'
   g1Filt.frequency.value = 230
   const g1Gain = ac.createGain()
-  g1Gain.gain.setValueAtTime(0.3, t)
-  g1Gain.gain.linearRampToValueAtTime(3.5, t + 0.080)
-  g1Gain.gain.setTargetAtTime(0.001, t + 0.080, 0.30)
+  g1Gain.gain.setValueAtTime(3.5, t)
+  g1Gain.gain.setTargetAtTime(0.001, t, 0.35)
   g1Osc.connect(g1Filt)
   g1Filt.connect(g1Gain)
   g1Gain.connect(out)
   g1Osc.start(t)
-  g1Osc.stop(t + 0.520)
+  g1Osc.stop(t + 0.600)
 
-  // Detuned growl: 59→26 Hz, 4 Hz beat, swells to peak at 75 ms
+  // Growl 2: 59→26 Hz detuned, 4 Hz beat — instant, τ=280 ms decay
   const g2Osc = ac.createOscillator()
   g2Osc.type = 'sawtooth'
   g2Osc.frequency.setValueAtTime(59, t)
-  g2Osc.frequency.exponentialRampToValueAtTime(26, t + 0.260)
+  g2Osc.frequency.exponentialRampToValueAtTime(26, t + 0.280)
   const g2Filt = ac.createBiquadFilter()
   g2Filt.type = 'lowpass'
   g2Filt.frequency.value = 200
   const g2Gain = ac.createGain()
-  g2Gain.gain.setValueAtTime(0.3, t)
-  g2Gain.gain.linearRampToValueAtTime(2.8, t + 0.075)
-  g2Gain.gain.setTargetAtTime(0.001, t + 0.075, 0.25)
+  g2Gain.gain.setValueAtTime(2.8, t)
+  g2Gain.gain.setTargetAtTime(0.001, t, 0.28)
   g2Osc.connect(g2Filt)
   g2Filt.connect(g2Gain)
   g2Gain.connect(out)
   g2Osc.start(t)
-  g2Osc.stop(t + 0.420)
+  g2Osc.stop(t + 0.500)
 
-  // Core boom body: 78 Hz Q 0.38, swells to peak at 80 ms → τ=350 ms decay.
-  // This is the sustained "UUUU": at 200 ms still -6 dBFS, at 500 ms -12 dBFS.
-  const bodyBuf = noiseBuffer(ac, 1.40)
+  // Core boom body: 78 Hz Q 0.38 — instant at 4.5, flat 50 ms, then τ=350 ms.
+  // Limiter holds output at max until ~500 ms, then natural decay begins.
+  const bodyBuf = noiseBuffer(ac, 1.50)
   const bodySrc = ac.createBufferSource()
   bodySrc.buffer = bodyBuf
   const bodyFilt = ac.createBiquadFilter()
@@ -321,17 +316,16 @@ function _playShotgunShot(ac, t) {
   bodyFilt.frequency.value = 78
   bodyFilt.Q.value = 0.38
   const bodyGain = ac.createGain()
-  bodyGain.gain.setValueAtTime(0.3, t)
-  bodyGain.gain.linearRampToValueAtTime(4.5, t + 0.080)   // THE SWELL
-  bodyGain.gain.setTargetAtTime(0.001, t + 0.080, 0.35)   // τ=350 ms tail
+  bodyGain.gain.setValueAtTime(4.5, t)
+  bodyGain.gain.setTargetAtTime(0.001, t + 0.050, 0.35)
   bodySrc.connect(bodyFilt)
   bodyFilt.connect(bodyGain)
   bodyGain.connect(out)
   bodySrc.start(t)
-  bodySrc.stop(t + 1.40)
+  bodySrc.stop(t + 1.50)
 
-  // Upper body: 185 Hz, swells to 2.5 at 60 ms
-  const upBuf = noiseBuffer(ac, 0.50)
+  // Upper body: 185 Hz, instant at 2.5, 380 ms decay
+  const upBuf = noiseBuffer(ac, 0.42)
   const upSrc = ac.createBufferSource()
   upSrc.buffer = upBuf
   const upFilt = ac.createBiquadFilter()
@@ -339,8 +333,7 @@ function _playShotgunShot(ac, t) {
   upFilt.frequency.value = 185
   upFilt.Q.value = 0.7
   const upGain = ac.createGain()
-  upGain.gain.setValueAtTime(0.3, t)
-  upGain.gain.linearRampToValueAtTime(2.5, t + 0.060)
+  upGain.gain.setValueAtTime(2.5, t)
   upGain.gain.exponentialRampToValueAtTime(0.001, t + 0.380)
   upSrc.connect(upFilt)
   upFilt.connect(upGain)
@@ -348,8 +341,13 @@ function _playShotgunShot(ac, t) {
   upSrc.start(t)
   upSrc.stop(t + 0.400)
 
-  // Room tail: 60 Hz, swells over 100 ms (longer than body swell),
-  // then τ=1200 ms — the whole cabin rings for 4 seconds.
+  // Muzzle snap: HP 900 Hz, 20 ms — gives the "TU" initial edge
+  const snapBuf = noiseBuffer(ac, 0.022)
+  playNoise(ac, snapBuf, t, 0.018, 1.8, 'highpass', 900, 0.8, out)
+
+  // Room tail: 60 Hz, fills in 50 ms, τ=1200 ms — rings the cabin for 4 s.
+  // While room + body are above limiter threshold, output stays pinned at max.
+  // After ~1 s, the natural room tail decays smoothly to silence.
   const roomBuf = noiseBuffer(ac, 4.20)
   const roomSrc = ac.createBufferSource()
   roomSrc.buffer = roomBuf
@@ -359,8 +357,8 @@ function _playShotgunShot(ac, t) {
   roomFilt.Q.value = 0.8
   const roomGain = ac.createGain()
   roomGain.gain.setValueAtTime(0.001, t)
-  roomGain.gain.linearRampToValueAtTime(2.5, t + 0.100)   // slower fill = room character
-  roomGain.gain.setTargetAtTime(0.001, t + 0.100, 1.20)   // τ=1200 ms
+  roomGain.gain.linearRampToValueAtTime(2.5, t + 0.050)
+  roomGain.gain.setTargetAtTime(0.001, t + 0.050, 1.20)
   roomSrc.connect(roomFilt)
   roomFilt.connect(roomGain)
   roomGain.connect(out)
