@@ -13,7 +13,8 @@ import {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 const SOUNDS = [
-  { id: 'gunshot',     label: 'Gunshot',         fn: playGunshot,        anim: 'fire',        emoji: '💥', dur: 200  },
+  { id: 'pistol_shot',  label: 'Pistol Shot',   fn: () => playGunshot('pistol'),  anim: 'fire', emoji: '🔫', dur: 200  },
+  { id: 'shotgun_shot', label: 'Shotgun Shot',  fn: () => playGunshot('shotgun'), anim: 'fire', emoji: '💥', dur: 500  },
   { id: 'reload',      label: 'Reload',           fn: playReload,         anim: null,          emoji: '🔄', dur: 1100 },
   { id: 'empty',       label: 'Empty Click',      fn: playEmptyClick,     anim: null,          emoji: '🔔', dur: 100  },
   { id: 'pump',        label: 'Pump Action',      fn: playPumpAction,     anim: 'pump',        emoji: '🔫', dur: 250  },
