@@ -220,123 +220,140 @@ function _playPistolShot(ac, t) {
 }
 
 // 12-gauge pump shotgun
-// Character: massive deep BOOM — heavy chest-impact sub, wide low-mid body
-// decaying 350 ms, a distinct pellet-spray burst, and a long room tail that
-// fills the cabin. Completely different in scale from the pistol.
+// Character: a gut-punch cannon blast — sub-bass rumble, sawtooth growl,
+// 500 ms low-body decay, enormous room tail. HF is deliberately pushed to
+// the background so the massive low end dominates.
 function _playShotgunShot(ac, t) {
-  // Stronger chain — more saturation drive, harder compression.
-  // The shotgun's extreme transients need more clamping to stay cohesive.
-  const chain = _makeShotChain(ac, 3.0, -10)
+  // Hardest chain in the game — drive 3.5, threshold -8 dBFS.
+  // Brutal compression makes the sustained body feel dense and heavy.
+  const chain = _makeShotChain(ac, 3.5, -8)
 
-  // 1. Deep sub-bass cannon punch — 55→22 Hz, 65 ms.
-  //    Much lower, longer and louder than the pistol sub.
-  //    This is what moves the air and rumbles the floor.
+  // 1. Sub-bass cannon hit — 45→18 Hz, 80 ms.
+  //    Even lower and longer than before. Subwoofer territory.
   const subOsc = ac.createOscillator()
   subOsc.type = 'sine'
-  subOsc.frequency.setValueAtTime(55, t)
-  subOsc.frequency.exponentialRampToValueAtTime(22, t + 0.065)
+  subOsc.frequency.setValueAtTime(45, t)
+  subOsc.frequency.exponentialRampToValueAtTime(18, t + 0.080)
   const subGain = ac.createGain()
-  subGain.gain.setValueAtTime(4.5, t)
-  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.075)
+  subGain.gain.setValueAtTime(6.0, t)
+  subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.090)
   subOsc.connect(subGain)
   subGain.connect(chain)
   subOsc.start(t)
-  subOsc.stop(t + 0.080)
+  subOsc.stop(t + 0.095)
 
-  // 2. Massive low body — 120 Hz, very wide Q (0.45), 350 ms decay.
-  //    The core BOOM — three times longer than the pistol body.
-  //    Wide Q covers 60–240 Hz as a wall of low energy.
-  const bodyBuf = noiseBuffer(ac, 0.40)
+  // 2. Sawtooth growl — the secret to guttural.
+  //    Sawtooth at 50 Hz has harmonics at 100, 150, 200 Hz…
+  //    Lowpass-filtered to keep only those low harmonics gives a
+  //    "grrr" texture that noise alone can't produce.
+  const growlOsc = ac.createOscillator()
+  growlOsc.type = 'sawtooth'
+  growlOsc.frequency.setValueAtTime(50, t)
+  growlOsc.frequency.exponentialRampToValueAtTime(26, t + 0.130)
+  const growlFilt = ac.createBiquadFilter()
+  growlFilt.type = 'lowpass'
+  growlFilt.frequency.value = 200   // only the low harmonics — keeps the growl
+  growlFilt.Q.value = 0.8
+  const growlGain = ac.createGain()
+  growlGain.gain.setValueAtTime(3.0, t)
+  growlGain.gain.exponentialRampToValueAtTime(0.001, t + 0.140)
+  growlOsc.connect(growlFilt)
+  growlFilt.connect(growlGain)
+  growlGain.connect(chain)
+  growlOsc.start(t)
+  growlOsc.stop(t + 0.145)
+
+  // 3. Core low body — 80 Hz (was 120), wide Q, 500 ms decay.
+  //    Dominant layer. Covers 40–160 Hz as a wall of low energy.
+  const bodyBuf = noiseBuffer(ac, 0.55)
   const bodySrc = ac.createBufferSource()
   bodySrc.buffer = bodyBuf
   const bodyFilt = ac.createBiquadFilter()
   bodyFilt.type = 'bandpass'
-  bodyFilt.frequency.value = 120
-  bodyFilt.Q.value = 0.45         // very wide → 60-240 Hz coverage
+  bodyFilt.frequency.value = 80
+  bodyFilt.Q.value = 0.4           // very wide Q → covers 40-160 Hz
   const bodyGain = ac.createGain()
-  bodyGain.gain.setValueAtTime(5.0, t)
-  bodyGain.gain.exponentialRampToValueAtTime(0.6, t + 0.040)
-  bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
+  bodyGain.gain.setValueAtTime(5.5, t)
+  bodyGain.gain.exponentialRampToValueAtTime(0.5, t + 0.045)
+  bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.50)
   bodySrc.connect(bodyFilt)
   bodyFilt.connect(bodyGain)
   bodyGain.connect(chain)
   bodySrc.start(t)
-  bodySrc.stop(t + 0.38)
+  bodySrc.stop(t + 0.55)
 
-  // 3. Mid bark — 290 Hz, 180 ms.
-  //    Bark on top of the low boom; gives definition so it doesn't
-  //    just sound like a low rumble.
-  const midBuf = noiseBuffer(ac, 0.22)
+  // 4. Upper body — 180 Hz, 250 ms.
+  //    Fills the 100–300 Hz gap between the low body and the bark.
+  const midBuf = noiseBuffer(ac, 0.28)
   const midSrc = ac.createBufferSource()
   midSrc.buffer = midBuf
   const midFilt = ac.createBiquadFilter()
   midFilt.type = 'bandpass'
-  midFilt.frequency.value = 290
-  midFilt.Q.value = 0.8
+  midFilt.frequency.value = 180
+  midFilt.Q.value = 0.7
   const midGain = ac.createGain()
-  midGain.gain.setValueAtTime(3.2, t)
-  midGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+  midGain.gain.setValueAtTime(3.5, t)
+  midGain.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
   midSrc.connect(midFilt)
   midFilt.connect(midGain)
   midGain.connect(chain)
   midSrc.start(t)
-  midSrc.stop(t + 0.20)
+  midSrc.stop(t + 0.28)
 
-  // 4. Pellet spray — 850 Hz bandpass, 40 ms.
-  //    12 pellets exiting simultaneously create a dense grainy burst
-  //    at mid frequencies — the defining texture of a shotgun blast.
-  const sprayBuf = noiseBuffer(ac, 0.045)
+  // 5. Pellet spray — pulled down to 700 Hz, gain halved.
+  //    Just enough to remind you it's a shotgun, not a cannon.
+  //    If it's too loud, the HF fights the guttural low end.
+  const sprayBuf = noiseBuffer(ac, 0.035)
   const spraySrc = ac.createBufferSource()
   spraySrc.buffer = sprayBuf
   const sprayFilt = ac.createBiquadFilter()
   sprayFilt.type = 'bandpass'
-  sprayFilt.frequency.value = 850
-  sprayFilt.Q.value = 1.1
+  sprayFilt.frequency.value = 700
+  sprayFilt.Q.value = 1.0
   const sprayGain = ac.createGain()
-  sprayGain.gain.setValueAtTime(2.5, t)
-  sprayGain.gain.exponentialRampToValueAtTime(0.001, t + 0.038)
+  sprayGain.gain.setValueAtTime(1.2, t)   // much quieter than before
+  sprayGain.gain.exponentialRampToValueAtTime(0.001, t + 0.030)
   spraySrc.connect(sprayFilt)
   sprayFilt.connect(sprayGain)
   sprayGain.connect(chain)
   spraySrc.start(t)
-  spraySrc.stop(t + 0.045)
+  spraySrc.stop(t + 0.035)
 
-  // 5. Muzzle crack — HP above 1.5 kHz, 20 ms.
-  //    Initial sharp edge; subtler than pellet spray so the boom dominates.
-  const crackBuf = noiseBuffer(ac, 0.022)
+  // 6. Muzzle crack — minimal. HP 2 kHz, 15 ms, gain 0.9.
+  //    Just enough edge to avoid the sound feeling totally muffled.
+  const crackBuf = noiseBuffer(ac, 0.018)
   const crackSrc = ac.createBufferSource()
   crackSrc.buffer = crackBuf
   const crackHP = ac.createBiquadFilter()
   crackHP.type = 'highpass'
-  crackHP.frequency.value = 1500
+  crackHP.frequency.value = 2000
   const crackGain = ac.createGain()
-  crackGain.gain.setValueAtTime(2.0, t)
-  crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.018)
+  crackGain.gain.setValueAtTime(0.9, t)
+  crackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.014)
   crackSrc.connect(crackHP)
   crackHP.connect(crackGain)
   crackGain.connect(chain)
   crackSrc.start(t)
-  crackSrc.stop(t + 0.022)
+  crackSrc.stop(t + 0.018)
 
-  // 6. Long room resonance tail — 90 Hz, delayed onset, 500 ms decay.
-  //    Shotgun fills a room far more than a pistol. Goes dry to
-  //    destination — no extra saturation on the tail.
-  const roomBuf = noiseBuffer(ac, 0.60)
+  // 7. Room resonance tail — 70 Hz (lower than before), 600 ms decay.
+  //    Shotgun in a cabin: the whole structure resonates. Dry to dest.
+  const roomBuf = noiseBuffer(ac, 0.70)
   const roomSrc = ac.createBufferSource()
   roomSrc.buffer = roomBuf
   const roomFilt = ac.createBiquadFilter()
   roomFilt.type = 'bandpass'
-  roomFilt.frequency.value = 90
-  roomFilt.Q.value = 1.0
+  roomFilt.frequency.value = 70
+  roomFilt.Q.value = 0.9
   const roomGain = ac.createGain()
   roomGain.gain.setValueAtTime(0.001, t)
-  roomGain.gain.linearRampToValueAtTime(0.80, t + 0.030)   // room fills slower
-  roomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.50)
+  roomGain.gain.linearRampToValueAtTime(1.0, t + 0.035)
+  roomGain.gain.exponentialRampToValueAtTime(0.001, t + 0.60)
   roomSrc.connect(roomFilt)
   roomFilt.connect(roomGain)
   roomGain.connect(ac.destination)
   roomSrc.start(t)
-  roomSrc.stop(t + 0.55)
+  roomSrc.stop(t + 0.65)
 }
 
 // Generic fallback (used while other weapon sounds are not yet implemented)
