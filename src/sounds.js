@@ -566,21 +566,16 @@ export function playPumpAction() {
   const ac = ctx()
   const t = ac.currentTime
 
-  // First stroke — pulling slide back: sharp bandpass snap + woody thud
-  const buf1 = noiseBuffer(ac, 0.06)
-  playNoise(ac, buf1, t, 0.055, 0.9, 'bandpass', 2200, 4)
-  playTone(ac, t, 160, 55, 0.05, 0.55)
+  // "chik" — slide racking back: tight high snap at 3.8 kHz, 22 ms.
+  // No low tones — those were making it sound clunky.
+  const c1 = noiseBuffer(ac, 0.026)
+  playNoise(ac, c1, t, 0.022, 0.80, 'bandpass', 3800, 7.0)
 
-  // Slight scrape mid-stroke
-  const scrape = noiseBuffer(ac, 0.08)
-  playNoise(ac, scrape, t + 0.04, 0.06, 0.25, 'bandpass', 900, 2)
-
-  // Second stroke — slamming forward: harder crack + lower body thud
-  const buf2 = noiseBuffer(ac, 0.06)
-  playNoise(ac, buf2, t + 0.13, 0.055, 1.1, 'bandpass', 2600, 5)
-  playTone(ac, t + 0.13, 200, 65, 0.05, 0.7)
-  // Locking click at end of forward stroke
-  mechanicalClick(ac, t + 0.18, 0.55)
+  // "chik" — slamming forward: slightly heavier snap at 3.2 kHz, 22 ms.
+  const c2 = noiseBuffer(ac, 0.026)
+  playNoise(ac, c2, t + 0.110, 0.022, 1.05, 'bandpass', 3200, 6.5)
+  // Hard lock click as bolt seats — gives the definitive end of the stroke.
+  mechanicalClick(ac, t + 0.133, 0.70)
 }
 
 export function playShellThonk() {
