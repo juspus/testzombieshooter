@@ -226,8 +226,11 @@ function _playPistolShot(ac, t) {
 // room tail (τ=1200 ms) carries the long decay.
 // "tu" = short 350 Hz click at t=0. "TUUUUF" = instant-onset boom + tail.
 function _playShotgunShot(ac, t) {
+  // out.gain = 1.0 → the shotgun hits roughly twice as loud as the pistol.
+  // Higher gain also keeps layers above the limiter threshold for longer,
+  // extending the "wall of sound" plateau to ~700 ms (body) + ~2 s (room).
   const out = ac.createGain()
-  out.gain.value = 0.50
+  out.gain.value = 1.0
 
   const limiter = ac.createDynamicsCompressor()
   limiter.threshold.value = -3
@@ -313,7 +316,7 @@ function _playShotgunShot(ac, t) {
   bodySrc.buffer = bodyBuf
   const bodyFilt = ac.createBiquadFilter()
   bodyFilt.type = 'bandpass'
-  bodyFilt.frequency.value = 78
+  bodyFilt.frequency.value = 65   // lower than pistol's 200 Hz centre
   bodyFilt.Q.value = 0.38
   const bodyGain = ac.createGain()
   bodyGain.gain.setValueAtTime(4.5, t)
@@ -357,8 +360,8 @@ function _playShotgunShot(ac, t) {
   roomFilt.Q.value = 0.8
   const roomGain = ac.createGain()
   roomGain.gain.setValueAtTime(0.001, t)
-  roomGain.gain.linearRampToValueAtTime(2.5, t + 0.050)
-  roomGain.gain.setTargetAtTime(0.001, t + 0.050, 1.20)
+  roomGain.gain.linearRampToValueAtTime(3.5, t + 0.050)   // louder room peak
+  roomGain.gain.setTargetAtTime(0.001, t + 0.050, 1.50)  // τ=1500 ms — even longer
   roomSrc.connect(roomFilt)
   roomFilt.connect(roomGain)
   roomGain.connect(out)
