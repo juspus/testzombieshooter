@@ -11,7 +11,7 @@ import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import { send, isConnected } from '../net'
-import { mobileInput, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
+import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
 import * as THREE from 'three'
 
 function netSend(event, data) {
@@ -291,6 +291,32 @@ export default function Player() {
           hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
         }
       }
+
+      // Mobile aim assist: if center ray missed, try a small forgiveness cone
+      if (closest === null && mobileState.active) {
+        const AIM_OFFSETS = [
+          { x: 0.04, y: 0 }, { x: -0.04, y: 0 },
+          { x: 0, y: 0.04 }, { x: 0, y: -0.04 },
+          { x: 0.03, y: 0.03 }, { x: -0.03, y: 0.03 },
+        ]
+        for (const offset of AIM_OFFSETS) {
+          if (closest !== null) break
+          const assistRC = new THREE.Raycaster()
+          assistRC.setFromCamera(offset, camera)
+          for (const [id, ref] of Object.entries(zombieRefs.current)) {
+            if (!ref) continue
+            const intersects = assistRC.intersectObject(ref, true)
+            if (intersects.length > 0 && intersects[0].distance < closestDist) {
+              closestDist = intersects[0].distance
+              closest = id
+              hitPoint = intersects[0].point.clone()
+              isHeadshot = intersects[0].object.userData.isHead === true
+              hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
+            }
+          }
+        }
+      }
+
       const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
       BulletTrails.add(muzzle, trailEnd)
       if (closest !== null) {

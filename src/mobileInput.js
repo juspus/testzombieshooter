@@ -35,6 +35,9 @@ export function consumeMobilePressed() {
   return pressed
 }
 
+// Set to true by MobileControls when mobile controls are active
+export const mobileState = { active: false }
+
 export function resetMobileInput() {
   mobileInput.moveX = 0
   mobileInput.moveY = 0

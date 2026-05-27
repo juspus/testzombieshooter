@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../store'
-import { mobileInput, resetMobileInput } from '../mobileInput'
+import { mobileInput, mobileState, resetMobileInput } from '../mobileInput'
 
 function getIsMobile() {
   if (typeof window === 'undefined') return false
@@ -50,7 +50,7 @@ export default function MobileControls() {
   const movePointerRef = useRef(null)
   const stickCenterRef = useRef({ x: 0, y: 0 })
 
-  // Look zone
+  // Look zone (primary finger — camera)
   const lookPointerRef = useRef(null)
   const lastLookRef = useRef({ x: 0, y: 0 })
   const lookStartRef = useRef({ x: 0, y: 0 })
@@ -58,6 +58,13 @@ export default function MobileControls() {
   const lookDraggedRef = useRef(false) // did the touch travel past DRAG_THRESHOLD?
   const holdTimerRef = useRef(null)    // setTimeout to activate held-fire after 60 ms
   const holdFiredRef = useRef(false)   // did the hold timer activate?
+
+  // Shoot zone (secondary finger — fires independently while primary looks)
+  const shootPointerRef = useRef(null)
+  const shootStartRef = useRef({ x: 0, y: 0 })
+  const shootDraggedRef = useRef(false)
+  const shootHoldFiredRef = useRef(false)
+  const shootHoldTimerRef = useRef(null)
 
   // Button element refs – used ONLY for getBoundingClientRect() hit testing.
   // The visual divs have pointer-events:none; the look zone handles all input.
@@ -92,7 +99,16 @@ export default function MobileControls() {
     if (!isMobile || !active || shopOpen) resetMobileInput()
   }, [isMobile, active, shopOpen])
 
-  useEffect(() => () => { resetMobileInput(); clearTimeout(holdTimerRef.current) }, [])
+  useEffect(() => {
+    mobileState.active = isMobile && active && !shopOpen
+  }, [isMobile, active, shopOpen])
+
+  useEffect(() => () => {
+    mobileState.active = false
+    resetMobileInput()
+    clearTimeout(holdTimerRef.current)
+    clearTimeout(shootHoldTimerRef.current)
+  }, [])
 
   const dismissInstallHint = () => {
     window.localStorage?.setItem('cabinInstallHintDismissed', '1')
@@ -104,8 +120,11 @@ export default function MobileControls() {
     onPointerCancel: () => {
       movePointerRef.current = null
       lookPointerRef.current = null
+      shootPointerRef.current = null
       clearTimeout(holdTimerRef.current)
+      clearTimeout(shootHoldTimerRef.current)
       holdTimerRef.current = null
+      shootHoldTimerRef.current = null
       resetMobileInput()
       setStick({ x: 0, y: 0 })
     },
@@ -191,60 +210,111 @@ export default function MobileControls() {
     mobileInput.interactHeld = false
   }
 
+  const cancelShootHold = () => {
+    clearTimeout(shootHoldTimerRef.current)
+    shootHoldTimerRef.current = null
+    mobileInput.shootHeld = false
+  }
+
   const onLookStart = (e) => {
     e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    lookPointerRef.current = e.pointerId
-    lastLookRef.current = { x: e.clientX, y: e.clientY }
-    lookStartRef.current = { x: e.clientX, y: e.clientY }
-    lookDraggedRef.current = false
-    holdFiredRef.current = false
-    clearTimeout(holdTimerRef.current)
-    holdTimerRef.current = null
 
-    const hit = hitButton(e.clientX, e.clientY)
-    lookBtnRef.current = hit
+    if (lookPointerRef.current === null) {
+      // PRIMARY TOUCH — camera look
+      e.currentTarget.setPointerCapture(e.pointerId)
+      lookPointerRef.current = e.pointerId
+      lastLookRef.current = { x: e.clientX, y: e.clientY }
+      lookStartRef.current = { x: e.clientX, y: e.clientY }
+      lookDraggedRef.current = false
+      holdFiredRef.current = false
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
 
-    // Schedule held-fire for shoot / interact buttons
-    if (hit === 'shoot' || hit === 'interact') {
-      holdTimerRef.current = setTimeout(() => {
-        holdTimerRef.current = null
-        if (lookDraggedRef.current) return // was dragged – don't activate
-        holdFiredRef.current = true
-        if (hit === 'shoot') {
-          mobileInput.shootHeld = true
-          mobileInput.shootPressed = true
-        } else {
-          mobileInput.interactHeld = true
-          mobileInput.interactPressed = true
-        }
+      const hit = hitButton(e.clientX, e.clientY)
+      lookBtnRef.current = hit
+
+      // Schedule held-fire for shoot / interact buttons
+      if (hit === 'shoot' || hit === 'interact') {
+        holdTimerRef.current = setTimeout(() => {
+          holdTimerRef.current = null
+          if (lookDraggedRef.current) return
+          holdFiredRef.current = true
+          if (hit === 'shoot') {
+            mobileInput.shootHeld = true
+            mobileInput.shootPressed = true
+          } else {
+            mobileInput.interactHeld = true
+            mobileInput.interactPressed = true
+          }
+        }, 60)
+      }
+    } else if (shootPointerRef.current === null) {
+      // SECONDARY TOUCH — dedicated shoot finger (fires while primary looks)
+      e.currentTarget.setPointerCapture(e.pointerId)
+      shootPointerRef.current = e.pointerId
+      shootStartRef.current = { x: e.clientX, y: e.clientY }
+      shootDraggedRef.current = false
+      shootHoldFiredRef.current = false
+
+      shootHoldTimerRef.current = setTimeout(() => {
+        shootHoldTimerRef.current = null
+        if (shootDraggedRef.current) return
+        shootHoldFiredRef.current = true
+        mobileInput.shootHeld = true
+        mobileInput.shootPressed = true
       }, 60)
     }
   }
 
   const onLookMove = (e) => {
-    if (lookPointerRef.current !== e.pointerId) return
-    e.preventDefault()
+    if (e.pointerId === lookPointerRef.current) {
+      e.preventDefault()
 
-    // Camera always moves on drag
-    const last = lastLookRef.current
-    mobileInput.lookDeltaX += e.clientX - last.x
-    mobileInput.lookDeltaY += e.clientY - last.y
-    lastLookRef.current = { x: e.clientX, y: e.clientY }
+      // Camera always moves on drag
+      const last = lastLookRef.current
+      mobileInput.lookDeltaX += e.clientX - last.x
+      mobileInput.lookDeltaY += e.clientY - last.y
+      lastLookRef.current = { x: e.clientX, y: e.clientY }
 
-    // First time past threshold: mark as drag and cancel any button hold
-    if (!lookDraggedRef.current) {
-      const dx = e.clientX - lookStartRef.current.x
-      const dy = e.clientY - lookStartRef.current.y
-      if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
-        lookDraggedRef.current = true
-        cancelHold()
+      // First time past threshold: mark as drag and cancel any button hold
+      if (!lookDraggedRef.current) {
+        const dx = e.clientX - lookStartRef.current.x
+        const dy = e.clientY - lookStartRef.current.y
+        if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+          lookDraggedRef.current = true
+          cancelHold()
+        }
+      }
+    } else if (e.pointerId === shootPointerRef.current) {
+      e.preventDefault()
+      if (!shootDraggedRef.current) {
+        const dx = e.clientX - shootStartRef.current.x
+        const dy = e.clientY - shootStartRef.current.y
+        if (Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+          shootDraggedRef.current = true
+          cancelShootHold()
+        }
       }
     }
   }
 
   const onLookEnd = (e) => {
-    if (lookPointerRef.current !== e.pointerId) return
+    if (e.pointerId === shootPointerRef.current) {
+      // Secondary shoot finger lifted
+      e.preventDefault()
+      shootPointerRef.current = null
+      clearTimeout(shootHoldTimerRef.current)
+      shootHoldTimerRef.current = null
+      mobileInput.shootHeld = false
+      if (!shootDraggedRef.current && !shootHoldFiredRef.current) {
+        mobileInput.shootPressed = true
+      }
+      shootDraggedRef.current = false
+      shootHoldFiredRef.current = false
+      return
+    }
+
+    if (e.pointerId !== lookPointerRef.current) return
     e.preventDefault()
     lookPointerRef.current = null
     clearTimeout(holdTimerRef.current)
@@ -258,9 +328,11 @@ export default function MobileControls() {
     mobileInput.shootHeld = false
     mobileInput.interactHeld = false
 
-    // Tap: finger up without dragging, and hold timer didn't already activate
-    if (!dragged && hit && !holdFired) {
-      if (hit === 'shoot') mobileInput.shootPressed = true
+    // Tap: finger up without dragging, and hold timer didn't already activate.
+    // A tap on open space (hit === null) or the shoot button fires — any part of
+    // the look zone counts as a shoot tap unless it's a utility button.
+    if (!dragged && !holdFired) {
+      if (hit === 'shoot' || hit === null) mobileInput.shootPressed = true
       else if (hit === 'interact') mobileInput.interactPressed = true
       else if (hit === 'reload') mobileInput.reloadPressed = true
       else if (hit === 'swap') mobileInput.swapPressed = true
@@ -272,7 +344,15 @@ export default function MobileControls() {
   }
 
   const onLookCancel = (e) => {
-    if (lookPointerRef.current !== e.pointerId) return
+    if (e.pointerId === shootPointerRef.current) {
+      shootPointerRef.current = null
+      cancelShootHold()
+      mobileInput.shootHeld = false
+      shootDraggedRef.current = false
+      shootHoldFiredRef.current = false
+      return
+    }
+    if (e.pointerId !== lookPointerRef.current) return
     lookPointerRef.current = null
     cancelHold()
     lookBtnRef.current = null
