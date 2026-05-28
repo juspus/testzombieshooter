@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
@@ -50,6 +50,7 @@ export default function Screens() {
   const perks = useGameStore((s) => s.perks)
   const mpRole = useGameStore((s) => s.mpRole)
   const paused = useGameStore((s) => s.paused)
+  const reviveUsed = useGameStore((s) => s.reviveUsed)
 
   const authUser = useAuthUser()
   const { username, refresh: refreshProfile } = useProfile(authUser)
@@ -76,7 +77,7 @@ export default function Screens() {
       startGame()
       if (isConnected()) send('game_event', { event: 'start_game', data: {} })
     }
-    return <YouDied onRestart={handleRestart} mpRole={mpRole} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} username={username} />
+    return <YouDied onRestart={handleRestart} mpRole={mpRole} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} username={username} reviveUsed={reviveUsed} />
   }
 
   return null
@@ -731,13 +732,105 @@ function Controls({ children }) {
   )
 }
 
-function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, username }) {
+const AD_COUNTDOWN_SECONDS = 15
+
+function AdReviveOverlay({ onRevive, onClose }) {
+  const [seconds, setSeconds] = useState(AD_COUNTDOWN_SECONDS)
+  const [rewarded, setRewarded] = useState(false)
+  const adRef = useRef(null)
+  const revive = useGameStore((s) => s.revive)
+
+  useEffect(() => {
+    try {
+      if (window.adsbygoogle && adRef.current) {
+        ;(window.adsbygoogle = window.adsbygoogle || []).push({})
+      }
+    } catch (_) {}
+  }, [])
+
+  useEffect(() => {
+    if (rewarded) return
+    const id = setInterval(() => {
+      setSeconds((s) => {
+        if (s <= 1) { clearInterval(id); setRewarded(true); return 0 }
+        return s - 1
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [rewarded])
+
+  const handleRevive = () => { revive(); onRevive() }
+
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'rgba(0,0,0,0.92)',
+      zIndex: 10,
+      gap: 16,
+      fontFamily: 'Courier New, monospace',
+    }}>
+      <div style={{ color: '#888', fontSize: 11, letterSpacing: 4 }}>ADVERTISEMENT</div>
+
+      {/* AdSense display unit — replace data-ad-client / data-ad-slot with your real IDs */}
+      <div ref={adRef} style={{ width: 300, minHeight: 250, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ins
+          className="adsbygoogle"
+          style={{ display: 'block', width: 300, height: 250 }}
+          data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+          data-ad-slot="XXXXXXXXXX"
+        />
+        <div style={{ position: 'absolute', color: '#333', fontSize: 11, letterSpacing: 2, pointerEvents: 'none' }}>AD</div>
+      </div>
+
+      {rewarded ? (
+        <button
+          onClick={handleRevive}
+          style={{
+            padding: '12px 40px',
+            background: 'transparent',
+            border: '2px solid #88cc44',
+            color: '#88cc44',
+            fontSize: 15,
+            letterSpacing: 4,
+            fontFamily: 'Courier New, monospace',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => { e.target.style.background = 'rgba(136,204,68,0.15)' }}
+          onMouseLeave={(e) => { e.target.style.background = 'transparent' }}
+        >
+          REVIVE
+        </button>
+      ) : (
+        <div style={{ color: '#555', fontSize: 13, letterSpacing: 3 }}>
+          REVIVE IN <span style={{ color: '#ffe066' }}>{seconds}s</span>
+        </div>
+      )}
+
+      <button
+        onClick={onClose}
+        style={{ background: 'transparent', border: 'none', color: '#333', fontSize: 11, letterSpacing: 3, fontFamily: 'Courier New, monospace', cursor: 'pointer' }}
+      >
+        CLOSE
+      </button>
+    </div>
+  )
+}
+
+function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, username, reviveUsed }) {
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
   const [playerName, setPlayerName] = useState('')
   const [scoreStatus, setScoreStatus] = useState('idle') // 'idle' | 'submitting' | 'done' | 'error'
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showAd, setShowAd] = useState(false)
 
   const runSummary = useMemo(() => ({
     wave,
@@ -821,6 +914,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
       fontFamily: 'Garamond, Georgia, serif',
       transition: 'background 0.1s',
     }}>
+      {showAd && <AdReviveOverlay onRevive={() => setShowAd(false)} onClose={() => setShowAd(false)} />}
       <h1 style={{
         color: `rgba(180,0,0,${opacity})`,
         fontSize: 'clamp(38px, 11vmin, 120px)',
@@ -934,6 +1028,11 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
           <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
             Share Run
           </DeathButton>
+          {!reviveUsed && mpRole !== 'guest' && (
+            <DeathButton onClick={() => setShowAd(true)} accent="rgba(136,204,68,0.7)">
+              Watch Ad — Revive
+            </DeathButton>
+          )}
           {mpRole === 'guest' ? (
             <div style={{
               padding: 'clamp(7px, 1.5vmin, 14px) clamp(16px, 4vmin, 36px)',

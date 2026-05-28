@@ -878,7 +878,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
     // Kill detection: local player only — remote machine handles its own player
     const kdx = lx - pos.x, kdz = lz - pos.z
-    if (kdx * kdx + kdz * kdz < KILL_DISTANCE * KILL_DISTANCE) die()
+    if (kdx * kdx + kdz * kdz < KILL_DISTANCE * KILL_DISTANCE) {
+      if (Date.now() >= useGameStore.getState().reviveGraceUntil) die()
+    }
   })
 
   const bodyScale = hidden ? 0.001 : 1

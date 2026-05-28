@@ -126,6 +126,8 @@ const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
+  reviveUsed: false,
+  reviveGraceUntil: 0,
   money: 10,
   weapon: 'pistol',        // currently equipped weapon
   ownedWeapons: ['pistol'], // all purchased weapons (determines scroll-cycle pool)
@@ -203,6 +205,8 @@ export const useGameStore = create((set, get) => ({
       waveStartPlanks: 0,
       lastWaveBonuses: null,
       paused: false,
+      reviveUsed: false,
+      reviveGraceUntil: 0,
     })
 
     applyDebugOverrides(set, get)
@@ -334,6 +338,11 @@ export const useGameStore = create((set, get) => ({
   die: () => {
     if (get().phase !== 'playing') return
     set({ phase: 'dead' })
+  },
+
+  revive: () => {
+    if (get().phase !== 'dead' || get().reviveUsed) return
+    set({ phase: 'playing', reviveUsed: true, reviveGraceUntil: Date.now() + 3000 })
   },
 
   addPlank: (id) => {
