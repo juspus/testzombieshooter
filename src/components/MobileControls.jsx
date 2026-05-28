@@ -267,6 +267,7 @@ export default function MobileControls() {
   }
 
   const onLookMove = (e) => {
+    e.preventDefault()
     if (e.pointerId === lookPointerRef.current) {
       e.preventDefault()
 
@@ -437,6 +438,8 @@ const styles = {
     pointerEvents: 'none',
     touchAction: 'none',
     fontFamily: 'Courier New, monospace',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
   },
   moveZone: {
     position: 'absolute',
@@ -476,6 +479,8 @@ const styles = {
     bottom: 0,
     pointerEvents: 'auto',
     touchAction: 'none',
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
   },
   // Button cluster — raised up from the bottom, pulled inward from right edge.
   // pointer-events:none — the look zone handles all input via hit testing.
