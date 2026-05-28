@@ -218,10 +218,22 @@ export default function MobileControls() {
 
   const onLookStart = (e) => {
     e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+
+    // Safety: if both slots are stuck from lost pointer events, reset and reclaim primary
+    if (lookPointerRef.current !== null && shootPointerRef.current !== null) {
+      clearTimeout(holdTimerRef.current)
+      clearTimeout(shootHoldTimerRef.current)
+      holdTimerRef.current = null
+      shootHoldTimerRef.current = null
+      lookPointerRef.current = null
+      shootPointerRef.current = null
+      mobileInput.shootHeld = false
+      mobileInput.interactHeld = false
+    }
 
     if (lookPointerRef.current === null) {
       // PRIMARY TOUCH — camera look
-      e.currentTarget.setPointerCapture(e.pointerId)
       lookPointerRef.current = e.pointerId
       lastLookRef.current = { x: e.clientX, y: e.clientY }
       lookStartRef.current = { x: e.clientX, y: e.clientY }
@@ -250,7 +262,6 @@ export default function MobileControls() {
       }
     } else if (shootPointerRef.current === null) {
       // SECONDARY TOUCH — dedicated shoot finger (fires while primary looks)
-      e.currentTarget.setPointerCapture(e.pointerId)
       shootPointerRef.current = e.pointerId
       shootStartRef.current = { x: e.clientX, y: e.clientY }
       shootDraggedRef.current = false
