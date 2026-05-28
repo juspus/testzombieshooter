@@ -9,6 +9,7 @@ export const mobileInput = {
   interactPressed: false,
   swapPressed: false,
   reloadPressed: false,
+  autoShootHeld: false,
 }
 
 export function consumeMobileLook() {
@@ -49,4 +50,5 @@ export function resetMobileInput() {
   mobileInput.interactPressed = false
   mobileInput.swapPressed = false
   mobileInput.reloadPressed = false
+  mobileInput.autoShootHeld = false
 }
