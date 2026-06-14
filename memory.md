@@ -7,13 +7,6 @@ start of every session. Keep entries short — a few lines each.
 
 - Open PR #91 (`claude/mobile-controls-usability-ElP6H`): two-finger
   shoot+look, tap-anywhere-to-fire, mobile aim assist. Not yet merged.
-- Open PR #79 (`claude/weapon-caliber-switching-MwEA4`): per-caliber ammo
-  system. Looks superseded — main already has a different (and simpler)
-  per-weapon ammo system (`savedClips`/`savedReserves`, see CLAUDE.md).
-  Probably needs closing, not merging — confirm with Justas first.
-- Open PR #46 (`claude/foggy-forest-skybox`): forest skybox. Main already
-  has `ForestSkybox.jsx` (merged via PR #70, different implementation).
-  Likely stale/duplicate — confirm before closing.
 
 ## Feature inventory (as of 2026-06-14)
 
@@ -78,11 +71,12 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Open questions
 
-- Confirm whether PR #79 and #46 should be closed as superseded (see Active).
+- (none yet)
 
 ## Dated log
 
 - 2026-06-14: Set up soul.md / memory.md / CLAUDE.md pointer. Discussed and
   agreed on personality (blunt, discussion-first), vision (fun + retention,
   performance-is-fun, monetization without hurting fun), and memory
-  structure. Built feature inventory from git history + open PRs.
+  structure. Built feature inventory from git history + open PRs. Closed
+  PRs #79 and #46 as superseded by what's already on main.
