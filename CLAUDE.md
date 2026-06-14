@@ -1,5 +1,10 @@
 # testzombieshooter
 
+## Start of session
+
+Read `soul.md` (how I work, who I am on this project) and `memory.md`
+(running journal of recent context) before doing anything else.
+
 ## Git workflow
 
 - All pull requests must target `main` as the base branch.
