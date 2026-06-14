@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { send, onMessage, offMessage } from '../net'
-import { getZombiePositions, applyRemoteZombiePositions } from './Zombie'
+import { getZombiePositions, applyRemoteZombiePositions, Zombie } from './Zombie'
 import { pushRemotePlayerSample } from './RemotePlayer'
 import { buildGrid } from '../walls'
 import { allWallSegments } from '../cabin'
@@ -183,6 +183,10 @@ function applyRemoteEvent(event, data) {
       break
     case 'hit_zombie':
       store.hitZombie(data.id, data.isHeadshot, data.source ?? 'gun')
+      break
+    case 'hit_zombie_flame':
+      store.hitZombieFlame(data.id, data.damage)
+      Zombie.ignite(data.id)
       break
     case 'hit_plank':
       store.hitPlank(data.windowId)

@@ -22,12 +22,20 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 **Weapons & combat**
 - Pistol (free), Pump Shotgun (€150, 12 pellets/shot), AK-47 (€270,
-  full-auto 10rds/s), Desert Eagle (€700, instant kill, pierces 3)
+  full-auto 10rds/s), Desert Eagle (€700, instant kill, pierces 3),
+  Flamethrower (€1500, continuous cone spray, 0.5 dps burn DoT, 1000
+  starting fuel, +1000 fuel packs for €100)
 - Per-weapon ammo pools (clip + reserve saved independently per weapon),
-  scroll-wheel weapon switching
+  scroll-wheel weapon switching. Flamethrower has no clip — all "ammo"
+  lives in `reserveBullets` as fuel, drained continuously while spraying
+  (`consumeFuel`/`FLAME_FUEL_PER_SEC`)
 - Hunting knife: melee swing, swap with Q, kill bonus
-- Procedural weapon sound design (pistol, shotgun pump/shot — multiple
-  iterations tuning the shotgun boom specifically)
+- Procedural weapon sound design (pistol, shotgun pump/shot, flamethrower
+  continuous roar/hiss/rumble — multiple iterations tuning the shotgun
+  boom specifically)
+- Burning zombies show flickering flame meshes (shared geometry/materials,
+  `Zombie.ignite(id)`); burn ticks via `hitZombieFlame` every
+  `FLAME_TICK_INTERVAL` (0.2s), synced cross-client via `hit_zombie_flame`
 
 **Zombies**
 - 6 archetypes: Walker, Runner, Brute, Screamer (speed aura), Crawler

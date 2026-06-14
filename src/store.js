@@ -14,16 +14,28 @@ const SHOTGUN_COST = 150
 const AMMO_PACK_COST = 10
 const AMMO_PACK_AMOUNT = 20
 const DEEP_POCKETS_AMMO_PACK_AMOUNT = 30
+const FLAMETHROWER_COST = 1500
+const FLAMETHROWER_START_AMMO = 1000
+const FLAMETHROWER_AMMO_PACK_COST = 100
+const FLAMETHROWER_AMMO_PACK_AMOUNT = 1000
+
+// Flamethrower tuning — sustained-damage spray weapon
+export const FLAME_DPS = 0.5            // burn damage per second per zombie in the stream
+export const FLAME_TICK_INTERVAL = 0.2  // how often burn damage is applied
+export const FLAME_FUEL_PER_SEC = 15    // tank drains this many units/sec while spraying
+export const FLAME_RANGE = 9            // max spray distance
+export const FLAME_CONE_COS = 0.92      // ~23° half-angle cone
 
 export const CALIBER_LABELS = {
   pistol: '9mm',
   ak47: '5.45mm',
   shotgun: '12ga',
   deagle: '.50 AE',
+  flamethrower: 'Napalm',
 }
 
 // Ordered list of all weapons; used for scroll-wheel cycling
-export const ALL_WEAPONS = ['pistol', 'shotgun', 'ak47', 'deagle']
+export const ALL_WEAPONS = ['pistol', 'shotgun', 'ak47', 'deagle', 'flamethrower']
 const PERK_COSTS = {
   fast_hands: 80,
   deep_pockets: 80,
@@ -94,7 +106,7 @@ function buildTypeList(wave, count) {
 }
 
 const clipSizeForWeapon = (w) =>
-  w === 'ak47' ? AK_CLIP : w === 'deagle' ? DEAGLE_CLIP : w === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
+  w === 'ak47' ? AK_CLIP : w === 'deagle' ? DEAGLE_CLIP : w === 'shotgun' ? SHOTGUN_CLIP : w === 'flamethrower' ? 0 : CLIP_SIZE
 
 const HITS_PER_PLANK = 5
 const PLANK_COST = 2.5
@@ -107,9 +119,9 @@ const KNIFE_KILL_BONUS = 2
 const NO_PLANK_LOSS_BONUS = 10
 const FAST_CLEAR_BONUS = 8
 const fastClearParForWave = (wave) => 10 + wave * 2
-export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK }
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT }
 
-const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0 }
+const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0 }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
@@ -245,56 +257,17 @@ export const useGameStore = create((set, get) => ({
     set({ bulletsInClip: bulletsInClip + toLoad, reserveBullets: reserveBullets - toLoad, isReloading: false })
   },
 
-  hitZombie: (id, isHeadshot, source = 'gun') => {
-    const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks } = get()
-    const zombie = zombies.find((z) => z.id === id)
-    if (!zombie || zombie.dying) return
+  hitZombie: (id, isHeadshot, source = 'gun') =>
+    applyZombieDamage(get, set, id, isHeadshot ? 3 : 1, source, isHeadshot),
 
-    const newHealth = isHeadshot ? zombie.health - 3 : zombie.health - 1
+  // Fractional damage-over-time hit (flamethrower burn tick)
+  hitZombieFlame: (id, damage) => applyZombieDamage(get, set, id, damage, 'flame', false),
 
-    if (newHealth <= 0) {
-      const newKills = kills + 1
-      const newWaveKills = waveKills + 1
-      const newWaveHeadshots = waveHeadshots + (source === 'gun' && isHeadshot ? 1 : 0)
-      const newWaveKnifeKills = waveKnifeKills + (source === 'knife' ? 1 : 0)
-      // Immediately slot in the next pending zombie so the active count stays at the cap
-      const nextPending = pendingSpawns.length > 0 ? pendingSpawns[0] : null
-      const newPending = nextPending ? pendingSpawns.slice(1) : pendingSpawns
-      // Mark killed zombie as dying (animation plays before removal)
-      const newZombies = zombies.map((z) => z.id === id ? { ...z, health: 0, dying: true } : z)
-      const withNext = nextPending ? [...newZombies, nextPending] : newZombies
-      const activeCount = withNext.filter((z) => !z.dying).length
-      const isGuest = get().mpRole === 'guest'
-      const waveOver = !isGuest && activeCount === 0 && newPending.length === 0
-      const statUpdate = {
-        zombies: withNext,
-        pendingSpawns: newPending,
-        kills: newKills,
-        waveKills: newWaveKills,
-        waveHeadshots: newWaveHeadshots,
-        waveKnifeKills: newWaveKnifeKills,
-      }
-      set(waveOver
-        ? {
-          ...statUpdate,
-          phase: 'wave_clear',
-          lastWaveBonuses: buildWaveBonusSummary({
-            wave,
-            waveKills: newWaveKills,
-            waveHeadshots: newWaveHeadshots,
-            waveKnifeKills: newWaveKnifeKills,
-            wavePlanksLost,
-            waveStartPlanks,
-            waveElapsed,
-          }),
-        }
-        : statUpdate
-      )
-      return true
-    } else {
-      set({ zombies: zombies.map((z) => z.id === id ? { ...z, health: newHealth } : z) })
-      return false
-    }
+  consumeFuel: (amount) => {
+    const { reserveBullets } = get()
+    if (reserveBullets <= 0) return false
+    set({ reserveBullets: Math.max(0, reserveBullets - amount) })
+    return true
   },
 
   removeDyingZombie: (id) => {
@@ -425,13 +398,13 @@ export const useGameStore = create((set, get) => ({
   buyItem: (itemId) => {
     const { money, weapon, bulletsInClip, reserveBullets, perks, ownedWeapons, savedClips, savedReserves } = get()
     // Helper: save current weapon state then equip a newly bought weapon
-    const buyWeapon = (id, cost, clip) => {
+    const buyWeapon = (id, cost, clip, startReserve = 0) => {
       if (ownedWeapons.includes(id) || money < cost) return false
       set({
         money: money - cost,
         weapon: id,
         bulletsInClip: clip,
-        reserveBullets: 0,
+        reserveBullets: startReserve,
         ownedWeapons: [...ownedWeapons, id],
         savedClips:    { ...savedClips,    [weapon]: bulletsInClip  },
         savedReserves: { ...savedReserves, [weapon]: reserveBullets },
@@ -442,7 +415,13 @@ export const useGameStore = create((set, get) => ({
     if (itemId === 'ak47')    return buyWeapon('ak47',    AK_COST,     AK_CLIP)
     if (itemId === 'deagle')  return buyWeapon('deagle',  DEAGLE_COST, DEAGLE_CLIP)
     if (itemId === 'shotgun') return buyWeapon('shotgun', SHOTGUN_COST, SHOTGUN_CLIP)
+    if (itemId === 'flamethrower') return buyWeapon('flamethrower', FLAMETHROWER_COST, 0, FLAMETHROWER_START_AMMO)
     if (itemId === 'ammo_pack') {
+      if (weapon === 'flamethrower') {
+        if (money < FLAMETHROWER_AMMO_PACK_COST) return false
+        set({ money: money - FLAMETHROWER_AMMO_PACK_COST, reserveBullets: reserveBullets + FLAMETHROWER_AMMO_PACK_AMOUNT })
+        return true
+      }
       if (money < AMMO_PACK_COST) return false
       const amount = perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT
       set({ money: money - AMMO_PACK_COST, reserveBullets: reserveBullets + amount })
@@ -516,10 +495,63 @@ function applyDebugOverrides(set, get) {
     updates.weapon = weapon
     updates.ownedWeapons = [...get().ownedWeapons, weapon]
     updates.bulletsInClip = clip
-    updates.reserveBullets = clip * 3
+    updates.reserveBullets = weapon === 'flamethrower' ? FLAMETHROWER_START_AMMO : clip * 3
   }
 
   set(updates)
+}
+
+// Shared damage application for hitZombie (gun/knife) and hitZombieFlame (burn ticks).
+function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
+  const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks } = get()
+  const zombie = zombies.find((z) => z.id === id)
+  if (!zombie || zombie.dying) return false
+
+  const newHealth = zombie.health - damage
+
+  if (newHealth <= 0) {
+    const newKills = kills + 1
+    const newWaveKills = waveKills + 1
+    const newWaveHeadshots = waveHeadshots + (source === 'gun' && isHeadshot ? 1 : 0)
+    const newWaveKnifeKills = waveKnifeKills + (source === 'knife' ? 1 : 0)
+    // Immediately slot in the next pending zombie so the active count stays at the cap
+    const nextPending = pendingSpawns.length > 0 ? pendingSpawns[0] : null
+    const newPending = nextPending ? pendingSpawns.slice(1) : pendingSpawns
+    // Mark killed zombie as dying (animation plays before removal)
+    const newZombies = zombies.map((z) => z.id === id ? { ...z, health: 0, dying: true } : z)
+    const withNext = nextPending ? [...newZombies, nextPending] : newZombies
+    const activeCount = withNext.filter((z) => !z.dying).length
+    const isGuest = get().mpRole === 'guest'
+    const waveOver = !isGuest && activeCount === 0 && newPending.length === 0
+    const statUpdate = {
+      zombies: withNext,
+      pendingSpawns: newPending,
+      kills: newKills,
+      waveKills: newWaveKills,
+      waveHeadshots: newWaveHeadshots,
+      waveKnifeKills: newWaveKnifeKills,
+    }
+    set(waveOver
+      ? {
+        ...statUpdate,
+        phase: 'wave_clear',
+        lastWaveBonuses: buildWaveBonusSummary({
+          wave,
+          waveKills: newWaveKills,
+          waveHeadshots: newWaveHeadshots,
+          waveKnifeKills: newWaveKnifeKills,
+          wavePlanksLost,
+          waveStartPlanks,
+          waveElapsed,
+        }),
+      }
+      : statUpdate
+    )
+    return true
+  } else {
+    set({ zombies: zombies.map((z) => z.id === id ? { ...z, health: newHealth } : z) })
+    return false
+  }
 }
 
 function countPlanks(windowPlanks) {

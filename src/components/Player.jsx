@@ -5,8 +5,10 @@ import Gun from './Gun'
 import Knife from './Knife'
 import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
+import FlameSpray from './FlameSpray'
 import { Zombie } from './Zombie'
-import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing } from '../sounds'
+import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound } from '../sounds'
+import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
@@ -17,6 +19,10 @@ import * as THREE from 'three'
 function netSend(event, data) {
   if (isConnected()) send('game_event', { event, data })
 }
+
+const _flameForward = new THREE.Vector3()
+const _flameToZombie = new THREE.Vector3()
+const _flameZombiePos = new THREE.Vector3()
 
 const CHEST_RADIUS_SQ = 1.5 * 1.5
 const BASE_KNIFE_COOLDOWN = 0.4
@@ -51,6 +57,8 @@ const _autoNearRefs = new Array(25)  // at most 25 active zombies
 export default function Player() {
   const { camera, gl } = useThree()
   const hitZombie = useGameStore((s) => s.hitZombie)
+  const hitZombieFlame = useGameStore((s) => s.hitZombieFlame)
+  const consumeFuel = useGameStore((s) => s.consumeFuel)
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const activeItem = useGameStore((s) => s.activeItem)
@@ -95,6 +103,8 @@ export default function Player() {
   const autoShootCooldownRef = useRef(0)
   const autoDetectRC = useRef(null)
   if (!autoDetectRC.current) { autoDetectRC.current = new THREE.Raycaster(); autoDetectRC.current.far = 30 }
+  const flameTickTimerRef = useRef(0)
+  const flameSoundActiveRef = useRef(false)
   const weapon = useGameStore((s) => s.weapon)
   const ownedWeapons = useGameStore((s) => s.ownedWeapons)
   const switchWeapon = useGameStore((s) => s.switchWeapon)
@@ -144,6 +154,28 @@ export default function Player() {
     shopOpenRef.current = shopOpen
     if (shopOpen) document.exitPointerLock?.()
   }, [shopOpen])
+
+  // Force-stop the flamethrower spray when the shop opens, the weapon is switched
+  // away, or gameplay pauses — the per-frame block above only runs during active play.
+  useEffect(() => {
+    if (shopOpen || phase !== 'playing' || weapon !== 'flamethrower' || activeItem !== 'gun') {
+      mouseHeldRef.current = false
+      Gun.setFlameActive?.(false)
+      if (flameSoundActiveRef.current) {
+        flameSoundActiveRef.current = false
+        stopFlamethrowerSound()
+        flameTickTimerRef.current = 0
+      }
+    }
+  }, [shopOpen, phase, weapon, activeItem])
+
+  // Make sure the flamethrower sound never keeps playing after unmount
+  useEffect(() => () => {
+    if (flameSoundActiveRef.current) {
+      flameSoundActiveRef.current = false
+      stopFlamethrowerSound()
+    }
+  }, [])
 
   const requestLock = useCallback(() => {
     if ((phase === 'playing' || phase === 'intermission') && !shopOpenRef.current) {
@@ -397,6 +429,10 @@ export default function Player() {
         knifeSwing()
         return
       }
+      if (weaponRef.current === 'flamethrower') {
+        mouseHeldRef.current = true
+        return
+      }
       shoot()
       mouseHeldRef.current = true
       akFireTimerRef.current = 0.1  // next AK shot in 0.1s
@@ -617,6 +653,51 @@ export default function Player() {
 
     camera.rotation.y = yaw.current
     camera.rotation.x = pitch.current
+
+    // Flamethrower — continuous spray while held, fuel-limited, cone damage ticks
+    {
+      const firing = phase === 'playing' && weaponRef.current === 'flamethrower' && activeItemRef.current === 'gun' &&
+        ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld)
+
+      if (firing && useGameStore.getState().reserveBullets > 0) {
+        consumeFuel(FLAME_FUEL_PER_SEC * delta)
+        Gun.setFlameActive?.(true)
+        if (!flameSoundActiveRef.current) {
+          flameSoundActiveRef.current = true
+          startFlamethrowerSound()
+        }
+
+        const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone()
+        camera.getWorldDirection(_flameForward)
+        FlameSpray.spray(muzzle, _flameForward, 2)
+
+        flameTickTimerRef.current -= delta
+        if (flameTickTimerRef.current <= 0) {
+          flameTickTimerRef.current = FLAME_TICK_INTERVAL
+          const damage = FLAME_DPS * FLAME_TICK_INTERVAL
+          for (const [id, ref] of Object.entries(zombieRefs.current)) {
+            if (!ref) continue
+            ref.getWorldPosition(_flameZombiePos)
+            _flameToZombie.copy(_flameZombiePos).sub(muzzle)
+            const dist = _flameToZombie.length()
+            if (dist > FLAME_RANGE || dist < 0.001) continue
+            _flameToZombie.divideScalar(dist)
+            if (_flameToZombie.dot(_flameForward) < FLAME_CONE_COS) continue
+            const zid = Number(id)
+            if (hitZombieFlame(zid, damage)) playZombieDie()
+            Zombie.ignite(zid)
+            netSend('hit_zombie_flame', { id: zid, damage })
+          }
+        }
+      } else {
+        Gun.setFlameActive?.(false)
+        if (flameSoundActiveRef.current) {
+          flameSoundActiveRef.current = false
+          stopFlamethrowerSound()
+          flameTickTimerRef.current = 0
+        }
+      }
+    }
 
     const dir = new THREE.Vector3()
     const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))

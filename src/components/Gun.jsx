@@ -266,6 +266,95 @@ export function ShotgunModel({ gunMat, pumpRef }) {
   )
 }
 
+export function FlamethrowerModel({ gunMat }) {
+  const metal = (c) => gunMat(c, 0.75, 0.35)
+  const tank  = (c) => gunMat(c, 0.6, 0.4)
+  return (
+    <>
+      {/* Fuel tank — large cylinder slung under/behind the nozzle */}
+      <mesh position={[0.01, -0.05, 0.16]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.085, 0.085, 0.34, 16]} />
+        {tank('#5a1f12')}
+      </mesh>
+      {/* Tank end caps */}
+      <mesh position={[0.01, -0.05, -0.01]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.088, 0.088, 0.02, 16]} />
+        {metal('#3a3a3a')}
+      </mesh>
+      <mesh position={[0.01, -0.05, 0.33]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.088, 0.088, 0.02, 16]} />
+        {metal('#3a3a3a')}
+      </mesh>
+      {/* Tank stencil stripe */}
+      <mesh position={[0.01, -0.012, 0.16]}>
+        <boxGeometry args={[0.005, 0.02, 0.30]} />
+        {gunMat('#d9b400', 0.2, 0.7)}
+      </mesh>
+      {/* Pressure gauge */}
+      <mesh position={[0.01, 0.03, 0.02]}>
+        <cylinderGeometry args={[0.022, 0.022, 0.025, 10]} />
+        {metal('#888')}
+      </mesh>
+
+      {/* Main receiver block, bridges tank to nozzle */}
+      <mesh position={[0, 0.02, -0.06]}>
+        <boxGeometry args={[0.090, 0.085, 0.16]} />
+        {metal('#3c3c3c')}
+      </mesh>
+
+      {/* Fuel hose — curves from tank to receiver */}
+      <mesh position={[0.045, -0.005, 0.05]} rotation={[0.2, 0, 0.35]}>
+        <cylinderGeometry args={[0.018, 0.018, 0.20, 8]} />
+        {gunMat('#1a1a1a', 0.2, 0.85)}
+      </mesh>
+
+      {/* Igniter housing */}
+      <mesh position={[0, 0.035, -0.16]}>
+        <boxGeometry args={[0.060, 0.050, 0.06]} />
+        {metal('#2e2e2e')}
+      </mesh>
+      {/* Pilot light glow */}
+      <mesh position={[0, 0.035, -0.20]}>
+        <sphereGeometry args={[0.018, 8, 8]} />
+        <meshStandardMaterial color="#ff6a00" emissive="#ff6a00" emissiveIntensity={2.5} />
+      </mesh>
+
+      {/* Nozzle barrel — wide tapering tube */}
+      <mesh position={[0, 0.03, -0.42]}>
+        <cylinderGeometry args={[0.040, 0.052, 0.46, 12]} />
+        {metal('#2a2a2a')}
+      </mesh>
+      {/* Nozzle tip flare */}
+      <mesh position={[0, 0.03, -0.66]}>
+        <cylinderGeometry args={[0.034, 0.046, 0.06, 12]} />
+        {metal('#1f1f1f')}
+      </mesh>
+      {/* Nozzle rim */}
+      <mesh position={[0, 0.03, -0.695]}>
+        <cylinderGeometry args={[0.036, 0.036, 0.015, 12]} />
+        {metal('#444')}
+      </mesh>
+
+      {/* Pistol grip */}
+      <mesh position={[0, -0.105, -0.02]} rotation={[0.18, 0, 0]}>
+        <boxGeometry args={[0.060, 0.135, 0.075]} />
+        {gunMat('#1c1c1c', 0.1, 0.9)}
+      </mesh>
+      {/* Trigger guard */}
+      <mesh position={[0, -0.045, -0.05]}>
+        <boxGeometry args={[0.046, 0.014, 0.085]} />
+        {metal('#3a3a3a')}
+      </mesh>
+
+      {/* Shoulder strap mount */}
+      <mesh position={[0.01, -0.05, 0.33]} rotation={[0, 0, Math.PI / 2]}>
+        <torusGeometry args={[0.03, 0.006, 6, 10]} />
+        {metal('#222')}
+      </mesh>
+    </>
+  )
+}
+
 export default function Gun() {
   const { camera } = useThree()
   const weapon = useGameStore((s) => s.weapon)
@@ -273,6 +362,7 @@ export default function Gun() {
   const isAK = weapon === 'ak47'
   const isDeagle = weapon === 'deagle'
   const isShotgun = weapon === 'shotgun'
+  const isFlamethrower = weapon === 'flamethrower'
 
   const weaponScene = useMemo(() => {
     const s = new THREE.Scene()
@@ -291,6 +381,8 @@ export default function Gun() {
   const recoil = useRef(0)
   const flashLife = useRef(0)
   const pumpAnim = useRef(0)
+  const flameActive = useRef(false)
+  const flameTime = useRef(0)
 
   Gun.fire = () => {
     recoil.current = 1
@@ -298,6 +390,8 @@ export default function Gun() {
   }
 
   Gun.pump = () => { pumpAnim.current = 1 }
+
+  Gun.setFlameActive = (active) => { flameActive.current = active }
 
   Gun.getMuzzlePosition = () => _muzzleWorld.clone()
 
@@ -307,8 +401,17 @@ export default function Gun() {
 
     if (recoil.current > 0) recoil.current = Math.max(0, recoil.current - delta * 10)
     if (flashRef.current) {
-      flashLife.current = Math.max(0, flashLife.current - delta * 20)
-      flashRef.current.intensity = flashLife.current * 4
+      if (isFlamethrower) {
+        if (flameActive.current) {
+          flameTime.current += delta
+          flashRef.current.intensity = 3 + Math.sin(flameTime.current * 40) * 1.2 + Math.random() * 0.6
+        } else {
+          flashRef.current.intensity = 0
+        }
+      } else {
+        flashLife.current = Math.max(0, flashLife.current - delta * 20)
+        flashRef.current.intensity = flashLife.current * 4
+      }
     }
 
     // Pump animation: sine arc so forend slides back then snaps forward
@@ -336,6 +439,12 @@ export default function Gun() {
         const recoilAngle = recoil.current * 0.14
         groupRef.current.position.set(0.11, -0.27, -(0.28 - recoilZ))
         groupRef.current.rotation.set(recoilAngle, 0, 0)
+      } else if (isFlamethrower) {
+        // Continuous low-amplitude jitter while spraying instead of a discrete recoil kick
+        const jitterX = flameActive.current ? Math.sin(flameTime.current * 23) * 0.006 : 0
+        const jitterY = flameActive.current ? Math.cos(flameTime.current * 17) * 0.005 : 0
+        groupRef.current.position.set(0.18 + jitterX, -0.25 + jitterY, -0.28)
+        groupRef.current.rotation.set(0, 0, 0)
       } else {
         const recoilZ = recoil.current * 0.06
         const recoilAngle = recoil.current * 0.18
@@ -351,7 +460,9 @@ export default function Gun() {
         ? new THREE.Vector3(0.21, -0.195, -0.73)
         : isShotgun
           ? new THREE.Vector3(0.11, -0.245, -0.75)
-          : new THREE.Vector3(0.22, -0.20, -0.69)
+          : isFlamethrower
+            ? new THREE.Vector3(0.18, -0.22, -0.95)
+            : new THREE.Vector3(0.22, -0.20, -0.69)
     muzzleLocal.applyMatrix4(camera.matrixWorld)
     _muzzleWorld.copy(muzzleLocal)
 
@@ -369,12 +480,16 @@ export default function Gun() {
     <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
   )
 
-  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : -0.31
+  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : isFlamethrower ? -0.66 : -0.31
 
   return createPortal(
     <group ref={groupRef}>
-      {isAK ? <AKModel gunMat={gunMat} /> : isDeagle ? <DeagleModel gunMat={gunMat} /> : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} /> : <PistolModel gunMat={gunMat} />}
-      <pointLight ref={flashRef} position={[0, 0.03, flashZ]} intensity={0} color="#ff9900" distance={4} />
+      {isAK ? <AKModel gunMat={gunMat} />
+        : isDeagle ? <DeagleModel gunMat={gunMat} />
+        : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} />
+        : isFlamethrower ? <FlamethrowerModel gunMat={gunMat} />
+        : <PistolModel gunMat={gunMat} />}
+      <pointLight ref={flashRef} position={[0, 0.03, flashZ]} intensity={0} color={isFlamethrower ? '#ff5500' : '#ff9900'} distance={isFlamethrower ? 6 : 4} />
     </group>,
     weaponScene
   )

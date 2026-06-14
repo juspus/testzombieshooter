@@ -657,6 +657,99 @@ export function playKnifeSwing() {
   osc.stop(t + 0.20)
 }
 
+// ─── flamethrower ────────────────────────────────────────────────────────────
+
+let _flameNodes = null
+
+/// Continuous gas-jet roar: filtered noise loop + low rumble + hissing top end.
+// start/stop pair — call start while the trigger is held, stop on release.
+export function startFlamethrowerSound() {
+  if (_flameNodes) return
+  const ac = ctx()
+  const t = ac.currentTime
+
+  const out = ac.createGain()
+  out.gain.setValueAtTime(0, t)
+  out.gain.linearRampToValueAtTime(0.5, t + 0.08)
+  out.connect(ac.destination)
+
+  // Core roar — looping noise through a low bandpass, gives the "whoosh" body
+  const roarBuf = noiseBuffer(ac, 1.0)
+  const roarSrc = ac.createBufferSource()
+  roarSrc.buffer = roarBuf
+  roarSrc.loop = true
+  const roarFilt = ac.createBiquadFilter()
+  roarFilt.type = 'bandpass'
+  roarFilt.frequency.value = 320
+  roarFilt.Q.value = 0.7
+  const roarGain = ac.createGain()
+  roarGain.gain.value = 0.9
+  roarSrc.connect(roarFilt)
+  roarFilt.connect(roarGain)
+  roarGain.connect(out)
+  roarSrc.start(t)
+
+  // Hiss — high-frequency noise loop for the gas jet edge
+  const hissBuf = noiseBuffer(ac, 1.0)
+  const hissSrc = ac.createBufferSource()
+  hissSrc.buffer = hissBuf
+  hissSrc.loop = true
+  const hissFilt = ac.createBiquadFilter()
+  hissFilt.type = 'highpass'
+  hissFilt.frequency.value = 2600
+  const hissGain = ac.createGain()
+  hissGain.gain.value = 0.18
+  hissSrc.connect(hissFilt)
+  hissFilt.connect(hissGain)
+  hissGain.connect(out)
+  hissSrc.start(t)
+
+  // Low rumble — gives the spray weight
+  const rumble = ac.createOscillator()
+  rumble.type = 'sawtooth'
+  rumble.frequency.value = 48
+  const rumbleFilt = ac.createBiquadFilter()
+  rumbleFilt.type = 'lowpass'
+  rumbleFilt.frequency.value = 140
+  const rumbleGain = ac.createGain()
+  rumbleGain.gain.value = 0.35
+  rumble.connect(rumbleFilt)
+  rumbleFilt.connect(rumbleGain)
+  rumbleGain.connect(out)
+  rumble.start(t)
+
+  // Slow flicker LFO on overall gain so the roar isn't perfectly static
+  const lfo = ac.createOscillator()
+  lfo.frequency.value = 7
+  const lfoGain = ac.createGain()
+  lfoGain.gain.value = 0.06
+  lfo.connect(lfoGain)
+  lfoGain.connect(out.gain)
+  lfo.start(t)
+
+  _flameNodes = { out, roarSrc, hissSrc, rumble, lfo }
+}
+
+export function stopFlamethrowerSound() {
+  if (!_flameNodes) return
+  const ac = ctx()
+  const t = ac.currentTime
+  const { out, roarSrc, hissSrc, rumble, lfo } = _flameNodes
+  _flameNodes = null
+
+  out.gain.cancelScheduledValues(t)
+  out.gain.setValueAtTime(out.gain.value, t)
+  out.gain.linearRampToValueAtTime(0, t + 0.12)
+
+  setTimeout(() => {
+    try { roarSrc.stop() } catch (_) {}
+    try { hissSrc.stop() } catch (_) {}
+    try { rumble.stop() } catch (_) {}
+    try { lfo.stop() } catch (_) {}
+    out.disconnect()
+  }, 200)
+}
+
 // ─── background music ────────────────────────────────────────────────────────
 
 let _masterGain = null
