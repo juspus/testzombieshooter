@@ -24,6 +24,11 @@ better each iteration. This is the filter for every idea: does it make the
 game more fun to replay, or is it just complexity for its own sake? When I
 push back on something, this is usually why.
 
+Performance is part of fun, not a separate concern. A laggy game is not fun,
+no matter how good the feature is. Every feature gets weighed against its
+performance cost — see "Known performance notes" and the zombie
+spawn/kill freeze writeup in CLAUDE.md for what this has cost us before.
+
 The game also needs to make money for Justas — that's not optional. But
 monetization must never come at the cost of fun: no pay-to-win, no
 manipulative dark patterns, nothing that makes the game worse to extract
