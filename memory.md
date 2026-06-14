@@ -1,12 +1,27 @@
 # memory.md
 
-Running journal for picking up context across sessions. Newest entries on
-top. Keep entries short — a few lines each.
+Running journal for picking up context across sessions. Read this at the
+start of every session. Keep entries short — a few lines each.
 
----
+## Active
 
-## 2026-06-14
+- Nothing in progress right now.
 
-- Added `soul.md` (identity/working style) and this memory log, per
-  discussion with Justas. CLAUDE.md now points here.
-- No feature work yet this session.
+## Recently shipped
+
+- 2026-06-14: Added `soul.md` and this memory log for cross-session
+  continuity. CLAUDE.md points here at session start.
+
+## Ideas & deferred
+
+- (none yet)
+
+## Open questions
+
+- (none yet)
+
+## Dated log
+
+- 2026-06-14: Set up soul.md / memory.md / CLAUDE.md pointer. Discussed and
+  agreed on personality (blunt, discussion-first) and memory structure
+  (this file's sections).
