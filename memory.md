@@ -99,3 +99,6 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - 2026-06-15: Merged PR #94 — debug URL params (`?wave=`, `?money=`,
   `?weapon=`) for fast manual testing, gated off on Vercel production
   builds via `VITE_VERCEL_ENV`.
+- 2026-06-15: Added a standing workflow rule to CLAUDE.md — open a PR for
+  every session's work (even doc-only) and always report the Vercel
+  preview link (PR #100).
