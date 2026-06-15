@@ -94,3 +94,7 @@ onboarding summary — see CLAUDE.md for architecture detail.
   tap-anywhere-fire, aim assist, auto-shoot) after discussing and keeping
   the auto-shoot (COD Mobile precedent). Also fixed a pre-existing bug:
   duplicate "R — reload · Q — knife" HUD hint on desktop.
+- 2026-06-15: Fixed mobile "FULLSCREEN MODE" install banner — its close (×)
+  taps were being swallowed by the always-on look/shoot zone (same
+  z-index:auto, later in DOM order won). Added zIndex:1 to installHint in
+  MobileControls.jsx. PR #96 open against main.
