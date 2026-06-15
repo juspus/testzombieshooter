@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Bridge Vercel's build-time VERCEL_ENV ('production' | 'preview' | 'development')
+  // into client code so debug-only features can check it at runtime.
+  define: {
+    'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV || 'development'),
+  },
   plugins: [
     react(),
     VitePWA({
