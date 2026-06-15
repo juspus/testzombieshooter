@@ -5,8 +5,7 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
-- Open PR #91 (`claude/mobile-controls-usability-ElP6H`): two-finger
-  shoot+look, tap-anywhere-to-fire, mobile aim assist. Not yet merged.
+- Nothing in progress right now.
 
 ## Feature inventory (as of 2026-06-14)
 
@@ -54,6 +53,7 @@ onboarding summary — see CLAUDE.md for architecture detail.
 **Mobile / PWA**
 - Mobile-optimized HUD, touch controls (drag-to-look, tap/hold buttons),
   PWA service worker for offline play, iOS black-screen/WebGL fixes
+- Two-finger shoot+look, tap-anywhere-to-fire, mobile aim assist (PR #91)
 - Test Lab page (`/?testlab`) for isolated weapon/sound testing
 
 **Misc**
@@ -80,3 +80,5 @@ onboarding summary — see CLAUDE.md for architecture detail.
   performance-is-fun, monetization without hurting fun), and memory
   structure. Built feature inventory from git history + open PRs. Closed
   PRs #79 and #46 as superseded by what's already on main.
+- 2026-06-15: PR #91 (mobile controls: two-finger shoot+look,
+  tap-anywhere-fire, aim assist) merged to main.
