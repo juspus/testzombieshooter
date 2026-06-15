@@ -95,8 +95,28 @@ export default function MobileControls() {
     }
   }, [])
 
+  // When controls go away (e.g. the brief 'wave_clear' phase between waves, or
+  // the shop opening) the touch zones unmount without ever receiving a
+  // pointerup/pointercancel for any in-progress touch. Clear all pointer
+  // tracking so a stale lookPointerRef doesn't hijack the next touch as a
+  // "secondary shoot finger" once controls reappear.
   useEffect(() => {
-    if (!isMobile || !active || shopOpen) resetMobileInput()
+    if (!isMobile || !active || shopOpen) {
+      resetMobileInput()
+      movePointerRef.current = null
+      lookPointerRef.current = null
+      shootPointerRef.current = null
+      lookBtnRef.current = null
+      lookDraggedRef.current = false
+      holdFiredRef.current = false
+      shootDraggedRef.current = false
+      shootHoldFiredRef.current = false
+      clearTimeout(holdTimerRef.current)
+      clearTimeout(shootHoldTimerRef.current)
+      holdTimerRef.current = null
+      shootHoldTimerRef.current = null
+      setStick({ x: 0, y: 0 })
+    }
   }, [isMobile, active, shopOpen])
 
   useEffect(() => {
