@@ -168,6 +168,46 @@ export function hasLineOfSight(x1, z1, x2, z2) {
   return true
 }
 
+// ─── auto-shoot occlusion ────────────────────────────────────────────────────
+
+// True if any solid wall segment blocks the line from (x1,z1) to (x2,z2).
+// Window gaps are treated as open (player/zombies are roughly at window height).
+export function lineOfSightBlocked(x1, z1, x2, z2, walls) {
+  const dx = x2 - x1, dz = z2 - z1
+  for (const w of walls) {
+    const minX = w.x - w.halfW, maxX = w.x + w.halfW
+    const minZ = w.z - w.halfD, maxZ = w.z + w.halfD
+    let tmin = 0, tmax = 1
+    if (dx === 0) {
+      if (x1 < minX || x1 > maxX) continue
+    } else {
+      let t1 = (minX - x1) / dx, t2 = (maxX - x1) / dx
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp }
+      tmin = Math.max(tmin, t1)
+      tmax = Math.min(tmax, t2)
+    }
+    if (dz === 0) {
+      if (z1 < minZ || z1 > maxZ) continue
+    } else {
+      let t1 = (minZ - z1) / dz, t2 = (maxZ - z1) / dz
+      if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp }
+      tmin = Math.max(tmin, t1)
+      tmax = Math.min(tmax, t2)
+    }
+    if (tmin > tmax) continue   // segment misses this wall's footprint
+
+    if (w.wStart === null) return true   // solid wall, no window — fully blocked
+
+    // Window present — open along [wStart, wEnd] relative to wall center.
+    const along1 = w.axis === 'x' ? (x1 + dx * tmin) - w.x : (z1 + dz * tmin) - w.z
+    const along2 = w.axis === 'x' ? (x1 + dx * tmax) - w.x : (z1 + dz * tmax) - w.z
+    const lo = Math.min(along1, along2), hi = Math.max(along1, along2)
+    if (lo >= w.wStart && hi <= w.wEnd) continue   // entirely within window gap
+    return true
+  }
+  return false
+}
+
 // ─── A* pathfinding ──────────────────────────────────────────────────────────
 
 // Grid column/row of world origin (0,0) — cabin interior centre.
