@@ -5,11 +5,7 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
-- Branch `claude/faster-phone-testing-f4xajx`: debug URL params
-  (`?wave=N&money=N&weapon=ak47/shotgun/deagle`) on `startGame()` for
-  fast manual testing — jump straight to a wave/loadout instead of
-  grinding. Gated via `VITE_VERCEL_ENV` (vite.config.js `define` reads
-  Vercel's `VERCEL_ENV`): active in dev + preview, no-op on production.
+- (none)
 
 ## Feature inventory (as of 2026-06-14)
 
@@ -64,6 +60,12 @@ onboarding summary — see CLAUDE.md for architecture detail.
   choice to lower the touch-aiming skill floor)
 - Test Lab page (`/?testlab`) for isolated weapon/sound testing
 
+**Dev/testing**
+- Debug URL params (`?wave=N&money=N&weapon=ak47/shotgun/deagle`) on
+  `startGame()` jump straight to a wave/loadout. Gated via
+  `VITE_VERCEL_ENV` (vite.config.js `define` reads Vercel's
+  `VERCEL_ENV`): active in dev + preview, no-op on production.
+
 **Misc**
 - Share button on death screen (hashed share links)
 - Disabled text selection across UI
@@ -94,3 +96,9 @@ onboarding summary — see CLAUDE.md for architecture detail.
   tap-anywhere-fire, aim assist, auto-shoot) after discussing and keeping
   the auto-shoot (COD Mobile precedent). Also fixed a pre-existing bug:
   duplicate "R — reload · Q — knife" HUD hint on desktop.
+- 2026-06-15: Merged PR #94 — debug URL params (`?wave=`, `?money=`,
+  `?weapon=`) for fast manual testing, gated off on Vercel production
+  builds via `VITE_VERCEL_ENV`.
+- 2026-06-15: Added a standing workflow rule to CLAUDE.md — open a PR for
+  every session's work (even doc-only) and always report the Vercel
+  preview link (PR #100).

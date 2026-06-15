@@ -559,6 +559,7 @@ const styles = {
     left: '50%',
     transform: 'translateX(-50%)',
     width: 'min(560px, calc(100vw - 28px))',
+    zIndex: 1,
     pointerEvents: 'auto',
     display: 'flex',
     alignItems: 'center',

@@ -7,7 +7,7 @@ import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing } from '../sounds'
-import { collidesWithWalls, segmentBlockedByWalls } from '../walls'
+import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import { send, isConnected } from '../net'
@@ -256,7 +256,7 @@ export default function Player() {
           if (!ref) continue
           const hits = pelletRC.intersectObject(ref, true)
           if (hits.length > 0 && hits[0].distance < bestDist &&
-              !segmentBlockedByWalls(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, wallsRef.current)) {
+              !lineOfSightBlocked(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, wallsRef.current)) {
             bestDist = hits[0].distance
             bestId = Number(id)
             bestPoint = hits[0].point.clone()
@@ -283,7 +283,7 @@ export default function Player() {
       hits.sort((a, b) => a.dist - b.dist)
       const targets = []
       for (const hit of hits) {
-        if (segmentBlockedByWalls(camera.position.x, camera.position.z, hit.point.x, hit.point.z, wallsRef.current)) break
+        if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, wallsRef.current)) break
         targets.push(hit)
         if (targets.length >= 3) break
       }
@@ -300,7 +300,7 @@ export default function Player() {
         if (!ref) continue
         const intersects = raycaster.intersectObject(ref, true)
         if (intersects.length > 0 && intersects[0].distance < closestDist &&
-            !segmentBlockedByWalls(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
+            !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
           closestDist = intersects[0].distance
           closest = id
           hitPoint = intersects[0].point.clone()
@@ -324,7 +324,7 @@ export default function Player() {
             if (!ref) continue
             const intersects = assistRC.intersectObject(ref, true)
             if (intersects.length > 0 && intersects[0].distance < closestDist &&
-                !segmentBlockedByWalls(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
+                !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
               closestDist = intersects[0].distance
               closest = id
               hitPoint = intersects[0].point.clone()
@@ -482,12 +482,12 @@ export default function Player() {
           outer: for (const off of OFFSETS) {
             autoDetectRC.current.setFromCamera(off, camera)
             for (let i = 0; i < nearCount; i++) {
-              const hits = autoDetectRC.current.intersectObject(_autoNearRefs[i], true)
-              if (hits.length > 0 &&
-                  !segmentBlockedByWalls(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, wallsRef.current)) {
-                hasTarget = true
-                break outer
-              }
+              const hit = autoDetectRC.current.intersectObject(_autoNearRefs[i], true)[0]
+              if (!hit) continue
+              // Don't auto-shoot through walls — require a clear line of sight.
+              if (lineOfSightBlocked(camPos.x, camPos.z, hit.point.x, hit.point.z, wallsRef.current)) continue
+              hasTarget = true
+              break outer
             }
           }
         }

@@ -9,6 +9,9 @@ Read `soul.md` (how I work, who I am on this project) and `memory.md`
 
 - All pull requests must target `main` as the base branch.
 - Create feature branches from `main`.
+- Open a PR for the session's work even for small/doc-only changes, so
+  Vercel generates a preview deployment. Always reply with the preview
+  URL once it's ready.
 
 ---
 
