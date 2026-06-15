@@ -144,7 +144,6 @@ export default function HUD() {
               {bulletsInClip}<span style={styles.ammoSep}>/</span>{bulletsInClip + reserveBullets}
             </div>
           )}
-          {!isMobile && <div style={reloadHintStyle}>R — reload · Q — knife</div>}
           {/* Bullet pip row — hidden on mobile */}
           {!isMobile && (
             <div style={{ ...pipsStyle, flexWrap: 'wrap', maxWidth: clipSize <= 10 ? 'auto' : 90 }}>
