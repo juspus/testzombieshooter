@@ -255,7 +255,8 @@ export default function Player() {
         for (const [id, ref] of Object.entries(zombieRefs.current)) {
           if (!ref) continue
           const hits = pelletRC.intersectObject(ref, true)
-          if (hits.length > 0 && hits[0].distance < bestDist) {
+          if (hits.length > 0 && hits[0].distance < bestDist &&
+              !lineOfSightBlocked(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, wallsRef.current)) {
             bestDist = hits[0].distance
             bestId = Number(id)
             bestPoint = hits[0].point.clone()
@@ -280,7 +281,12 @@ export default function Player() {
         if (intersects.length > 0) hits.push({ id: Number(id), dist: intersects[0].distance, point: intersects[0].point.clone() })
       }
       hits.sort((a, b) => a.dist - b.dist)
-      const targets = hits.slice(0, 3)
+      const targets = []
+      for (const hit of hits) {
+        if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, wallsRef.current)) break
+        targets.push(hit)
+        if (targets.length >= 3) break
+      }
       const trailEnd = targets.length > 0 ? targets[targets.length - 1].point : camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
       BulletTrails.add(muzzle, trailEnd)
       for (const target of targets) {
@@ -293,7 +299,8 @@ export default function Player() {
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
         if (!ref) continue
         const intersects = raycaster.intersectObject(ref, true)
-        if (intersects.length > 0 && intersects[0].distance < closestDist) {
+        if (intersects.length > 0 && intersects[0].distance < closestDist &&
+            !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
           closestDist = intersects[0].distance
           closest = id
           hitPoint = intersects[0].point.clone()
@@ -316,7 +323,8 @@ export default function Player() {
           for (const [id, ref] of Object.entries(zombieRefs.current)) {
             if (!ref) continue
             const intersects = assistRC.intersectObject(ref, true)
-            if (intersects.length > 0 && intersects[0].distance < closestDist) {
+            if (intersects.length > 0 && intersects[0].distance < closestDist &&
+                !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
               closestDist = intersects[0].distance
               closest = id
               hitPoint = intersects[0].point.clone()
