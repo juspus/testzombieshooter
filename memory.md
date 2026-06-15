@@ -85,12 +85,16 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
-- 2026-06-15: Fixed mobile controls freeze after intermission — tick()
-  and the guest wave_start handler transitioned intermission->playing
-  without resetting shopOpen. If shop was open when the timer hit 0,
-  MobileControls rendered only its invisible pointerEvents:none
-  placeholder, so touch had nothing to hit. Branch
-  `claude/mobile-controls-freeze-permission-d61fwn`.
+- 2026-06-15: Fixed mobile camera-look freeze after intermission. Real
+  cause: MobileControls renders null during the brief wave_clear phase
+  (and when shop is open), unmounting the touch zones mid-drag with no
+  pointerup/pointercancel ever firing. Stale non-null lookPointerRef then
+  made the next touch register as the "secondary shoot finger" instead of
+  primary look, so look stopped responding (movement/shoot still worked).
+  Fix: reset all pointer-tracking refs whenever controls go inactive. Also
+  fixed a separate bug where intermission->playing didn't reset shopOpen
+  (left MobileControls fully invisible if shop was still open at wave
+  start). Branch `claude/mobile-controls-freeze-permission-d61fwn`.
 - 2026-06-14: Set up soul.md / memory.md / CLAUDE.md pointer. Discussed and
   agreed on personality (blunt, discussion-first), vision (fun + retention,
   performance-is-fun, monetization without hurting fun), and memory
