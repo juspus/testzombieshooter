@@ -8,7 +8,7 @@ import ShellCasings from './ShellCasings'
 import FlameSpray from './FlameSpray'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound } from '../sounds'
-import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS } from '../store'
+import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
@@ -105,6 +105,7 @@ export default function Player() {
   if (!autoDetectRC.current) { autoDetectRC.current = new THREE.Raycaster(); autoDetectRC.current.far = 30 }
   const flameTickTimerRef = useRef(0)
   const flameSoundActiveRef = useRef(false)
+  const burningZombiesRef = useRef(new Map())
   const weapon = useGameStore((s) => s.weapon)
   const ownedWeapons = useGameStore((s) => s.ownedWeapons)
   const switchWeapon = useGameStore((s) => s.switchWeapon)
@@ -495,17 +496,22 @@ export default function Player() {
     // Mobile auto-shoot: fires when a zombie is in the crosshair
     if (mobileState.active && phase === 'playing' && activeItemRef.current === 'gun') {
       autoShootCooldownRef.current -= delta
+      const isFlamethrower = weaponRef.current === 'flamethrower'
+      const hasAmmo = isFlamethrower
+        ? useGameStore.getState().reserveBullets > 0
+        : useGameStore.getState().bulletsInClip > 0 && reloadTimer.current <= 0
       let hasTarget = false
-      if (useGameStore.getState().bulletsInClip > 0 && reloadTimer.current <= 0) {
-        // Pre-filter: only test zombies in front and within 25 units
+      if (hasAmmo) {
+        // Pre-filter: only test zombies in front and within range
         const camPos = camera.position
+        const rangeSq = isFlamethrower ? FLAME_RANGE * FLAME_RANGE : 625
         _autoFwd.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
         let nearCount = 0
         for (const ref of Object.values(zombieRefs.current)) {
           if (!ref) continue
           _autoPos.setFromMatrixPosition(ref.matrixWorld)
           const dx = _autoPos.x - camPos.x, dz = _autoPos.z - camPos.z
-          if (dx * dx + dz * dz > 625) continue
+          if (dx * dx + dz * dz > rangeSq) continue
           _autoDir.set(dx, 0, dz).normalize()
           if (_autoFwd.dot(_autoDir) < 0.1) continue
           _autoNearRefs[nearCount++] = ref
@@ -529,7 +535,7 @@ export default function Player() {
         }
       }
       if (hasTarget) {
-        if (weaponRef.current === 'ak47') {
+        if (weaponRef.current === 'ak47' || isFlamethrower) {
           mobileInput.autoShootHeld = true
         } else if (autoShootCooldownRef.current <= 0) {
           shoot()
@@ -657,7 +663,7 @@ export default function Player() {
     // Flamethrower — continuous spray while held, fuel-limited, cone damage ticks
     {
       const firing = phase === 'playing' && weaponRef.current === 'flamethrower' && activeItemRef.current === 'gun' &&
-        ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld)
+        ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld || mobileInput.autoShootHeld)
 
       if (firing && useGameStore.getState().reserveBullets > 0) {
         consumeFuel(FLAME_FUEL_PER_SEC * delta)
@@ -670,32 +676,51 @@ export default function Player() {
         const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone()
         camera.getWorldDirection(_flameForward)
         FlameSpray.spray(muzzle, _flameForward, 2)
-
-        flameTickTimerRef.current -= delta
-        if (flameTickTimerRef.current <= 0) {
-          flameTickTimerRef.current = FLAME_TICK_INTERVAL
-          const damage = FLAME_DPS * FLAME_TICK_INTERVAL
-          for (const [id, ref] of Object.entries(zombieRefs.current)) {
-            if (!ref) continue
-            ref.getWorldPosition(_flameZombiePos)
-            _flameToZombie.copy(_flameZombiePos).sub(muzzle)
-            const dist = _flameToZombie.length()
-            if (dist > FLAME_RANGE || dist < 0.001) continue
-            _flameToZombie.divideScalar(dist)
-            if (_flameToZombie.dot(_flameForward) < FLAME_CONE_COS) continue
-            const zid = Number(id)
-            if (hitZombieFlame(zid, damage)) playZombieDie()
-            Zombie.ignite(zid)
-            netSend('hit_zombie_flame', { id: zid, damage })
-          }
-        }
       } else {
         Gun.setFlameActive?.(false)
         if (flameSoundActiveRef.current) {
           flameSoundActiveRef.current = false
           stopFlamethrowerSound()
-          flameTickTimerRef.current = 0
         }
+      }
+
+      // Burn DoT — runs whenever zombies are alight, even after the stream moves off
+      // them or the trigger is released; each ignited zombie keeps burning for
+      // FLAME_BURN_DURATION seconds.
+      if (firing || burningZombiesRef.current.size > 0) {
+        flameTickTimerRef.current -= delta
+        if (flameTickTimerRef.current <= 0) {
+          flameTickTimerRef.current = FLAME_TICK_INTERVAL
+          const damage = FLAME_DPS * FLAME_TICK_INTERVAL
+          const burning = burningZombiesRef.current
+
+          if (firing) {
+            const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone()
+            camera.getWorldDirection(_flameForward)
+            for (const [id, ref] of Object.entries(zombieRefs.current)) {
+              if (!ref) continue
+              ref.getWorldPosition(_flameZombiePos)
+              _flameToZombie.copy(_flameZombiePos).sub(muzzle)
+              const dist = _flameToZombie.length()
+              if (dist > FLAME_RANGE || dist < 0.001) continue
+              _flameToZombie.divideScalar(dist)
+              if (_flameToZombie.dot(_flameForward) < FLAME_CONE_COS) continue
+              burning.set(Number(id), FLAME_BURN_DURATION)
+            }
+          }
+
+          for (const [zid, remaining] of burning) {
+            if (hitZombieFlame(zid, damage)) playZombieDie()
+            Zombie.ignite(zid)
+            netSend('hit_zombie_flame', { id: zid, damage })
+
+            const next = remaining - FLAME_TICK_INTERVAL
+            if (next <= 0) burning.delete(zid)
+            else burning.set(zid, next)
+          }
+        }
+      } else {
+        flameTickTimerRef.current = 0
       }
     }
 

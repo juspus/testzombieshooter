@@ -25,6 +25,7 @@ export const FLAME_TICK_INTERVAL = 0.2  // how often burn damage is applied
 export const FLAME_FUEL_PER_SEC = 15    // tank drains this many units/sec while spraying
 export const FLAME_RANGE = 9            // max spray distance
 export const FLAME_CONE_COS = 0.92      // ~23° half-angle cone
+export const FLAME_BURN_DURATION = 2.0  // zombies keep burning (taking damage) this long after leaving the stream
 
 export const CALIBER_LABELS = {
   pistol: '9mm',
