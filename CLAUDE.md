@@ -25,7 +25,16 @@ Read `soul.md` (how I work, who I am on this project) and `memory.md`
 ### Key files
 ```
 src/
-├── store.js                   # All game state + actions (Zustand)
+├── store/                      # Game state + actions (Zustand), split into slices
+│   ├── index.js                # Combines slices into useGameStore; re-exports constants
+│   ├── constants.js            # Weapon/economy/zombie constants + pure helper functions
+│   ├── weaponsSlice.js         # Weapon/ammo state, reload, switching, buyItem
+│   ├── waveSlice.js            # Wave/zombie state, startGame, nextWave, tick, hitZombie
+│   ├── economySlice.js         # Money, perks, planks, walls
+│   ├── uiSlice.js               # Shop/HUD UI state (shopOpen, nearWindowId, etc.)
+│   ├── multiplayerSlice.js     # mpRole, mpConnected, remotePlayer, roomCode
+│   ├── zombieSpawning.js       # spawnZombies, wave bonus summary, plank counting
+│   └── debugOverrides.js       # ?wave=/?money=/?weapon= URL param overrides
 ├── cabin.js                   # Cabin dimension constants + window/door defs
 ├── walls.js                   # Wall segment geometry for pathfinding grid
 ├── sounds.js                  # Audio helpers
