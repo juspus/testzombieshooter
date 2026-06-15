@@ -7,7 +7,7 @@ import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing } from '../sounds'
-import { collidesWithWalls } from '../walls'
+import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import { send, isConnected } from '../net'
@@ -474,10 +474,12 @@ export default function Player() {
           outer: for (const off of OFFSETS) {
             autoDetectRC.current.setFromCamera(off, camera)
             for (let i = 0; i < nearCount; i++) {
-              if (autoDetectRC.current.intersectObject(_autoNearRefs[i], true).length > 0) {
-                hasTarget = true
-                break outer
-              }
+              const hit = autoDetectRC.current.intersectObject(_autoNearRefs[i], true)[0]
+              if (!hit) continue
+              // Don't auto-shoot through walls — require a clear line of sight.
+              if (lineOfSightBlocked(camPos.x, camPos.z, hit.point.x, hit.point.z, wallsRef.current)) continue
+              hasTarget = true
+              break outer
             }
           }
         }
