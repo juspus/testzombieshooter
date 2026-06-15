@@ -102,3 +102,9 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - 2026-06-15: Added a standing workflow rule to CLAUDE.md — open a PR for
   every session's work (even doc-only) and always report the Vercel
   preview link (PR #100).
+- 2026-06-15: Split `store.js` (589 lines, every feature touched it — the
+  #1 merge-conflict source) into `src/store/` slices: weaponsSlice,
+  waveSlice, economySlice, uiSlice, multiplayerSlice, plus constants.js,
+  zombieSpawning.js, debugOverrides.js, all composed in index.js. All
+  imports still go through `'../store'` (directory resolution), no
+  component changes needed. Tests + build pass.
