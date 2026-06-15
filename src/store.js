@@ -340,6 +340,7 @@ export const useGameStore = create((set, get) => ({
         const cap = Math.min(25, all.length)
         set({
           phase: 'playing',
+          shopOpen: false,
           intermissionLeft: 0,
           zombies: all.slice(0, cap),
           pendingSpawns: all.slice(cap),

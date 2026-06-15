@@ -164,6 +164,7 @@ function applyRemoteEvent(event, data) {
     case 'wave_start':
       useGameStore.setState({
         phase: 'playing',
+        shopOpen: false,
         zombies: data.zombies,
         pendingSpawns: data.pendingSpawns,
         nextId: data.nextId,
