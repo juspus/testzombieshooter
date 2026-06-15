@@ -5,8 +5,7 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
-- Open PR #91 (`claude/mobile-controls-usability-ElP6H`): two-finger
-  shoot+look, tap-anywhere-to-fire, mobile aim assist. Not yet merged.
+- (none)
 
 ## Feature inventory (as of 2026-06-14)
 
@@ -54,6 +53,11 @@ onboarding summary — see CLAUDE.md for architecture detail.
 **Mobile / PWA**
 - Mobile-optimized HUD, touch controls (drag-to-look, tap/hold buttons),
   PWA service worker for offline play, iOS black-screen/WebGL fixes
+- Two-finger controls: primary finger looks, secondary finger fires
+  independently; tap-anywhere-on-look-zone fires
+- Mobile aim assist (6-ray forgiveness cone) + auto-shoot when a zombie
+  is in the crosshair cone (COD Mobile "Simple" style — deliberate
+  choice to lower the touch-aiming skill floor)
 - Test Lab page (`/?testlab`) for isolated weapon/sound testing
 
 **Misc**
@@ -80,3 +84,9 @@ onboarding summary — see CLAUDE.md for architecture detail.
   performance-is-fun, monetization without hurting fun), and memory
   structure. Built feature inventory from git history + open PRs. Closed
   PRs #79 and #46 as superseded by what's already on main.
+- 2026-06-15: Reviewed architecture (mostly fine, Arena.jsx/Zombie.jsx are
+  large but not urgent) and confirmed R3F + Rapier-if-needed over a Godot
+  rewrite. Merged PR #91 (mobile controls: two-finger shoot+look,
+  tap-anywhere-fire, aim assist, auto-shoot) after discussing and keeping
+  the auto-shoot (COD Mobile precedent). Also fixed a pre-existing bug:
+  duplicate "R — reload · Q — knife" HUD hint on desktop.
