@@ -150,6 +150,49 @@ export function collidesWithWalls(x, z, radius, walls) {
   return false
 }
 
+// ─── shot blocking ───────────────────────────────────────────────────────────
+
+// 2D segment vs AABB test (slab method) — true if the segment from (x1,z1) to
+// (x2,z2) passes through the rectangle centered at (bx,bz) with the given
+// half-extents.
+function segmentIntersectsAABB(x1, z1, x2, z2, bx, bz, halfW, halfD) {
+  let tmin = 0, tmax = 1
+  const dx = x2 - x1, dz = z2 - z1
+
+  if (dx === 0) {
+    if (x1 < bx - halfW || x1 > bx + halfW) return false
+  } else {
+    let t1 = (bx - halfW - x1) / dx, t2 = (bx + halfW - x1) / dx
+    if (t1 > t2) [t1, t2] = [t2, t1]
+    tmin = Math.max(tmin, t1)
+    tmax = Math.min(tmax, t2)
+    if (tmin > tmax) return false
+  }
+
+  if (dz === 0) {
+    if (z1 < bz - halfD || z1 > bz + halfD) return false
+  } else {
+    let t1 = (bz - halfD - z1) / dz, t2 = (bz + halfD - z1) / dz
+    if (t1 > t2) [t1, t2] = [t2, t1]
+    tmin = Math.max(tmin, t1)
+    tmax = Math.min(tmax, t2)
+    if (tmin > tmax) return false
+  }
+
+  return tmin <= tmax
+}
+
+// True if a shot from (x1,z1) to (x2,z2) is blocked by any wall — used to
+// stop bullets from hitting zombies through walls. Open window gaps are
+// excluded from `walls` (see playerCollisionWalls/cabinWallSegments), so
+// shots through windows are unaffected.
+export function segmentBlockedByWalls(x1, z1, x2, z2, walls) {
+  for (const w of walls) {
+    if (segmentIntersectsAABB(x1, z1, x2, z2, w.x, w.z, w.halfW, w.halfD)) return true
+  }
+  return false
+}
+
 // ─── line-of-sight ───────────────────────────────────────────────────────────
 
 export function hasLineOfSight(x1, z1, x2, z2) {
