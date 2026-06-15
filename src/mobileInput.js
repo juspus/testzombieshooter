@@ -9,6 +9,7 @@ export const mobileInput = {
   interactPressed: false,
   swapPressed: false,
   reloadPressed: false,
+  autoShootHeld: false,
 }
 
 export function consumeMobileLook() {
@@ -35,6 +36,9 @@ export function consumeMobilePressed() {
   return pressed
 }
 
+// Set to true by MobileControls when mobile controls are active
+export const mobileState = { active: false }
+
 export function resetMobileInput() {
   mobileInput.moveX = 0
   mobileInput.moveY = 0
@@ -46,4 +50,5 @@ export function resetMobileInput() {
   mobileInput.interactPressed = false
   mobileInput.swapPressed = false
   mobileInput.reloadPressed = false
+  mobileInput.autoShootHeld = false
 }

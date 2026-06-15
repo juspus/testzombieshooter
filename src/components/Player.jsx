@@ -11,7 +11,7 @@ import { collidesWithWalls } from '../walls'
 import { WINDOW_DEFS } from '../cabin'
 import { CHEST_POS } from './Arena'
 import { send, isConnected } from '../net'
-import { mobileInput, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
+import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
 import * as THREE from 'three'
 
 function netSend(event, data) {
@@ -41,6 +41,12 @@ const LOOK_SENSITIVITY = 0.002
 const MOBILE_LOOK_SENSITIVITY = 0.007
 const ARENA_BOUND = 18.5
 const STEP_INTERVAL = 0.42
+
+// Module-level reusables for mobile auto-shoot detection (no per-frame allocation)
+const _autoPos = new THREE.Vector3()
+const _autoFwd = new THREE.Vector3()
+const _autoDir = new THREE.Vector3()
+const _autoNearRefs = new Array(25)  // at most 25 active zombies
 
 export default function Player() {
   const { camera, gl } = useThree()
@@ -86,6 +92,9 @@ export default function Player() {
   const akFireTimerRef = useRef(0)
   const shotgunCooldownRef = useRef(0)
   const knifeCooldownRef = useRef(0)
+  const autoShootCooldownRef = useRef(0)
+  const autoDetectRC = useRef(null)
+  if (!autoDetectRC.current) { autoDetectRC.current = new THREE.Raycaster(); autoDetectRC.current.far = 30 }
   const weapon = useGameStore((s) => s.weapon)
   const ownedWeapons = useGameStore((s) => s.ownedWeapons)
   const switchWeapon = useGameStore((s) => s.switchWeapon)
@@ -109,6 +118,7 @@ export default function Player() {
   useEffect(() => { windowPlankStrongRef.current = windowPlankStrong }, [windowPlankStrong])
   useEffect(() => { strongPlanksModeRef.current = strongPlanksMode }, [strongPlanksMode])
   useEffect(() => { weaponRef.current = weapon }, [weapon])
+  useEffect(() => { mobileInput.autoShootHeld = false; autoShootCooldownRef.current = 0 }, [weapon])
   useEffect(() => { ownedWeaponsRef.current = ownedWeapons }, [ownedWeapons])
   useEffect(() => { activeItemRef.current = activeItem }, [activeItem])
   useEffect(() => { perksRef.current = perks }, [perks])
@@ -291,6 +301,32 @@ export default function Player() {
           hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
         }
       }
+
+      // Mobile aim assist: if center ray missed, try a small forgiveness cone
+      if (closest === null && mobileState.active) {
+        const AIM_OFFSETS = [
+          { x: 0.04, y: 0 }, { x: -0.04, y: 0 },
+          { x: 0, y: 0.04 }, { x: 0, y: -0.04 },
+          { x: 0.03, y: 0.03 }, { x: -0.03, y: 0.03 },
+        ]
+        for (const offset of AIM_OFFSETS) {
+          if (closest !== null) break
+          const assistRC = new THREE.Raycaster()
+          assistRC.setFromCamera(offset, camera)
+          for (const [id, ref] of Object.entries(zombieRefs.current)) {
+            if (!ref) continue
+            const intersects = assistRC.intersectObject(ref, true)
+            if (intersects.length > 0 && intersects[0].distance < closestDist) {
+              closestDist = intersects[0].distance
+              closest = id
+              hitPoint = intersects[0].point.clone()
+              isHeadshot = intersects[0].object.userData.isHead === true
+              hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
+            }
+          }
+        }
+      }
+
       const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
       BulletTrails.add(muzzle, trailEnd)
       if (closest !== null) {
@@ -408,7 +444,56 @@ export default function Player() {
       } else {
         shoot()
         akFireTimerRef.current = 0.1
+        autoShootCooldownRef.current = 0.4
       }
+    }
+
+    // Mobile auto-shoot: fires when a zombie is in the crosshair
+    if (mobileState.active && phase === 'playing' && activeItemRef.current === 'gun') {
+      autoShootCooldownRef.current -= delta
+      let hasTarget = false
+      if (useGameStore.getState().bulletsInClip > 0 && reloadTimer.current <= 0) {
+        // Pre-filter: only test zombies in front and within 25 units
+        const camPos = camera.position
+        _autoFwd.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
+        let nearCount = 0
+        for (const ref of Object.values(zombieRefs.current)) {
+          if (!ref) continue
+          _autoPos.setFromMatrixPosition(ref.matrixWorld)
+          const dx = _autoPos.x - camPos.x, dz = _autoPos.z - camPos.z
+          if (dx * dx + dz * dz > 625) continue
+          _autoDir.set(dx, 0, dz).normalize()
+          if (_autoFwd.dot(_autoDir) < 0.1) continue
+          _autoNearRefs[nearCount++] = ref
+        }
+        if (nearCount > 0) {
+          const OFFSETS = [
+            { x: 0, y: 0 }, { x: 0.04, y: 0 }, { x: -0.04, y: 0 },
+            { x: 0, y: 0.04 }, { x: 0, y: -0.04 },
+          ]
+          outer: for (const off of OFFSETS) {
+            autoDetectRC.current.setFromCamera(off, camera)
+            for (let i = 0; i < nearCount; i++) {
+              if (autoDetectRC.current.intersectObject(_autoNearRefs[i], true).length > 0) {
+                hasTarget = true
+                break outer
+              }
+            }
+          }
+        }
+      }
+      if (hasTarget) {
+        if (weaponRef.current === 'ak47') {
+          mobileInput.autoShootHeld = true
+        } else if (autoShootCooldownRef.current <= 0) {
+          shoot()
+          autoShootCooldownRef.current = weaponRef.current === 'shotgun' ? 0.6 : 0.4
+        }
+      } else {
+        mobileInput.autoShootHeld = false
+      }
+    } else if (mobileInput.autoShootHeld) {
+      mobileInput.autoShootHeld = false
     }
 
     // Chest proximity
@@ -495,7 +580,7 @@ export default function Player() {
     }
 
     // AK-47 auto-fire at 10 rounds/s while mouse held (deagle is semi-auto only; no auto-fire for knife)
-    if (phase === 'playing' && weaponRef.current === 'ak47' && activeItemRef.current === 'gun' && ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld)) {
+    if (phase === 'playing' && weaponRef.current === 'ak47' && activeItemRef.current === 'gun' && ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld || mobileInput.autoShootHeld)) {
       akFireTimerRef.current -= delta
       if (akFireTimerRef.current <= 0) {
         shoot()
