@@ -5,7 +5,11 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
-- (none)
+- Branch `claude/faster-phone-testing-f4xajx`: debug URL params
+  (`?wave=N&money=N&weapon=ak47/shotgun/deagle`) on `startGame()` for
+  fast manual testing — jump straight to a wave/loadout instead of
+  grinding. Gated via `VITE_VERCEL_ENV` (vite.config.js `define` reads
+  Vercel's `VERCEL_ENV`): active in dev + preview, no-op on production.
 
 ## Feature inventory (as of 2026-06-14)
 
