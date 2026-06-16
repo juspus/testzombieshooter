@@ -126,6 +126,7 @@ export const useGameStore = create((set, get) => ({
   shopOpen: false,
   nearChest: false,
   walls: [],
+  losWalls: [],           // walls for line-of-sight (excludes unboarded window openings)
   windowPlanks: {},       // { [windowId]: 1 | 2 }
   windowPlankStrong: {},  // { [windowId]: true } when planks at that window are reinforced
   strongPlanksMode: false,
@@ -169,6 +170,7 @@ export const useGameStore = create((set, get) => ({
       knifeCooldown: 0,
       shopOpen: false,
       walls,
+      losWalls: cabinWallSegments(),
       windowPlanks: {},
       windowPlankStrong: {},
       strongPlanksMode: false,
@@ -205,6 +207,7 @@ export const useGameStore = create((set, get) => ({
       money: money + WAVE_REWARD + (prevWaveKills * ZOMBIE_KILL_REWARD) + (lastWaveBonuses?.total ?? 0),
       shopOpen: false,
       walls,
+      losWalls: allWallSegments(windowPlanks),
       wave,
       plankHits: {},
       waveKills: 0,
@@ -370,7 +373,7 @@ export const useGameStore = create((set, get) => ({
     const newPlanks = { ...windowPlanks, [id]: current + 1 }
     const newStrong = strongPlanksMode ? { ...windowPlankStrong, [id]: true } : windowPlankStrong
     buildGrid(allWallSegments(newPlanks))
-    set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, money: money - cost })
+    set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, money: money - cost, losWalls: allWallSegments(newPlanks) })
     return true
   },
 
@@ -396,7 +399,7 @@ export const useGameStore = create((set, get) => ({
         : windowPlankStrong
       buildGrid(allWallSegments(newPlanks))
       playPlankBreak()
-      set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, plankHits: { ...plankHits, [id]: 0 }, wavePlanksLost: wavePlanksLost + 1 })
+      set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, plankHits: { ...plankHits, [id]: 0 }, wavePlanksLost: wavePlanksLost + 1, losWalls: allWallSegments(newPlanks) })
     } else {
       set({ plankHits: { ...plankHits, [id]: hits } })
     }

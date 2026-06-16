@@ -102,3 +102,8 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - 2026-06-15: Added a standing workflow rule to CLAUDE.md — open a PR for
   every session's work (even doc-only) and always report the Vercel
   preview link (PR #100).
+- 2026-06-16: Fixed bug where player couldn't shoot through cabin windows
+  (PR #103). lineOfSightBlocked was using playerCollisionWalls() which
+  hard-blocks window openings for player collision. Added losWalls state
+  (= allWallSegments(windowPlanks)) that only blocks boarded windows;
+  Player.jsx now uses this for all LOS checks.
