@@ -138,7 +138,7 @@ export default function HUD() {
             ...ammoCountStyle,
             color: reserveBullets === 0 ? '#ff3300' : reserveBullets <= 150 ? '#ffaa00' : '#fff',
           }}>
-            {reserveBullets}<span style={styles.ammoSep}> fuel</span>
+            {Math.ceil(reserveBullets)}<span style={styles.ammoSep}> fuel</span>
           </div>
           {!isMobile && (
             <div style={styles.reloadHint}>
