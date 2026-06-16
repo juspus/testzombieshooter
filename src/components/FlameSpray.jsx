@@ -5,7 +5,7 @@ import * as THREE from 'three'
 const POOL_SIZE = 40
 const LIFETIME = 0.35
 const HIT_RADIUS_SQ = 0.5 * 0.5
-const PARTICLE_HIT_DAMAGE = 0.2
+const PARTICLE_HIT_DAMAGE = 0.3
 
 const pool = Array.from({ length: POOL_SIZE }, () => ({
   active: false,
