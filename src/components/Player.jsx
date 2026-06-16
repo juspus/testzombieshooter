@@ -75,6 +75,8 @@ export default function Player() {
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const walls = useGameStore((s) => s.walls)
   const wallsRef = useRef(walls)
+  const losWalls = useGameStore((s) => s.losWalls)
+  const losWallsRef = useRef(losWalls)
   const windowPlanksRef = useRef(windowPlanks)
   const windowPlankStrongRef = useRef(windowPlankStrong)
   const strongPlanksModeRef = useRef(strongPlanksMode)
@@ -114,6 +116,7 @@ export default function Player() {
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
   useEffect(() => { wallsRef.current = walls }, [walls])
+  useEffect(() => { losWallsRef.current = losWalls }, [losWalls])
   useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
   useEffect(() => { windowPlankStrongRef.current = windowPlankStrong }, [windowPlankStrong])
   useEffect(() => { strongPlanksModeRef.current = strongPlanksMode }, [strongPlanksMode])
@@ -256,7 +259,7 @@ export default function Player() {
           if (!ref) continue
           const hits = pelletRC.intersectObject(ref, true)
           if (hits.length > 0 && hits[0].distance < bestDist &&
-              !lineOfSightBlocked(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, wallsRef.current)) {
+              !lineOfSightBlocked(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, losWallsRef.current)) {
             bestDist = hits[0].distance
             bestId = Number(id)
             bestPoint = hits[0].point.clone()
@@ -283,7 +286,7 @@ export default function Player() {
       hits.sort((a, b) => a.dist - b.dist)
       const targets = []
       for (const hit of hits) {
-        if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, wallsRef.current)) break
+        if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, losWallsRef.current)) break
         targets.push(hit)
         if (targets.length >= 3) break
       }
@@ -300,7 +303,7 @@ export default function Player() {
         if (!ref) continue
         const intersects = raycaster.intersectObject(ref, true)
         if (intersects.length > 0 && intersects[0].distance < closestDist &&
-            !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
+            !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, losWallsRef.current)) {
           closestDist = intersects[0].distance
           closest = id
           hitPoint = intersects[0].point.clone()
@@ -324,7 +327,7 @@ export default function Player() {
             if (!ref) continue
             const intersects = assistRC.intersectObject(ref, true)
             if (intersects.length > 0 && intersects[0].distance < closestDist &&
-                !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
+                !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, losWallsRef.current)) {
               closestDist = intersects[0].distance
               closest = id
               hitPoint = intersects[0].point.clone()
@@ -485,7 +488,7 @@ export default function Player() {
               const hit = autoDetectRC.current.intersectObject(_autoNearRefs[i], true)[0]
               if (!hit) continue
               // Don't auto-shoot through walls — require a clear line of sight.
-              if (lineOfSightBlocked(camPos.x, camPos.z, hit.point.x, hit.point.z, wallsRef.current)) continue
+              if (lineOfSightBlocked(camPos.x, camPos.z, hit.point.x, hit.point.z, losWallsRef.current)) continue
               hasTarget = true
               break outer
             }
