@@ -141,6 +141,21 @@ export default function Player() {
     camera.rotation.order = 'YXZ'
   }, [camera])
 
+  // Give FlameSpray access to zombie refs and a damage callback for per-particle hits.
+  // zombieRefs.current is the live mutable map so it stays current without re-running.
+  useEffect(() => {
+    FlameSpray.zombieRefs = zombieRefs.current
+    FlameSpray.onZombieHit = (zid, damage) => {
+      if (useGameStore.getState().hitZombieFlame(zid, damage)) playZombieDie()
+      Zombie.ignite(zid)
+      netSend('hit_zombie_flame', { id: zid, damage })
+    }
+    return () => {
+      FlameSpray.zombieRefs = null
+      FlameSpray.onZombieHit = null
+    }
+  }, [])
+
   // Reset position + look direction only when starting a fresh game (wave 1)
   useEffect(() => {
     if (phase === 'intermission' && wave === 1) {

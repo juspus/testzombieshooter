@@ -4,6 +4,8 @@ import * as THREE from 'three'
 
 const POOL_SIZE = 40
 const LIFETIME = 0.35
+const HIT_RADIUS_SQ = 0.5 * 0.5
+const PARTICLE_HIT_DAMAGE = 0.1
 
 const pool = Array.from({ length: POOL_SIZE }, () => ({
   active: false,
@@ -12,10 +14,12 @@ const pool = Array.from({ length: POOL_SIZE }, () => ({
   life: 0,
   maxLife: LIFETIME,
   scale: 0.1,
+  hitZombies: new Set(),
 }))
 let nextSlot = 0
 
 const _spread = new THREE.Vector3()
+const _zpos = new THREE.Vector3()
 
 export default function FlameSpray() {
   const meshRefs = useRef([])
@@ -33,6 +37,7 @@ export default function FlameSpray() {
       slot.maxLife = LIFETIME * (0.7 + Math.random() * 0.6)
       slot.life = slot.maxLife
       slot.scale = 0.07 + Math.random() * 0.06
+      slot.hitZombies.clear()
       const mesh = meshRefs.current[i]
       if (mesh) {
         mesh.position.copy(origin)
@@ -58,6 +63,26 @@ export default function FlameSpray() {
       mesh.position.copy(slot.pos)
       mesh.scale.setScalar(slot.scale * (1.7 - t * 0.7))
       mesh.material.opacity = t * 0.85
+
+      // Per-particle zombie collision — each particle can hit each zombie once
+      const refs = FlameSpray.zombieRefs
+      const onHit = FlameSpray.onZombieHit
+      if (refs && onHit) {
+        for (const id in refs) {
+          const zref = refs[id]
+          if (!zref) continue
+          const zid = Number(id)
+          if (slot.hitZombies.has(zid)) continue
+          zref.getWorldPosition(_zpos)
+          const dx = slot.pos.x - _zpos.x
+          const dy = slot.pos.y - _zpos.y
+          const dz = slot.pos.z - _zpos.z
+          if (dx * dx + dy * dy + dz * dz < HIT_RADIUS_SQ) {
+            slot.hitZombies.add(zid)
+            onHit(zid, PARTICLE_HIT_DAMAGE)
+          }
+        }
+      }
     }
   })
 
