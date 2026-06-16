@@ -130,6 +130,22 @@ export default function HUD() {
           )}
           {!isMobile && <div style={reloadHintStyle}>Q — switch to gun{perks.knife_mastery ? ' · mastery' : ''}</div>}
         </div>
+      ) : weapon === 'flamethrower' ? (
+        <div style={ammoBoxStyle}>
+          <div style={weaponLabelStyle}>FLAMETHROWER</div>
+          <div style={styles.caliberLabel}>{CALIBER_LABELS.flamethrower}</div>
+          <div style={{
+            ...ammoCountStyle,
+            color: reserveBullets === 0 ? '#ff3300' : reserveBullets <= 150 ? '#ffaa00' : '#fff',
+          }}>
+            {Math.ceil(reserveBullets)}<span style={styles.ammoSep}> fuel</span>
+          </div>
+          {!isMobile && (
+            <div style={styles.reloadHint}>
+              {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}Q — knife
+            </div>
+          )}
+        </div>
       ) : (
         <div style={ammoBoxStyle}>
           <div style={weaponLabelStyle}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>

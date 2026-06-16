@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
+import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT, FLAME_DPS } from '../store'
 
 const ITEMS = [
   {
@@ -24,10 +24,19 @@ const ITEMS = [
     oneTime: true,
   },
   {
+    id: 'flamethrower',
+    name: 'Flamethrower',
+    desc: `${CALIBER_LABELS.flamethrower} · Continuous spray · ${FLAME_DPS} dps burn · ${FLAMETHROWER_START_AMMO} fuel`,
+    price: FLAMETHROWER_COST,
+    oneTime: true,
+  },
+  {
     id: 'ammo_pack',
     name: 'Ammo Pack',
-    desc: (perks, weapon) => `${CALIBER_LABELS[weapon]} · +${perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT} rounds to reserve`,
-    price: AMMO_PACK_COST,
+    desc: (perks, weapon) => weapon === 'flamethrower'
+      ? `${CALIBER_LABELS.flamethrower} · +${FLAMETHROWER_AMMO_PACK_AMOUNT} fuel`
+      : `${CALIBER_LABELS[weapon]} · +${perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT} rounds to reserve`,
+    price: (perks, weapon) => weapon === 'flamethrower' ? FLAMETHROWER_AMMO_PACK_COST : AMMO_PACK_COST,
     oneTime: false,
   },
 ]
@@ -145,7 +154,8 @@ export default function Shop() {
           {ITEMS.map((item) => {
             const owned = item.oneTime && ownedWeapons.includes(item.id)
             const isActive = item.oneTime && weapon === item.id
-            const canAfford = money >= item.price
+            const price = typeof item.price === 'function' ? item.price(perks, weapon) : item.price
+            const canAfford = money >= price
             const disabled = owned || !canAfford
             return (
               <div key={item.id} style={{ ...rowStyle, opacity: disabled && !owned ? 0.45 : 1 }}>
@@ -157,7 +167,7 @@ export default function Shop() {
                 </div>
                 <div style={rowRightStyle}>
                   <span style={{ ...rowPriceStyle, color: canAfford || owned ? '#ffe066' : '#884422' }}>
-                    {owned ? '—' : `€${item.price.toFixed(2)}`}
+                    {owned ? '—' : `€${price.toFixed(2)}`}
                   </span>
                   <button
                     style={{ ...btnStyle, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}

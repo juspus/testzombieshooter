@@ -9,6 +9,7 @@ import Knife from './Knife'
 import ZombieManager from './ZombieManager'
 import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
+import FlameSpray from './FlameSpray'
 import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
@@ -121,6 +122,7 @@ export default function Game() {
         <ZombieManager />
         <BulletTrails />
         <ShellCasings />
+        <FlameSpray />
         <RemotePlayer />
         <NetManager />
         <ForceRenderOnShopOpen />

@@ -74,6 +74,8 @@ const _moveDir = new THREE.Vector3()
 
 // Module-level registry so Player can push holes into any zombie instance
 const _holeAdders = {}
+// Module-level registry so Player can ignite any zombie instance (flamethrower)
+const _igniters = {}
 // Position registry so zombies can compare distances to windows
 const _zombieGroups = {}
 // Guest-mode position corrections sent by host (id → { x, z })
@@ -81,6 +83,24 @@ const _guestPositions = {}
 
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
+Zombie.ignite = (id) => _igniters[id]?.()
+
+// Shared flame materials/geometry — created once, additive-blended so they read as
+// glowing fire without adding lighting cost. Visibility/scale toggled per-zombie.
+const _flameGeo = (() => {
+  const g = new THREE.ConeGeometry(0.16, 0.42, 6)
+  g.translate(0, 0.21, 0)
+  return g
+})()
+const _flameMatOuter = new THREE.MeshBasicMaterial({ color: '#ff7700', transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending })
+const _flameMatInner = new THREE.MeshBasicMaterial({ color: '#ffe066', transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending })
+const BURN_VISUAL_DURATION = 1.0
+const FLAME_OFFSETS = [
+  [0, 0.30, 0.08],
+  [0, 0.78, 0.05],
+  [-0.18, 0.15, 0.05],
+  [0.18, 0.15, 0.05],
+]
 
 // Called by NetManager on host to collect current zombie positions for broadcast
 export function getZombiePositions() {
@@ -525,6 +545,8 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const removedRef         = useRef(false)
   const deathStartQuatRef  = useRef(null)
   const deathEndQuatRef    = useRef(null)
+  const burnRef            = useRef(0)
+  const flameRefs          = useRef([])
 
   useEffect(() => {
     if (hidden) return
@@ -541,10 +563,12 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       )
       setHoles((prev) => [...prev, { pos: localPos.clone(), quat }])
     }
+    _igniters[id] = () => { burnRef.current = BURN_VISUAL_DURATION }
     return () => {
       Player.unregisterZombieRef(id)
       delete _holeAdders[id]
       delete _zombieGroups[id]
+      delete _igniters[id]
     }
   }, [id, startX, startZ, archetype.heightScale, hidden])
 
@@ -592,6 +616,24 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   useFrame((_, delta) => {
     if (hidden || !ref.current) return
     if (useGameStore.getState().paused) return
+
+    // Burning flame visual — decays independent of phase/death state
+    if (burnRef.current > 0) {
+      burnRef.current = Math.max(0, burnRef.current - delta)
+      for (let i = 0; i < flameRefs.current.length; i++) {
+        const f = flameRefs.current[i]
+        if (!f) continue
+        f.visible = true
+        const tt = performance.now() / 1000 + i * 1.7
+        const s = 0.85 + Math.sin(tt * 14) * 0.18 + Math.sin(tt * 23 + i) * 0.08
+        f.scale.set(s, s * (1 + Math.sin(tt * 9) * 0.25), s)
+      }
+    } else {
+      for (let i = 0; i < flameRefs.current.length; i++) {
+        const f = flameRefs.current[i]
+        if (f && f.visible) f.visible = false
+      }
+    }
 
     // Death fall animation — plays regardless of phase
     if (dying) {
@@ -852,6 +894,17 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         rightLegRef={rightLegRef}
         holes={holes}
       />
+      {!hidden && FLAME_OFFSETS.map((off, i) => (
+        <mesh
+          key={`flame${i}`}
+          ref={(el) => (flameRefs.current[i] = el)}
+          position={off}
+          visible={false}
+          renderOrder={2}
+          geometry={_flameGeo}
+          material={i % 2 === 0 ? _flameMatOuter : _flameMatInner}
+        />
+      ))}
     </group>
   )
 }
