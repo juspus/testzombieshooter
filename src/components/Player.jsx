@@ -268,7 +268,7 @@ export default function Player() {
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     Gun.fire?.()
     playGunshot(weaponRef.current)
-    netSend('remote_sound', {
+    if (isConnected()) send('remote_sound', {
       sound: 'gunshot',
       weapon: weaponRef.current,
       x: camera.position.x,
@@ -418,7 +418,7 @@ export default function Player() {
 
     Knife.swing?.()
     playKnifeSwing()
-    netSend('remote_sound', {
+    if (isConnected()) send('remote_sound', {
       sound: 'knife',
       x: camera.position.x,
       y: camera.position.y,
@@ -799,7 +799,7 @@ export default function Player() {
       stepTimer.current -= delta
       if (stepTimer.current <= 0) {
         playFootstep()
-        netSend('remote_sound', {
+        if (isConnected()) send('remote_sound', {
           sound: 'footstep',
           x: camera.position.x,
           y: camera.position.y,
