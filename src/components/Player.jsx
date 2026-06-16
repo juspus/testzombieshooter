@@ -8,7 +8,11 @@ import ShellCasings from './ShellCasings'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing } from '../sounds'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
-import { WINDOW_DEFS } from '../cabin'
+import { WINDOW_DEFS, cabinWallSegments } from '../cabin'
+
+// Static cabin walls with window/door gaps already excluded — bullets pass through those openings.
+// Intentionally excludes the windowBlockSegment entries used only for player movement collision.
+const BULLET_WALLS = cabinWallSegments()
 import { CHEST_POS } from './Arena'
 import { send, isConnected } from '../net'
 import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
@@ -256,7 +260,7 @@ export default function Player() {
           if (!ref) continue
           const hits = pelletRC.intersectObject(ref, true)
           if (hits.length > 0 && hits[0].distance < bestDist &&
-              !lineOfSightBlocked(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, wallsRef.current)) {
+              !lineOfSightBlocked(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, BULLET_WALLS)) {
             bestDist = hits[0].distance
             bestId = Number(id)
             bestPoint = hits[0].point.clone()
@@ -283,7 +287,7 @@ export default function Player() {
       hits.sort((a, b) => a.dist - b.dist)
       const targets = []
       for (const hit of hits) {
-        if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, wallsRef.current)) break
+        if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, BULLET_WALLS)) break
         targets.push(hit)
         if (targets.length >= 3) break
       }
@@ -300,7 +304,7 @@ export default function Player() {
         if (!ref) continue
         const intersects = raycaster.intersectObject(ref, true)
         if (intersects.length > 0 && intersects[0].distance < closestDist &&
-            !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
+            !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, BULLET_WALLS)) {
           closestDist = intersects[0].distance
           closest = id
           hitPoint = intersects[0].point.clone()
@@ -324,7 +328,7 @@ export default function Player() {
             if (!ref) continue
             const intersects = assistRC.intersectObject(ref, true)
             if (intersects.length > 0 && intersects[0].distance < closestDist &&
-                !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, wallsRef.current)) {
+                !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, BULLET_WALLS)) {
               closestDist = intersects[0].distance
               closest = id
               hitPoint = intersects[0].point.clone()
@@ -485,7 +489,7 @@ export default function Player() {
               const hit = autoDetectRC.current.intersectObject(_autoNearRefs[i], true)[0]
               if (!hit) continue
               // Don't auto-shoot through walls — require a clear line of sight.
-              if (lineOfSightBlocked(camPos.x, camPos.z, hit.point.x, hit.point.z, wallsRef.current)) continue
+              if (lineOfSightBlocked(camPos.x, camPos.z, hit.point.x, hit.point.z, BULLET_WALLS)) continue
               hasTarget = true
               break outer
             }
