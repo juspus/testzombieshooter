@@ -7,7 +7,7 @@ import BulletTrails from './BulletTrails'
 import ShellCasings from './ShellCasings'
 import FlameSpray from './FlameSpray'
 import { Zombie } from './Zombie'
-import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound } from '../sounds'
+import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound, setListenerPose } from '../sounds'
 import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { WINDOW_DEFS, cabinWallSegments } from '../cabin'
@@ -268,6 +268,13 @@ export default function Player() {
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     Gun.fire?.()
     playGunshot(weaponRef.current)
+    if (isConnected()) send('remote_sound', {
+      sound: 'gunshot',
+      weapon: weaponRef.current,
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+    })
 
     if (weaponRef.current === 'shotgun') {
       shotgunCooldownRef.current = 0.5
@@ -411,6 +418,12 @@ export default function Player() {
 
     Knife.swing?.()
     playKnifeSwing()
+    if (isConnected()) send('remote_sound', {
+      sound: 'knife',
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+    })
     const cooldown = knifeCooldownForPerks(perksRef.current)
     knifeCooldownRef.current = cooldown
     setKnifeCooldown(cooldown)
@@ -743,6 +756,12 @@ export default function Player() {
       }
     }
 
+    // Keep AudioContext listener in sync with the camera so 3-D panning is correct
+    setListenerPose(
+      camera.position.x, camera.position.y, camera.position.z,
+      -Math.sin(yaw.current), -Math.cos(yaw.current),
+    )
+
     const dir = new THREE.Vector3()
     const forward = new THREE.Vector3(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
     const right = new THREE.Vector3(Math.cos(yaw.current), 0, -Math.sin(yaw.current))
@@ -780,6 +799,12 @@ export default function Player() {
       stepTimer.current -= delta
       if (stepTimer.current <= 0) {
         playFootstep()
+        if (isConnected()) send('remote_sound', {
+          sound: 'footstep',
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+        })
         stepTimer.current = STEP_INTERVAL
       }
     } else {
