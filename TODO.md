@@ -41,7 +41,6 @@ Ideas and deferred work to return to. No priority order — discuss before picki
 ## Mobile / UX
 
 - **Haptic feedback** — vibrate on shoot/hit (navigator.vibrate)
-- **Portrait mode support** — currently landscape-only
 - **Onboarding overlay** — first-run tip for pointer lock / touch controls
 
 ## Tech / dev
