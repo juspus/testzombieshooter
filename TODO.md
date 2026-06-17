@@ -21,7 +21,6 @@ Ideas and deferred work to return to. No priority order — discuss before picki
 
 ## Progression & economy
 
-- **Persistent leaderboard** — top scores by wave, stored server-side or in Supabase
 - **Unlockable starting loadouts** — reach wave N to unlock a different starter weapon for future runs
 - **Perk reroll** — spend €X to randomize one purchased perk slot
 
@@ -40,7 +39,6 @@ Ideas and deferred work to return to. No priority order — discuss before picki
 
 ## Mobile / UX
 
-- **Haptic feedback** — vibrate on shoot/hit (navigator.vibrate)
 - **Onboarding overlay** — first-run tip for pointer lock / touch controls
 
 ## Tech / dev
