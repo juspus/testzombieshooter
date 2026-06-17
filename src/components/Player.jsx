@@ -268,6 +268,8 @@ export default function Player() {
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     Gun.fire?.()
     playGunshot(weaponRef.current)
+    if (weaponRef.current === 'shotgun') navigator.vibrate?.([30, 20, 30])
+    else if (weaponRef.current !== 'flamethrower') navigator.vibrate?.(18)
     if (isConnected()) send('remote_sound', {
       sound: 'gunshot',
       weapon: weaponRef.current,

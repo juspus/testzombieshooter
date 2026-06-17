@@ -35,6 +35,7 @@ function getIsMobileScreen() {
 
 export default function Screens() {
   const phase = useGameStore((s) => s.phase)
+  useEffect(() => { if (phase === 'dead') navigator.vibrate?.([80, 60, 180]) }, [phase])
   const wave = useGameStore((s) => s.wave)
   const kills = useGameStore((s) => s.kills)
   const waveKills = useGameStore((s) => s.waveKills)
