@@ -340,7 +340,7 @@ export const useGameStore = create((set, get) => ({
     const { windowPlanks, windowPlankStrong, money, strongPlanksMode } = get()
     const current = windowPlanks[id] ?? 0
     if (current >= 2) return false
-    if (windowPlankStrong[id]) return false  // can't add plain plank on strong window
+    if (windowPlankStrong[id] && !strongPlanksMode) return false  // can't add plain plank on strong window
     const cost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
     if (money < cost) return false
     const newPlanks = { ...windowPlanks, [id]: current + 1 }
