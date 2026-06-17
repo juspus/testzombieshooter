@@ -369,7 +369,7 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
 
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
-          <AuthPanel user={user} username={username} />
+          <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
           <Btn onClick={startGame}>SOLO</Btn>
           <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -445,11 +445,23 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
   )
 }
 
-function AuthPanel({ user, username }) {
+const smallBtnStyle = {
+  background: 'transparent',
+  border: '1px solid #444',
+  color: '#666',
+  fontSize: 10,
+  fontFamily: 'Courier New, monospace',
+  letterSpacing: 2,
+  padding: '3px 8px',
+  cursor: 'pointer',
+  textTransform: 'uppercase',
+}
+
+function AuthPanel({ user, username, onRename }) {
   if (user) {
     const avatar = user.user_metadata?.avatar_url
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         {avatar && (
           <img
             src={avatar}
@@ -460,22 +472,8 @@ function AuthPanel({ user, username }) {
         <span style={{ color: '#ffe066', fontSize: 12, fontFamily: 'Courier New, monospace', letterSpacing: 1 }}>
           {username ?? '…'}
         </span>
-        <button
-          onClick={() => signOut()}
-          style={{
-            background: 'transparent',
-            border: '1px solid #444',
-            color: '#666',
-            fontSize: 10,
-            fontFamily: 'Courier New, monospace',
-            letterSpacing: 2,
-            padding: '3px 8px',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-          }}
-        >
-          Sign out
-        </button>
+        {username && <button onClick={onRename} style={smallBtnStyle}>Rename</button>}
+        <button onClick={() => signOut()} style={smallBtnStyle}>Sign out</button>
       </div>
     )
   }
