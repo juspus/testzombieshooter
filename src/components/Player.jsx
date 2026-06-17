@@ -632,7 +632,7 @@ export default function Player() {
       const plankCount = windowPlanksRef.current[nearId] ?? 0
       const isStrong = windowPlankStrongRef.current[nearId] ?? false
       const strongMode = strongPlanksModeRef.current
-      const canAddPlank = plankCount < 2
+      const canAddPlank = plankCount < 2 && !isStrong && !(strongMode && plankCount > 0)
       const canUpgrade = strongMode && plankCount > 0 && !isStrong
       const canBoard = eHeld && nearId >= 0 && (canAddPlank || canUpgrade) && !nearChestRef.current
 
@@ -645,11 +645,11 @@ export default function Player() {
         const progress = Math.min(boardTimerRef.current / BOARD_TIME, 1)
         setBoardingProgress(progress)
         if (boardTimerRef.current >= BOARD_TIME) {
-          if (canAddPlank) {
+          if (canUpgrade) {
+            upgradePlanks(nearId)
+          } else if (canAddPlank) {
             addPlank(nearId)
             netSend('add_plank', { windowId: nearId })
-          } else {
-            upgradePlanks(nearId)
           }
           boardTimerRef.current = 0
           setBoardingProgress(0)
