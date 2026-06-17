@@ -57,6 +57,7 @@ onboarding summary — see CLAUDE.md for architecture detail.
 **Multiplayer**
 - 2-player co-op via WebRTC (PeerJS), host/guest roles, room codes,
   synced zombie targeting, remote player model + animations, pause sync
+- **Voice chat** (`src/voice.js`, `src/components/VoiceChat.jsx`) — WebRTC audio via PeerJS media calls. Guest listens, host calls after 800ms delay (avoids race). V key = PTT desktop, touch button mobile. Mic indicator top-left HUD.
 
 **Mobile / PWA**
 - Mobile-optimized HUD, touch controls (drag-to-look, tap/hold buttons),
@@ -89,7 +90,7 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Open questions
 
-- (none yet)
+- Voice chat is on TODO as "3–4 player support" is separate — voice only supports 2-player for now.
 
 ## Dated log
 
@@ -120,3 +121,6 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - 2026-06-15: Added a standing workflow rule to CLAUDE.md — open a PR for
   every session's work (even doc-only) and always report the Vercel
   preview link (PR #100).
+- 2026-06-17: Merged PR #109 — PTT voice chat for co-op. Host calls guest
+  (not guest calls host) to avoid a race where PeerJS threw Network error
+  on an unanswered call, which also broke the data connection.
