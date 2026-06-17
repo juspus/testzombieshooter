@@ -93,6 +93,13 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-06-17: Fixed window boarding bugs (PR #108). Three issues: (1) upgrading
+  to strong mode with 1 existing plank was calling addPlank (increment count)
+  instead of upgradePlanks — upgrade now takes priority; (2) plain plank could
+  be placed on a strong window — blocked in both Player.jsx and store; (3) second
+  strong plank was blocked by an overly broad store guard — guard now checks
+  strongPlanksMode before rejecting.
+
 - 2026-06-15: Fixed mobile camera-look freeze after intermission. Real
   cause: MobileControls renders null during the brief wave_clear phase
   (and when shop is open), unmounting the touch zones mid-drag with no
