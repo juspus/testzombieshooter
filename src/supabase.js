@@ -29,10 +29,27 @@ export async function getUser() {
   return user
 }
 
+export async function getProfile() {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const { data } = await supabase.from('profiles').select('username').eq('id', user.id).single()
+  return data ?? null
+}
+
+export async function setUsername(username) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not logged in')
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ id: user.id, username: username.trim().slice(0, 24) })
+  if (error) throw error
+}
+
 export async function submitScore({ name, wave, kills }) {
+  const { data: { user } } = await supabase.auth.getUser()
   const { error } = await supabase
     .from('scores')
-    .insert({ name: name.trim().slice(0, 24), wave, kills })
+    .insert({ name: name.trim().slice(0, 24), wave, kills, user_id: user?.id ?? null })
   if (error) throw error
 }
 

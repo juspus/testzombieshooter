@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
-import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser } from '../supabase'
+import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername } from '../supabase'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -11,6 +11,18 @@ function useAuthUser() {
     return onAuthStateChange(setUser)
   }, [])
   return user
+}
+
+function useProfile(user) {
+  const [username, setUsername] = useState(null)
+  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    if (!user) { setUsername(null); return }
+    setLoading(true)
+    getProfile().then((p) => { setUsername(p?.username ?? null); setLoading(false) })
+  }, [user?.id])
+  const refresh = () => getProfile().then((p) => setUsername(p?.username ?? null))
+  return { username, loading, refresh }
 }
 
 function getIsMobileScreen() {
@@ -38,12 +50,15 @@ export default function Screens() {
   const mpRole = useGameStore((s) => s.mpRole)
   const paused = useGameStore((s) => s.paused)
 
+  const authUser = useAuthUser()
+  const { username, refresh: refreshProfile } = useProfile(authUser)
+
   if (paused && mpRole === 'guest') {
     return <PausedOverlay />
   }
 
   if (phase === 'start') {
-    return <StartScreen startGame={startGame} />
+    return <StartScreen startGame={startGame} user={authUser} username={username} onUsernameSet={refreshProfile} />
   }
 
   if (phase === 'wave_clear') {
@@ -60,7 +75,7 @@ export default function Screens() {
       startGame()
       if (isConnected()) send('game_event', { event: 'start_game', data: {} })
     }
-    return <YouDied onRestart={handleRestart} mpRole={mpRole} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} />
+    return <YouDied onRestart={handleRestart} mpRole={mpRole} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} username={username} />
   }
 
   return null
@@ -265,14 +280,19 @@ function RoomCodeDisplay({ code }) {
   )
 }
 
-function StartScreen({ startGame }) {
-  const [view, setView] = useState('main') // 'main' | 'host' | 'join' | 'leaderboard'
+function StartScreen({ startGame, user, username, onUsernameSet }) {
+  const [view, setView] = useState('main') // 'main' | 'host' | 'join' | 'leaderboard' | 'setusername'
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
   const [connected, setConnected] = useState(false)
   const [mpRole, setMpRoleLocal] = useState(null)
-  const authUser = useAuthUser()
+
+  // Auto-prompt username picker after first Google login
+  useEffect(() => {
+    if (user && username === null && view === 'main') setView('setusername')
+    if (user && username !== null && view === 'setusername') setView('main')
+  }, [user, username])
 
   const setMpRole = useGameStore((s) => s.setMpRole)
   const setMpConnected = useGameStore((s) => s.setMpConnected)
@@ -349,7 +369,7 @@ function StartScreen({ startGame }) {
 
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
-          <AuthPanel user={authUser} />
+          <AuthPanel user={user} username={username} />
           <Btn onClick={startGame}>SOLO</Btn>
           <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -417,13 +437,16 @@ function StartScreen({ startGame }) {
           <BackBtn onClick={handleBack} />
         </div>
       )}
+
+      {view === 'setusername' && (
+        <UsernamePickerView onDone={() => { onUsernameSet?.(); setView('main') }} />
+      )}
     </Overlay>
   )
 }
 
-function AuthPanel({ user }) {
+function AuthPanel({ user, username }) {
   if (user) {
-    const name = user.user_metadata?.full_name ?? user.email
     const avatar = user.user_metadata?.avatar_url
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -434,8 +457,8 @@ function AuthPanel({ user }) {
             style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid #555' }}
           />
         )}
-        <span style={{ color: '#aaa', fontSize: 12, fontFamily: 'Courier New, monospace', letterSpacing: 1 }}>
-          {name}
+        <span style={{ color: '#ffe066', fontSize: 12, fontFamily: 'Courier New, monospace', letterSpacing: 1 }}>
+          {username ?? '…'}
         </span>
         <button
           onClick={() => signOut()}
@@ -490,6 +513,54 @@ function GoogleIcon() {
       <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
       <path fill="none" d="M0 0h48v48H0z"/>
     </svg>
+  )
+}
+
+function UsernamePickerView({ onDone }) {
+  const [value, setValue] = useState('')
+  const [status, setStatus] = useState('idle') // 'idle' | 'saving' | 'error'
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleSave = async () => {
+    if (value.trim().length < 2 || status === 'saving') return
+    setStatus('saving')
+    try {
+      await saveUsername(value)
+      onDone()
+    } catch (err) {
+      setErrorMsg(err?.message?.includes('unique') ? 'Name taken — try another.' : 'Something went wrong.')
+      setStatus('error')
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
+      <Sub>Choose a username to save your scores:</Sub>
+      <input
+        value={value}
+        onChange={(e) => { setValue(e.target.value.slice(0, 24)); setStatus('idle'); setErrorMsg('') }}
+        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+        placeholder="YourName"
+        maxLength={24}
+        autoFocus
+        style={{
+          background: 'rgba(0,0,0,0.6)',
+          border: '1px solid #555',
+          color: '#ffe066',
+          padding: '10px 16px',
+          fontSize: 16,
+          letterSpacing: 3,
+          fontFamily: 'Courier New, monospace',
+          textAlign: 'center',
+          outline: 'none',
+          width: 280,
+        }}
+      />
+      {errorMsg && <div style={{ color: '#cc4444', fontSize: 12, fontFamily: 'Courier New, monospace', letterSpacing: 1 }}>{errorMsg}</div>}
+      <Btn onClick={handleSave} disabled={value.trim().length < 2 || status === 'saving'}>
+        {status === 'saving' ? '…' : 'SAVE'}
+      </Btn>
+    </div>
   )
 }
 
@@ -661,7 +732,7 @@ function Controls({ children }) {
   )
 }
 
-function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
+function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, username }) {
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
@@ -690,6 +761,15 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
     const raf = requestAnimationFrame(fade)
     return () => cancelAnimationFrame(raf)
   }, [])
+
+  // Auto-submit for logged-in users with a username
+  useEffect(() => {
+    if (!btnVisible || !username || scoreStatus !== 'idle') return
+    setScoreStatus('submitting')
+    submitScore({ name: username, wave, kills })
+      .then(() => setScoreStatus('done'))
+      .catch(() => setScoreStatus('error'))
+  }, [btnVisible, username])
 
   const handleSubmitScore = async () => {
     if (!playerName.trim() || scoreStatus !== 'idle') return
@@ -790,7 +870,17 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
         gap: 'clamp(6px, 1.5vmin, 12px)',
       }}>
 
-        {scoreStatus !== 'done' ? (
+        {username ? (
+          scoreStatus === 'done' ? (
+            <div style={{ color: '#88cc44', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
+              SCORE SAVED ✓
+            </div>
+          ) : scoreStatus === 'submitting' ? (
+            <div style={{ color: '#888', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
+              saving…
+            </div>
+          ) : null
+        ) : scoreStatus !== 'done' ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
             <input
               value={playerName}
