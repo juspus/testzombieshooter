@@ -12,3 +12,14 @@ export async function submitScore({ name, wave, kills }) {
     .insert({ name: name.trim().slice(0, 24), wave, kills })
   if (error) throw error
 }
+
+export async function fetchLeaderboard({ limit = 20 } = {}) {
+  const { data, error } = await supabase
+    .from('scores')
+    .select('id, name, wave, kills, created_at')
+    .order('wave', { ascending: false })
+    .order('kills', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data
+}

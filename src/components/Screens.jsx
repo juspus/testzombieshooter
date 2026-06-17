@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
-import { submitScore } from '../supabase'
+import { submitScore, fetchLeaderboard } from '../supabase'
 
 function getIsMobileScreen() {
   if (typeof window === 'undefined') return false
@@ -257,7 +257,7 @@ function RoomCodeDisplay({ code }) {
 }
 
 function StartScreen({ startGame }) {
-  const [view, setView] = useState('main') // 'main' | 'host' | 'join'
+  const [view, setView] = useState('main') // 'main' | 'host' | 'join' | 'leaderboard'
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
@@ -345,6 +345,29 @@ function StartScreen({ startGame }) {
             <Btn onClick={handleHost}>HOST GAME</Btn>
             <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
           </div>
+          <button
+            onClick={() => setView('leaderboard')}
+            style={{
+              marginTop: 6,
+              background: 'transparent',
+              border: 'none',
+              color: '#555',
+              fontSize: 'clamp(9px, 1.8vmin, 12px)',
+              letterSpacing: 3,
+              fontFamily: 'Courier New, monospace',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+            }}
+          >
+            Leaderboard
+          </button>
+        </div>
+      )}
+
+      {view === 'leaderboard' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+          <LeaderboardPanel />
+          <BackBtn onClick={() => setView('main')} />
         </div>
       )}
 
@@ -561,6 +584,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
   const [shareStatus, setShareStatus] = useState('')
   const [playerName, setPlayerName] = useState('')
   const [scoreStatus, setScoreStatus] = useState('idle') // 'idle' | 'submitting' | 'done' | 'error'
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
 
   const runSummary = useMemo(() => ({
     wave,
@@ -768,7 +792,94 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
         }}>
           {shareStatus}
         </div>
+
+        <button
+          onClick={() => setShowLeaderboard((v) => !v)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#555',
+            fontSize: 'clamp(9px, 1.8vmin, 12px)',
+            letterSpacing: 3,
+            fontFamily: 'Courier New, monospace',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+          }}
+        >
+          {showLeaderboard ? '▲ Hide Leaderboard' : '▼ View Leaderboard'}
+        </button>
+        {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} />}
       </div>
+    </div>
+  )
+}
+
+function LeaderboardPanel({ highlightWave, highlightKills } = {}) {
+  const [rows, setRows] = useState(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    setRows(null)
+    setError(false)
+    fetchLeaderboard().then(setRows).catch(() => setError(true))
+  }, [])
+
+  return (
+    <div style={{
+      width: 'min(420px, 92vw)',
+      background: 'rgba(0,0,0,0.6)',
+      border: '1px solid rgba(255,50,0,0.25)',
+      borderRadius: 6,
+      fontFamily: 'Courier New, monospace',
+      fontSize: 'clamp(9px, 1.9vmin, 13px)',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        padding: '8px 14px',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        color: '#ff3300',
+        letterSpacing: 5,
+        fontSize: 'clamp(8px, 1.6vmin, 11px)',
+        fontWeight: 'bold',
+        textAlign: 'center',
+      }}>
+        LEADERBOARD
+      </div>
+      {error && (
+        <div style={{ color: '#ff6644', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Failed to load</div>
+      )}
+      {!error && !rows && (
+        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Loading…</div>
+      )}
+      {rows && rows.length === 0 && (
+        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>No scores yet</div>
+      )}
+      {rows && rows.length > 0 && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 60px 54px', gap: '0 10px', padding: '5px 14px', color: '#555', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <span>#</span><span>NAME</span><span style={{ textAlign: 'right' }}>WAVE</span><span style={{ textAlign: 'right' }}>KILLS</span>
+          </div>
+          {rows.map((row, i) => {
+            const isHighlight = highlightWave != null && row.wave === highlightWave && row.kills === highlightKills
+            return (
+              <div key={row.id} style={{
+                display: 'grid',
+                gridTemplateColumns: '28px 1fr 60px 54px',
+                gap: '0 10px',
+                padding: 'clamp(3px, 0.8vmin, 5px) 14px',
+                color: isHighlight ? '#ffe066' : i === 0 ? '#fff' : '#aaa',
+                background: isHighlight ? 'rgba(255,224,102,0.06)' : 'transparent',
+                borderBottom: '1px solid rgba(255,255,255,0.03)',
+              }}>
+                <span style={{ color: i === 0 ? '#ff3300' : '#555' }}>{i + 1}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
+                <span style={{ textAlign: 'right' }}>{row.wave}</span>
+                <span style={{ textAlign: 'right', color: '#888' }}>{row.kills}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
