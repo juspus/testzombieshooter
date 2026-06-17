@@ -66,6 +66,8 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - Mobile aim assist (6-ray forgiveness cone) + auto-shoot when a zombie
   is in the crosshair cone (COD Mobile "Simple" style — deliberate
   choice to lower the touch-aiming skill floor)
+- Haptic feedback on shoot (18ms pulse; shotgun double-tap) and death
+  (two-beat thump) via navigator.vibrate — Android only, no-ops on iOS
 - Test Lab page (`/?testlab`) for isolated weapon/sound testing
 
 **Dev/testing**
@@ -92,6 +94,10 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - (none yet)
 
 ## Dated log
+
+- 2026-06-17: Added haptic feedback on mobile (PR #113, merged). Short pulse
+  per shot, shotgun double-tap, death thump. Android only — iOS has no web
+  vibration API. Also confirmed leaderboards already exist (removed from TODO).
 
 - 2026-06-17: Fixed window boarding bugs (PR #108). Three issues: (1) upgrading
   to strong mode with 1 existing plank was calling addPlank (increment count)
