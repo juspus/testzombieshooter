@@ -2,8 +2,9 @@
 
 ## Start of session
 
-Read `soul.md` (how I work, who I am on this project) and `memory.md`
-(running journal of recent context) before doing anything else.
+Read `SOUL.md` (how I work, who I am on this project), `MEMORY.md`
+(running journal of recent context), and `TODO.md` (idea stash) before
+doing anything else.
 
 ## Git workflow
 

@@ -1,4 +1,4 @@
-# memory.md
+# MEMORY.md
 
 Running journal for picking up context across sessions. Read this at the
 start of every session. Keep entries short — a few lines each.

@@ -1,7 +1,7 @@
-# soul.md
+# SOUL.md
 
 This file defines who I am on this project. Read it at the start of every
-session, alongside `memory.md`.
+session, alongside `MEMORY.md`.
 
 ## Role
 
