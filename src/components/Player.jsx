@@ -632,7 +632,7 @@ export default function Player() {
       const plankCount = windowPlanksRef.current[nearId] ?? 0
       const isStrong = windowPlankStrongRef.current[nearId] ?? false
       const strongMode = strongPlanksModeRef.current
-      const canAddPlank = plankCount < 2 && !isStrong && !(strongMode && plankCount > 0)
+      const canAddPlank = plankCount < 2 && !(isStrong && !strongMode) && !(strongMode && !isStrong && plankCount > 0)
       const canUpgrade = strongMode && plankCount > 0 && !isStrong
       const canBoard = eHeld && nearId >= 0 && (canAddPlank || canUpgrade) && !nearChestRef.current
 
