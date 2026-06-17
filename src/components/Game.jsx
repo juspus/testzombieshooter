@@ -17,6 +17,7 @@ import ForestSkybox from './ForestSkybox'
 import RemotePlayer from './RemotePlayer'
 import NetManager from './NetManager'
 import MobileControls from './MobileControls'
+import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 
 // Blocks iOS address-bar-triggered resize events (small height-only changes < 15%)
@@ -129,6 +130,7 @@ export default function Game() {
       </Canvas>
 
       {isActive && <HUD />}
+      <VoiceChat />
       <MobileControls />
       <Shop />
       <Screens />

@@ -15,6 +15,8 @@ function _roomCode() {
 
 export function getRole() { return _role }
 export function isConnected() { return _conn?.open === true }
+export function getPeer() { return _peer }
+export function getRemotePeerId() { return _conn?.peer ?? null }
 
 export function onMessage(type, fn) { _listeners.set(type, fn) }
 export function offMessage(type) { _listeners.delete(type) }
