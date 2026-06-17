@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
+import { submitScore } from '../supabase'
 
 function getIsMobileScreen() {
   if (typeof window === 'undefined') return false
@@ -558,6 +559,8 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
+  const [playerName, setPlayerName] = useState('')
+  const [scoreStatus, setScoreStatus] = useState('idle') // 'idle' | 'submitting' | 'done' | 'error'
 
   const runSummary = useMemo(() => ({
     wave,
@@ -580,6 +583,17 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
     const raf = requestAnimationFrame(fade)
     return () => cancelAnimationFrame(raf)
   }, [])
+
+  const handleSubmitScore = async () => {
+    if (!playerName.trim() || scoreStatus !== 'idle') return
+    setScoreStatus('submitting')
+    try {
+      await submitScore({ name: playerName, wave, kills })
+      setScoreStatus('done')
+    } catch {
+      setScoreStatus('error')
+    }
+  }
 
   const handleShare = async () => {
     const shareUrl = getRunShareUrl(runSummary)
@@ -668,6 +682,58 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks }) {
         alignItems: 'center',
         gap: 'clamp(6px, 1.5vmin, 12px)',
       }}>
+
+        {scoreStatus !== 'done' ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+            <input
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value.slice(0, 24))}
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmitScore()}
+              placeholder="Enter name…"
+              maxLength={24}
+              disabled={scoreStatus === 'submitting'}
+              style={{
+                background: 'rgba(0,0,0,0.55)',
+                border: '1px solid rgba(180,0,0,0.5)',
+                color: '#ddd',
+                padding: 'clamp(5px, 1.2vmin, 10px) clamp(8px, 2vmin, 14px)',
+                fontSize: 'clamp(11px, 2vmin, 14px)',
+                letterSpacing: 2,
+                fontFamily: 'Courier New, monospace',
+                outline: 'none',
+                width: 'clamp(140px, 30vmin, 200px)',
+              }}
+            />
+            <button
+              onClick={handleSubmitScore}
+              disabled={!playerName.trim() || scoreStatus === 'submitting'}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(180,0,0,0.6)',
+                color: playerName.trim() ? 'rgba(200,200,200,0.9)' : '#555',
+                padding: 'clamp(5px, 1.2vmin, 10px) clamp(10px, 2.5vmin, 18px)',
+                fontSize: 'clamp(9px, 1.8vmin, 12px)',
+                letterSpacing: 3,
+                fontFamily: 'Courier New, monospace',
+                cursor: playerName.trim() ? 'pointer' : 'default',
+                textTransform: 'uppercase',
+                transition: 'all 0.2s',
+              }}
+            >
+              {scoreStatus === 'submitting' ? '…' : 'Submit Score'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ color: '#88cc44', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
+            SCORE SAVED ✓
+          </div>
+        )}
+        {scoreStatus === 'error' && (
+          <div style={{ color: '#ff6644', fontSize: 11, letterSpacing: 2, fontFamily: 'Courier New, monospace' }}>
+            FAILED TO SAVE — TRY AGAIN
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
             Share Run
