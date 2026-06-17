@@ -30,23 +30,26 @@ function _attachRemoteStream(remoteStream) {
   _remoteAudio.play().catch(() => {})
 }
 
-// Called by the host: listen for the guest's incoming call
+// Called by the guest: listen for the host's incoming call
 export function listenForCall(peer) {
   peer.on('call', async (call) => {
-    const stream = await _getStream()
+    let stream
+    try { stream = await _getStream() } catch { call.close(); return }
     call.answer(stream)
     call.on('stream', _attachRemoteStream)
-    call.on('close', teardownVoice)
+    call.on('error', () => {})
+    call.on('close', () => { _call = null })
     _call = call
   })
 }
 
-// Called by the guest: call the host
-export async function callHost(peer, hostPeerId) {
+// Called by the host: call the guest (guestPeerId = conn.peer)
+export async function callGuest(peer, guestPeerId) {
   const stream = await _getStream()
-  const call = peer.call(hostPeerId, stream)
+  const call = peer.call(guestPeerId, stream)
   call.on('stream', _attachRemoteStream)
-  call.on('close', teardownVoice)
+  call.on('error', () => {})
+  call.on('close', () => { _call = null })
   _call = call
 }
 

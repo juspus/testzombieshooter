@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useGameStore } from '../store'
 import { getPeer, getRemotePeerId } from '../net'
-import { listenForCall, callHost, setPTT, onTalkingChange, teardownVoice } from '../voice'
+import { listenForCall, callGuest, setPTT, onTalkingChange, teardownVoice } from '../voice'
 
 export default function VoiceChat() {
   const mpConnected = useGameStore((s) => s.mpConnected)
@@ -22,18 +22,25 @@ export default function VoiceChat() {
     const peer = getPeer()
     if (!peer) return
 
-    if (mpRole === 'host') {
+    let timer
+    if (mpRole === 'guest') {
+      // Guest listens first — synchronous, no delay needed
       listenForCall(peer)
     } else {
-      // Guest calls host; host peer ID = roomCode
-      callHost(peer, roomCode).catch(() => setMicError(true))
+      // Host calls guest. Delay 800 ms so the guest's listener is registered first.
+      timer = setTimeout(() => {
+        const guestId = getRemotePeerId()
+        if (!guestId) return
+        callGuest(peer, guestId).catch(() => setMicError(true))
+      }, 800)
     }
 
     return () => {
+      clearTimeout(timer)
       teardownVoice()
       initialised.current = false
     }
-  }, [mpConnected, mpRole, roomCode])
+  }, [mpConnected, mpRole])
 
   // V key PTT — desktop
   useEffect(() => {
