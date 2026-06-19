@@ -258,6 +258,17 @@ export const useGameStore = create((set, get) => ({
     set({ bulletsInClip: bulletsInClip + toLoad, reserveBullets: reserveBullets - toLoad, isReloading: false })
   },
 
+  // Cancel an in-progress reload and grant proportional partial credit.
+  // fractionComplete: 0–1, how far through the reload animation we got.
+  cancelReload: (fractionComplete) => {
+    const { bulletsInClip, reserveBullets, weapon, isReloading } = get()
+    if (!isReloading) return
+    const clipSize = clipSizeForWeapon(weapon)
+    const toLoad = Math.min(clipSize - bulletsInClip, reserveBullets)
+    const loaded = Math.floor(toLoad * fractionComplete)
+    set({ bulletsInClip: bulletsInClip + loaded, reserveBullets: reserveBullets - loaded, isReloading: false })
+  },
+
   hitZombie: (id, isHeadshot, source = 'gun') =>
     applyZombieDamage(get, set, id, isHeadshot ? 3 : 1, source, isHeadshot),
 

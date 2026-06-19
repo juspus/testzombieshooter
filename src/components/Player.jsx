@@ -72,6 +72,7 @@ export default function Player() {
   const consumeBullet = useGameStore((s) => s.consumeBullet)
   const beginReload = useGameStore((s) => s.beginReload)
   const finishReload = useGameStore((s) => s.finishReload)
+  const cancelReload = useGameStore((s) => s.cancelReload)
   const addPlank = useGameStore((s) => s.addPlank)
   const upgradePlanks = useGameStore((s) => s.upgradePlanks)
   const skipIntermission = useGameStore((s) => s.skipIntermission)
@@ -221,6 +222,11 @@ export default function Player() {
         if (nearChestRef.current) { openShop(); return }
       }
       if (e.code === 'KeyQ' && !shopOpenRef.current) {
+        if (reloadTimer.current > 0) {
+          const rt = reloadTimeForPerks(perksRef.current)
+          cancelReload(Math.min(1, (rt - reloadTimer.current) / rt))
+          reloadTimer.current = 0
+        }
         toggleItem()
         return
       }
@@ -236,6 +242,11 @@ export default function Player() {
       if (!locked.current) return
       const weapons = ownedWeaponsRef.current
       if (weapons.length <= 1) return
+      if (reloadTimer.current > 0) {
+        const rt = reloadTimeForPerks(perksRef.current)
+        cancelReload(Math.min(1, (rt - reloadTimer.current) / rt))
+        reloadTimer.current = 0
+      }
       const idx = weapons.indexOf(weaponRef.current)
       const dir = e.deltaY > 0 ? 1 : -1
       const next = (idx + dir + weapons.length) % weapons.length
@@ -607,7 +618,7 @@ export default function Player() {
       reloadTimer.current -= delta
       if (reloadTimer.current <= 0) {
         reloadTimer.current = 0
-        finishReload()
+        if (useGameStore.getState().isReloading) finishReload()
       }
     }
 
