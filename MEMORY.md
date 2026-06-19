@@ -95,6 +95,12 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-06-19: Dynamic music (PR #115). Calm drone during intermission, heavy
+  dread during waves: 80 BPM half-time kick, off-beat hat, 55+58.3 Hz beating
+  drone pair (3.3 Hz pulse), boom stab every 6 s. 1.5 s crossfade in, 2.5 s
+  out. New export `setMusicIntensity(level)` in sounds.js. Volume balance
+  (kick vs drone vs calm layer) may need tuning after playtesting.
+
 - 2026-06-17: Added haptic feedback on mobile (PR #113, merged). Short pulse
   per shot, shotgun double-tap, death thump. Android only — iOS has no web
   vibration API. Also confirmed leaderboards already exist (removed from TODO).
