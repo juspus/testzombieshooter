@@ -108,11 +108,12 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
 function BonusBreakdown({ bonuses }) {
   const rows = [
     ['Wave reward', bonuses.base],
-    [`Kill reward (${Math.round(bonuses.kills)} kills)`, bonuses.kills],
+    [`Kill rewards`, bonuses.kills],
     bonuses.headshots > 0 && [`Headshot kills (${bonuses.headshotsCount})`, bonuses.headshots],
     bonuses.knifeKills > 0 && [`Knife kills (${bonuses.knifeKillsCount})`, bonuses.knifeKills],
     bonuses.noPlanksLost > 0 && ['No planks lost', bonuses.noPlanksLost],
     bonuses.fastClear > 0 && [`Fast clear (${formatSeconds(bonuses.elapsed)} / ${formatSeconds(bonuses.fastClearPar)})`, bonuses.fastClear],
+    bonuses.headshotOnly > 0 && ['🎯 Headshot only wave!', bonuses.headshotOnly],
   ].filter(Boolean)
   const payout = bonuses.base + bonuses.kills + bonuses.total
 
