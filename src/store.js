@@ -73,11 +73,11 @@ function isBossWave(wave) {
 // first_wave:  crawler=3, brute=5, runner=7, screamer=8
 // tier N cap:  N * 10   (10, 20, 30, ...)
 // tier N wave: firstWave + (N-1) * 9
+// Cap starts at 1 on first unlock, +1 every 9 waves after that
 function maxOfType(type, wave) {
   const first = { crawler: 3, brute: 5, runner: 7, screamer: 8 }[type]
   if (first === undefined || wave < first) return 0
-  const tier = Math.floor((wave - first) / 9) + 1
-  return tier * 10
+  return Math.floor((wave - first) / 9) + 1
 }
 
 function buildTypeList(wave, count) {
