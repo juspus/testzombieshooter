@@ -68,27 +68,42 @@ function isBossWave(wave) {
   return wave === 10 || (wave >= 20 && wave % 5 === 0)
 }
 
-// Per-type max count per wave. Each type unlocks at a first wave and gains +10 cap
-// every 9 waves after that (special zombies arrive 1 wave earlier each decade).
-// first_wave:  crawler=3, brute=5, runner=7, screamer=8
-// tier N cap:  N * 10   (10, 20, 30, ...)
-// tier N wave: firstWave + (N-1) * 9
-// Cap starts at 1 on first unlock, +1 every 9 waves after that
+// Cap table for capped specials (step function — each entry is [waveThreshold, newCap]).
+// Wave 12 resets to 0: post-boss relief wave after boss at wave 10.
+// Beyond wave 20, each type gains +1 cap every 5 waves.
+const CAPS = {
+  brute:   [[5,1],[9,2],[12,0],[14,3],[18,4]],
+  runner:  [[7,1],[10,2],[12,0],[14,3],[19,4]],
+  screamer:[[8,1],[12,0],[17,2],[20,3]],
+}
+
 function maxOfType(type, wave) {
-  const first = { crawler: 3, brute: 5, runner: 7, screamer: 8 }[type]
-  if (first === undefined || wave < first) return 0
-  return Math.floor((wave - first) / 9) + 1
+  const table = CAPS[type]
+  if (!table) return 0
+  let cap = 0
+  for (const [w, c] of table) {
+    if (wave >= w) cap = c
+    else break
+  }
+  // Continue scaling beyond wave 20
+  if (wave > 20) cap = CAPS[type].at(-1)[1] + Math.floor((wave - 20) / 5)
+  return cap
 }
 
 function buildTypeList(wave, count) {
   const list = []
   if (isBossWave(wave)) list.push('boss')
 
-  const SPECIAL_TYPES = ['crawler', 'brute', 'runner', 'screamer']
+  const CAPPED_TYPES = ['brute', 'runner', 'screamer']
   const placed = {}
 
   for (let i = list.length; i < count; i++) {
-    const available = SPECIAL_TYPES.filter((t) => (placed[t] ?? 0) < maxOfType(t, wave))
+    // Crawlers: 10% chance to replace a normal slot (active from wave 3)
+    if (wave >= 3 && Math.random() < 0.10) {
+      list.push('crawler')
+      continue
+    }
+    const available = CAPPED_TYPES.filter((t) => (placed[t] ?? 0) < maxOfType(t, wave))
     let chosen = 'walker'
     if (available.length > 0 && Math.random() < 0.5) {
       chosen = available[Math.floor(Math.random() * available.length)]
@@ -97,7 +112,6 @@ function buildTypeList(wave, count) {
     list.push(chosen)
   }
 
-  // Shuffle non-boss entries
   const bossCount = isBossWave(wave) ? 1 : 0
   const rest = list.slice(bossCount).sort(() => Math.random() - 0.5)
   return [...list.slice(0, bossCount), ...rest]
