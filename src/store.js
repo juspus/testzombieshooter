@@ -119,8 +119,15 @@ const HEADSHOT_KILL_BONUS = 0.5
 const KNIFE_KILL_BONUS = 2
 const NO_PLANK_LOSS_BONUS = 10
 const FAST_CLEAR_BONUS = 8
+const HEADSHOT_ONLY_BONUS = 20
 const fastClearParForWave = (wave) => 10 + wave * 2
-export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT }
+export const COMBO_WINDOW = 0.5  // seconds between kills to maintain combo
+const ARCHETYPE_KILL_BONUS = { walker: 0, runner: 0.5, brute: 2, screamer: 1.5, crawler: 0, boss: 5 }
+export function comboMultiplier(count) {
+  if (count < 5) return 1
+  return Math.min(3, 1 + Math.floor(count / 5) * 0.5)
+}
+export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT, HEADSHOT_ONLY_BONUS }
 
 const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0 }
 
@@ -161,8 +168,11 @@ export const useGameStore = create((set, get) => ({
   waveKnifeKills: 0,
   wavePlanksLost: 0,
   waveStartPlanks: 0,
+  waveKillMoney: 0,
   lastWaveBonuses: null,
   paused: false,
+  comboCount: 0,
+  comboTimer: 0,
 
   startGame: () => {
     const wave = 1
@@ -201,21 +211,24 @@ export const useGameStore = create((set, get) => ({
       waveKnifeKills: 0,
       wavePlanksLost: 0,
       waveStartPlanks: 0,
+      waveKillMoney: 0,
       lastWaveBonuses: null,
       paused: false,
+      comboCount: 0,
+      comboTimer: 0,
     })
 
     applyDebugOverrides(set, get)
   },
 
   nextWave: () => {
-    const { wave: prevWave, windowPlanks, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
+    const { wave: prevWave, windowPlanks, money, bulletsInClip, reserveBullets, waveKillMoney, lastWaveBonuses } = get()
     const wave = prevWave + 1
     buildGrid(allWallSegments(windowPlanks))
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
-      money: money + WAVE_REWARD + (prevWaveKills * ZOMBIE_KILL_REWARD) + (lastWaveBonuses?.total ?? 0),
+      money: money + WAVE_REWARD + waveKillMoney + (lastWaveBonuses?.total ?? 0),
       shopOpen: false,
       walls,
       wave,
@@ -233,6 +246,9 @@ export const useGameStore = create((set, get) => ({
       waveKnifeKills: 0,
       wavePlanksLost: 0,
       waveStartPlanks: 0,
+      waveKillMoney: 0,
+      comboCount: 0,
+      comboTimer: 0,
     })
   },
 
@@ -272,7 +288,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   removeDyingZombie: (id) => {
-    const { zombies, pendingSpawns, phase, wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed } = get()
+    const { zombies, pendingSpawns, phase, wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed, waveKillMoney } = get()
     const newZombies = zombies.filter((z) => z.id !== id)
     const activeCount = newZombies.filter((z) => !z.dying).length
     const isGuest = get().mpRole === 'guest'
@@ -289,6 +305,7 @@ export const useGameStore = create((set, get) => ({
           wavePlanksLost,
           waveStartPlanks,
           waveElapsed,
+          waveKillMoney,
         }),
       }
       : { zombies: newZombies }
@@ -296,10 +313,15 @@ export const useGameStore = create((set, get) => ({
   },
 
   tick: (delta, guestMode = false) => {
-    const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed, paused } = get()
+    const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed, paused, comboTimer, comboCount } = get()
     if (paused) return
     if (phase === 'playing') {
-      set({ waveElapsed: waveElapsed + delta })
+      const newComboTimer = Math.max(0, comboTimer - delta)
+      set({
+        waveElapsed: waveElapsed + delta,
+        comboTimer: newComboTimer,
+        ...(comboTimer > 0 && newComboTimer === 0 ? { comboCount: 0 } : {}),
+      })
       return
     }
     if (phase === 'intermission') {
@@ -506,7 +528,7 @@ function applyDebugOverrides(set, get) {
 
 // Shared damage application for hitZombie (gun/knife) and hitZombieFlame (burn ticks).
 function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
-  const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks } = get()
+  const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveKillMoney, comboCount, comboTimer } = get()
   const zombie = zombies.find((z) => z.id === id)
   if (!zombie || zombie.dying) return false
 
@@ -517,6 +539,14 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
     const newWaveKills = waveKills + 1
     const newWaveHeadshots = waveHeadshots + (source === 'gun' && isHeadshot ? 1 : 0)
     const newWaveKnifeKills = waveKnifeKills + (source === 'knife' ? 1 : 0)
+
+    // Combo tracking
+    const newComboCount = comboTimer > 0 ? comboCount + 1 : 1
+    const multiplier = comboMultiplier(newComboCount)
+    const archetypeBonus = ARCHETYPE_KILL_BONUS[zombie.type] ?? 0
+    const killEarned = (ZOMBIE_KILL_REWARD + archetypeBonus) * multiplier
+    const newWaveKillMoney = waveKillMoney + killEarned
+
     // Immediately slot in the next pending zombie so the active count stays at the cap
     const nextPending = pendingSpawns.length > 0 ? pendingSpawns[0] : null
     const newPending = nextPending ? pendingSpawns.slice(1) : pendingSpawns
@@ -533,6 +563,9 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
       waveKills: newWaveKills,
       waveHeadshots: newWaveHeadshots,
       waveKnifeKills: newWaveKnifeKills,
+      waveKillMoney: newWaveKillMoney,
+      comboCount: newComboCount,
+      comboTimer: COMBO_WINDOW,
     }
     set(waveOver
       ? {
@@ -546,6 +579,7 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
           wavePlanksLost,
           waveStartPlanks,
           waveElapsed,
+          waveKillMoney: newWaveKillMoney,
         }),
       }
       : statUpdate
@@ -561,20 +595,22 @@ function countPlanks(windowPlanks) {
   return Object.values(windowPlanks).reduce((sum, count) => sum + count, 0)
 }
 
-function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed }) {
+function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed, waveKillMoney }) {
   const fastClearPar = fastClearParForWave(wave)
   const headshots = waveHeadshots * HEADSHOT_KILL_BONUS
   const knifeKills = waveKnifeKills * KNIFE_KILL_BONUS
   const noPlanksLost = waveStartPlanks > 0 && wavePlanksLost === 0 ? NO_PLANK_LOSS_BONUS : 0
   const fastClear = waveElapsed > 0 && waveElapsed <= fastClearPar ? FAST_CLEAR_BONUS : 0
+  const headshotOnly = waveKills > 0 && waveHeadshots === waveKills ? HEADSHOT_ONLY_BONUS : 0
   return {
     base: WAVE_REWARD,
-    kills: waveKills * ZOMBIE_KILL_REWARD,
+    kills: waveKillMoney ?? waveKills * ZOMBIE_KILL_REWARD,
     headshots,
     knifeKills,
     noPlanksLost,
     fastClear,
-    total: headshots + knifeKills + noPlanksLost + fastClear,
+    headshotOnly,
+    total: headshots + knifeKills + noPlanksLost + fastClear + headshotOnly,
     elapsed: waveElapsed,
     fastClearPar,
     headshotsCount: waveHeadshots,

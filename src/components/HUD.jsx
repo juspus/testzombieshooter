@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
+import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, COMBO_WINDOW, comboMultiplier } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -34,7 +34,12 @@ export default function HUD() {
   const perks = useGameStore((s) => s.perks)
   const knifeCooldown = useGameStore((s) => s.knifeCooldown)
   const nearChest = useGameStore((s) => s.nearChest)
+  const comboCount = useGameStore((s) => s.comboCount)
+  const comboTimer = useGameStore((s) => s.comboTimer)
   const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
+  const showCombo = comboCount >= 5
+  const multiplier = comboMultiplier(comboCount)
+  const comboBarFrac = comboTimer / COMBO_WINDOW
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const nearPlanksAreStrong = nearWindowId >= 0 ? (windowPlankStrong[nearWindowId] ?? false) : false
@@ -104,6 +109,19 @@ export default function HUD() {
           <span style={styles.threatValue}>
             {unlockedTypes.map((type) => type.toUpperCase()).join(' · ')}
           </span>
+        </div>
+      )}
+
+      {/* Combo multiplier — above ammo box */}
+      {showCombo && (
+        <div style={{ ...styles.comboBox, ...(isMobile ? styles.mobileComboBox : {}) }}>
+          <div style={styles.comboLabel}>
+            <span style={styles.comboX}>×{multiplier.toFixed(1)}</span>
+            <span style={styles.comboKills}>{comboCount} COMBO</span>
+          </div>
+          <div style={styles.comboTrack}>
+            <div style={{ ...styles.comboFill, width: `${comboBarFrac * 100}%` }} />
+          </div>
         </div>
       )}
 
@@ -505,6 +523,53 @@ const styles = {
     height: '100%',
     background: '#ff6600',
     borderRadius: 3,
+    transition: 'width 0.05s linear',
+  },
+  comboBox: {
+    position: 'absolute',
+    bottom: 160,
+    right: 40,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 5,
+    fontFamily: 'Courier New, monospace',
+  },
+  mobileComboBox: {
+    bottom: 'max(120px, calc(env(safe-area-inset-bottom) + 110px))',
+    right: 8,
+    gap: 3,
+  },
+  comboLabel: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 1,
+  },
+  comboX: {
+    color: '#ffcc00',
+    fontSize: 28,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    lineHeight: 1,
+    textShadow: '0 0 8px rgba(255,200,0,0.7)',
+  },
+  comboKills: {
+    color: '#ff9900',
+    fontSize: 10,
+    letterSpacing: 3,
+  },
+  comboTrack: {
+    width: 90,
+    height: 4,
+    background: 'rgba(255,255,255,0.12)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  comboFill: {
+    height: '100%',
+    background: '#ffcc00',
+    borderRadius: 2,
     transition: 'width 0.05s linear',
   },
 }
