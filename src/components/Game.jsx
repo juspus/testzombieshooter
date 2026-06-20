@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
-import { startEerieMusic, stopEerieMusic } from '../sounds'
+import { startEerieMusic, stopEerieMusic, setMusicIntensity } from '../sounds'
 import Arena from './Arena'
 import Player from './Player'
 import Gun from './Gun'
@@ -74,12 +74,14 @@ export default function Game() {
   }, [isActive])
 
   useEffect(() => {
-    if (inGame) {
-      startEerieMusic()
-    } else {
-      stopEerieMusic()
-    }
+    if (inGame) startEerieMusic()
+    else stopEerieMusic()
   }, [inGame])
+
+  useEffect(() => {
+    if (!inGame) return
+    setMusicIntensity(isPlaying ? 1 : 0)
+  }, [inGame, isPlaying])
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: 'var(--app-width, 100vw)', height: 'var(--app-height, 100dvh)', background: '#000', overflow: 'hidden' }}>
