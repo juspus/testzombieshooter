@@ -906,6 +906,7 @@ let _beatSchedulerId = null
 let _nextBeatTime = 0
 let _beatCount = 0
 let _cachedHatBuf = null
+let _cachedStabBuf = null
 
 const INTENSE_BEAT_S = 1.5  // 80 BPM half-time (kick every 1.5 s)
 
@@ -942,7 +943,8 @@ function _scheduleHat(ac, t) {
 
 function _scheduleBoomStab(ac, t) {
   // Deep bandpass noise burst — a rumble from below
-  const buf = noiseBuffer(ac, 0.55)
+  if (!_cachedStabBuf) _cachedStabBuf = noiseBuffer(ac, 0.55)
+  const buf = _cachedStabBuf
   const src = ac.createBufferSource()
   src.buffer = buf
   const filt = ac.createBiquadFilter()
