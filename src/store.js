@@ -47,12 +47,8 @@ const PERK_COSTS = {
 }
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
-// Wave 1-10: gentle speed ramp; wave 11+ accelerates faster
-const speedForWave = (wave) => {
-  const base = 1.5
-  if (wave <= 10) return base + (wave - 1) * 0.03
-  return (base + 9 * 0.03) + (wave - 10) * 0.06
-}
+// Speed is flat, then jumps +0.2 at wave 11, 22, 33, ...
+const speedForWave = (wave) => 1.5 + Math.floor(wave / 11) * 0.2
 
 export const ZOMBIE_ARCHETYPES = {
   walker: { label: 'Walker', health: 2, speedMultiplier: 1, plankHits: 1 },
