@@ -47,7 +47,12 @@ const PERK_COSTS = {
 }
 const bulletsForWave = (wave) => zombiesForWave(wave) + 5
 const zombiesForWave = (wave) => 5 + (wave - 1) * 3
-const speedForWave = (wave) => 1.5 + (wave - 1) * 0.05
+// Wave 1-10: gentle speed ramp; wave 11+ accelerates faster
+const speedForWave = (wave) => {
+  const base = 1.5
+  if (wave <= 10) return base + (wave - 1) * 0.03
+  return (base + 9 * 0.03) + (wave - 10) * 0.06
+}
 
 export const ZOMBIE_ARCHETYPES = {
   walker: { label: 'Walker', health: 2, speedMultiplier: 1, plankHits: 1 },
@@ -58,52 +63,48 @@ export const ZOMBIE_ARCHETYPES = {
   boss: { label: 'Boss', health: 16, speedMultiplier: 0.58, plankHits: 5, heightScale: 1.45, boss: true },
 }
 
-const ZOMBIE_TYPE_UNLOCKS = [
-  ['boss', 10],
-  ['crawler', 3],
-  ['screamer', 9],
-  ['brute', 5],
-  ['runner', 7],
-]
-
 export function getZombieArchetype(type = 'walker') {
   return ZOMBIE_ARCHETYPES[type] ?? ZOMBIE_ARCHETYPES.walker
 }
 
-export function zombieTypesForWave(wave) {
-  return ZOMBIE_TYPE_UNLOCKS
-    .filter(([, unlockWave]) => wave >= unlockWave)
-    .map(([type]) => type)
+// Boss waves: 10, then every 5 from 20 onward
+function isBossWave(wave) {
+  return wave === 10 || (wave >= 20 && wave % 5 === 0)
 }
 
-function specialProbsForWave(wave) {
-  const probs = []
-  if (wave >= 3)  probs.push(['crawler',  Math.min(0.18, 0.05 + (wave - 3)  * 0.02)])
-  if (wave >= 5)  probs.push(['brute',    Math.min(0.15, 0.04 + (wave - 5)  * 0.02)])
-  if (wave >= 7)  probs.push(['runner',   Math.min(0.12, 0.03 + (wave - 7)  * 0.015)])
-  if (wave >= 9)  probs.push(['screamer', Math.min(0.12, 0.03 + (wave - 9)  * 0.015)])
-  return probs
+// Per-type max count per wave. Each type unlocks at a first wave and gains +10 cap
+// every 9 waves after that (special zombies arrive 1 wave earlier each decade).
+// first_wave:  crawler=3, brute=5, runner=7, screamer=8
+// tier N cap:  N * 10   (10, 20, 30, ...)
+// tier N wave: firstWave + (N-1) * 9
+function maxOfType(type, wave) {
+  const first = { crawler: 3, brute: 5, runner: 7, screamer: 8 }[type]
+  if (first === undefined || wave < first) return 0
+  const tier = Math.floor((wave - first) / 9) + 1
+  return tier * 10
 }
 
 function buildTypeList(wave, count) {
   const list = []
-  if (wave >= 10) list.push('boss')
-  const unlocked = zombieTypesForWave(wave).filter((t) => t !== 'boss')
-  // Guarantee 1 of each unlocked archetype, shuffled into the front of the list
-  const guaranteed = [...unlocked].sort(() => Math.random() - 0.5)
-  list.push(...guaranteed)
-  const probs = specialProbsForWave(wave)
-  while (list.length < count) {
-    const r = Math.random()
-    let cumulative = 0
+  if (isBossWave(wave)) list.push('boss')
+
+  const SPECIAL_TYPES = ['crawler', 'brute', 'runner', 'screamer']
+  const placed = {}
+
+  for (let i = list.length; i < count; i++) {
+    const available = SPECIAL_TYPES.filter((t) => (placed[t] ?? 0) < maxOfType(t, wave))
     let chosen = 'walker'
-    for (const [type, prob] of probs) {
-      cumulative += prob
-      if (r < cumulative) { chosen = type; break }
+    if (available.length > 0 && Math.random() < 0.5) {
+      chosen = available[Math.floor(Math.random() * available.length)]
     }
+    placed[chosen] = (placed[chosen] ?? 0) + 1
     list.push(chosen)
   }
-  return list
+
+  // Shuffle non-boss entries
+  const bossCount = isBossWave(wave) ? 1 : 0
+  const rest = list.slice(bossCount).sort(() => Math.random() - 0.5)
+  return [...list.slice(0, bossCount), ...rest]
 }
 
 const clipSizeForWeapon = (w) =>
