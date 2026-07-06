@@ -95,6 +95,17 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-07-06: Mobile feel pass, part 1 — look-sensitivity curve + slider
+  (branch `claude/mobile-game-feel-controls-xev9bl`). Diagnosed why mobile
+  controls felt clunky: flat sensitivity multiplier meant fine aim and fast
+  turns fought each other, and there was no way for a player to retune it.
+  Fixed: `mobileInput.js` now scales each touchmove sample by its own speed
+  (0.6x–1.8x curve, `addMobileLook`) instead of one constant, and stores a
+  user sensitivity multiplier (0.5x–2.5x, localStorage-persisted) exposed via
+  a slider on the mobile start screen. Removed the old flat
+  `MOBILE_LOOK_SENSITIVITY` constant from Player.jsx. Still open from that
+  discussion: the two-finger look+shoot scheme itself (nonstandard vs.
+  COD/PUBG Mobile conventions) — deferred to a separate pass.
 - 2026-06-19: Dynamic music (PR #115). Calm drone during intermission, heavy
   dread during waves: 80 BPM half-time kick, off-beat hat, 55+58.3 Hz beating
   drone pair (3.3 Hz pulse), boom stab every 6 s. 1.5 s crossfade in, 2.5 s

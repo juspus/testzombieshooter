@@ -3,6 +3,7 @@ import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername } from '../supabase'
+import { getLookSensitivity, setLookSensitivity } from '../mobileInput'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -281,8 +282,34 @@ function RoomCodeDisplay({ code }) {
   )
 }
 
+function MobileSensitivitySlider() {
+  const [value, setValue] = useState(getLookSensitivity)
+
+  const handleChange = (e) => {
+    const next = Number(e.target.value)
+    setValue(next)
+    setLookSensitivity(next)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 'min(260px, 70vw)', marginTop: 2 }}>
+      <div style={{ color: '#888', fontSize: 11, letterSpacing: 2 }}>AIM SENSITIVITY — {value.toFixed(1)}×</div>
+      <input
+        type="range"
+        min={0.5}
+        max={2.5}
+        step={0.1}
+        value={value}
+        onChange={handleChange}
+        style={{ width: '100%', accentColor: '#ff3300' }}
+      />
+    </div>
+  )
+}
+
 function StartScreen({ startGame, user, username, onUsernameSet }) {
   const [view, setView] = useState('main') // 'main' | 'host' | 'join' | 'leaderboard' | 'setusername'
+  const [isMobile] = useState(getIsMobileScreen)
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
@@ -372,6 +399,7 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
           <Btn onClick={startGame}>SOLO</Btn>
+          {isMobile && <MobileSensitivitySlider />}
           <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
           <div style={{ display: 'flex', gap: 12 }}>
             <Btn onClick={handleHost}>HOST GAME</Btn>

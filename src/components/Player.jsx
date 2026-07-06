@@ -48,7 +48,6 @@ function isIronSightsHeadshot(zombieRef, point, perks) {
 const PLAYER_HEIGHT = 1.7
 const MOVE_SPEED = 8
 const LOOK_SENSITIVITY = 0.002
-const MOBILE_LOOK_SENSITIVITY = 0.007
 const ARENA_BOUND = 18.5
 const STEP_INTERVAL = 0.42
 
@@ -512,8 +511,8 @@ export default function Player() {
     if (shopOpenRef.current || pausedRef.current) return
 
     if (mobileLook.x !== 0 || mobileLook.y !== 0) {
-      yaw.current -= mobileLook.x * MOBILE_LOOK_SENSITIVITY
-      pitch.current -= mobileLook.y * MOBILE_LOOK_SENSITIVITY
+      yaw.current -= mobileLook.x
+      pitch.current -= mobileLook.y
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
     }
 
