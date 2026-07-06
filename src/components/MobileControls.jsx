@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../store'
-import { mobileInput, mobileState, resetMobileInput } from '../mobileInput'
+import { mobileInput, mobileState, resetMobileInput, addMobileLook } from '../mobileInput'
 
 function getIsMobile() {
   if (typeof window === 'undefined') return false
@@ -303,8 +303,7 @@ export default function MobileControls() {
 
       // Camera always moves on drag
       const last = lastLookRef.current
-      mobileInput.lookDeltaX += e.clientX - last.x
-      mobileInput.lookDeltaY += e.clientY - last.y
+      addMobileLook(e.clientX - last.x, e.clientY - last.y)
       lastLookRef.current = { x: e.clientX, y: e.clientY }
 
       // First time past threshold: mark as drag and cancel any button hold
