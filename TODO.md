@@ -30,6 +30,15 @@ Ideas and deferred work to return to. No priority order — discuss before picki
 - **Dynamic music** — intensity layer that crossfades during waves vs intermission
 - **Blood decals** — screen-space splats on zombie kill, fade over time
 - **Fireplace flicker sync** — tie existing point-light intensity to audio beat or sine wave
+- **Map selector on start screen** — diner map exists (src/maps/, DinerArena.jsx,
+  GasStationSkybox.jsx) and is playable via `?map=diner`, but there's no
+  player-facing way to pick it yet. Needs a start-screen UI wired to the
+  store's `mapId`, plus a product call on whether new maps unlock via
+  progression or are free from the start.
+- **More map layouts** — barn/farmhouse (verticality via hayloft, wide door
+  choke point) and windowless bunker (breach points instead of windows,
+  biggest departure from the core "board the windows" loop) were discussed
+  as the next candidates after the diner.
 
 ## Multiplayer
 

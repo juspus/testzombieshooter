@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 import { buildGrid } from './walls'
-import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
+import { getMap, getInitialMapId } from './maps'
 import { playPlankBreak } from './sounds'
+
+// Map is chosen once (debug ?map= param) and fixed for the whole session.
+const ACTIVE_MAP = getMap(getInitialMapId())
+const { playerCollisionWalls, wallSegments, allWallSegments, SPAWN_CLUSTERS } = ACTIVE_MAP
 //
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
@@ -126,6 +130,7 @@ const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
+  mapId: getInitialMapId(), // which map's visuals/skybox to render — fixed for the session
   money: 10,
   weapon: 'pistol',        // currently equipped weapon
   ownedWeapons: ['pistol'], // all purchased weapons (determines scroll-cycle pool)
@@ -168,7 +173,7 @@ export const useGameStore = create((set, get) => ({
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    buildGrid(cabinWallSegments())
+    buildGrid(wallSegments())
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',

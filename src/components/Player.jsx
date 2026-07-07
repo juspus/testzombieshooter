@@ -10,12 +10,15 @@ import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound, setListenerPose } from '../sounds'
 import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
-import { WINDOW_DEFS, cabinWallSegments } from '../cabin'
+import { getMap, getInitialMapId } from '../maps'
 
-// Static cabin walls with window/door gaps already excluded — bullets pass through those openings.
+// Map is chosen once (debug ?map= param) and fixed for the whole session.
+const ACTIVE_MAP = getMap(getInitialMapId())
+const { WINDOW_DEFS, CHEST_POS } = ACTIVE_MAP
+
+// Static walls with window/door gaps already excluded — bullets pass through those openings.
 // Intentionally excludes the windowBlockSegment entries used only for player movement collision.
-const BULLET_WALLS = cabinWallSegments()
-import { CHEST_POS } from './Arena'
+const BULLET_WALLS = ACTIVE_MAP.wallSegments()
 import { send, isConnected } from '../net'
 import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
 import * as THREE from 'three'

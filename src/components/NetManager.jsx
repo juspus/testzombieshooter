@@ -5,8 +5,11 @@ import { send, onMessage, offMessage } from '../net'
 import { getZombiePositions, applyRemoteZombiePositions, Zombie } from './Zombie'
 import { pushRemotePlayerSample } from './RemotePlayer'
 import { buildGrid } from '../walls'
-import { allWallSegments } from '../cabin'
+import { getMap, getInitialMapId } from '../maps'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
+
+// Map is chosen once (debug ?map= param) and fixed for the whole session.
+const { allWallSegments } = getMap(getInitialMapId())
 
 const POS_INTERVAL    = 1 / 30  // 30 /s  (~33 ms)
 const ZOMBIE_INTERVAL = 0.05    // 20 /s  (50 ms)
