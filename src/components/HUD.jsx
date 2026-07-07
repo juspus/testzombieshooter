@@ -298,16 +298,13 @@ export default function HUD() {
       <ClawDecalPool />
 
       {/* Knight helmet visor — persistent narrow-vision overlay while equipped.
-          Five solid dark panels (top/bottom bars + left/nose-bridge/right)
-          leave two untouched vertical gaps as the "eye slits". Fully static
-          CSS, no per-frame updates. */}
+          Two solid dark panels (top/bottom bars) leave a single horizontal
+          gap as the great-helm's eye slit. Fully static CSS, no per-frame
+          updates. */}
       {visionLimited && (
         <div style={styles.visorOverlay}>
           <div style={styles.visorTop} />
           <div style={styles.visorBottom} />
-          <div style={styles.visorLeft} />
-          <div style={styles.visorNose} />
-          <div style={styles.visorRight} />
         </div>
       )}
     </div>
@@ -647,9 +644,9 @@ const styles = {
     borderRadius: '2.7vmin',
     background: 'linear-gradient(to bottom, rgba(200,0,0,0) 0%, rgba(230,15,15,0.95) 20%, rgba(160,0,0,0.95) 80%, rgba(200,0,0,0) 100%)',
   },
-  // Knight helmet visor: 5 opaque panels covering everything except two
-  // narrow vertical "eye slit" gaps (42-46% and 54-58% of width, within the
-  // 30-70% vertical band). Static layout, no animation, no per-frame cost.
+  // Knight helmet visor: 2 opaque panels covering everything except a single
+  // narrow horizontal "eye slit" gap (45-55% of height). Static layout, no
+  // animation, no per-frame cost.
   visorOverlay: {
     position: 'absolute',
     inset: 0,
@@ -660,7 +657,7 @@ const styles = {
     top: 0,
     left: 0,
     right: 0,
-    height: '30%',
+    height: '45%',
     background: '#050302',
   },
   visorBottom: {
@@ -668,31 +665,7 @@ const styles = {
     bottom: 0,
     left: 0,
     right: 0,
-    height: '30%',
-    background: '#050302',
-  },
-  visorLeft: {
-    position: 'absolute',
-    top: '30%',
-    bottom: '30%',
-    left: 0,
-    width: '42%',
-    background: '#050302',
-  },
-  visorNose: {
-    position: 'absolute',
-    top: '30%',
-    bottom: '30%',
-    left: '46%',
-    width: '8%',
-    background: '#050302',
-  },
-  visorRight: {
-    position: 'absolute',
-    top: '30%',
-    bottom: '30%',
-    right: 0,
-    width: '42%',
+    height: '45%',
     background: '#050302',
   },
 }
