@@ -900,6 +900,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           ref={(el) => (flameRefs.current[i] = el)}
           position={off}
           visible={false}
+          raycast={() => null}
           renderOrder={2}
           geometry={_flameGeo}
           material={i % 2 === 0 ? _flameMatOuter : _flameMatInner}
