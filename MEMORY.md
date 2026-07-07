@@ -95,6 +95,13 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-07-07: Fixed inconsistent headshot damage (PR #121). Root cause: each
+  zombie's 4 decorative flame-burn cone meshes are `visible={false}` except
+  while on fire, but three.js `Mesh.raycast()` ignores `.visible` — one cone
+  sits right on the head hitbox with no `isHead` flag, so a visually clean
+  headshot could hit the invisible cone first and register as a body hit.
+  Fixed with `raycast={() => null}` on the flame meshes.
+
 - 2026-06-19: Dynamic music (PR #115). Calm drone during intermission, heavy
   dread during waves: 80 BPM half-time kick, off-beat hat, 55+58.3 Hz beating
   drone pair (3.3 Hz pulse), boom stab every 6 s. 1.5 s crossfade in, 2.5 s
