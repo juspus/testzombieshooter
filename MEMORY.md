@@ -95,6 +95,13 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-07-07: Fixed inconsistent headshot damage (PR #121). Root cause: each
+  zombie's 4 decorative flame-burn cone meshes are `visible={false}` except
+  while on fire, but three.js `Mesh.raycast()` ignores `.visible` — one cone
+  sits right on the head hitbox with no `isHead` flag, so a visually clean
+  headshot could hit the invisible cone first and register as a body hit.
+  Fixed with `raycast={() => null}` on the flame meshes.
+
 - 2026-07-07: Fixed the claw-mark damage decal being invisible in real
   gameplay (reported by product owner right after the HP/armor system
   shipped). Root cause, found via Playwright + pixel sampling in a running
