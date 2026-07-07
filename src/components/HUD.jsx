@@ -1,8 +1,21 @@
-import { useEffect, useState } from 'react'
-import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS } from '../store'
+import { useEffect, useRef, useState } from 'react'
+import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
+const DECAL_LIFETIME_MS = 220
+
+// A single claw-mark decal: 3 rotated diagonal slash shapes at a random
+// screen position, fading out over ~0.2s then removed by the parent.
+function ClawDecal({ x, y }) {
+  return (
+    <div className="hud-claw-fade" style={{ ...styles.clawDecal, left: `${x}%`, top: `${y}%` }}>
+      <div style={{ ...styles.clawSlash, transform: 'rotate(18deg)', left: 0 }} />
+      <div style={{ ...styles.clawSlash, transform: 'rotate(24deg)', left: 14 }} />
+      <div style={{ ...styles.clawSlash, transform: 'rotate(14deg)', left: 28 }} />
+    </div>
+  )
+}
 
 function getIsMobileHud() {
   if (typeof window === 'undefined') return false
@@ -34,6 +47,10 @@ export default function HUD() {
   const perks = useGameStore((s) => s.perks)
   const knifeCooldown = useGameStore((s) => s.knifeCooldown)
   const nearChest = useGameStore((s) => s.nearChest)
+  const hp = useGameStore((s) => s.hp)
+  const maxHp = useGameStore((s) => s.maxHp)
+  const helmet = useGameStore((s) => s.helmet)
+  const hitEventId = useGameStore((s) => s.hitEventId)
   const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
@@ -57,6 +74,27 @@ export default function HUD() {
   const pipsStyle = isMobile ? { ...styles.pips, ...styles.mobilePips } : styles.pips
   const pipStyle = isMobile ? { ...styles.pip, ...styles.mobilePip } : styles.pip
   const barOuterStyle = isMobile ? { ...styles.barOuter, ...styles.mobileBarOuter } : styles.barOuter
+  const hpPct = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0
+  const hpColor = hpPct <= 0.25 ? '#ff3300' : hpPct <= 0.5 ? '#ffaa00' : '#00ff88'
+  const visionLimited = Boolean(HELMET_DEFS[helmet]?.visionLimit)
+
+  const [clawDecals, setClawDecals] = useState([])
+  const clawIdRef = useRef(0)
+  const prevHitEventId = useRef(hitEventId)
+
+  useEffect(() => {
+    if (prevHitEventId.current === hitEventId) return
+    prevHitEventId.current = hitEventId
+    const id = clawIdRef.current++
+    const x = 10 + Math.random() * 80
+    const y = 10 + Math.random() * 80
+    setClawDecals((prev) => [...prev, { id, x, y }])
+    // Each decal cleans itself up independently — not tied to this effect's
+    // cleanup, so a rapid second hit doesn't cancel the first decal's removal.
+    setTimeout(() => {
+      setClawDecals((prev) => prev.filter((d) => d.id !== id))
+    }, DECAL_LIFETIME_MS)
+  }, [hitEventId])
 
   useEffect(() => {
     const update = () => setIsMobile(getIsMobileHud())
@@ -74,6 +112,11 @@ export default function HUD() {
 
   return (
     <div style={styles.hud}>
+      <style>{`
+        @keyframes hudClawFadeOut { from { opacity: 1; } to { opacity: 0; } }
+        .hud-claw-fade { animation: hudClawFadeOut ${DECAL_LIFETIME_MS}ms ease-out forwards; }
+      `}</style>
+
       {/* Crosshair */}
       <div style={styles.crosshairH} />
       <div style={styles.crosshairV} />
@@ -218,6 +261,46 @@ export default function HUD() {
           }}
         />
       </div>
+
+      {/* HP readout — bottom left, mirrors the ammo box on the bottom right */}
+      {!isMobile && (
+        <div style={styles.hpBox}>
+          <div style={styles.weaponLabel}>HP</div>
+          <div style={{ ...styles.ammoCount, fontSize: 28, color: hpColor }}>
+            {Math.ceil(hp)}<span style={styles.ammoSep}>/</span>{maxHp}
+          </div>
+          <div style={styles.hpBarOuter}>
+            <div style={{ ...styles.hpBarInner, width: `${hpPct * 100}%`, background: hpColor }} />
+          </div>
+        </div>
+      )}
+      {isMobile && (
+        <div style={styles.mobileHpBox}>
+          <div style={styles.hpBarOuter}>
+            <div style={{ ...styles.hpBarInner, width: `${hpPct * 100}%`, background: hpColor }} />
+          </div>
+          <div style={{ ...styles.mobileValue, color: hpColor, fontSize: 12 }}>{Math.ceil(hp)}</div>
+        </div>
+      )}
+
+      {/* Claw-mark damage decals — pushed on every hitEventId change, self-removing */}
+      {clawDecals.map((d) => (
+        <ClawDecal key={d.id} x={d.x} y={d.y} />
+      ))}
+
+      {/* Knight helmet visor — persistent narrow-vision overlay while equipped.
+          Five solid dark panels (top/bottom bars + left/nose-bridge/right)
+          leave two untouched vertical gaps as the "eye slits". Fully static
+          CSS, no per-frame updates. */}
+      {visionLimited && (
+        <div style={styles.visorOverlay}>
+          <div style={styles.visorTop} />
+          <div style={styles.visorBottom} />
+          <div style={styles.visorLeft} />
+          <div style={styles.visorNose} />
+          <div style={styles.visorRight} />
+        </div>
+      )}
     </div>
   )
 }
@@ -506,5 +589,100 @@ const styles = {
     background: '#ff6600',
     borderRadius: 3,
     transition: 'width 0.05s linear',
+  },
+  hpBox: {
+    position: 'absolute',
+    bottom: 40,
+    left: 40,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 4,
+    fontFamily: 'Courier New, monospace',
+  },
+  mobileHpBox: {
+    position: 'absolute',
+    bottom: 'max(22px, calc(env(safe-area-inset-bottom) + 16px))',
+    left: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 2,
+    fontFamily: 'Courier New, monospace',
+  },
+  hpBarOuter: {
+    width: 110,
+    height: 8,
+    background: 'rgba(255,255,255,0.12)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  hpBarInner: {
+    height: '100%',
+    borderRadius: 4,
+    transition: 'width 0.2s, background 0.2s',
+  },
+  clawDecal: {
+    position: 'absolute',
+    width: 42,
+    height: 42,
+    transform: 'translate(-50%, -50%)',
+    pointerEvents: 'none',
+  },
+  clawSlash: {
+    position: 'absolute',
+    top: 0,
+    width: 6,
+    height: 42,
+    borderRadius: 3,
+    background: 'linear-gradient(to bottom, rgba(180,0,0,0) 0%, rgba(200,10,10,0.85) 25%, rgba(140,0,0,0.85) 75%, rgba(180,0,0,0) 100%)',
+  },
+  // Knight helmet visor: 5 opaque panels covering everything except two
+  // narrow vertical "eye slit" gaps (42-46% and 54-58% of width, within the
+  // 30-70% vertical band). Static layout, no animation, no per-frame cost.
+  visorOverlay: {
+    position: 'absolute',
+    inset: 0,
+    pointerEvents: 'none',
+  },
+  visorTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '30%',
+    background: '#050302',
+  },
+  visorBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '30%',
+    background: '#050302',
+  },
+  visorLeft: {
+    position: 'absolute',
+    top: '30%',
+    bottom: '30%',
+    left: 0,
+    width: '42%',
+    background: '#050302',
+  },
+  visorNose: {
+    position: 'absolute',
+    top: '30%',
+    bottom: '30%',
+    left: '46%',
+    width: '8%',
+    background: '#050302',
+  },
+  visorRight: {
+    position: 'absolute',
+    top: '30%',
+    bottom: '30%',
+    right: 0,
+    width: '42%',
+    background: '#050302',
   },
 }

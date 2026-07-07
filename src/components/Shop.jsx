@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT, FLAME_DPS } from '../store'
+import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT, FLAME_DPS, BANDAGE_COST, BANDAGE_HEAL, HELMET_DEFS, BODY_ARMOR_DEFS } from '../store'
 
 const ITEMS = [
   {
@@ -39,7 +39,29 @@ const ITEMS = [
     price: (perks, weapon) => weapon === 'flamethrower' ? FLAMETHROWER_AMMO_PACK_COST : AMMO_PACK_COST,
     oneTime: false,
   },
+  {
+    id: 'bandage',
+    name: 'Bandage',
+    desc: `Heal ${BANDAGE_HEAL} HP`,
+    price: BANDAGE_COST,
+    oneTime: false,
+    heal: true,
+  },
 ]
+
+const HELMETS = Object.entries(HELMET_DEFS).map(([id, def]) => ({
+  id,
+  name: def.label,
+  desc: `+${def.hp} max HP${def.visionLimit ? ' · Narrow visor slits limit vision' : ''}`,
+  price: def.cost,
+}))
+
+const BODY_ARMORS = Object.entries(BODY_ARMOR_DEFS).map(([id, def]) => ({
+  id,
+  name: def.label,
+  desc: `+${def.hp} max HP${def.speedMultiplier ? ` · Slows movement to ${Math.round(def.speedMultiplier * 100)}%` : ''}`,
+  price: def.cost,
+}))
 
 function getIsMobileShop() {
   if (typeof window === 'undefined') return false
@@ -94,10 +116,17 @@ export default function Shop() {
   const closeShop = useGameStore((s) => s.closeShop)
   const buyItem = useGameStore((s) => s.buyItem)
   const buyPerk = useGameStore((s) => s.buyPerk)
+  const buyBandage = useGameStore((s) => s.buyBandage)
+  const buyHelmet = useGameStore((s) => s.buyHelmet)
+  const buyBodyArmor = useGameStore((s) => s.buyBodyArmor)
   const money = useGameStore((s) => s.money)
   const weapon = useGameStore((s) => s.weapon)
   const ownedWeapons = useGameStore((s) => s.ownedWeapons)
   const perks = useGameStore((s) => s.perks)
+  const hp = useGameStore((s) => s.hp)
+  const maxHp = useGameStore((s) => s.maxHp)
+  const helmet = useGameStore((s) => s.helmet)
+  const bodyArmor = useGameStore((s) => s.bodyArmor)
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
 
@@ -128,6 +157,7 @@ export default function Shop() {
   const headerStyle = isMobile ? { ...styles.header, ...styles.mobileHeader } : styles.header
   const titleStyle = isMobile ? { ...styles.title, ...styles.mobileTitle } : styles.title
   const moneyStyle = isMobile ? { ...styles.money, ...styles.mobileMoney } : styles.money
+  const hpStyle = isMobile ? { ...styles.hp, ...styles.mobileHp } : styles.hp
   const rowStyle = isMobile ? { ...styles.row, ...styles.mobileRow } : styles.row
   const rowNameStyle = isMobile ? { ...styles.rowName, ...styles.mobileRowName } : styles.rowName
   const rowDescStyle = isMobile ? { ...styles.rowDesc, ...styles.mobileRowDesc } : styles.rowDesc
@@ -144,6 +174,7 @@ export default function Shop() {
 
         <div style={headerStyle}>
           <span style={titleStyle}>SUPPLY CHEST</span>
+          <span style={hpStyle}>♥ {hp}/{maxHp}</span>
           <span style={moneyStyle}>€{money.toFixed(2)}</span>
           {isMobile && <button type="button" style={styles.closeBtn} onClick={closeShop}>×</button>}
         </div>
@@ -154,9 +185,10 @@ export default function Shop() {
           {ITEMS.map((item) => {
             const owned = item.oneTime && ownedWeapons.includes(item.id)
             const isActive = item.oneTime && weapon === item.id
+            const atFullHp = item.heal && hp >= maxHp
             const price = typeof item.price === 'function' ? item.price(perks, weapon) : item.price
             const canAfford = money >= price
-            const disabled = owned || !canAfford
+            const disabled = owned || !canAfford || atFullHp
             return (
               <div key={item.id} style={{ ...rowStyle, opacity: disabled && !owned ? 0.45 : 1 }}>
                 <div style={styles.rowLeft}>
@@ -166,15 +198,77 @@ export default function Shop() {
                   <span style={rowDescStyle}>{typeof item.desc === 'function' ? item.desc(perks, weapon) : item.desc}</span>
                 </div>
                 <div style={rowRightStyle}>
-                  <span style={{ ...rowPriceStyle, color: canAfford || owned ? '#ffe066' : '#884422' }}>
+                  <span style={{ ...rowPriceStyle, color: (canAfford || owned) && !atFullHp ? '#ffe066' : atFullHp ? '#6aaa4a' : '#884422' }}>
                     {owned ? '—' : `€${price.toFixed(2)}`}
                   </span>
                   <button
-                    style={{ ...btnStyle, ...(owned ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    style={{ ...btnStyle, ...(owned || atFullHp ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
                     disabled={disabled}
-                    onClick={() => buyItem(item.id)}
+                    onClick={() => item.heal ? buyBandage() : buyItem(item.id)}
                   >
-                    {isActive ? 'ACTIVE' : owned ? 'OWNED' : 'BUY'}
+                    {isActive ? 'ACTIVE' : owned ? 'OWNED' : atFullHp ? 'FULL' : 'BUY'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          <div style={styles.divider} />
+
+          <div style={styles.sectionLabel}>HEAD ARMOR</div>
+          {HELMETS.map((armor) => {
+            const equipped = helmet === armor.id
+            const canAfford = money >= armor.price
+            const disabled = equipped || !canAfford
+            return (
+              <div key={armor.id} style={{ ...rowStyle, opacity: disabled && !equipped ? 0.45 : 1 }}>
+                <div style={styles.rowLeft}>
+                  <span style={{ ...rowNameStyle, color: equipped ? '#4a8a2a' : '#ddd' }}>
+                    {armor.name}{equipped ? ' ◆' : ''}
+                  </span>
+                  <span style={rowDescStyle}>{armor.desc}</span>
+                </div>
+                <div style={rowRightStyle}>
+                  <span style={{ ...rowPriceStyle, color: canAfford || equipped ? '#ffe066' : '#884422' }}>
+                    {equipped ? '—' : `€${armor.price.toFixed(2)}`}
+                  </span>
+                  <button
+                    style={{ ...btnStyle, ...(equipped ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    disabled={disabled}
+                    onClick={() => buyHelmet(armor.id)}
+                  >
+                    {equipped ? 'EQUIPPED' : 'BUY'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          <div style={styles.divider} />
+
+          <div style={styles.sectionLabel}>BODY ARMOR</div>
+          {BODY_ARMORS.map((armor) => {
+            const equipped = bodyArmor === armor.id
+            const canAfford = money >= armor.price
+            const disabled = equipped || !canAfford
+            return (
+              <div key={armor.id} style={{ ...rowStyle, opacity: disabled && !equipped ? 0.45 : 1 }}>
+                <div style={styles.rowLeft}>
+                  <span style={{ ...rowNameStyle, color: equipped ? '#4a8a2a' : '#ddd' }}>
+                    {armor.name}{equipped ? ' ◆' : ''}
+                  </span>
+                  <span style={rowDescStyle}>{armor.desc}</span>
+                </div>
+                <div style={rowRightStyle}>
+                  <span style={{ ...rowPriceStyle, color: canAfford || equipped ? '#ffe066' : '#884422' }}>
+                    {equipped ? '—' : `€${armor.price.toFixed(2)}`}
+                  </span>
+                  <button
+                    style={{ ...btnStyle, ...(equipped ? styles.btnOwned : !canAfford ? styles.btnCant : styles.btnBuy) }}
+                    disabled={disabled}
+                    onClick={() => buyBodyArmor(armor.id)}
+                  >
+                    {equipped ? 'EQUIPPED' : 'BUY'}
                   </button>
                 </div>
               </div>
@@ -314,6 +408,16 @@ const styles = {
     fontSize: 14,
     letterSpacing: 1,
     color: '#ffe066',
+  },
+  hp: {
+    color: '#c85050',
+    fontSize: 15,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  mobileHp: {
+    fontSize: 11,
+    letterSpacing: 0.5,
   },
   divider: {
     borderBottom: '1px solid #2a1a08',

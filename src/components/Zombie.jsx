@@ -63,11 +63,11 @@ const _deathTmpQuat = new THREE.Quaternion()
 const _deathTmpEuler = new THREE.Euler()
 const ARENA_BOUND = 18.5
 const ZOMBIE_R = 0.30             // physical collision radius
-const KILL_DISTANCE = 1.2
 const PATH_INTERVAL = 0.12        // seconds between A* recalculations
 const WAYPOINT_REACH = 0.6        // distance to advance to next waypoint
 const ATTACK_RANGE = 1.8          // distance to window face to start hitting
-const ATTACK_INTERVAL = 2.0       // seconds between plank hits
+const ATTACK_INTERVAL = 2.0       // seconds between plank/player hits
+const PLAYER_ATTACK_RANGE = 1.0   // distance to local player to start hitting
 
 // Reused movement direction vector — set and consumed within a single zombie's useFrame
 const _moveDir = new THREE.Vector3()
@@ -515,7 +515,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const speed = useGameStore((s) => s.getZombieSpeed())
   const archetype = getZombieArchetype(type)
   const phase = useGameStore((s) => s.phase)
-  const die = useGameStore((s) => s.die)
+  const hitPlayer = useGameStore((s) => s.hitPlayer)
   const health = useGameStore((s) => s.zombies.find((z) => z.id === id)?.health ?? archetype.health)
   const dying = useGameStore((s) => s.zombies.find((z) => z.id === id)?.dying ?? false)
   const hitPlank = useGameStore((s) => s.hitPlank)
@@ -528,7 +528,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const pathRef         = useRef([])
   const wpIdxRef        = useRef(0)
   const pathTimer       = useRef(Math.random() * PATH_INTERVAL)
-  const modeRef         = useRef('chase')   // 'chase' | 'attack_window'
+  const modeRef         = useRef('chase')   // 'chase' | 'attack_window' | 'attack_player'
   const targetWindowRef = useRef(-1)
   const attackTimerRef  = useRef(0)
   const windowPlanksRef = useRef(windowPlanks)
@@ -670,7 +670,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     if (phase !== 'playing') return
     const pos = ref.current.position
 
-    // Local player position (also used for kill detection — always local)
+    // Local player position (also used for melee-attack detection — always local)
     const lx = camera.position.x, lz = camera.position.z
 
     // Pick the closest player as the chase/face target
@@ -795,13 +795,30 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         }
       }
     } else {
-      ref.current.lookAt(px, pos.y, pz)
-      if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
-        const dx = px - pos.x, dz = pz - pos.z
-        const dist = Math.sqrt(dx * dx + dz * dz)
-        if (dist > 0.01) moveDir = _moveDir.set(dx / dist, 0, dz / dist)
+      // Local-player melee range check — independent of the chase target (px,pz),
+      // which may be the remote player. Damage is fully client-local, mirroring
+      // how the old kill-distance check only ever tested against lx,lz.
+      const ldx = lx - pos.x, ldz = lz - pos.z
+      if (ldx * ldx + ldz * ldz <= PLAYER_ATTACK_RANGE * PLAYER_ATTACK_RANGE) {
+        modeRef.current = 'attack_player'
+        ref.current.lookAt(lx, pos.y, lz)
+        isAttackingRef.current = true
+        attackTimerRef.current -= delta
+        if (attackTimerRef.current <= 0) {
+          attackTimerRef.current = ATTACK_INTERVAL
+          hitPlayer(archetype.playerDamage)
+        }
       } else {
-        moveDir = followPath(pos, px, pz)
+        if (modeRef.current === 'attack_player') modeRef.current = 'chase'
+        isAttackingRef.current = false
+        ref.current.lookAt(px, pos.y, pz)
+        if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
+          const dx = px - pos.x, dz = pz - pos.z
+          const dist = Math.sqrt(dx * dx + dz * dz)
+          if (dist > 0.01) moveDir = _moveDir.set(dx / dist, 0, dz / dist)
+        } else {
+          moveDir = followPath(pos, px, pz)
+        }
       }
     }
 
@@ -875,10 +892,6 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         pos.z += ez * f
       }
     }
-
-    // Kill detection: local player only — remote machine handles its own player
-    const kdx = lx - pos.x, kdz = lz - pos.z
-    if (kdx * kdx + kdz * kdz < KILL_DISTANCE * KILL_DISTANCE) die()
   })
 
   const bodyScale = hidden ? 0.001 : 1
