@@ -42,9 +42,9 @@ function ClawDecalPool() {
     <>
       {Array.from({ length: CLAW_POOL_SIZE }, (_, i) => (
         <div key={i} ref={(el) => { slotRefs.current[i] = el }} style={{ ...styles.clawDecal, opacity: 0 }}>
-          <div style={{ ...styles.clawSlash, transform: 'rotate(18deg)', left: '1.9vmin' }} />
-          <div style={{ ...styles.clawSlash, transform: 'rotate(24deg)', left: '6.5vmin' }} />
-          <div style={{ ...styles.clawSlash, transform: 'rotate(14deg)', left: '11.1vmin' }} />
+          <div style={{ ...styles.clawSlash, transform: 'rotate(18deg)', left: '3.8vmin' }} />
+          <div style={{ ...styles.clawSlash, transform: 'rotate(24deg)', left: '13vmin' }} />
+          <div style={{ ...styles.clawSlash, transform: 'rotate(14deg)', left: '22.2vmin' }} />
         </div>
       ))}
     </>
@@ -633,8 +633,8 @@ const styles = {
   },
   clawDecal: {
     position: 'absolute',
-    width: '21vmin',
-    height: '25vmin',
+    width: '42vmin',
+    height: '50vmin',
     transform: 'translate(-50%, -50%)',
     pointerEvents: 'none',
     zIndex: 5,
@@ -642,9 +642,9 @@ const styles = {
   clawSlash: {
     position: 'absolute',
     top: 0,
-    width: '2.7vmin',
-    height: '25vmin',
-    borderRadius: '1.35vmin',
+    width: '5.4vmin',
+    height: '50vmin',
+    borderRadius: '2.7vmin',
     background: 'linear-gradient(to bottom, rgba(200,0,0,0) 0%, rgba(230,15,15,0.95) 20%, rgba(160,0,0,0.95) 80%, rgba(200,0,0,0) 100%)',
   },
   // Knight helmet visor: 5 opaque panels covering everything except two
