@@ -127,6 +127,19 @@ export default function HUD() {
 
   return (
     <div style={styles.hud}>
+      {/* Knight helmet visor — persistent narrow-vision overlay while equipped.
+          Rendered first so every other HUD element (ammo, HP, wave info)
+          paints on top of it — it should darken the game view, not hide the
+          UI the player needs to read. Two solid dark panels (top/bottom
+          bars) leave a single horizontal gap as the great-helm's eye slit.
+          Fully static CSS, no per-frame updates. */}
+      {visionLimited && (
+        <div style={styles.visorOverlay}>
+          <div style={styles.visorTop} />
+          <div style={styles.visorBottom} />
+        </div>
+      )}
+
       {/* Crosshair */}
       <div style={styles.crosshairH} />
       <div style={styles.crosshairV} />
@@ -296,17 +309,6 @@ export default function HUD() {
       {/* Claw-mark damage decals — a fixed pool of slots re-fired on every
           hitEventId change (see ClawDecalPool for why it's not a dynamic array) */}
       <ClawDecalPool />
-
-      {/* Knight helmet visor — persistent narrow-vision overlay while equipped.
-          Two solid dark panels (top/bottom bars) leave a single horizontal
-          gap as the great-helm's eye slit. Fully static CSS, no per-frame
-          updates. */}
-      {visionLimited && (
-        <div style={styles.visorOverlay}>
-          <div style={styles.visorTop} />
-          <div style={styles.visorBottom} />
-        </div>
-      )}
     </div>
   )
 }
