@@ -674,6 +674,17 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     if (phase !== 'playing') return
     const pos = ref.current.position
 
+    // First zombie to physically reach a window's opening shatters its glass —
+    // covers both boarded (attack_window mode) and unboarded (walked straight
+    // through) windows. No-op on maps whose windows have no glass to break.
+    for (const w of WINDOW_DEFS) {
+      const wdx = pos.x - w.winX, wdz = pos.z - w.winZ
+      if (wdx * wdx + wdz * wdz <= ATTACK_RANGE * ATTACK_RANGE) {
+        useGameStore.getState().breakWindow(w.id)
+        break
+      }
+    }
+
     // Local player position (also used for kill detection — always local)
     const lx = camera.position.x, lz = camera.position.z
 

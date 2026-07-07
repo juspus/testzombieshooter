@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { buildGrid } from './walls'
 import { getMap, getInitialMapId } from './maps'
-import { playPlankBreak } from './sounds'
+import { playPlankBreak, playGlassShatter } from './sounds'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -148,6 +148,7 @@ export const useGameStore = create((set, get) => ({
   windowPlankStrong: {},  // { [windowId]: true } when planks at that window are reinforced
   strongPlanksMode: false,
   plankHits: {},          // { [windowId]: hitCount } toward next plank break
+  brokenWindows: {},      // { [windowId]: true } — glass shattered, permanent for the run
   nearWindowId: -1,  // window the player is currently standing near (-1 = none)
   boardingProgress: 0,  // 0–1, fraction of 2s hold complete
   skipProgress: 0,      // 0–1, fraction of hold-T skip complete
@@ -191,6 +192,7 @@ export const useGameStore = create((set, get) => ({
       windowPlankStrong: {},
       strongPlanksMode: false,
       plankHits: {},
+      brokenWindows: {},
       wave,
       kills: 0,
       waveKills: 0,
@@ -353,6 +355,14 @@ export const useGameStore = create((set, get) => ({
     buildGrid(allWallSegments(newPlanks))
     set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, money: money - cost })
     return true
+  },
+
+  // Shatters a window's glass — first zombie to reach it or first bullet through
+  // it triggers this. Permanent for the run (independent of plank state).
+  breakWindow: (id) => {
+    if (get().brokenWindows[id]) return
+    set({ brokenWindows: { ...get().brokenWindows, [id]: true } })
+    playGlassShatter()
   },
 
   upgradePlanks: (id) => {

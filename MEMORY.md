@@ -10,6 +10,21 @@ start of every session. Keep entries short — a few lines each.
   is dev/preview-only via `?map=diner` (gated same as other debug params) —
   not exposed on the start screen yet. Next step if we want it live: a
   start-screen map selector wired to `mapId`.
+- Diner storefront glass: fixed a transparency bug (glass sometimes read as
+  opaque — fixed by adding `depthWrite={false}` plus toning down
+  roughness/metalness) and added shattering: `brokenWindows` store state,
+  `breakWindow(id)` action (idempotent, plays a synthesized crash via
+  `playGlassShatter()`). Triggers from two places — Zombie.jsx checks
+  proximity to every window each frame (covers both boarded and
+  walk-straight-through unboarded windows), Player.jsx does an analytic
+  ray/plane test against each window on every shot fired (pistol/ak/shotgun
+  pellets/deagle). DinerArena.jsx swaps the intact glass pane for jagged
+  static stubs + a one-shot debris burst (fixed pool of always-mounted
+  shard meshes, shared geometry/material, toggled via `visible` — no
+  runtime allocation). Verified both trigger paths directly against live
+  store state in a real browser (zombies broke windows 1/2/4 approaching
+  naturally) plus an isolated Node script cross-checking the ray math
+  against all 6 windows.
 
 ## Feature inventory (as of 2026-06-14)
 

@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore } from '../store'
 import {
@@ -82,7 +83,113 @@ function DinerFloor() {
 
 // ─── Windows: glass pane + steel frame + sill/lintel fill ──────────────────
 
+// Shared geometry/material for shatter shards — created once, reused across
+// every window's burst so breaking glass never triggers a shader/geometry
+// allocation spike (same reasoning as the zombie geometry cache in Zombie.jsx).
+const SHARD_COUNT = 7
+const _shardGeo = new THREE.BoxGeometry(0.16, 0.16, 0.02)
+const _shardMat = new THREE.MeshStandardMaterial({
+  color: GLASS, roughness: 0.15, metalness: 0, transparent: true, opacity: 0.5, depthWrite: false,
+})
+
+// One-shot debris burst — a fixed, always-mounted pool of shard meshes per
+// window, hidden until the window breaks, animated briefly, then hidden again
+// for good. Never creates/destroys meshes at runtime.
+function GlassShards({ win }) {
+  const isBroken = useGameStore((s) => !!s.brokenWindows[win.id])
+  const wasBroken = useRef(false)
+  const active = useRef(false)
+  const elapsed = useRef(0)
+  const shardRefs = useRef([])
+  const vels = useRef(Array.from({ length: SHARD_COUNT }, () => new THREE.Vector3()))
+  const rotVels = useRef(Array.from({ length: SHARD_COUNT }, () => [0, 0, 0]))
+
+  useEffect(() => {
+    if (!isBroken || wasBroken.current) return
+    wasBroken.current = true
+    active.current = true
+    elapsed.current = 0
+    const openH = WIN_Y1 - WIN_Y0
+    for (let i = 0; i < SHARD_COUNT; i++) {
+      const mesh = shardRefs.current[i]
+      if (!mesh) continue
+      mesh.position.set(
+        win.winX + (Math.random() - 0.5) * WIN_HALF * 1.7,
+        WIN_Y0 + Math.random() * openH,
+        win.winZ,
+      )
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI)
+      mesh.visible = true
+      vels.current[i].set((Math.random() - 0.5) * 3, Math.random() * 2 + 1.5, (Math.random() - 0.5) * 3)
+      rotVels.current[i] = [Math.random() * 10 - 5, Math.random() * 10 - 5, Math.random() * 10 - 5]
+    }
+  }, [isBroken, win])
+
+  useFrame((_, delta) => {
+    if (!active.current) return
+    elapsed.current += delta
+    if (elapsed.current > 0.8) {
+      active.current = false
+      for (const mesh of shardRefs.current) if (mesh) mesh.visible = false
+      return
+    }
+    for (let i = 0; i < SHARD_COUNT; i++) {
+      const mesh = shardRefs.current[i]
+      if (!mesh) continue
+      const vel = vels.current[i]
+      vel.y -= 9.8 * delta
+      mesh.position.addScaledVector(vel, delta)
+      const [rx, ry, rz] = rotVels.current[i]
+      mesh.rotation.x += rx * delta
+      mesh.rotation.y += ry * delta
+      mesh.rotation.z += rz * delta
+    }
+  })
+
+  return (
+    <group>
+      {Array.from({ length: SHARD_COUNT }).map((_, i) => (
+        <mesh
+          key={i}
+          ref={(el) => { shardRefs.current[i] = el }}
+          geometry={_shardGeo}
+          material={_shardMat}
+          visible={false}
+          castShadow={false}
+          receiveShadow={false}
+        />
+      ))}
+    </group>
+  )
+}
+
+// Jagged stubs left clinging to the frame corners once a window is broken.
+function BrokenGlassStubs({ win, isNS }) {
+  const signs = [-1, 1]
+  return (
+    <>
+      {signs.map((sx) => signs.map((sy) => (
+        <mesh
+          key={`${sx}-${sy}`}
+          position={[
+            win.winX + (isNS ? sx * (WIN_HALF - 0.15) : 0),
+            (sy > 0 ? WIN_Y1 : WIN_Y0) + sy * 0.1,
+            win.winZ + (isNS ? 0 : sx * (WIN_HALF - 0.15)),
+          ]}
+          rotation={[0, 0, sx * sy * 0.5]}
+          castShadow={false}
+          receiveShadow={false}
+        >
+          <boxGeometry args={isNS ? [0.35, 0.22, 0.03] : [0.03, 0.22, 0.35]} />
+          <meshStandardMaterial color={GLASS} roughness={0.2} metalness={0} transparent opacity={0.4} depthWrite={false} />
+        </mesh>
+      )))}
+    </>
+  )
+}
+
 function WindowGlass({ win }) {
+  const isBroken = useGameStore((s) => !!s.brokenWindows[win.id])
   const isNS = win.wall === 'N' || win.wall === 'S'
   const openH = WIN_Y1 - WIN_Y0
   const cy = WIN_Y0 + openH / 2
@@ -94,13 +201,17 @@ function WindowGlass({ win }) {
       {/* Sill + lintel fill the wall above/below the glass */}
       <Box position={[win.winX, WIN_Y0 / 2, win.winZ]} args={isNS ? [sw, WIN_Y0, sd] : [sd, WIN_Y0, sw]} color={WALL_CLR} />
       <Box position={[win.winX, WIN_Y1 + (WH - WIN_Y1) / 2, win.winZ]} args={isNS ? [sw, WH - WIN_Y1, sd] : [sd, WH - WIN_Y1, sw]} color={WALL_CLR} />
-      {/* Glass pane */}
-      <mesh position={[win.winX, cy, win.winZ]} castShadow={false} receiveShadow={false}>
-        <boxGeometry args={isNS ? [w - 0.1, openH - 0.1, 0.04] : [0.04, openH - 0.1, w - 0.1]} />
-        <meshStandardMaterial color={GLASS} roughness={0.05} metalness={0.2} transparent opacity={0.35} />
-      </mesh>
+      {/* Glass pane — intact until the first zombie reaches it or a bullet passes through */}
+      {!isBroken && (
+        <mesh position={[win.winX, cy, win.winZ]} castShadow={false} receiveShadow={false}>
+          <boxGeometry args={isNS ? [w - 0.1, openH - 0.1, 0.04] : [0.04, openH - 0.1, w - 0.1]} />
+          <meshStandardMaterial color={GLASS} roughness={0.15} metalness={0} transparent opacity={0.3} depthWrite={false} />
+        </mesh>
+      )}
+      {isBroken && <BrokenGlassStubs win={win} isNS={isNS} />}
       {/* Steel frame outline */}
       <Box position={[win.winX, cy, win.winZ]} args={isNS ? [fw, openH, fd] : [fd, openH, fw]} color={STEEL} metalness={0.6} roughness={0.4} castShadow={false} />
+      <GlassShards win={win} />
     </group>
   )
 }

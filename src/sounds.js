@@ -583,6 +583,29 @@ export function playPlankBreak() {
   playTone(ac, t + 0.03, 320, 140, 0.18, 0.2)
 }
 
+export function playGlassShatter() {
+  const ac = ctx()
+  const t = ac.currentTime
+
+  // Sharp initial crack — bright highpass burst
+  const crackBuf = noiseBuffer(ac, 0.12)
+  playNoise(ac, crackBuf, t, 0.10, 0.9, 'highpass', 3200, 1.2)
+
+  // Cascading shard scatter — brighter noise, decays a bit slower than the crack
+  const scatterBuf = noiseBuffer(ac, 0.4)
+  playNoise(ac, scatterBuf, t + 0.02, 0.38, 0.5, 'bandpass', 5200, 1.8)
+
+  // High glassy ring tones — a few overtones so it doesn't read as generic noise
+  const ringFreqs = [2600, 3400, 4200]
+  ringFreqs.forEach((f, i) => {
+    playTone(ac, t + 0.01 + i * 0.015, f + Math.random() * 200, f * 0.6, 0.25, 0.12)
+  })
+
+  // Low frame thud as the pane drops out of its housing
+  const thudBuf = noiseBuffer(ac, 0.15)
+  playNoise(ac, thudBuf, t + 0.05, 0.14, 0.4, 'bandpass', 180, 1.0)
+}
+
 export function playPumpAction() {
   const ac = ctx()
   const t = ac.currentTime
