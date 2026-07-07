@@ -95,6 +95,25 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-07-07: Added a player HP/armor system (branch
+  `claude/todo-list-review-cm98vz`). Replaces the old instant-kill-on-contact
+  model: player starts at 20 HP, zombies now deal per-archetype melee damage
+  (5 for walker/runner/screamer/crawler, 10 brute, 25 boss) via a new
+  `attack_player` zombie state that mirrors the existing `attack_window`
+  wind-up animation/timer. Shop sells Bandages (instant +5 HP, €15) and two
+  armor slots — Head (Bike Helmet +5hp/€20, Military Helmet +20hp/€100,
+  Knight Helmet +100hp/€200 + vision-limiting visor overlay) and Body (Biker
+  Jacket +15hp/€60, Bulletproof Vest +100hp/€200, Knight Armor +300hp/€400 +
+  0.7x speed penalty) — one item equipped per slot, buying a new one swaps
+  it and adjusts maxHp/hp by the delta. HUD gained an HP bar and a red
+  claw-mark screen decal that fades in 0.2s on hit. Armor is visible on the
+  co-op partner's remote avatar (procedural models, synced via the existing
+  position-broadcast channel) but not on the local player's own view. Built
+  via 4 parallel subagents (zombie AI, shop UI, HUD, remote visuals) after
+  discussing armor-slot design, bandage-as-instant-heal, and remote-only
+  models with the product owner; verified end-to-end in a live Playwright
+  session (zombie melee → HP/decal, shop buy/swap math, vision overlay).
+
 - 2026-06-19: Dynamic music (PR #115). Calm drone during intermission, heavy
   dread during waves: 80 BPM half-time kick, off-beat hat, 55+58.3 Hz beating
   drone pair (3.3 Hz pulse), boom stab every 6 s. 1.5 s crossfade in, 2.5 s
