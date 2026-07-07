@@ -341,6 +341,7 @@ const styles = {
     background: 'rgba(255,255,255,0.85)',
   },
   threatBox: {
+    position: 'relative',
     marginTop: 8,
     display: 'flex',
     flexDirection: 'column',
@@ -364,6 +365,7 @@ const styles = {
     letterSpacing: 2,
   },
   topBar: {
+    position: 'relative',
     display: 'flex',
     gap: 60,
     marginTop: 20,
