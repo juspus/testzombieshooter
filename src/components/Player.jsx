@@ -8,7 +8,7 @@ import ShellCasings from './ShellCasings'
 import FlameSpray from './FlameSpray'
 import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound, setListenerPose } from '../sounds'
-import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION } from '../store'
+import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION, BODY_ARMOR_DEFS } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
 
@@ -59,7 +59,7 @@ const SKIP_TIME = 0.6
 
 const reloadTimeForPerks = (perks) => perks.fast_hands ? 1.0 : 1.5
 const boardTimeForPerks = (perks) => perks.carpenter ? 1.3 : 2.0
-const moveSpeedForPerks = (perks) => MOVE_SPEED * (perks.runners_breath ? 1.15 : 1)
+const moveSpeedForPerks = (perks, bodyArmor) => MOVE_SPEED * (perks.runners_breath ? 1.15 : 1) * (BODY_ARMOR_DEFS[bodyArmor]?.speedMultiplier ?? 1)
 const knifeCooldownForPerks = (perks) => perks.knife_mastery ? 0.25 : BASE_KNIFE_COOLDOWN
 const knifeRangeForPerks = (perks) => perks.knife_mastery ? 2.8 : BASE_KNIFE_RANGE
 
@@ -91,6 +91,7 @@ export default function Player() {
   const wave = useGameStore((s) => s.wave)
   const activeItem = useGameStore((s) => s.activeItem)
   const perks = useGameStore((s) => s.perks)
+  const bodyArmor = useGameStore((s) => s.bodyArmor)
   const toggleItem = useGameStore((s) => s.toggleItem)
   const setKnifeCooldown = useGameStore((s) => s.setKnifeCooldown)
   const consumeBullet = useGameStore((s) => s.consumeBullet)
@@ -141,6 +142,7 @@ export default function Player() {
   const ownedWeaponsRef = useRef(ownedWeapons)
   const activeItemRef = useRef(activeItem)
   const perksRef = useRef(perks)
+  const bodyArmorRef = useRef(bodyArmor)
 
   const yaw = useRef(0)
   const pitch = useRef(0)
@@ -161,6 +163,7 @@ export default function Player() {
   useEffect(() => { ownedWeaponsRef.current = ownedWeapons }, [ownedWeapons])
   useEffect(() => { activeItemRef.current = activeItem }, [activeItem])
   useEffect(() => { perksRef.current = perks }, [perks])
+  useEffect(() => { bodyArmorRef.current = bodyArmor }, [bodyArmor])
 
   // Cancel any in-progress reload when the player switches weapons
   useEffect(() => { reloadTimer.current = 0 }, [weapon])
@@ -803,7 +806,7 @@ export default function Player() {
     if (mobileInput.moveX !== 0) dir.addScaledVector(right, mobileInput.moveX)
 
     if (dir.lengthSq() > 0) {
-      dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current) * delta)
+      dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * delta)
       const R = 0.35
       const ws = wallsRef.current
       const cx = camera.position.x

@@ -27,7 +27,6 @@ Ideas and deferred work to return to. No priority order — discuss before picki
 ## World & atmosphere
 
 - **Destructible windows** — windows that visually break as planks are removed
-- **Dynamic music** — intensity layer that crossfades during waves vs intermission
 - **Blood decals** — screen-space splats on zombie kill, fade over time
 - **Fireplace flicker sync** — tie existing point-light intensity to audio beat or sine wave
 - **Map selector on start screen** — diner map exists (src/maps/, DinerArena.jsx,

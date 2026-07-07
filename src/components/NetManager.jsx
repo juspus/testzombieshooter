@@ -125,7 +125,7 @@ export default function NetManager() {
     if (posTimer.current >= POS_INTERVAL) {
       posTimer.current = 0
       const cam = state.camera
-      const { weapon, activeItem } = useGameStore.getState()
+      const { weapon, activeItem, helmet, bodyArmor } = useGameStore.getState()
       send('pos', {
         x: cam.position.x,
         y: cam.position.y,
@@ -134,6 +134,8 @@ export default function NetManager() {
         pitch: cam.rotation.x,
         weapon,
         activeItem,
+        helmet,
+        bodyArmor,
       })
     }
 
