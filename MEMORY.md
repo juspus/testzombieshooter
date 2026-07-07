@@ -95,6 +95,25 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-07-07: Fixed the claw-mark damage decal being invisible in real
+  gameplay (reported by product owner right after the HP/armor system
+  shipped). Root cause, found via Playwright + pixel sampling in a running
+  build: the decal component took `hitEventId` as a **prop** from `HUD`.
+  `HUD` re-renders constantly during combat (hp, ammo, every subscribed
+  field), and each of those re-renders reconciled the decal's JSX-declared
+  `opacity: 0` back onto the DOM node — stomping the ref-driven fade
+  animation within a frame or two of it starting, every time. It wasn't a
+  CSS/animation/z-index/canvas-stacking issue at all (ruled all of those out
+  first, expensively) — the fix was simply having the decal component
+  subscribe to `hitEventId` itself (`useGameStore((s) => s.hitEventId)`)
+  instead of receiving it from a parent that re-renders for unrelated
+  reasons. Also switched from a dynamic array of decals to a fixed
+  always-mounted pool (5 slots, round-robin, ref-mutated opacity) — avoids
+  mount/unmount churn, though the prop-drilling fix was the actual cure.
+  General lesson: any transient/animated child fed a "trigger" value as a
+  prop needs to either subscribe to that value directly or be memoized,
+  or a noisy parent will silently stomp its own animation state on re-render.
+
 - 2026-07-07: Added a player HP/armor system (branch
   `claude/todo-list-review-cm98vz`). Replaces the old instant-kill-on-contact
   model: player starts at 20 HP, zombies now deal per-archetype melee damage

@@ -3,17 +3,51 @@ import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOT
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
-const DECAL_LIFETIME_MS = 220
+const DECAL_LIFETIME_MS = 260
 
-// A single claw-mark decal: 3 rotated diagonal slash shapes at a random
-// screen position, fading out over ~0.2s then removed by the parent.
-function ClawDecal({ x, y }) {
+const CLAW_POOL_SIZE = 5
+
+// A fixed pool of always-mounted claw-decal slots, cycled round-robin and
+// faded via direct ref mutation of style.opacity. Subscribes to hitEventId
+// itself (rather than taking it as a prop from HUD) so this component only
+// re-renders when a hit actually happens — HUD re-renders constantly during
+// combat (hp, ammo, etc.), and each of those re-renders reapplies this
+// component's JSX-declared `opacity: 0`, which was stomping the ref-driven
+// fade a frame or two after it started. Decoupling the subscription fixes it.
+function ClawDecalPool() {
+  const hitEventId = useGameStore((s) => s.hitEventId)
+  const slotRefs = useRef([])
+  const nextSlot = useRef(0)
+  const prevHitEventId = useRef(hitEventId)
+
+  useEffect(() => {
+    if (prevHitEventId.current === hitEventId) return
+    prevHitEventId.current = hitEventId
+    const slot = slotRefs.current[nextSlot.current]
+    nextSlot.current = (nextSlot.current + 1) % CLAW_POOL_SIZE
+    if (!slot) return
+    slot.style.left = `${10 + Math.random() * 80}%`
+    slot.style.top = `${10 + Math.random() * 80}%`
+    slot.style.opacity = '1'
+    const start = performance.now()
+    const tick = () => {
+      const t = Math.min(1, (performance.now() - start) / DECAL_LIFETIME_MS)
+      slot.style.opacity = String(1 - t)
+      if (t < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, [hitEventId])
+
   return (
-    <div className="hud-claw-fade" style={{ ...styles.clawDecal, left: `${x}%`, top: `${y}%` }}>
-      <div style={{ ...styles.clawSlash, transform: 'rotate(18deg)', left: 0 }} />
-      <div style={{ ...styles.clawSlash, transform: 'rotate(24deg)', left: 14 }} />
-      <div style={{ ...styles.clawSlash, transform: 'rotate(14deg)', left: 28 }} />
-    </div>
+    <>
+      {Array.from({ length: CLAW_POOL_SIZE }, (_, i) => (
+        <div key={i} ref={(el) => { slotRefs.current[i] = el }} style={{ ...styles.clawDecal, opacity: 0 }}>
+          <div style={{ ...styles.clawSlash, transform: 'rotate(18deg)', left: 10 }} />
+          <div style={{ ...styles.clawSlash, transform: 'rotate(24deg)', left: 34 }} />
+          <div style={{ ...styles.clawSlash, transform: 'rotate(14deg)', left: 58 }} />
+        </div>
+      ))}
+    </>
   )
 }
 
@@ -50,7 +84,6 @@ export default function HUD() {
   const hp = useGameStore((s) => s.hp)
   const maxHp = useGameStore((s) => s.maxHp)
   const helmet = useGameStore((s) => s.helmet)
-  const hitEventId = useGameStore((s) => s.hitEventId)
   const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
   const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
@@ -78,24 +111,6 @@ export default function HUD() {
   const hpColor = hpPct <= 0.25 ? '#ff3300' : hpPct <= 0.5 ? '#ffaa00' : '#00ff88'
   const visionLimited = Boolean(HELMET_DEFS[helmet]?.visionLimit)
 
-  const [clawDecals, setClawDecals] = useState([])
-  const clawIdRef = useRef(0)
-  const prevHitEventId = useRef(hitEventId)
-
-  useEffect(() => {
-    if (prevHitEventId.current === hitEventId) return
-    prevHitEventId.current = hitEventId
-    const id = clawIdRef.current++
-    const x = 10 + Math.random() * 80
-    const y = 10 + Math.random() * 80
-    setClawDecals((prev) => [...prev, { id, x, y }])
-    // Each decal cleans itself up independently — not tied to this effect's
-    // cleanup, so a rapid second hit doesn't cancel the first decal's removal.
-    setTimeout(() => {
-      setClawDecals((prev) => prev.filter((d) => d.id !== id))
-    }, DECAL_LIFETIME_MS)
-  }, [hitEventId])
-
   useEffect(() => {
     const update = () => setIsMobile(getIsMobileHud())
     const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
@@ -112,11 +127,6 @@ export default function HUD() {
 
   return (
     <div style={styles.hud}>
-      <style>{`
-        @keyframes hudClawFadeOut { from { opacity: 1; } to { opacity: 0; } }
-        .hud-claw-fade { animation: hudClawFadeOut ${DECAL_LIFETIME_MS}ms ease-out forwards; }
-      `}</style>
-
       {/* Crosshair */}
       <div style={styles.crosshairH} />
       <div style={styles.crosshairV} />
@@ -283,10 +293,9 @@ export default function HUD() {
         </div>
       )}
 
-      {/* Claw-mark damage decals — pushed on every hitEventId change, self-removing */}
-      {clawDecals.map((d) => (
-        <ClawDecal key={d.id} x={d.x} y={d.y} />
-      ))}
+      {/* Claw-mark damage decals — a fixed pool of slots re-fired on every
+          hitEventId change (see ClawDecalPool for why it's not a dynamic array) */}
+      <ClawDecalPool />
 
       {/* Knight helmet visor — persistent narrow-vision overlay while equipped.
           Five solid dark panels (top/bottom bars + left/nose-bridge/right)
@@ -624,18 +633,19 @@ const styles = {
   },
   clawDecal: {
     position: 'absolute',
-    width: 42,
-    height: 42,
+    width: 110,
+    height: 130,
     transform: 'translate(-50%, -50%)',
     pointerEvents: 'none',
+    zIndex: 5,
   },
   clawSlash: {
     position: 'absolute',
     top: 0,
-    width: 6,
-    height: 42,
-    borderRadius: 3,
-    background: 'linear-gradient(to bottom, rgba(180,0,0,0) 0%, rgba(200,10,10,0.85) 25%, rgba(140,0,0,0.85) 75%, rgba(180,0,0,0) 100%)',
+    width: 14,
+    height: 130,
+    borderRadius: 7,
+    background: 'linear-gradient(to bottom, rgba(200,0,0,0) 0%, rgba(230,15,15,0.95) 20%, rgba(160,0,0,0.95) 80%, rgba(200,0,0,0) 100%)',
   },
   // Knight helmet visor: 5 opaque panels covering everything except two
   // narrow vertical "eye slit" gaps (42-46% and 54-58% of width, within the
