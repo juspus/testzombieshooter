@@ -19,6 +19,24 @@ const FLAMETHROWER_START_AMMO = 1000
 const FLAMETHROWER_AMMO_PACK_COST = 100
 const FLAMETHROWER_AMMO_PACK_AMOUNT = 1000
 
+export const BASE_HP = 20
+export const BANDAGE_COST = 15
+export const BANDAGE_HEAL = 5
+
+// Head-slot armor. One equipped at a time; buying a new one replaces the old.
+export const HELMET_DEFS = {
+  bike_helmet:     { label: 'Bike Helmet',     hp: 5,   cost: 20 },
+  military_helmet: { label: 'Military Helmet', hp: 20,  cost: 100 },
+  knight_helmet:   { label: 'Knight Helmet',   hp: 100, cost: 200, visionLimit: true },
+}
+
+// Body-slot armor. One equipped at a time; buying a new one replaces the old.
+export const BODY_ARMOR_DEFS = {
+  biker_jacket:     { label: 'Biker Jacket',     hp: 15,  cost: 60 },
+  bulletproof_vest: { label: 'Bulletproof Vest', hp: 100, cost: 200 },
+  knight_armor:     { label: 'Knight Armor',     hp: 300, cost: 400, speedMultiplier: 0.7 },
+}
+
 // Flamethrower tuning — sustained-damage spray weapon
 export const FLAME_DPS = 0.5            // burn damage per second per zombie in the stream
 export const FLAME_TICK_INTERVAL = 0.2  // how often burn damage is applied
@@ -50,12 +68,12 @@ const zombiesForWave = (wave) => 5 + (wave - 1) * 3
 const speedForWave = (wave) => 1.5 + (wave - 1) * 0.05
 
 export const ZOMBIE_ARCHETYPES = {
-  walker: { label: 'Walker', health: 2, speedMultiplier: 1, plankHits: 1 },
-  runner: { label: 'Runner', health: 1, speedMultiplier: 1.65, plankHits: 1 },
-  brute: { label: 'Brute', health: 7, speedMultiplier: 0.68, plankHits: 3 },
-  screamer: { label: 'Screamer', health: 2, speedMultiplier: 0.92, plankHits: 1, auraRadius: 6, auraSpeedMultiplier: 1.35 },
-  crawler: { label: 'Crawler', health: 2, speedMultiplier: 0.86, plankHits: 1, heightScale: 0.55 },
-  boss: { label: 'Boss', health: 16, speedMultiplier: 0.58, plankHits: 5, heightScale: 1.45, boss: true },
+  walker: { label: 'Walker', health: 2, speedMultiplier: 1, plankHits: 1, playerDamage: 5 },
+  runner: { label: 'Runner', health: 1, speedMultiplier: 1.65, plankHits: 1, playerDamage: 5 },
+  brute: { label: 'Brute', health: 7, speedMultiplier: 0.68, plankHits: 3, playerDamage: 10 },
+  screamer: { label: 'Screamer', health: 2, speedMultiplier: 0.92, plankHits: 1, auraRadius: 6, auraSpeedMultiplier: 1.35, playerDamage: 5 },
+  crawler: { label: 'Crawler', health: 2, speedMultiplier: 0.86, plankHits: 1, heightScale: 0.55, playerDamage: 5 },
+  boss: { label: 'Boss', health: 16, speedMultiplier: 0.58, plankHits: 5, heightScale: 1.45, boss: true, playerDamage: 25 },
 }
 
 const ZOMBIE_TYPE_UNLOCKS = [
@@ -163,6 +181,11 @@ export const useGameStore = create((set, get) => ({
   waveStartPlanks: 0,
   lastWaveBonuses: null,
   paused: false,
+  hp: BASE_HP,
+  maxHp: BASE_HP,
+  helmet: null,      // head-slot armor id, see HELMET_DEFS
+  bodyArmor: null,   // body-slot armor id, see BODY_ARMOR_DEFS
+  hitEventId: 0,     // bumped on every hitPlayer() call; HUD watches this to trigger the damage decal
 
   startGame: () => {
     const wave = 1
@@ -203,6 +226,11 @@ export const useGameStore = create((set, get) => ({
       waveStartPlanks: 0,
       lastWaveBonuses: null,
       paused: false,
+      hp: BASE_HP,
+      maxHp: BASE_HP,
+      helmet: null,
+      bodyArmor: null,
+      hitEventId: 0,
     })
 
     applyDebugOverrides(set, get)
@@ -334,6 +362,47 @@ export const useGameStore = create((set, get) => ({
   die: () => {
     if (get().phase !== 'playing') return
     set({ phase: 'dead' })
+  },
+
+  // Called by Zombie.jsx's attack_player state. Fully client-local: each
+  // client already computes its own player's proximity/damage independently,
+  // same as the pre-HP instant-kill check did — no net sync needed.
+  hitPlayer: (damage) => {
+    const { phase, hp, hitEventId } = get()
+    if (phase !== 'playing') return
+    const newHp = Math.max(0, hp - damage)
+    set({ hp: newHp, hitEventId: hitEventId + 1 })
+    if (newHp <= 0) get().die()
+  },
+
+  buyBandage: () => {
+    const { money, hp, maxHp } = get()
+    if (hp >= maxHp) return false
+    if (money < BANDAGE_COST) return false
+    set({ hp: Math.min(maxHp, hp + BANDAGE_HEAL), money: money - BANDAGE_COST })
+    return true
+  },
+
+  buyHelmet: (id) => {
+    const def = HELMET_DEFS[id]
+    const { helmet, money, hp, maxHp } = get()
+    if (!def || helmet === id) return false
+    if (money < def.cost) return false
+    const delta = def.hp - (helmet ? HELMET_DEFS[helmet].hp : 0)
+    const newMax = maxHp + delta
+    set({ helmet: id, money: money - def.cost, maxHp: newMax, hp: Math.min(newMax, Math.max(1, hp + delta)) })
+    return true
+  },
+
+  buyBodyArmor: (id) => {
+    const def = BODY_ARMOR_DEFS[id]
+    const { bodyArmor, money, hp, maxHp } = get()
+    if (!def || bodyArmor === id) return false
+    if (money < def.cost) return false
+    const delta = def.hp - (bodyArmor ? BODY_ARMOR_DEFS[bodyArmor].hp : 0)
+    const newMax = maxHp + delta
+    set({ bodyArmor: id, money: money - def.cost, maxHp: newMax, hp: Math.min(newMax, Math.max(1, hp + delta)) })
+    return true
   },
 
   addPlank: (id) => {

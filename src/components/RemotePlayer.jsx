@@ -33,6 +33,17 @@ const STUBBLE = '#6b4c3b'   // jaw shadow
 const EYE     = '#111'
 const BUCKLE  = '#b8860b'   // dark-gold belt buckle
 const SOLE    = '#0d0d0d'   // rubber boot sole
+
+// Armor / helmet colors
+const HELMET_BIKE  = '#d1382a'   // bright bike-helmet shell
+const HELMET_MIL   = '#5b5a3f'   // olive-drab combat helmet
+const STEEL        = '#b8bec4'   // bright polished knight steel
+const VISOR_SLIT   = '#0a0a0a'   // dark great-helm eye slit
+const RIVET        = '#3f4347'   // dark rivet accent on steel
+const JACKET       = '#241811'   // dark leather biker jacket
+const JACKET_TRIM  = '#3a281c'   // jacket zipper/collar accent
+const VEST         = '#33362a'   // olive bulletproof vest
+const VEST_PLATE   = '#20221a'   // vest chest-plate accent
 // ── Component ─────────────────────────────────────────────────────────────
 export default function RemotePlayer() {
   const groupRef    = useRef()
@@ -59,6 +70,16 @@ export default function RemotePlayer() {
   const shotgunRef  = useRef()
   const knifeRef    = useRef()
 
+  // Helmet group refs (head slot)
+  const bikeHelmetRef   = useRef()
+  const milHelmetRef    = useRef()
+  const knightHelmetRef = useRef()
+
+  // Body armor group refs (body slot)
+  const bikerJacketRef  = useRef()
+  const vestRef         = useRef()
+  const knightArmorRef  = useRef()
+
   // Walk state
   const walkPhase = useRef(0)
   const lastPos   = useRef(null)
@@ -82,7 +103,7 @@ export default function RemotePlayer() {
       if (_buffer[i].t <= renderTime) lo = i
     }
 
-    let px, pz, pyaw, sampleWeapon, sampleActiveItem
+    let px, pz, pyaw, sampleWeapon, sampleActiveItem, sampleHelmet, sampleArmor
 
     if (lo >= 0 && lo < _buffer.length - 1) {
       const a = _buffer[lo], b = _buffer[lo + 1]
@@ -92,6 +113,8 @@ export default function RemotePlayer() {
       pyaw = lerpAngle(a.yaw, b.yaw, alpha)
       sampleWeapon     = b.weapon
       sampleActiveItem = b.activeItem
+      sampleHelmet     = b.helmet
+      sampleArmor      = b.bodyArmor
     } else if (_buffer.length >= 2) {
       const a = _buffer[_buffer.length - 2]
       const b = _buffer[_buffer.length - 1]
@@ -106,11 +129,15 @@ export default function RemotePlayer() {
       }
       sampleWeapon     = _buffer[_buffer.length - 1].weapon
       sampleActiveItem = _buffer[_buffer.length - 1].activeItem
+      sampleHelmet     = _buffer[_buffer.length - 1].helmet
+      sampleArmor      = _buffer[_buffer.length - 1].bodyArmor
     } else {
       const s = _buffer[0]
       px = s.x; pz = s.z; pyaw = s.yaw
       sampleWeapon     = s.weapon
       sampleActiveItem = s.activeItem
+      sampleHelmet     = s.helmet
+      sampleArmor      = s.bodyArmor
     }
 
     g.position.x = px
@@ -145,6 +172,14 @@ export default function RemotePlayer() {
     if (deagleRef.current)  deagleRef.current.visible  = !showKnife && sampleWeapon === 'deagle'
     if (shotgunRef.current) shotgunRef.current.visible = !showKnife && sampleWeapon === 'shotgun'
     if (knifeRef.current)   knifeRef.current.visible   = showKnife
+
+    // ── Helmet / body armor visibility ────────────────────────────────────
+    if (bikeHelmetRef.current)   bikeHelmetRef.current.visible   = sampleHelmet === 'bike_helmet'
+    if (milHelmetRef.current)    milHelmetRef.current.visible    = sampleHelmet === 'military_helmet'
+    if (knightHelmetRef.current) knightHelmetRef.current.visible = sampleHelmet === 'knight_helmet'
+    if (bikerJacketRef.current)  bikerJacketRef.current.visible  = sampleArmor === 'biker_jacket'
+    if (vestRef.current)         vestRef.current.visible         = sampleArmor === 'bulletproof_vest'
+    if (knightArmorRef.current)  knightArmorRef.current.visible  = sampleArmor === 'knight_armor'
 
     // Prune old samples
     const cutoff = performance.now() - 2000
@@ -199,6 +234,66 @@ export default function RemotePlayer() {
         <boxGeometry args={[0.07, 0.055, 0.015]} />
         <meshStandardMaterial color={BUCKLE} metalness={0.6} roughness={0.3} />
       </mesh>
+
+      {/* ── Body armor (worn over shirt, hidden unless equipped) ── */}
+
+      {/* Biker jacket */}
+      <group ref={bikerJacketRef} visible={false}>
+        <mesh position={[0, 1.05, 0]}>
+          <boxGeometry args={[0.57, 0.78, 0.32]} />
+          <meshStandardMaterial color={JACKET} />
+        </mesh>
+        {/* Zipper line */}
+        <mesh position={[0, 1.06, -0.162]}>
+          <boxGeometry args={[0.03, 0.66, 0.015]} />
+          <meshStandardMaterial color={JACKET_TRIM} />
+        </mesh>
+        {/* Popped collar */}
+        <mesh position={[0, 1.42, -0.165]}>
+          <boxGeometry args={[0.22, 0.09, 0.02]} />
+          <meshStandardMaterial color={JACKET_TRIM} />
+        </mesh>
+      </group>
+
+      {/* Bulletproof vest */}
+      <group ref={vestRef} visible={false}>
+        <mesh position={[0, 1.03, 0]}>
+          <boxGeometry args={[0.58, 0.68, 0.32]} />
+          <meshStandardMaterial color={VEST} />
+        </mesh>
+        {/* Chest plate — left */}
+        <mesh position={[-0.11, 1.15, -0.175]}>
+          <boxGeometry args={[0.16, 0.18, 0.02]} />
+          <meshStandardMaterial color={VEST_PLATE} />
+        </mesh>
+        {/* Chest plate — right */}
+        <mesh position={[0.11, 1.15, -0.175]}>
+          <boxGeometry args={[0.16, 0.18, 0.02]} />
+          <meshStandardMaterial color={VEST_PLATE} />
+        </mesh>
+      </group>
+
+      {/* Knight armor (steel breastplate) */}
+      <group ref={knightArmorRef} visible={false}>
+        <mesh position={[0, 1.06, 0]}>
+          <boxGeometry args={[0.62, 0.78, 0.36]} />
+          <meshStandardMaterial color={STEEL} metalness={0.8} roughness={0.25} />
+        </mesh>
+        {/* Central ridge */}
+        <mesh position={[0, 1.06, -0.185]}>
+          <boxGeometry args={[0.04, 0.5, 0.02]} />
+          <meshStandardMaterial color={STEEL} metalness={0.8} roughness={0.2} />
+        </mesh>
+        {/* Rivets */}
+        <mesh position={[-0.15, 1.28, -0.185]}>
+          <boxGeometry args={[0.035, 0.035, 0.02]} />
+          <meshStandardMaterial color={RIVET} />
+        </mesh>
+        <mesh position={[0.15, 1.28, -0.185]}>
+          <boxGeometry args={[0.035, 0.035, 0.02]} />
+          <meshStandardMaterial color={RIVET} />
+        </mesh>
+      </group>
 
       {/* ── Head ── */}
       <group ref={headRef} position={[0, 1.58, 0]}>
@@ -267,6 +362,70 @@ export default function RemotePlayer() {
           <boxGeometry args={[0.025, 0.14, 0.09]} />
           <meshStandardMaterial color={HAIR} />
         </mesh>
+
+        {/* ── Helmets (hidden unless equipped) ── */}
+
+        {/* Bike helmet — rounded shell dome */}
+        <group ref={bikeHelmetRef} visible={false}>
+          <mesh position={[0, 0.15, 0.01]}>
+            <boxGeometry args={[0.38, 0.05, 0.36]} />
+            <meshStandardMaterial color={HELMET_BIKE} />
+          </mesh>
+          <mesh position={[0, 0.24, 0.01]}>
+            <boxGeometry args={[0.36, 0.22, 0.34]} />
+            <meshStandardMaterial color={HELMET_BIKE} />
+          </mesh>
+          <mesh position={[0, 0.35, 0.01]}>
+            <boxGeometry args={[0.28, 0.08, 0.26]} />
+            <meshStandardMaterial color={HELMET_BIKE} />
+          </mesh>
+        </group>
+
+        {/* Military helmet — flat, wide M1-style shell */}
+        <group ref={milHelmetRef} visible={false}>
+          <mesh position={[0, 0.13, 0]}>
+            <boxGeometry args={[0.42, 0.09, 0.40]} />
+            <meshStandardMaterial color={HELMET_MIL} />
+          </mesh>
+          <mesh position={[0, 0.22, 0]}>
+            <boxGeometry args={[0.38, 0.14, 0.36]} />
+            <meshStandardMaterial color={HELMET_MIL} />
+          </mesh>
+          {/* Front brim lip */}
+          <mesh position={[0, 0.15, -0.19]}>
+            <boxGeometry args={[0.30, 0.03, 0.06]} />
+            <meshStandardMaterial color={HELMET_MIL} />
+          </mesh>
+        </group>
+
+        {/* Knight helmet — full great-helm with visor slit */}
+        <group ref={knightHelmetRef} visible={false}>
+          {/* Skull */}
+          <mesh position={[0, 0.20, 0]}>
+            <boxGeometry args={[0.36, 0.30, 0.34]} />
+            <meshStandardMaterial color={STEEL} metalness={0.8} roughness={0.25} />
+          </mesh>
+          {/* Face plate */}
+          <mesh position={[0, 0.02, -0.17]}>
+            <boxGeometry args={[0.34, 0.34, 0.06]} />
+            <meshStandardMaterial color={STEEL} metalness={0.8} roughness={0.25} />
+          </mesh>
+          {/* Jaw / chin guard */}
+          <mesh position={[0, -0.13, 0]}>
+            <boxGeometry args={[0.30, 0.14, 0.30]} />
+            <meshStandardMaterial color={STEEL} metalness={0.8} roughness={0.25} />
+          </mesh>
+          {/* Visor slit */}
+          <mesh position={[0, 0.04, -0.195]}>
+            <boxGeometry args={[0.20, 0.03, 0.02]} />
+            <meshStandardMaterial color={VISOR_SLIT} />
+          </mesh>
+          {/* Crest ridge */}
+          <mesh position={[0, 0.37, 0]}>
+            <boxGeometry args={[0.08, 0.06, 0.34]} />
+            <meshStandardMaterial color={STEEL} metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
       </group>
 
       {/* ── Neck ── */}

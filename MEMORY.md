@@ -95,6 +95,44 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-07-07: Fixed the claw-mark damage decal being invisible in real
+  gameplay (reported by product owner right after the HP/armor system
+  shipped). Root cause, found via Playwright + pixel sampling in a running
+  build: the decal component took `hitEventId` as a **prop** from `HUD`.
+  `HUD` re-renders constantly during combat (hp, ammo, every subscribed
+  field), and each of those re-renders reconciled the decal's JSX-declared
+  `opacity: 0` back onto the DOM node — stomping the ref-driven fade
+  animation within a frame or two of it starting, every time. It wasn't a
+  CSS/animation/z-index/canvas-stacking issue at all (ruled all of those out
+  first, expensively) — the fix was simply having the decal component
+  subscribe to `hitEventId` itself (`useGameStore((s) => s.hitEventId)`)
+  instead of receiving it from a parent that re-renders for unrelated
+  reasons. Also switched from a dynamic array of decals to a fixed
+  always-mounted pool (5 slots, round-robin, ref-mutated opacity) — avoids
+  mount/unmount churn, though the prop-drilling fix was the actual cure.
+  General lesson: any transient/animated child fed a "trigger" value as a
+  prop needs to either subscribe to that value directly or be memoized,
+  or a noisy parent will silently stomp its own animation state on re-render.
+
+- 2026-07-07: Added a player HP/armor system (branch
+  `claude/todo-list-review-cm98vz`). Replaces the old instant-kill-on-contact
+  model: player starts at 20 HP, zombies now deal per-archetype melee damage
+  (5 for walker/runner/screamer/crawler, 10 brute, 25 boss) via a new
+  `attack_player` zombie state that mirrors the existing `attack_window`
+  wind-up animation/timer. Shop sells Bandages (instant +5 HP, €15) and two
+  armor slots — Head (Bike Helmet +5hp/€20, Military Helmet +20hp/€100,
+  Knight Helmet +100hp/€200 + vision-limiting visor overlay) and Body (Biker
+  Jacket +15hp/€60, Bulletproof Vest +100hp/€200, Knight Armor +300hp/€400 +
+  0.7x speed penalty) — one item equipped per slot, buying a new one swaps
+  it and adjusts maxHp/hp by the delta. HUD gained an HP bar and a red
+  claw-mark screen decal that fades in 0.2s on hit. Armor is visible on the
+  co-op partner's remote avatar (procedural models, synced via the existing
+  position-broadcast channel) but not on the local player's own view. Built
+  via 4 parallel subagents (zombie AI, shop UI, HUD, remote visuals) after
+  discussing armor-slot design, bandage-as-instant-heal, and remote-only
+  models with the product owner; verified end-to-end in a live Playwright
+  session (zombie melee → HP/decal, shop buy/swap math, vision overlay).
+
 - 2026-06-19: Dynamic music (PR #115). Calm drone during intermission, heavy
   dread during waves: 80 BPM half-time kick, off-beat hat, 55+58.3 Hz beating
   drone pair (3.3 Hz pulse), boom stab every 6 s. 1.5 s crossfade in, 2.5 s
