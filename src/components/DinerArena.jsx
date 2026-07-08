@@ -188,6 +188,26 @@ function BrokenGlassStubs({ win, isNS }) {
   )
 }
 
+// Thin steel jambs at the left/right (or top/bottom, for E/W windows) edges of
+// the opening only — must NOT cover the glass area itself. The previous
+// version sized this box to the opening's full width/height, so it sat as an
+// opaque slab directly over the transparent pane, hiding it completely.
+function WindowFrame({ win, isNS, cy, openH }) {
+  const jamb = 0.08
+  const proud = 0.05
+  const off = WIN_HALF + jamb / 2
+  const [jW, jD] = isNS ? [jamb, WT + proud] : [WT + proud, jamb]
+  const [x1, z1, x2, z2] = isNS
+    ? [win.winX - off, win.winZ, win.winX + off, win.winZ]
+    : [win.winX, win.winZ - off, win.winX, win.winZ + off]
+  return (
+    <>
+      <Box position={[x1, cy, z1]} args={[jW, openH, jD]} color={STEEL} metalness={0.6} roughness={0.4} castShadow={false} />
+      <Box position={[x2, cy, z2]} args={[jW, openH, jD]} color={STEEL} metalness={0.6} roughness={0.4} castShadow={false} />
+    </>
+  )
+}
+
 function WindowGlass({ win }) {
   const isBroken = useGameStore((s) => !!s.brokenWindows[win.id])
   const isNS = win.wall === 'N' || win.wall === 'S'
@@ -195,7 +215,6 @@ function WindowGlass({ win }) {
   const cy = WIN_Y0 + openH / 2
   const w = WIN_HALF * 2
   const [sw, sd] = isNS ? [w, WT] : [WT, w]
-  const [fw, fd] = isNS ? [w + 0.06, 0.05] : [0.05, w + 0.06]
   return (
     <group>
       {/* Sill + lintel fill the wall above/below the glass */}
@@ -209,8 +228,7 @@ function WindowGlass({ win }) {
         </mesh>
       )}
       {isBroken && <BrokenGlassStubs win={win} isNS={isNS} />}
-      {/* Steel frame outline */}
-      <Box position={[win.winX, cy, win.winZ]} args={isNS ? [fw, openH, fd] : [fd, openH, fw]} color={STEEL} metalness={0.6} roughness={0.4} castShadow={false} />
+      <WindowFrame win={win} isNS={isNS} cy={cy} openH={openH} />
       <GlassShards win={win} />
     </group>
   )

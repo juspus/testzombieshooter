@@ -136,3 +136,6 @@ export const CHEST_POS = { x: 5, z: 7 }
 export const HW = CABIN_HW
 export const HD = CABIN_HD
 export const wallSegments = cabinWallSegments
+// The cabin has no low-cover obstacles (every wall is full-height), so
+// gunfire is blocked by the same segments as movement/pathing.
+export const bulletWallSegments = cabinWallSegments

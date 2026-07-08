@@ -17,8 +17,10 @@ const ACTIVE_MAP = getMap(getInitialMapId())
 const { WINDOW_DEFS, CHEST_POS, WIN_HALF, WIN_Y0, WIN_Y1 } = ACTIVE_MAP
 
 // Static walls with window/door gaps already excluded — bullets pass through those openings.
-// Intentionally excludes the windowBlockSegment entries used only for player movement collision.
-const BULLET_WALLS = ACTIVE_MAP.wallSegments()
+// Uses bulletWallSegments() rather than wallSegments(): the collision system is
+// height-blind (flat X/Z test), so any short cover meant to be shot over (e.g.
+// the diner's counter) has to be excluded here even though it blocks movement.
+const BULLET_WALLS = ACTIVE_MAP.bulletWallSegments()
 
 // Shatters a window's glass the first time a bullet passes through its opening.
 // Analytic ray/plane test against each window's wall-plane and opening rect;

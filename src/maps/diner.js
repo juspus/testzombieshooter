@@ -17,8 +17,10 @@ export const WIN_HALF = 1.0
 export const DOOR_X = 0
 export const DOOR_HALF = 1.2
 
-// Solid wall AABB segments (window gaps excluded) — used by buildGrid and collidesWithWalls.
-export function wallSegments() {
+// Structural (full-height) wall segments only — window gaps excluded.
+// Excludes the counter, which is real movement collision but too short
+// (0.9 tall vs. eye height) to block gunfire — see bulletWallSegments().
+function structuralWallSegments() {
   const HT = WALL_HT
   return [
     // === STOREFRONT (south wall, z=+HD): 4 windows packed across it ===
@@ -39,11 +41,26 @@ export function wallSegments() {
     // === WEST WALL (x=-HW): window at z=0 ===
     { x: -HW, z: -3.5, halfW: HT, halfD: 2.5 },  // z∈[-6,-1]
     { x: -HW, z:  3.5, halfW: HT, halfD: 2.5 },  // z∈[1,6]
-
-    // === INTERIOR: front counter — cover in the middle of the open floor,
-    // clear of every window's approach so it never blocks pathing to a window ===
-    { x: 0, z: -1.5, halfW: 6, halfD: 0.3 },  // x∈[-6,6], z∈[-1.8,-1.2]
   ]
+}
+
+// Front counter — a real obstacle for player/zombie movement (forces zombies
+// to path around it, gives the player a moment of cover from melee) but only
+// 0.9 units tall, well below eye height, so it must NOT appear in bulletWallSegments.
+const COUNTER_SEGMENT = { x: 0, z: -1.5, halfW: 6, halfD: 0.3 }  // x∈[-6,6], z∈[-1.8,-1.2]
+
+// Solid wall AABB segments (window gaps excluded) — used by buildGrid,
+// collidesWithWalls, and zombie pathfinding. Includes the counter.
+export function wallSegments() {
+  return [...structuralWallSegments(), COUNTER_SEGMENT]
+}
+
+// Segments that block gunfire/line-of-sight — structural walls only. The
+// collision system is a flat 2D (X/Z) test with no height, so anything meant
+// to be shootable-over (like the counter) has to be excluded here explicitly
+// rather than relying on its short height to save it.
+export function bulletWallSegments() {
+  return structuralWallSegments()
 }
 
 // Window definitions — used for boarding interaction, visuals, and grid blocking.
