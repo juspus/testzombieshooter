@@ -282,6 +282,17 @@ function RoomCodeDisplay({ code }) {
   )
 }
 
+const textLinkStyle = {
+  background: 'transparent',
+  border: 'none',
+  color: '#555',
+  fontSize: 'clamp(9px, 1.8vmin, 12px)',
+  letterSpacing: 3,
+  fontFamily: 'Courier New, monospace',
+  cursor: 'pointer',
+  textTransform: 'uppercase',
+}
+
 function MobileSensitivitySlider() {
   const [value, setValue] = useState(getLookSensitivity)
 
@@ -399,28 +410,23 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
           <Btn onClick={startGame}>SOLO</Btn>
-          {isMobile && <MobileSensitivitySlider />}
           <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
           <div style={{ display: 'flex', gap: 12 }}>
             <Btn onClick={handleHost}>HOST GAME</Btn>
             <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
           </div>
-          <button
-            onClick={() => setView('leaderboard')}
-            style={{
-              marginTop: 6,
-              background: 'transparent',
-              border: 'none',
-              color: '#555',
-              fontSize: 'clamp(9px, 1.8vmin, 12px)',
-              letterSpacing: 3,
-              fontFamily: 'Courier New, monospace',
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-            }}
-          >
-            Leaderboard
-          </button>
+          <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
+            <button onClick={() => setView('leaderboard')} style={textLinkStyle}>Leaderboard</button>
+            {isMobile && <button onClick={() => setView('settings')} style={textLinkStyle}>Settings</button>}
+          </div>
+        </div>
+      )}
+
+      {view === 'settings' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, width: '100%', marginTop: 8 }}>
+          <div style={{ color: '#888', fontSize: 11, letterSpacing: 5, fontFamily: 'Courier New, monospace' }}>SETTINGS</div>
+          <MobileSensitivitySlider />
+          <BackBtn onClick={() => setView('main')} />
         </div>
       )}
 
