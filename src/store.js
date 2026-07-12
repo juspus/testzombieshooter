@@ -1,7 +1,11 @@
 import { create } from 'zustand'
 import { buildGrid } from './walls'
-import { playerCollisionWalls, cabinWallSegments, allWallSegments, SPAWN_CLUSTERS } from './cabin'
-import { playPlankBreak } from './sounds'
+import { getMap, getInitialMapId } from './maps'
+import { playPlankBreak, playGlassShatter } from './sounds'
+
+// Map is chosen once (debug ?map= param) and fixed for the whole session.
+const ACTIVE_MAP = getMap(getInitialMapId())
+const { playerCollisionWalls, wallSegments, allWallSegments, SPAWN_CLUSTERS } = ACTIVE_MAP
 //
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
@@ -144,6 +148,7 @@ const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
+  mapId: getInitialMapId(), // which map's visuals/skybox to render — fixed for the session
   money: 10,
   weapon: 'pistol',        // currently equipped weapon
   ownedWeapons: ['pistol'], // all purchased weapons (determines scroll-cycle pool)
@@ -161,6 +166,7 @@ export const useGameStore = create((set, get) => ({
   windowPlankStrong: {},  // { [windowId]: true } when planks at that window are reinforced
   strongPlanksMode: false,
   plankHits: {},          // { [windowId]: hitCount } toward next plank break
+  brokenWindows: {},      // { [windowId]: true } — glass shattered, permanent for the run
   nearWindowId: -1,  // window the player is currently standing near (-1 = none)
   boardingProgress: 0,  // 0–1, fraction of 2s hold complete
   skipProgress: 0,      // 0–1, fraction of hold-T skip complete
@@ -191,7 +197,7 @@ export const useGameStore = create((set, get) => ({
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    buildGrid(cabinWallSegments())
+    buildGrid(wallSegments())
     const walls = playerCollisionWalls()
     set({
       phase: 'intermission',
@@ -209,6 +215,7 @@ export const useGameStore = create((set, get) => ({
       windowPlankStrong: {},
       strongPlanksMode: false,
       plankHits: {},
+      brokenWindows: {},
       wave,
       kills: 0,
       waveKills: 0,
@@ -417,6 +424,14 @@ export const useGameStore = create((set, get) => ({
     buildGrid(allWallSegments(newPlanks))
     set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, money: money - cost })
     return true
+  },
+
+  // Shatters a window's glass — first zombie to reach it or first bullet through
+  // it triggers this. Permanent for the run (independent of plank state).
+  breakWindow: (id) => {
+    if (get().brokenWindows[id]) return
+    set({ brokenWindows: { ...get().brokenWindows, [id]: true } })
+    playGlassShatter()
   },
 
   upgradePlanks: (id) => {

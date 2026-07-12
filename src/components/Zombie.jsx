@@ -3,8 +3,12 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { getZombieArchetype, useGameStore } from '../store'
 import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
-import { WINDOW_DEFS, CABIN_HW, CABIN_HD, cabinWallSegments, windowBlockSegment } from '../cabin'
+import { getMap, getInitialMapId } from '../maps'
 import { playZombieFootstep, playPlankHit, playScreamerScreech } from '../sounds'
+
+// Map is chosen once (debug ?map= param) and fixed for the whole session.
+const ACTIVE_MAP = getMap(getInitialMapId())
+const { WINDOW_DEFS, HW: CABIN_HW, HD: CABIN_HD, windowBlockSegment } = ACTIVE_MAP
 import { getRemotePlayerPos } from './RemotePlayer'
 import * as THREE from 'three'
 
@@ -532,7 +536,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const targetWindowRef = useRef(-1)
   const attackTimerRef  = useRef(0)
   const windowPlanksRef = useRef(windowPlanks)
-  const zombieWallsRef  = useRef(cabinWallSegments())
+  const zombieWallsRef  = useRef(ACTIVE_MAP.wallSegments())
   const stepTimerRef    = useRef(Math.random() * 0.6)
   const isAggressorRef  = useRef(false)
   const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
@@ -587,7 +591,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   // Zombies collide with cabin walls (window gaps open) + any boarded window faces.
   useEffect(() => {
     windowPlanksRef.current = windowPlanks
-    const segs = [...cabinWallSegments()]
+    const segs = [...ACTIVE_MAP.wallSegments()]
     for (const [wid, count] of Object.entries(windowPlanks)) {
       if (count > 0) segs.push(windowBlockSegment(Number(wid)))
     }
@@ -669,6 +673,17 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
     if (phase !== 'playing') return
     const pos = ref.current.position
+
+    // First zombie to physically reach a window's opening shatters its glass —
+    // covers both boarded (attack_window mode) and unboarded (walked straight
+    // through) windows. No-op on maps whose windows have no glass to break.
+    for (const w of WINDOW_DEFS) {
+      const wdx = pos.x - w.winX, wdz = pos.z - w.winZ
+      if (wdx * wdx + wdz * wdz <= ATTACK_RANGE * ATTACK_RANGE) {
+        useGameStore.getState().breakWindow(w.id)
+        break
+      }
+    }
 
     // Local player position (also used for melee-attack detection — always local)
     const lx = camera.position.x, lz = camera.position.z

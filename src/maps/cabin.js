@@ -124,3 +124,18 @@ export const SPAWN_CLUSTERS = [
   { x:   4, z:  17.2, edge: 'S' },   // tucked into south treeline near main room window
   { x:  -5, z:  17.2, edge: 'S' },   // tucked into south treeline near kitchen window
 ]
+
+// Supply chest (shop) position — was previously defined in Arena.jsx.
+export const CHEST_POS = { x: 5, z: 7 }
+
+// Generic aliases so map-agnostic code (store.js, Player.jsx, Zombie.jsx,
+// NetManager.jsx, src/maps/index.js) can consume any map through the same
+// shape without knowing it's the cabin. Arena.jsx keeps using the named
+// exports above directly since it's cabin-specific and there was no reason
+// to touch its 1200 lines to rename them.
+export const HW = CABIN_HW
+export const HD = CABIN_HD
+export const wallSegments = cabinWallSegments
+// The cabin has no low-cover obstacles (every wall is full-height), so
+// gunfire is blocked by the same segments as movement/pathing.
+export const bulletWallSegments = cabinWallSegments

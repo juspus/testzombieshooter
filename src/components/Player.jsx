@@ -10,12 +10,38 @@ import { Zombie } from './Zombie'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound, setListenerPose } from '../sounds'
 import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION, BODY_ARMOR_DEFS } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
-import { WINDOW_DEFS, cabinWallSegments } from '../cabin'
+import { getMap, getInitialMapId } from '../maps'
 
-// Static cabin walls with window/door gaps already excluded — bullets pass through those openings.
-// Intentionally excludes the windowBlockSegment entries used only for player movement collision.
-const BULLET_WALLS = cabinWallSegments()
-import { CHEST_POS } from './Arena'
+// Map is chosen once (debug ?map= param) and fixed for the whole session.
+const ACTIVE_MAP = getMap(getInitialMapId())
+const { WINDOW_DEFS, CHEST_POS, WIN_HALF, WIN_Y0, WIN_Y1 } = ACTIVE_MAP
+
+// Static walls with window/door gaps already excluded — bullets pass through those openings.
+// Uses bulletWallSegments() rather than wallSegments(): the collision system is
+// height-blind (flat X/Z test), so any short cover meant to be shot over (e.g.
+// the diner's counter) has to be excluded here even though it blocks movement.
+const BULLET_WALLS = ACTIVE_MAP.bulletWallSegments()
+
+// Shatters a window's glass the first time a bullet passes through its opening.
+// Analytic ray/plane test against each window's wall-plane and opening rect;
+// a no-op on maps whose windows have no glass to break.
+function checkWindowShatter(origin, direction, maxDist) {
+  const broken = useGameStore.getState().brokenWindows
+  for (const win of WINDOW_DEFS) {
+    if (broken[win.id]) continue
+    const isNS = win.wall === 'N' || win.wall === 'S'
+    const denom = isNS ? direction.z : direction.x
+    if (Math.abs(denom) < 1e-6) continue
+    const t = ((isNS ? win.winZ : win.winX) - (isNS ? origin.z : origin.x)) / denom
+    if (t <= 0 || t > maxDist) continue
+    const py = origin.y + direction.y * t
+    if (py < WIN_Y0 || py > WIN_Y1) continue
+    const cross = isNS ? origin.x + direction.x * t : origin.z + direction.z * t
+    const center = isNS ? win.winX : win.winZ
+    if (Math.abs(cross - center) > WIN_HALF) continue
+    useGameStore.getState().breakWindow(win.id)
+  }
+}
 import { send, isConnected } from '../net'
 import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
 import * as THREE from 'three'
@@ -315,6 +341,7 @@ export default function Player() {
         const r = Math.sqrt(Math.random()) * SPREAD  // sqrt for even circular distribution
         const pelletRC = new THREE.Raycaster()
         pelletRC.setFromCamera({ x: Math.cos(angle) * r, y: Math.sin(angle) * r }, camera)
+        checkWindowShatter(pelletRC.ray.origin, pelletRC.ray.direction, 30)
         let bestId = null, bestDist = Infinity, bestPoint = null, bestHead = false
         for (const [id, ref] of Object.entries(zombieRefs.current)) {
           if (!ref) continue
@@ -338,6 +365,7 @@ export default function Player() {
       }
     } else if (weaponRef.current === 'deagle') {
       // Pierce up to 3 enemies, instant kill each
+      checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, 50)
       const hits = []
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
         if (!ref) continue
@@ -359,6 +387,7 @@ export default function Player() {
       }
     } else {
       // Single target
+      checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, 50)
       let closest = null, closestDist = Infinity, hitPoint = null, isHeadshot = false, hitFaceNormal = null
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
         if (!ref) continue

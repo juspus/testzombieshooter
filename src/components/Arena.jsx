@@ -7,7 +7,8 @@ import {
   PART_Z_BH, PART_Z_HK, PART_X,
   WINDOW_DEFS,
   SPAWN_CLUSTERS,
-} from '../cabin'
+  CHEST_POS,
+} from '../maps/cabin'
 
 const HW = CABIN_HW
 const HD = CABIN_HD
@@ -21,8 +22,6 @@ const WIN_LINTEL_Y = WIN_Y1 + WIN_LINTEL_H / 2
 const DOOR_H        = 2.2
 const DOOR_LINTEL_H = WH - DOOR_H
 const DOOR_LINTEL_Y = DOOR_H + DOOR_LINTEL_H / 2
-
-export const CHEST_POS = { x: 5, z: 7 }
 
 // ─── Color palette ─────────────────────────────────────────────────────────
 const WALL    = '#2a1608'   // Dark weathered timber

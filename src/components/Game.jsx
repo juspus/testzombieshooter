@@ -3,6 +3,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { startEerieMusic, stopEerieMusic, setMusicIntensity } from '../sounds'
 import Arena from './Arena'
+import DinerArena from './DinerArena'
 import Player from './Player'
 import Gun from './Gun'
 import Knife from './Knife'
@@ -14,6 +15,7 @@ import HUD from './HUD'
 import Screens from './Screens'
 import Shop from './Shop'
 import ForestSkybox from './ForestSkybox'
+import GasStationSkybox from './GasStationSkybox'
 import RemotePlayer from './RemotePlayer'
 import NetManager from './NetManager'
 import MobileControls from './MobileControls'
@@ -62,6 +64,7 @@ function ForceRenderOnShopOpen() {
 export default function Game() {
   useMobileViewport()
   const phase = useGameStore((s) => s.phase)
+  const mapId = useGameStore((s) => s.mapId)
   const isPlaying = phase === 'playing'
   const isActive = phase === 'playing' || phase === 'intermission'
   const inGame = phase === 'playing' || phase === 'wave_clear' || phase === 'intermission'
@@ -117,8 +120,8 @@ export default function Game() {
         }}
       >
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
-        <ForestSkybox />
-        <Arena />
+        {mapId === 'diner' ? <GasStationSkybox /> : <ForestSkybox />}
+        {mapId === 'diner' ? <DinerArena /> : <Arena />}
         <Player />
         <Gun />
         <Knife />

@@ -5,7 +5,26 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
-- (none)
+- New maps: cabin was the only map, now generalized into a src/maps/ schema
+  (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
+  is dev/preview-only via `?map=diner` (gated same as other debug params) —
+  not exposed on the start screen yet. Next step if we want it live: a
+  start-screen map selector wired to `mapId`.
+- Diner storefront glass: fixed a transparency bug (glass sometimes read as
+  opaque — fixed by adding `depthWrite={false}` plus toning down
+  roughness/metalness) and added shattering: `brokenWindows` store state,
+  `breakWindow(id)` action (idempotent, plays a synthesized crash via
+  `playGlassShatter()`). Triggers from two places — Zombie.jsx checks
+  proximity to every window each frame (covers both boarded and
+  walk-straight-through unboarded windows), Player.jsx does an analytic
+  ray/plane test against each window on every shot fired (pistol/ak/shotgun
+  pellets/deagle). DinerArena.jsx swaps the intact glass pane for jagged
+  static stubs + a one-shot debris burst (fixed pool of always-mounted
+  shard meshes, shared geometry/material, toggled via `visible` — no
+  runtime allocation). Verified both trigger paths directly against live
+  store state in a real browser (zombies broke windows 1/2/4 approaching
+  naturally) plus an isolated Node script cross-checking the ray math
+  against all 6 windows.
 
 ## Feature inventory (as of 2026-06-14)
 
@@ -184,3 +203,21 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - 2026-06-15: Added a standing workflow rule to CLAUDE.md — open a PR for
   every session's work (even doc-only) and always report the Vercel
   preview link (PR #100).
+- 2026-07-07: New maps groundwork. Discussed layout/theme ideas (barn,
+  gas-station diner, windowless bunker, two-story house), picked the
+  diner. Generalized cabin.js into src/maps/{cabin,diner}.js + maps/index.js
+  (wall segments, window defs, spawn clusters, chest pos, all data-driven;
+  walls.js/buildGrid already took segment arrays as input, so pathfinding
+  needed zero changes). store.js/Player.jsx/Zombie.jsx/NetManager.jsx now
+  resolve one `ACTIVE_MAP` at module load instead of importing cabin
+  directly; Arena.jsx untouched other than its import path since it's
+  cabin-specific by design. Added DinerArena.jsx (open floor plan, 4
+  storefront windows + 1 each E/W, one counter as the only interior
+  obstacle, gas-station forecourt exterior props) and
+  GasStationSkybox.jsx (procedural canvas texture, same recipe as
+  ForestSkybox). Map choice lives in `mapId` store state, defaulted via
+  `?map=` debug param gated off production (same convention as
+  wave/money/weapon). Verified in a real browser (Playwright): diner
+  renders and plays correctly on `?map=diner`, and a production build
+  ignores the param and stays on cabin. Not exposed to players yet —
+  intentionally dev/preview-only per product owner's call.
