@@ -14,6 +14,38 @@ doing anything else.
   Vercel generates a preview deployment. Always reply with the preview
   URL once it's ready.
 
+### Autonomous improvement loop
+
+- `autonomous-dev` is a long-lived branch for the daily autonomous
+  improvement loop. It does NOT get a fresh PR per change — commits land
+  directly on the branch, against one standing PR (`autonomous-dev` →
+  `main`) that stays open across many runs and carries a running changelog
+  in its description.
+- Each loop run: pick one item off `TODO.md`, implement it, run
+  `npm run test` (vitest) and `npm run playtest` (Playwright smoke test),
+  commit, push to `autonomous-dev`.
+- "Release" = merging that standing PR into `main`, done together at
+  whatever cadence we agree on — this is a deliberate human checkpoint,
+  not automatic. After a release, cut a fresh cycle (branch can be reused
+  or recreated from `main`).
+- This is separate from the normal per-task feature-branch workflow above,
+  which still applies to anything done in direct conversation.
+
+---
+
+## Testing
+
+- `npm run test` — vitest unit tests (`src/**/__tests__`).
+- `npm run playtest` — Playwright smoke test (`playtest/smoke.spec.js`).
+  Launches the dev server headless, starts a solo run via debug params
+  (`?money=500&weapon=ak47`, see `applyDebugOverrides` in `store.js`),
+  drives WASD + shoot for ~12s, and fails on any console/page error. This
+  proves the game *runs* — it is not a judgment of whether a change is
+  fun. Fun calls stay a human decision made together, not something the
+  loop self-certifies.
+- `playwright.config.js` pins `executablePath` to the pre-installed
+  Chromium at `/opt/pw-browsers` — do not run `playwright install`.
+
 ---
 
 ## Architecture

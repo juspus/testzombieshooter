@@ -71,5 +71,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.js'],
     globals: true,
+    // playtest/ holds Playwright specs, run via `npm run playtest`, not vitest.
+    exclude: ['**/node_modules/**', '**/playtest/**'],
   },
 })
