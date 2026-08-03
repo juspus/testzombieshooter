@@ -1,14 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../store'
 import { mobileInput, mobileState, resetMobileInput } from '../mobileInput'
-
-function getIsMobile() {
-  if (typeof window === 'undefined') return false
-  const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
-  const touchPoints = navigator.maxTouchPoints > 0
-  const mobileSized = Math.min(window.innerWidth, window.innerHeight) <= 900
-  return Boolean(coarsePointer || (touchPoints && mobileSized))
-}
+import { isMobileDevice } from '../isMobile'
 
 function getIsPortrait() {
   if (typeof window === 'undefined') return false
@@ -40,7 +33,7 @@ export default function MobileControls() {
   const activeItem = useGameStore((s) => s.activeItem)
   const nearChest = useGameStore((s) => s.nearChest)
   const nearWindowId = useGameStore((s) => s.nearWindowId)
-  const [isMobile, setIsMobile] = useState(getIsMobile)
+  const [isMobile, setIsMobile] = useState(isMobileDevice)
   const [isPortrait, setIsPortrait] = useState(getIsPortrait)
   const [isStandalone, setIsStandalone] = useState(getIsStandalone)
   const [installHintDismissed, setInstallHintDismissed] = useState(getInstallHintDismissed)
@@ -79,7 +72,7 @@ export default function MobileControls() {
 
   useEffect(() => {
     const update = () => {
-      setIsMobile(getIsMobile())
+      setIsMobile(isMobileDevice())
       setIsPortrait(getIsPortrait())
       setIsStandalone(getIsStandalone())
     }

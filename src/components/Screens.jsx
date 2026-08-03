@@ -3,6 +3,7 @@ import { useGameStore } from '../store'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername } from '../supabase'
+import { isMobileDevice } from '../isMobile'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -23,14 +24,6 @@ function useProfile(user) {
   }, [user?.id])
   const refresh = () => getProfile().then((p) => setUsername(p?.username ?? null))
   return { username, loading, refresh }
-}
-
-function getIsMobileScreen() {
-  if (typeof window === 'undefined') return false
-  const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
-  const touchPoints = navigator.maxTouchPoints > 0
-  const mobileSized = Math.min(window.innerWidth, window.innerHeight) <= 900
-  return Boolean(coarsePointer || (touchPoints && mobileSized))
 }
 
 export default function Screens() {
@@ -177,12 +170,12 @@ const styles = {
 }
 
 function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress }) {
-  const [isMobile, setIsMobile] = useState(getIsMobileScreen)
+  const [isMobile, setIsMobile] = useState(isMobileDevice)
   const seconds = Math.ceil(intermissionLeft)
   const urgent = seconds <= 3
 
   useEffect(() => {
-    const update = () => setIsMobile(getIsMobileScreen())
+    const update = () => setIsMobile(isMobileDevice())
     const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
     update()
     window.addEventListener('resize', update)
@@ -283,6 +276,7 @@ function RoomCodeDisplay({ code }) {
 
 function StartScreen({ startGame, user, username, onUsernameSet }) {
   const [view, setView] = useState('main') // 'main' | 'host' | 'join' | 'leaderboard' | 'setusername'
+  const [isMobile] = useState(isMobileDevice)
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
@@ -366,7 +360,11 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
     <Overlay>
       <Title>CABIN</Title>
       <Sub>Survive the waves. Kill all zombies to advance.</Sub>
-      <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>
+      <Controls>
+        {isMobile
+          ? 'Left stick — Move  |  Drag — Look  |  Tap right side — Shoot'
+          : <>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</>}
+      </Controls>
 
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
+import { isMobileDevice } from '../isMobile'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -51,16 +52,8 @@ function ClawDecalPool() {
   )
 }
 
-function getIsMobileHud() {
-  if (typeof window === 'undefined') return false
-  const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
-  const touchPoints = navigator.maxTouchPoints > 0
-  const mobileSized = Math.min(window.innerWidth, window.innerHeight) <= 900
-  return Boolean(coarsePointer || (touchPoints && mobileSized))
-}
-
 export default function HUD() {
-  const [isMobile, setIsMobile] = useState(getIsMobileHud)
+  const [isMobile, setIsMobile] = useState(isMobileDevice)
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
@@ -112,7 +105,7 @@ export default function HUD() {
   const visionLimited = Boolean(HELMET_DEFS[helmet]?.visionLimit)
 
   useEffect(() => {
-    const update = () => setIsMobile(getIsMobileHud())
+    const update = () => setIsMobile(isMobileDevice())
     const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
     update()
     window.addEventListener('resize', update)

@@ -5,6 +5,17 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- Also set up standing infra for a recurring autonomous improvement loop:
+  `autonomous-dev` branch (PR #123 → main, standing changelog, merged at
+  release time by human decision) + `npm run playtest` Playwright smoke
+  test. See CLAUDE.md "Autonomous improvement loop" / "Testing" sections.
+- Mobile onboarding: added `ControlsOnboarding.jsx`, a one-time first-run
+  tip shown on wave 1 (intermission + playing), dismissed by tap/click or
+  a 6s timeout, persisted via `localStorage['cabinControlsTipSeen']`.
+  Content branches on `isMobileDevice()` — new `src/isMobile.js` factors
+  out what was three copy-pasted device-detection functions (HUD.jsx,
+  MobileControls.jsx, Screens.jsx). Also fixed the start screen's
+  `Controls` line, which always showed desktop text even on mobile.
 - New maps: cabin was the only map, now generalized into a src/maps/ schema
   (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
   is dev/preview-only via `?map=diner` (gated same as other debug params) —

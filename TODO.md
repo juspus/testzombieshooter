@@ -47,7 +47,7 @@ Ideas and deferred work to return to. No priority order — discuss before picki
 
 ## Mobile / UX
 
-- **Onboarding overlay** — first-run tip for pointer lock / touch controls
+- ~~**Onboarding overlay** — first-run tip for pointer lock / touch controls~~ done
 
 ## Tech / dev
 
