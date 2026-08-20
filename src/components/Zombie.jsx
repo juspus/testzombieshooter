@@ -253,6 +253,11 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
       {/* ══ HEAD ══ */}
       <group position={headPosition}>
 
+      {/* Invisible head hitbox — generous bounding volume so any shot near the head registers. Opacity=0 keeps it invisible; visible=true (default) keeps it raycasted. */}
+      <mesh geometry={bg(0.42, 0.62, 0.40)} position={[0, 0.760, 0.030]} userData={{ zombieId: id, isHead: true }}>
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
       {/* Main skull dome */}
       <mesh geometry={bg(0.30, 0.38, 0.28)} position={[0, 0.760, 0]} castShadow userData={{ zombieId: id, isHead: true }} material={sm(skullBone, 0.85)} />
       {/* Dome rings — 3 steps to round the crown */}
