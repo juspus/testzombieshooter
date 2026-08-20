@@ -368,6 +368,18 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
       <Sub>Survive the waves. Kill all zombies to advance.</Sub>
       <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>
 
+      <div style={{
+        position: 'absolute',
+        bottom: 'clamp(10px, 2vmin, 20px)',
+        color: '#333',
+        fontSize: 'clamp(8px, 1.4vmin, 11px)',
+        letterSpacing: 2,
+        fontFamily: 'Courier New, monospace',
+        userSelect: 'none',
+      }}>
+        v{__APP_VERSION__}
+      </div>
+
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
