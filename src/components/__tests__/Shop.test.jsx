@@ -3,20 +3,10 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import Shop from '../Shop'
 import { useGameStore } from '../../store'
 
-vi.mock('../../store', () => ({
-  useGameStore: vi.fn(),
-  AK_COST: 500, AK_CLIP: 30,
-  DEAGLE_COST: 800, DEAGLE_CLIP: 7,
-  SHOTGUN_COST: 600, SHOTGUN_CLIP: 8,
-  AMMO_PACK_COST: 100, AMMO_PACK_AMOUNT: 60,
-  DEEP_POCKETS_AMMO_PACK_AMOUNT: 120,
-  PERK_COSTS: {
-    fast_hands: 200, deep_pockets: 200, iron_sights: 300,
-    runners_breath: 300, carpenter: 200, knife_mastery: 300,
-  },
-  STRONG_PLANK_COST: 25,
-  CALIBER_LABELS: { pistol: '9mm', ak47: '7.62mm', deagle: '.50 AE', shotgun: '12ga' },
-}))
+vi.mock('../../store', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, useGameStore: vi.fn() }
+})
 
 function makeStore(overrides = {}) {
   return {
