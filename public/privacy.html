@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy - Cabin</title>
+<meta name="robots" content="index,follow">
+<style>
+body{background:#000;color:#ddd;font-family:"Courier New",monospace;line-height:1.55;margin:0;padding:24px 16px 48px}
+main{max-width:720px;margin:0 auto}
+h1,h2{color:#aa0000;letter-spacing:1px}h1{font-size:1.6em}h2{font-size:1.1em;margin-top:1.8em;text-transform:uppercase}
+a{color:#cc3333}nav{margin-bottom:1.5em}
+button{background:#000;color:#ddd;border:1px solid #aa0000;font-family:inherit;padding:8px 14px;cursor:pointer}
+button:hover{background:#aa0000}
+.ph{color:#e0a030}small,.upd{color:#888}
+</style>
+</head><body><main>
+<nav><a href="/">&larr; Back to game</a> &middot; <a href="/terms.html">Terms</a></nav>
+<h1>Privacy Policy</h1>
+<p class="upd">Last updated: 2026-10-14</p>
+<p>Controller: <span class="ph">[OWNER_NAME]</span>, <span class="ph">[OWNER_COUNTRY]</span>. Contact: <span class="ph">[OWNER_EMAIL]</span>. No ads, no third-party trackers.</p>
+
+<h2>What we collect</h2>
+<p><b>If you sign in:</b></p>
+<ul>
+<li>Your Google account id and email address (held by Supabase Auth).</li>
+<li>Your chosen username, scores, lifetime stats and equipped cosmetics.</li>
+<li>Your purchase record if you buy the Supporter Pack: Stripe session id and amount. No card data; Stripe handles that.</li>
+</ul>
+<p><b>Anonymously, whether or not you sign in:</b></p>
+<ul>
+<li>A random id stored in your browser's localStorage.</li>
+<li>Gameplay events: wave reached, deaths, shop and locker opens, and similar. Each event also records device type (desktop or mobile) and a truncated user agent.</li>
+</ul>
+<p>If you are signed in, events may be linked to your account id.</p>
+
+<h2>Why</h2>
+<p>Account and purchase data: to run your account and deliver what you bought (contract). Anonymous events: to balance the game and measure how many players find and buy the Supporter Pack (our legitimate interest in improving a small game).</p>
+
+<h2>Who processes it</h2>
+<ul>
+<li><b>Supabase</b>: database and sign-in. Region: EU (eu-north-1).</li>
+<li><b>Vercel</b>: hosting and server logs.</li>
+<li><b>Stripe</b>: payments.</li>
+<li><b>Google</b>: sign-in.</li>
+</ul>
+<p>Some of these providers may process data outside the EU under their own safeguards. We don't sell data.</p>
+
+<h2>How long we keep it</h2>
+<p>Gameplay events: 12 months. Account data: until you ask us to delete it. Purchase records may be kept as long as tax or accounting law requires.</p>
+
+<h2>Your rights</h2>
+<p>You can ask for access to your data, correction, or deletion by emailing <span class="ph">[OWNER_EMAIL]</span>. Deleting your account removes your profile and entitlements; your past scores stay on the leaderboard but become anonymous. You can also complain to your local data protection authority.</p>
+
+<h2>Cookies and localStorage</h2>
+<p>We only use functional storage: your sign-in session, game settings, and the anonymous id above. No advertising or tracking cookies.</p>
+
+<h2>Opt out of analytics</h2>
+<p>You can turn off gameplay analytics on this device. It sets a flag in your browser; clearing site data resets it.</p>
+<p><button id="optout" type="button">Disable analytics on this device</button></p>
+<p id="optout-msg" aria-live="polite"></p>
+<script>
+(function(){
+  var msg=document.getElementById('optout-msg'),btn=document.getElementById('optout');
+  function done(){msg.textContent='Analytics disabled on this device';}
+  try{if(localStorage.getItem('cabin.analytics.optout')==='1')done();}catch(e){}
+  btn.addEventListener('click',function(){
+    try{localStorage.setItem('cabin.analytics.optout','1');done();}
+    catch(e){msg.textContent='Could not save the setting (browser storage is blocked).';}
+  });
+})();
+</script>
+
+<h2>Children</h2>
+<p>Cabin is not directed at children under 16, and we don't knowingly collect their data. If you think a child has given us data, email us and we'll delete it.</p>
+
+<h2>Changes</h2>
+<p>If we change this policy, the date above changes.</p>
+
+<p><small><a href="/terms.html">Terms of Service</a> &middot; <a href="/">Back to game</a></small></p>
+</main></body></html>

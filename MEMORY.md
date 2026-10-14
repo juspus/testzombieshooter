@@ -26,6 +26,9 @@ start of every session. Keep entries short — a few lines each.
   naturally) plus an isolated Node script cross-checking the ray math
   against all 6 windows.
 
+- Supporter Pack shipped in code but inert until STRIPE_* env vars are set
+  (see docs/LAUNCH_CHECKLIST.md).
+
 ## Feature inventory (as of 2026-06-14)
 
 What's actually in the game today, grouped by system. This is the
@@ -113,6 +116,16 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - (none yet)
 
 ## Dated log
+
+- 2026-10-14: Monetization v1. The Supabase project had been paused
+  (free tier idle pause) -> restored. Shipped on branch
+  `claude/monetization-supporter-pack`: Supporter Pack (EUR 4.99 one-time,
+  cosmetics only) via Stripe Checkout + `entitlements` table + locker on the
+  start screen + free milestone unlocks, first-party analytics (`events`
+  table, anon id in localStorage, opt-out on privacy page), and a
+  `leaderboard` view with a supporter badge. Added /terms.html and
+  /privacy.html (owner must fill [OWNER_*] placeholders). Owner still needs
+  to put Stripe keys + service role key in Vercel (docs/LAUNCH_CHECKLIST.md).
 
 - 2026-07-07: Fixed inconsistent headshot damage (PR #121). Root cause: each
   zombie's 4 decorative flame-burn cone meshes are `visible={false}` except

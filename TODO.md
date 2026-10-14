@@ -54,4 +54,16 @@ Ideas and deferred work to return to. No priority order — discuss before picki
 - **Rapier physics** — evaluate replacing manual collision with @react-three/rapier for cleaner wall/zombie interactions (deferred pending clear need)
 - **Split Arena.jsx** — it's large; candidate split: `Cabin.jsx` (geometry), `Lighting.jsx`, `Props.jsx`
 - **E2E smoke test** — Playwright: load game, start wave, kill one zombie, reach wave 2
-- **Supabase integration** — scores, room persistence, user accounts (if monetisation moves forward)
+
+---
+
+## Monetization & growth (next)
+
+- **Daily challenge** — seeded run (same spawns for everyone) with its own leaderboard
+- **More skin packs** — data-driven: add entries to `src/cosmetics.js`, no new code paths
+- **CrazyGames / Poki SDK + submission** — rev-share ads, they bring traffic. SOUL.md constraint: no mid-run interstitials; ads only at natural breaks (start screen / after death)
+- **itch.io page** — pay-what-you-want, points at cabin.puodzius.dev
+- **Stripe Tax** — enable when revenue warrants it
+- **Supabase Pro** — stop free-tier pausing (a paused project kills login, leaderboard and purchases)
+- **Account deletion flow** — in-app; the privacy page promises deletion via email for now
+- **Analytics dashboard SQL** — optional saved queries over the `events` table (funnel, retention by wave)

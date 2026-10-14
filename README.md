@@ -203,6 +203,30 @@ src/
 
 ---
 
+## Supporter Pack & cosmetics
+
+An optional one-time EUR 4.99 purchase (Stripe Checkout, requires Google sign-in). It is cosmetic only: gold and obsidian weapon finishes, extra crosshair styles and colours, an ember knife blade, and a star badge on the leaderboard. Nothing affects damage, health, money, ammo, speed or progression. The whole game stays free.
+
+Equip cosmetics in the **Locker** on the start screen. Every paid cosmetic has a free sibling unlocked by milestones (for example reach wave 10 or 250 total kills). Design details: `docs/MONETIZATION.md`; owner setup: `docs/LAUNCH_CHECKLIST.md`.
+
+Legal pages: `/terms.html` and `/privacy.html`. The game uses first-party analytics only (anonymous id, gameplay events in our Supabase DB); players can opt out on the privacy page.
+
+---
+
+## Configuration
+
+Server-side env vars, set in Vercel project settings. Never prefix them with `VITE_` (that would ship them to the browser).
+
+| Var | Purpose |
+|---|---|
+| `STRIPE_SECRET_KEY` | Stripe API (checkout, webhook). Without it the Supporter Pack shows "coming soon" |
+| `STRIPE_WEBHOOK_SECRET` | Verifies Stripe webhook signatures |
+| `SUPABASE_SERVICE_ROLE_KEY` | Verifies the user's JWT and grants entitlements |
+| `SUPABASE_URL` | Optional; defaults to the project URL in `src/supabase.js` |
+| `SUPPORTER_PRICE_CENTS` | Optional; default `499` (EUR) |
+
+---
+
 ## Running Locally
 
 ```bash
@@ -212,4 +236,4 @@ npm run dev
 
 ## Deploying to Vercel
 
-Connect the repository to Vercel. It reads `vercel.json` automatically. No environment variables required.
+Connect the repository to Vercel. It reads `vercel.json` automatically. No environment variables are required to run the game; the Stripe ones below enable the Supporter Pack.
