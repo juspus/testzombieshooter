@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import handler from '../store-config.js'
 import { mockReq, mockRes } from './helpers.js'
 
-const KEYS = ['STRIPE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPPORTER_PRICE_CENTS']
+const KEYS = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPPORTER_PRICE_CENTS']
 let saved
 beforeEach(() => { saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]])); KEYS.forEach((k) => delete process.env[k]) })
 afterEach(() => { KEYS.forEach((k) => (saved[k] === undefined ? delete process.env[k] : (process.env[k] = saved[k]))) })
@@ -23,8 +23,17 @@ describe('GET /api/store-config', () => {
     expect(res.body.checkoutEnabled).toBe(false)
   })
 
-  it('is enabled with both keys and honours price override', () => {
+  it('is disabled without the webhook secret', () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_x'
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'srv'
+    const res = mockRes()
+    handler(mockReq(), res)
+    expect(res.body.checkoutEnabled).toBe(false)
+  })
+
+  it('is enabled with all keys and honours price override', () => {
+    process.env.STRIPE_SECRET_KEY = 'sk_test_x'
+    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_x'
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'srv'
     process.env.SUPPORTER_PRICE_CENTS = '700'
     const res = mockRes()

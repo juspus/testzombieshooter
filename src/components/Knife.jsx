@@ -6,7 +6,18 @@ import * as THREE from 'three'
 const SWING_DUR = 0.35  // seconds for full swing arc
 
 export function HuntingKnifeModel() {
-  const metal  = <meshStandardMaterial color="#b8b8b8" metalness={0.95} roughness={0.10} />
+  const ember = useGameStore((s) => s.cosmetics?.knifeSkin) === 'ember'  // cosmetic only
+  // Blade material always carries emissive (black / 0 on the default skin) so both
+  // skins are the same material config -> one shader program, no recompile on equip.
+  const metal  = (
+    <meshStandardMaterial
+      color={ember ? '#3a3a40' : '#b8b8b8'}
+      metalness={ember ? 0.9 : 0.95}
+      roughness={ember ? 0.25 : 0.10}
+      emissive={ember ? '#ff4a1a' : '#000000'}
+      emissiveIntensity={ember ? 0.9 : 0}
+    />
+  )
   const spine  = <meshStandardMaterial color="#1a1a1a" metalness={0.80} roughness={0.35} />
   const bolster = <meshStandardMaterial color="#888888" metalness={0.85} roughness={0.25} />
   const grip   = <meshStandardMaterial color="#2e1006" metalness={0.00} roughness={0.88} />

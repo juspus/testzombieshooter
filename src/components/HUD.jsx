@@ -1,11 +1,50 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
+import { CROSSHAIR_HEX } from '../cosmetics'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
 const DECAL_LIFETIME_MS = 260
 
 const CLAW_POOL_SIZE = 5
+
+// Cosmetic crosshair (pure CSS, no gameplay effect). Subscribes to the two
+// cosmetic fields itself and is memoised, so HUD's frequent re-renders don't
+// touch it. 'cross' + 'white' is the original look.
+const Crosshair = memo(function Crosshair() {
+  const shape = useGameStore((s) => s.cosmetics?.crosshair) ?? 'cross'
+  const colorId = useGameStore((s) => s.cosmetics?.crosshairColor) ?? 'white'
+  const c = CROSSHAIR_HEX[colorId] ?? CROSSHAIR_HEX.white
+  const wrap = { position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, opacity: 0.85 }
+  const centered = { position: 'absolute', transform: 'translate(-50%, -50%)', background: c }
+  if (shape === 'dot') {
+    return <div style={wrap}><div style={{ ...centered, width: 6, height: 6, borderRadius: '50%' }} /></div>
+  }
+  if (shape === 'chevron') {
+    // Two short lines forming a "^" whose apex sits just below screen centre.
+    const arm = { ...centered, width: 11, height: 2 }
+    return (
+      <div style={wrap}>
+        <div style={{ ...arm, left: -4, top: 11, transform: 'translate(-50%, -50%) rotate(-40deg)' }} />
+        <div style={{ ...arm, left: 4, top: 11, transform: 'translate(-50%, -50%) rotate(40deg)' }} />
+      </div>
+    )
+  }
+  if (shape === 'circle') {
+    return (
+      <div style={wrap}>
+        <div style={{ ...centered, background: 'transparent', width: 18, height: 18, borderRadius: '50%', border: `2px solid ${c}`, boxSizing: 'border-box' }} />
+        <div style={{ ...centered, width: 4, height: 4, borderRadius: '50%' }} />
+      </div>
+    )
+  }
+  return (
+    <div style={wrap}>
+      <div style={{ ...centered, width: 20, height: 2 }} />
+      <div style={{ ...centered, width: 2, height: 20 }} />
+    </div>
+  )
+})
 
 // A fixed pool of always-mounted claw-decal slots, cycled round-robin and
 // faded via direct ref mutation of style.opacity. Subscribes to hitEventId
@@ -141,8 +180,7 @@ export default function HUD() {
       )}
 
       {/* Crosshair */}
-      <div style={styles.crosshairH} />
-      <div style={styles.crosshairV} />
+      <Crosshair />
 
       {/* Top bar */}
       {showTopBar && (
@@ -321,24 +359,6 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-  },
-  crosshairH: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 20,
-    height: 2,
-    background: 'rgba(255,255,255,0.85)',
-  },
-  crosshairV: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: 2,
-    height: 20,
-    background: 'rgba(255,255,255,0.85)',
   },
   threatBox: {
     position: 'relative',

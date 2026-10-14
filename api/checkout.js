@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { getStripe } from './_lib/stripeClient.js'
 import { getSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { getSafeOrigin } from './_lib/origin.js'
@@ -13,7 +14,8 @@ export default async function handler(req, res) {
 
   const stripe = getStripe()
   const supabase = getSupabaseAdmin()
-  if (!stripe || !supabase) return res.status(503).json({ error: 'checkout_unavailable' })
+  // No webhook secret => paid sessions could never be granted; refuse to sell.
+  if (!stripe || !supabase || !process.env.STRIPE_WEBHOOK_SECRET) return res.status(503).json({ error: 'checkout_unavailable' })
 
   const match = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization ?? ''))
   if (!match) return res.status(401).json({ error: 'unauthorized' })
@@ -36,7 +38,7 @@ export default async function handler(req, res) {
     if (owned) return res.status(409).json({ error: 'already_owned' })
 
     const origin = getSafeOrigin(req)
-    const session = await stripe.checkout.sessions.create({
+    const params = {
       mode: 'payment',
       line_items: [
         {
@@ -62,7 +64,13 @@ export default async function handler(req, res) {
           message: `By paying you agree to immediate delivery of this digital content and acknowledge that your 14-day right of withdrawal ends once it is delivered. Terms: ${origin}/terms.html`,
         },
       },
-    })
+    }
+    // Same user + same params within a 10-minute window => Stripe returns the same
+    // session instead of a new one. Caps session spam and stops two tabs from
+    // producing two payable sessions (double charge; the second grant is a no-op).
+    const windowId = Math.floor(Date.now() / 600_000)
+    const idempotencyKey = 'checkout_' + createHash('sha256').update(`${user.id}|${windowId}|${JSON.stringify(params)}`).digest('hex')
+    const session = await stripe.checkout.sessions.create(params, { idempotencyKey })
 
     return res.status(200).json({ url: session.url })
   } catch (err) {

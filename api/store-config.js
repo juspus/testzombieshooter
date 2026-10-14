@@ -7,7 +7,10 @@ export default function handler(req, res) {
   }
   res.setHeader('Cache-Control', 'public, max-age=60')
   res.status(200).json({
-    checkoutEnabled: Boolean(process.env.STRIPE_SECRET_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY),
+    // Never sell without the webhook secret: payments would land but never be granted.
+    checkoutEnabled: Boolean(
+      process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET && process.env.SUPABASE_SERVICE_ROLE_KEY,
+    ),
     priceLabel: formatPrice(getPriceCents()),
     sku: SKU,
   })

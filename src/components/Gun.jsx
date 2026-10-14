@@ -1,6 +1,7 @@
 import { useRef, useMemo } from 'react'
 import { useThree, useFrame, createPortal } from '@react-three/fiber'
 import { useGameStore } from '../store'
+import { applySkin } from '../cosmetics'
 import * as THREE from 'three'
 
 const _muzzleWorld = new THREE.Vector3()
@@ -11,46 +12,47 @@ export function PistolModel({ gunMat }) {
       {/* Slide / upper receiver */}
       <mesh position={[0, 0.04, -0.04]}>
         <boxGeometry args={[0.065, 0.055, 0.26]} />
-        {gunMat('#585858')}
+        {gunMat('#585858', 0.7, 0.3, 'metal')}
       </mesh>
       {/* Lower frame */}
       <mesh position={[0, -0.01, 0.02]}>
         <boxGeometry args={[0.06, 0.045, 0.18]} />
-        {gunMat('#636363', 0.5, 0.4)}
+        {gunMat('#636363', 0.5, 0.4, 'metal')}
       </mesh>
       {/* Barrel */}
       <mesh position={[0, 0.02, -0.22]}>
         <boxGeometry args={[0.032, 0.032, 0.18]} />
-        {gunMat('#444', 0.9, 0.15)}
+        {gunMat('#444', 0.9, 0.15, 'dark')}
       </mesh>
       {/* Grip */}
       <mesh position={[0, -0.1, 0.06]} rotation={[0.15, 0, 0]}>
         <boxGeometry args={[0.058, 0.13, 0.082]} />
-        {gunMat('#3a3a3a', 0.1, 0.95)}
+        {gunMat('#3a3a3a', 0.1, 0.95, 'grip')}
       </mesh>
       {/* Trigger guard */}
       <mesh position={[0, -0.035, 0.02]}>
         <boxGeometry args={[0.045, 0.014, 0.075]} />
-        {gunMat('#555', 0.4, 0.5)}
+        {gunMat('#555', 0.4, 0.5, 'dark')}
       </mesh>
       {/* Sight rear */}
       <mesh position={[0, 0.075, 0.08]}>
         <boxGeometry args={[0.05, 0.018, 0.014]} />
-        {gunMat('#666', 0.6, 0.3)}
+        {gunMat('#666', 0.6, 0.3, 'accent')}
       </mesh>
       {/* Sight front */}
       <mesh position={[0, 0.075, -0.14]}>
         <boxGeometry args={[0.01, 0.018, 0.01]} />
-        {gunMat('#666', 0.6, 0.3)}
+        {gunMat('#666', 0.6, 0.3, 'accent')}
       </mesh>
     </>
   )
 }
 
 export function AKModel({ gunMat }) {
-  const metal  = (color) => gunMat(color, 0.8, 0.25)
-  const wood   = (color) => gunMat(color, 0.0, 0.92)
-  const grip   = ()      => gunMat('#252525', 0.1, 0.9)
+  const metal  = (color) => gunMat(color, 0.8, 0.25, 'metal')
+  const dark   = (color) => gunMat(color, 0.8, 0.25, 'dark')
+  const wood   = (color) => gunMat(color, 0.0, 0.92, 'wood')
+  const grip   = ()      => gunMat('#252525', 0.1, 0.9, 'grip')
   return (
     <>
       {/* Upper receiver */}
@@ -97,41 +99,41 @@ export function AKModel({ gunMat }) {
       {/* Trigger guard */}
       <mesh position={[0, -0.04, -0.01]}>
         <boxGeometry args={[0.040, 0.013, 0.09]} />
-        {metal('#444')}
+        {dark('#444')}
       </mesh>
 
       {/* Banana magazine — 3 angled segments */}
       <mesh position={[0, -0.088, -0.055]} rotation={[-0.08, 0, 0]}>
         <boxGeometry args={[0.058, 0.055, 0.075]} />
-        {metal('#2a2a1a')}
+        {dark('#2a2a1a')}
       </mesh>
       <mesh position={[0, -0.148, -0.080]} rotation={[-0.20, 0, 0]}>
         <boxGeometry args={[0.056, 0.068, 0.085]} />
-        {metal('#2a2a1a')}
+        {dark('#2a2a1a')}
       </mesh>
       <mesh position={[0, -0.208, -0.092]} rotation={[-0.30, 0, 0]}>
         <boxGeometry args={[0.054, 0.042, 0.055]} />
-        {metal('#252515')}
+        {dark('#252515')}
       </mesh>
 
       {/* Front sight post */}
       <mesh position={[0, 0.068, -0.64]}>
         <boxGeometry args={[0.036, 0.065, 0.038]} />
-        {metal('#333')}
+        {dark('#333')}
       </mesh>
 
       {/* Rear sight */}
       <mesh position={[0, 0.068, -0.02]}>
         <boxGeometry args={[0.055, 0.024, 0.038]} />
-        {metal('#444')}
+        {dark('#444')}
       </mesh>
     </>
   )
 }
 
 export function DeagleModel({ gunMat }) {
-  const chrome = (r = 0.15) => gunMat('#aaaaaa', 0.9, r)
-  const dark   = ()         => gunMat('#2e2e2e', 0.8, 0.2)
+  const chrome = (r = 0.15) => gunMat('#aaaaaa', 0.9, r, 'chrome')
+  const dark   = ()         => gunMat('#2e2e2e', 0.8, 0.2, 'dark')
   return (
     <>
       {/* Main slide — large and boxy */}
@@ -167,7 +169,7 @@ export function DeagleModel({ gunMat }) {
       {/* Grip — chunky, checkered */}
       <mesh position={[0, -0.125, 0.08]} rotation={[0.12, 0, 0]}>
         <boxGeometry args={[0.075, 0.155, 0.105]} />
-        {gunMat('#1a1a1a', 0.1, 0.95)}
+        {gunMat('#1a1a1a', 0.1, 0.95, 'grip')}
       </mesh>
 
       {/* Rear sight — wide notch block */}
@@ -194,8 +196,9 @@ export function DeagleModel({ gunMat }) {
 }
 
 export function ShotgunModel({ gunMat, pumpRef }) {
-  const metal = (c) => gunMat(c, 0.75, 0.3)
-  const wood  = (c) => gunMat(c, 0.0,  0.9)
+  const metal = (c) => gunMat(c, 0.75, 0.3, 'metal')
+  const dark  = (c) => gunMat(c, 0.75, 0.3, 'dark')
+  const wood  = (c) => gunMat(c, 0.0,  0.9, 'wood')
   return (
     <>
       {/* Receiver / action block — wide and tall */}
@@ -213,13 +216,13 @@ export function ShotgunModel({ gunMat, pumpRef }) {
       {/* Muzzle end cap — pronounced flare */}
       <mesh position={[0, 0.028, -0.640]}>
         <boxGeometry args={[0.072, 0.072, 0.036]} />
-        {metal('#333')}
+        {dark('#333')}
       </mesh>
 
       {/* Tubular magazine under barrel — thick */}
       <mesh position={[0, -0.024, -0.30]}>
         <boxGeometry args={[0.048, 0.048, 0.46]} />
-        {metal('#303030')}
+        {dark('#303030')}
       </mesh>
 
       {/* Pump / forend — chunky wood grip, animated on shot */}
@@ -248,27 +251,28 @@ export function ShotgunModel({ gunMat, pumpRef }) {
       {/* Trigger guard */}
       <mesh position={[0, -0.050, 0.022]}>
         <boxGeometry args={[0.068, 0.016, 0.10]} />
-        {metal('#3a3a3a')}
+        {dark('#3a3a3a')}
       </mesh>
 
       {/* Front bead sight */}
       <mesh position={[0, 0.063, -0.60]}>
         <boxGeometry args={[0.014, 0.018, 0.012]} />
-        {gunMat('#aaa', 0.9, 0.2)}
+        {gunMat('#aaa', 0.9, 0.2, 'accent')}
       </mesh>
 
       {/* Shell ejection port */}
       <mesh position={[0.063, 0.024, 0.01]}>
         <boxGeometry args={[0.008, 0.038, 0.08]} />
-        {metal('#1a1a1a')}
+        {dark('#1a1a1a')}
       </mesh>
     </>
   )
 }
 
 export function FlamethrowerModel({ gunMat }) {
-  const metal = (c) => gunMat(c, 0.75, 0.35)
-  const tank  = (c) => gunMat(c, 0.6, 0.4)
+  const metal = (c) => gunMat(c, 0.75, 0.35, 'metal')
+  const dark  = (c) => gunMat(c, 0.75, 0.35, 'dark')
+  const tank  = (c) => gunMat(c, 0.6, 0.4, 'accent')
   return (
     <>
       {/* Fuel tank — large cylinder slung under/behind the nozzle */}
@@ -279,16 +283,16 @@ export function FlamethrowerModel({ gunMat }) {
       {/* Tank end caps */}
       <mesh position={[0.01, -0.05, -0.01]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.088, 0.088, 0.02, 16]} />
-        {metal('#3a3a3a')}
+        {dark('#3a3a3a')}
       </mesh>
       <mesh position={[0.01, -0.05, 0.33]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.088, 0.088, 0.02, 16]} />
-        {metal('#3a3a3a')}
+        {dark('#3a3a3a')}
       </mesh>
       {/* Tank stencil stripe */}
       <mesh position={[0.01, -0.012, 0.16]}>
         <boxGeometry args={[0.005, 0.02, 0.30]} />
-        {gunMat('#d9b400', 0.2, 0.7)}
+        {gunMat('#d9b400', 0.2, 0.7, 'accent')}
       </mesh>
       {/* Pressure gauge */}
       <mesh position={[0.01, 0.03, 0.02]}>
@@ -305,7 +309,7 @@ export function FlamethrowerModel({ gunMat }) {
       {/* Fuel hose — curves from tank to receiver */}
       <mesh position={[0.045, -0.005, 0.05]} rotation={[0.2, 0, 0.35]}>
         <cylinderGeometry args={[0.018, 0.018, 0.20, 8]} />
-        {gunMat('#1a1a1a', 0.2, 0.85)}
+        {gunMat('#1a1a1a', 0.2, 0.85, 'dark')}
       </mesh>
 
       {/* Igniter housing */}
@@ -338,18 +342,18 @@ export function FlamethrowerModel({ gunMat }) {
       {/* Pistol grip */}
       <mesh position={[0, -0.105, -0.02]} rotation={[0.18, 0, 0]}>
         <boxGeometry args={[0.060, 0.135, 0.075]} />
-        {gunMat('#1c1c1c', 0.1, 0.9)}
+        {gunMat('#1c1c1c', 0.1, 0.9, 'grip')}
       </mesh>
       {/* Trigger guard */}
       <mesh position={[0, -0.045, -0.05]}>
         <boxGeometry args={[0.046, 0.014, 0.085]} />
-        {metal('#3a3a3a')}
+        {dark('#3a3a3a')}
       </mesh>
 
       {/* Shoulder strap mount */}
       <mesh position={[0.01, -0.05, 0.33]} rotation={[0, 0, Math.PI / 2]}>
         <torusGeometry args={[0.03, 0.006, 6, 10]} />
-        {metal('#222')}
+        {dark('#222')}
       </mesh>
     </>
   )
@@ -359,6 +363,7 @@ export default function Gun() {
   const { camera } = useThree()
   const weapon = useGameStore((s) => s.weapon)
   const activeItem = useGameStore((s) => s.activeItem)
+  const skin = useGameStore((s) => s.cosmetics.skin)  // cosmetic only; read once here, not in the factory
   const isAK = weapon === 'ak47'
   const isDeagle = weapon === 'deagle'
   const isShotgun = weapon === 'shotgun'
@@ -476,9 +481,19 @@ export default function Gun() {
     gl.autoClear = true
   }, 1)
 
-  const gunMat = (color, metalness = 0.7, roughness = 0.3) => (
-    <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
-  )
+  // `role` ('metal' | 'dark' | 'wood' | 'grip' | 'chrome' | 'accent') lets a cosmetic skin
+  // override color/metalness/roughness. Same material type + props => same shader program.
+  // applySkin is a lookup into frozen module-level palettes (no allocation).
+  const gunMat = (color, metalness = 0.7, roughness = 0.3, role) => {
+    const o = role ? applySkin(skin, role) : null
+    return (
+      <meshStandardMaterial
+        color={o ? o.color : color}
+        metalness={o ? o.metalness : metalness}
+        roughness={o ? o.roughness : roughness}
+      />
+    )
+  }
 
   const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : isFlamethrower ? -0.66 : -0.31
 

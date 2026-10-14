@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
+import { track } from '../analytics'
+import { CROSSHAIR_COLORS, SUPPORTER_SKU, describeUnlock, isUnlocked, itemsOfKind, unlockText } from '../cosmetics'
+import { hydrateStoreFromLocal, syncProfileWithCloud } from '../profilePersistence'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
-import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername } from '../supabase'
+import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -23,6 +26,70 @@ function useProfile(user) {
   }, [user?.id])
   const refresh = () => getProfile().then((p) => setUsername(p?.username ?? null))
   return { username, loading, refresh }
+}
+
+// ── Stripe return (?checkout=success|cancel) ───────────────────────────────
+
+function readCheckoutParam() {
+  if (typeof window === 'undefined') return null
+  try {
+    const c = new URLSearchParams(window.location.search).get('checkout')
+    return c === 'success' || c === 'cancel' ? c : null
+  } catch {
+    return null
+  }
+}
+
+function stripCheckoutParams() {
+  try {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('checkout')
+    url.searchParams.delete('session_id')
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+  } catch { /* cosmetic only */ }
+}
+
+let checkoutHandled = false  // module-level so React StrictMode's double effect doesn't double-track
+const POLL_EVERY_MS = 1500
+const POLL_MAX_ATTEMPTS = 8
+
+/**
+ * On return from Stripe: poll entitlements (the webhook may lag the redirect)
+ * until the supporter pack shows up. Returns the locker notice (or null).
+ * The initial value comes from the URL, so StartScreen can open the locker on first render.
+ */
+function useCheckoutReturn() {
+  const [checkout] = useState(readCheckoutParam)
+  const [notice, setNotice] = useState(checkout === 'success' ? 'Confirming your purchase…' : null)
+  useEffect(() => {
+    if (!checkout || checkoutHandled) return
+    checkoutHandled = true
+    if (checkout === 'cancel') {
+      track('checkout_cancel')
+      stripCheckoutParams()
+      return
+    }
+    track('checkout_success')
+    ;(async () => {
+      for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
+        try {
+          const list = await fetchEntitlements()
+          if (list.includes(SUPPORTER_SKU)) {
+            useGameStore.getState().setEntitlements(list)
+            setNotice('Thank you — Supporter Pack unlocked')
+            stripCheckoutParams()
+            return
+          }
+        } catch (err) {
+          console.warn('[checkout] entitlement poll failed', err)
+        }
+        await new Promise((r) => setTimeout(r, POLL_EVERY_MS))
+      }
+      setNotice('Payment received — your Supporter Pack can take a minute to appear. Reopen the locker shortly.')
+      stripCheckoutParams()
+    })()
+  }, [checkout])
+  return { openLocker: checkout === 'success', notice }
 }
 
 function getIsMobileScreen() {
@@ -53,13 +120,30 @@ export default function Screens() {
 
   const authUser = useAuthUser()
   const { username, refresh: refreshProfile } = useProfile(authUser)
+  const checkoutReturn = useCheckoutReturn()
+
+  // Anonymous profile (stats + equipped cosmetics) from localStorage.
+  useEffect(() => { hydrateStoreFromLocal() }, [])
+  // Signed in: merge with the cloud profile + load entitlements. Signed out: drop entitlements.
+  const prevUserId = useRef(null)
+  useEffect(() => {
+    const id = authUser?.id ?? null
+    if (id) {
+      syncProfileWithCloud(authUser)
+    } else if (prevUserId.current) {
+      const st = useGameStore.getState()
+      st.setEntitlements([])
+      st.revalidateCosmetics()
+    }
+    prevUserId.current = id
+  }, [authUser?.id])
 
   if (paused && mpRole === 'guest') {
     return <PausedOverlay />
   }
 
   if (phase === 'start') {
-    return <StartScreen startGame={startGame} user={authUser} username={username} onUsernameSet={refreshProfile} />
+    return <StartScreen startGame={startGame} user={authUser} username={username} onUsernameSet={refreshProfile} checkoutReturn={checkoutReturn} />
   }
 
   if (phase === 'wave_clear') {
@@ -281,8 +365,8 @@ function RoomCodeDisplay({ code }) {
   )
 }
 
-function StartScreen({ startGame, user, username, onUsernameSet }) {
-  const [view, setView] = useState('main') // 'main' | 'host' | 'join' | 'leaderboard' | 'setusername'
+function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
+  const [view, setView] = useState(checkoutReturn?.openLocker ? 'locker' : 'main') // 'main' | 'host' | 'join' | 'leaderboard' | 'locker' | 'setusername'
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
@@ -364,9 +448,9 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
 
   return (
     <Overlay>
-      <Title>CABIN</Title>
-      <Sub>Survive the waves. Kill all zombies to advance.</Sub>
-      <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>
+      {view !== 'locker' && <Title>CABIN</Title>}
+      {view !== 'locker' && <Sub>Survive the waves. Kill all zombies to advance.</Sub>}
+      {view !== 'locker' && <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>}
 
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
@@ -377,22 +461,21 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
             <Btn onClick={handleHost}>HOST GAME</Btn>
             <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
           </div>
-          <button
-            onClick={() => setView('leaderboard')}
-            style={{
-              marginTop: 6,
-              background: 'transparent',
-              border: 'none',
-              color: '#555',
-              fontSize: 'clamp(9px, 1.8vmin, 12px)',
-              letterSpacing: 3,
-              fontFamily: 'Courier New, monospace',
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-            }}
-          >
-            Leaderboard
-          </button>
+          <div style={{ display: 'flex', gap: 'clamp(14px, 4vmin, 28px)', marginTop: 6 }}>
+            <button onClick={() => setView('leaderboard')} style={textLinkStyle}>
+              Leaderboard
+            </button>
+            <button onClick={() => setView('locker')} style={textLinkStyle}>
+              Locker
+            </button>
+          </div>
+        </div>
+      )}
+
+      {view === 'locker' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+          <LockerPanel user={user} notice={checkoutReturn?.notice} />
+          <BackBtn onClick={() => setView('main')} />
         </div>
       )}
 
@@ -444,6 +527,17 @@ function StartScreen({ startGame, user, username, onUsernameSet }) {
       )}
     </Overlay>
   )
+}
+
+const textLinkStyle = {
+  background: 'transparent',
+  border: 'none',
+  color: '#555',
+  fontSize: 'clamp(9px, 1.8vmin, 12px)',
+  letterSpacing: 3,
+  fontFamily: 'Courier New, monospace',
+  cursor: 'pointer',
+  textTransform: 'uppercase',
 }
 
 const smallBtnStyle = {
@@ -732,6 +826,7 @@ function Controls({ children }) {
 }
 
 function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, username }) {
+  const lastRunUnlocks = useGameStore((s) => s.lastRunUnlocks)
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
   const [shareStatus, setShareStatus] = useState('')
@@ -858,6 +953,22 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         <DeathStat label="Weapon" value={runSummary.weapon} />
         <DeathStat label="Perks" value={runSummary.perks.length || 'None'} />
       </div>
+
+      {lastRunUnlocks?.length > 0 && (
+        <div style={{
+          opacity,
+          marginTop: 'clamp(6px, 1.5vmin, 14px)',
+          color: '#ffd166',
+          fontSize: 'clamp(10px, 2vmin, 13px)',
+          letterSpacing: 3,
+          fontFamily: 'Courier New, monospace',
+          textTransform: 'uppercase',
+          textAlign: 'center',
+          maxWidth: '88vw',
+        }}>
+          NEW UNLOCK: {lastRunUnlocks.map(describeUnlock).join(', ')}
+        </div>
+      )}
 
       <div style={{
         marginTop: 'clamp(10px, 3.5vmin, 56px)',
@@ -1044,7 +1155,10 @@ function LeaderboardPanel({ highlightWave, highlightKills } = {}) {
                 borderBottom: '1px solid rgba(255,255,255,0.03)',
               }}>
                 <span style={{ color: i === 0 ? '#ff3300' : '#555' }}>{i + 1}</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {row.is_supporter && <span title="Supporter" aria-label="Supporter" style={{ color: '#ffd166' }}>★ </span>}
+                  {row.name}
+                </span>
                 <span style={{ textAlign: 'right' }}>{row.wave}</span>
                 <span style={{ textAlign: 'right', color: '#888' }}>{row.kills}</span>
               </div>
@@ -1054,6 +1168,225 @@ function LeaderboardPanel({ highlightWave, highlightKills } = {}) {
       )}
     </div>
   )
+}
+
+// ── Locker (cosmetics) ──────────────────────────────────────────────────────
+// Cosmetics only: nothing here changes a gameplay number. Paid items sit next
+// to a free sibling earned by playing. No timers, no scarcity copy, no popups.
+
+const CROSSHAIR_GLYPHS = { cross: '+', dot: '●', chevron: '⌃', circle: '◎' }
+
+const CHECKOUT_ERRORS = {
+  already_owned: 'You already own the Supporter Pack.',
+  checkout_unavailable: 'Checkout is unavailable right now.',
+  unauthorized: 'Please sign in again.',
+}
+
+function LockIcon() {
+  return (
+    <svg width="10" height="12" viewBox="0 0 10 12" aria-label="Locked" style={{ flexShrink: 0 }}>
+      <rect x="0.5" y="5" width="9" height="6.5" rx="1" fill="none" stroke="currentColor" />
+      <path d="M2.5 5V3.5a2.5 2.5 0 0 1 5 0V5" fill="none" stroke="currentColor" />
+    </svg>
+  )
+}
+
+function LockerTile({ kind, item, selected, unlocked, onEquip }) {
+  const swatchColor = item.swatch ?? item.hex
+  const isCrosshair = kind === 'crosshair'
+  return (
+    <button
+      type="button"
+      data-testid={`locker-${kind}-${item.id}`}
+      aria-pressed={selected}
+      aria-disabled={!unlocked}
+      onClick={() => unlocked && onEquip(kind, item.id)}
+      title={unlocked ? item.blurb ?? item.label : `Locked — ${unlockText(item)}`}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 3,
+        minWidth: 'clamp(62px, 15vmin, 90px)',
+        padding: 'clamp(5px, 1.2vmin, 9px) clamp(4px, 1vmin, 8px)',
+        background: selected ? 'rgba(255,51,0,0.12)' : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${selected ? '#ff3300' : 'rgba(255,255,255,0.14)'}`,
+        borderRadius: 4,
+        color: unlocked ? (selected ? '#fff' : '#bbb') : '#555',
+        fontFamily: 'Courier New, monospace',
+        fontSize: 'clamp(9px, 1.8vmin, 12px)',
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+        cursor: unlocked ? 'pointer' : 'not-allowed',
+      }}
+    >
+      <span style={{ height: 'clamp(12px, 2.6vmin, 18px)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: unlocked ? 1 : 0.4 }}>
+        {isCrosshair ? (
+          <span style={{ fontSize: 'clamp(12px, 2.6vmin, 18px)', lineHeight: 1 }}>{CROSSHAIR_GLYPHS[item.id]}</span>
+        ) : swatchColor ? (
+          <span style={{
+            width: 'clamp(12px, 2.6vmin, 18px)',
+            height: 'clamp(12px, 2.6vmin, 18px)',
+            borderRadius: kind === 'crosshairColor' ? '50%' : 3,
+            background: swatchColor,
+            border: '1px solid rgba(255,255,255,0.35)',
+            boxShadow: kind === 'knifeSkin' && item.id === 'ember' ? '0 0 6px #ff4a1a' : 'none',
+          }} />
+        ) : null}
+      </span>
+      <span>{item.label}{selected ? ' ✓' : ''}</span>
+      {!unlocked && (
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontSize: 'clamp(7px, 1.3vmin, 9px)', color: '#777', letterSpacing: 0, textAlign: 'center', lineHeight: 1.2 }}>
+          <LockIcon /> {unlockText(item)}
+        </span>
+      )}
+    </button>
+  )
+}
+
+function LockerRow({ title, children }) {
+  return (
+    <div style={{ padding: 'clamp(6px, 1.4vmin, 10px) clamp(10px, 2vmin, 16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{ color: '#666', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 3, marginBottom: 'clamp(4px, 1vmin, 7px)', textTransform: 'uppercase' }}>
+        {title}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(4px, 1vmin, 8px)', justifyContent: 'center' }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function LockerPanel({ user, notice }) {
+  const cosmetics = useGameStore((s) => s.cosmetics)
+  const stats = useGameStore((s) => s.stats)
+  const entitlements = useGameStore((s) => s.entitlements)
+  const setCosmetic = useGameStore((s) => s.setCosmetic)
+  const [config, setConfig] = useState(null)   // { checkoutEnabled, priceLabel } once loaded
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const viewTracked = useRef(false)
+
+  useEffect(() => {
+    if (viewTracked.current) return
+    viewTracked.current = true
+    track('locker_open')
+    track('supporter_cta_view')
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    fetchStoreConfig().then((c) => { if (alive) setConfig(c) })
+    return () => { alive = false }
+  }, [])
+
+  const ctx = { entitlements, stats }
+  const owned = entitlements.includes(SUPPORTER_SKU)
+  const priceLabel = config?.priceLabel ?? '€4.99'
+
+  const equip = (kind, id) => {
+    if (setCosmetic(kind, id)) track('cosmetic_equip', { kind, id })
+  }
+
+  const renderTiles = (kind, items) =>
+    items.map((item) => (
+      <LockerTile
+        key={item.id}
+        kind={kind}
+        item={item}
+        selected={cosmetics[kind] === item.id}
+        unlocked={isUnlocked(item, ctx)}
+        onEquip={equip}
+      />
+    ))
+
+  const handleSupport = async () => {
+    if (busy) return
+    setBusy(true)
+    setError('')
+    track('checkout_start')
+    try {
+      await startCheckout()  // redirects the page on success
+    } catch (err) {
+      const code = err?.message ?? ''
+      if (code === 'already_owned') fetchEntitlements().then((l) => useGameStore.getState().setEntitlements(l)).catch(() => {})
+      setError(CHECKOUT_ERRORS[code] ?? (code.includes(' ') ? code : 'Something went wrong — please try again.'))
+      setBusy(false)
+    }
+  }
+
+  let button
+  if (owned) {
+    button = <Btn disabled style={supporterBtnStyle}>★ Supporter — thank you</Btn>
+  } else if (!config) {
+    button = <Btn disabled style={supporterBtnStyle}>…</Btn>
+  } else if (!config.checkoutEnabled) {
+    button = <Btn disabled style={supporterBtnStyle}>Coming soon</Btn>
+  } else if (!user) {
+    button = <Btn onClick={() => signInWithGoogle()} style={supporterBtnStyle}>Sign in with Google to support</Btn>
+  } else {
+    button = <Btn onClick={handleSupport} disabled={busy} style={supporterBtnStyle}>{busy ? 'Opening checkout…' : `Support ${priceLabel}`}</Btn>
+  }
+
+  return (
+    <div data-testid="locker-panel" style={{
+      width: 'min(560px, 94vw)',
+      maxHeight: '80vh',
+      overflowY: 'auto',
+      background: 'rgba(0,0,0,0.6)',
+      border: '1px solid rgba(255,50,0,0.25)',
+      borderRadius: 6,
+      fontFamily: 'Courier New, monospace',
+    }}>
+      <div style={{
+        padding: '8px 14px',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        color: '#ff3300',
+        letterSpacing: 5,
+        fontSize: 'clamp(8px, 1.6vmin, 11px)',
+        fontWeight: 'bold',
+        textAlign: 'center',
+      }}>
+        LOCKER
+      </div>
+      {notice && (
+        <div style={{ padding: '8px 14px', color: '#88cc44', fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 1, textAlign: 'center' }}>
+          {notice}
+        </div>
+      )}
+
+      <LockerRow title="Weapon finish">{renderTiles('skin', itemsOfKind('skin'))}</LockerRow>
+      <LockerRow title="Crosshair">{renderTiles('crosshair', itemsOfKind('crosshair'))}</LockerRow>
+      <LockerRow title="Crosshair colour">{renderTiles('crosshairColor', CROSSHAIR_COLORS)}</LockerRow>
+      <LockerRow title="Knife">{renderTiles('knifeSkin', itemsOfKind('knifeSkin'))}</LockerRow>
+
+      <div style={{ padding: 'clamp(8px, 1.8vmin, 14px) clamp(10px, 2vmin, 16px)', textAlign: 'center' }}>
+        <div style={{ color: '#ffd166', fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 3, fontWeight: 'bold' }}>
+          SUPPORT THE DEV — {priceLabel} · one-time
+        </div>
+        <div style={{ color: '#888', fontSize: 'clamp(8px, 1.6vmin, 11px)', letterSpacing: 1, lineHeight: 1.6, marginTop: 4 }}>
+          Gold &amp; Obsidian finishes · Dot, Chevron &amp; Circle crosshairs · Red &amp; Cyan colours · Ember knife · ★ leaderboard badge
+        </div>
+        <div style={{ color: '#666', fontSize: 'clamp(8px, 1.5vmin, 10px)', letterSpacing: 1, marginTop: 2 }}>
+          Cosmetics only — the whole game stays free.
+        </div>
+        {button}
+        {error && (
+          <div role="alert" style={{ color: '#ff6644', fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 1, marginTop: 6 }}>{error}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const supporterBtnStyle = {
+  marginTop: 'clamp(6px, 1.5vmin, 12px)',
+  padding: 'clamp(6px, 1.2vmin, 10px) clamp(14px, 3vmin, 28px)',
+  fontSize: 'clamp(10px, 2vmin, 14px)',
+  letterSpacing: 2,
+  color: '#ffd166',
+  border: '2px solid #ffd166',
 }
 
 function DeathStat({ label, value }) {
@@ -1173,10 +1506,11 @@ function PausedOverlay() {
   )
 }
 
-function Btn({ children, onClick }) {
+function Btn({ children, onClick, disabled = false, style }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         marginTop: 'clamp(8px, 2.5vmin, 24px)',
         padding: 'clamp(7px, 1.5vmin, 14px) clamp(20px, 5vmin, 48px)',
@@ -1186,16 +1520,19 @@ function Btn({ children, onClick }) {
         fontSize: 'clamp(11px, 2.5vmin, 18px)',
         letterSpacing: 4,
         fontFamily: 'Courier New, monospace',
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
         transition: 'all 0.2s',
+        ...(disabled ? { opacity: 0.45 } : null),
+        ...style,
       }}
       onMouseEnter={(e) => {
-        e.target.style.background = '#ff3300'
+        if (disabled) return
+        e.target.style.background = style?.color ?? '#ff3300'
         e.target.style.color = '#000'
       }}
       onMouseLeave={(e) => {
         e.target.style.background = 'transparent'
-        e.target.style.color = '#ff3300'
+        e.target.style.color = style?.color ?? '#ff3300'
       }}
     >
       {children}

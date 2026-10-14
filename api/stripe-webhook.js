@@ -2,7 +2,8 @@ import { getStripe } from './_lib/stripeClient.js'
 import { getSupabaseAdmin } from './_lib/supabaseAdmin.js'
 import { readRawBody } from './_lib/rawBody.js'
 
-// Stripe signs the exact bytes; Vercel must not JSON-parse the body.
+// Stripe signs the exact bytes. Note: this flag is Next.js-only and is ignored for
+// plain api/*.js functions; readRawBody() copes with Vercel's request helpers.
 export const config = { api: { bodyParser: false } }
 
 const ALLOWED_SKUS = ['supporter_pack']
@@ -55,6 +56,11 @@ export default async function handler(req, res) {
   })
 
   // 23505 = unique violation: already granted (duplicate delivery or both event types fired).
+  // If it hit (user_id, sku) rather than the session/event keys, this is a SECOND paid
+  // session for a user who already owns the pack: money taken, nothing granted -> refund.
+  if (error?.code === '23505' && /user_id_sku/.test(`${error.message ?? ''} ${error.details ?? ''}`)) {
+    console.warn('stripe-webhook: duplicate purchase, refund needed', session.id)
+  }
   if (error && error.code !== '23505') {
     console.error('stripe-webhook: insert failed', error.code)
     return res.status(500).json({ error: 'db_error' })

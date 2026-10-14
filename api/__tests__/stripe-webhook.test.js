@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Stripe from 'stripe'
+import { PassThrough } from 'node:stream'
 import { mockReq, mockRes } from './helpers.js'
 
 const h = vi.hoisted(() => ({ insert: vi.fn() }))
@@ -156,5 +157,80 @@ describe('POST /api/stripe-webhook', () => {
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({ received: true })
     expect(h.insert).not.toHaveBeenCalled()
+  })
+
+  // Emulates @vercel/node addHelpers (v24 dist/dev-server.mjs readBody/restoreBody):
+  // the stream is drained before the handler runs, then replayed by patching only
+  // req.on('data'|'end') and req.read; req.body is a lazy parsed getter.
+  async function vercelReq(payload, headers, contentType = 'application/json') {
+    const req = mockReq({ method: 'POST', headers: { ...headers, 'content-type': contentType }, body: payload })
+    const chunks = []
+    for await (const c of req) chunks.push(c)
+    const body = Buffer.concat(chunks)
+    const replay = new PassThrough()
+    const on = replay.on.bind(replay)
+    const originalOn = req.on.bind(req)
+    req.read = replay.read.bind(replay)
+    req.on = req.addListener = (n, cb) => (n === 'data' || n === 'end' ? on(n, cb) : originalOn(n, cb))
+    replay.write(body)
+    replay.end()
+    Object.defineProperty(req, 'body', { get: () => JSON.parse(body.toString()) })
+    return req
+  }
+
+  it('verifies the raw body under Vercel request helpers (stream pre-drained + replayed)', async () => {
+    const payload = JSON.stringify(sessionEvent())
+    const sig = stripe.webhooks.generateTestHeaderString({ payload, secret: SECRET })
+    const res = mockRes()
+    await handler(await vercelReq(payload, { 'stripe-signature': sig }), res)
+    expect(res.statusCode).toBe(200)
+    expect(h.insert).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails closed when only a parsed req.body is available (never re-serializes)', async () => {
+    const payload = JSON.stringify(sessionEvent())
+    const sig = stripe.webhooks.generateTestHeaderString({ payload, secret: SECRET })
+    const req = mockReq({ method: 'POST', headers: { 'stripe-signature': sig } }) // empty stream
+    req.body = JSON.parse(payload)
+    const res = mockRes()
+    await handler(req, res)
+    expect(res.statusCode).toBe(400)
+    expect(h.insert).not.toHaveBeenCalled()
+  })
+
+  it('accepts a raw Buffer req.body when the stream is empty', async () => {
+    const payload = JSON.stringify(sessionEvent())
+    const sig = stripe.webhooks.generateTestHeaderString({ payload, secret: SECRET })
+    const req = mockReq({ method: 'POST', headers: { 'stripe-signature': sig } })
+    req.body = Buffer.from(payload)
+    const res = mockRes()
+    await handler(req, res)
+    expect(res.statusCode).toBe(200)
+    expect(h.insert).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a validly signed but stale event (replay outside 300 s tolerance)', async () => {
+    const payload = JSON.stringify(sessionEvent())
+    const timestamp = Math.floor(Date.now() / 1000) - 301
+    const sig = stripe.webhooks.generateTestHeaderString({ payload, secret: SECRET, timestamp })
+    const res = mockRes()
+    await handler(mockReq({ method: 'POST', headers: { 'stripe-signature': sig }, body: payload }), res)
+    expect(res.statusCode).toBe(400)
+    expect(h.insert).not.toHaveBeenCalled()
+  })
+
+  it('503 (Stripe retries) when the service role key is missing, before any grant', async () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY
+    const res = await send(sessionEvent())
+    expect(res.statusCode).toBe(503)
+  })
+
+  it('logs a refund warning when a second paid session hits (user_id, sku)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    h.insert.mockResolvedValue({ error: { code: '23505', message: 'duplicate key value violates unique constraint "entitlements_user_id_sku_key"' } })
+    const res = await send(sessionEvent())
+    expect(res.statusCode).toBe(200)
+    expect(warn).toHaveBeenCalledWith('stripe-webhook: duplicate purchase, refund needed', 'cs_test_1')
+    warn.mockRestore()
   })
 })

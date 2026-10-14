@@ -25,11 +25,12 @@ const authed = (extra = {}) => ({ authorization: 'Bearer tok123', host: 'cabin.p
 const saved = {}
 
 beforeEach(() => {
-  for (const k of ['STRIPE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPPORTER_PRICE_CENTS']) {
+  for (const k of ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPPORTER_PRICE_CENTS']) {
     saved[k] = process.env[k]
     delete process.env[k]
   }
   process.env.STRIPE_SECRET_KEY = 'sk_test_x'
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_x'
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'srv'
   h.create.mockReset().mockResolvedValue({ url: 'https://checkout.stripe.com/c/pay/abc' })
   h.getUser.mockReset().mockResolvedValue({ data: { user: { id: UID, email: 'a@b.co' } }, error: null })
@@ -60,6 +61,25 @@ describe('POST /api/checkout', () => {
     const res = mockRes()
     await handler(mockReq({ method: 'POST', headers: authed() }), res)
     expect(res.statusCode).toBe(503)
+  })
+
+  it('503 when webhook secret missing (payments could never be granted)', async () => {
+    delete process.env.STRIPE_WEBHOOK_SECRET
+    const res = mockRes()
+    await handler(mockReq({ method: 'POST', headers: authed() }), res)
+    expect(res.statusCode).toBe(503)
+    expect(h.create).not.toHaveBeenCalled()
+  })
+
+  it('uses a per-user idempotency key so repeat clicks reuse one session', async () => {
+    await handler(mockReq({ method: 'POST', headers: authed() }), mockRes())
+    await handler(mockReq({ method: 'POST', headers: authed() }), mockRes())
+    const k1 = h.create.mock.calls[0][1].idempotencyKey
+    expect(k1).toMatch(/^checkout_[0-9a-f]{64}$/)
+    expect(h.create.mock.calls[1][1].idempotencyKey).toBe(k1)
+    h.getUser.mockResolvedValue({ data: { user: { id: '223e4567-e89b-42d3-a456-426614174000' } }, error: null })
+    await handler(mockReq({ method: 'POST', headers: authed() }), mockRes())
+    expect(h.create.mock.calls[2][1].idempotencyKey).not.toBe(k1)
   })
 
   it('401 without bearer token', async () => {
