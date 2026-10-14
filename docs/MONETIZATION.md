@@ -43,7 +43,6 @@ Locker UI ──POST /api/checkout───────▶ api/checkout.js ─�
   (Bearer <supabase access_token>)        │ stripe.checkout.sessions.create
   ◀── { url } ── redirect to Stripe ──────┘   metadata: { user_id, sku }
 Stripe ──checkout.session.completed──▶ api/stripe-webhook.js ─service role─▶ entitlements (insert)
-                                                                          └▶ profiles.is_supporter = true
 Locker UI ──select entitlements where user_id = auth.uid() (RLS)───────────▶ entitlements
 GET /api/store-config ──▶ { checkoutEnabled: bool, priceLabel: '€4.99' }
 ```
@@ -71,9 +70,11 @@ If `STRIPE_SECRET_KEY` is missing, `/api/store-config` reports
 ```sql
 -- existing: profiles(id uuid pk → auth.users, username text), scores(...)
 alter table public.profiles
-  add column if not exists is_supporter boolean not null default false,
   add column if not exists stats jsonb not null default '{}'::jsonb,       -- { bestWave, totalKills, runs, totalHeadshots, totalKnifeKills }
   add column if not exists cosmetics jsonb not null default '{}'::jsonb;   -- { skin, crosshair, crosshairColor, knifeSkin }
+-- NOTE: no `is_supporter` column on profiles — the client can UPDATE its own
+-- profile row, so a flag there would be spoofable. Supporter status is derived
+-- from `entitlements` (service-role-only writes) via `is_supporter(uuid)`.
 
 create table public.entitlements (
   id bigint generated always as identity primary key,
@@ -99,12 +100,20 @@ create table public.events (                -- product analytics, insert-only fr
   props jsonb not null default '{}'::jsonb,
   client text                              -- 'desktop' | 'mobile'
 );
--- RLS: anon + authenticated may INSERT; nobody may SELECT via anon key
-```
+-- RLS: anon + authenticated may INSERT (user_id must be null or auth.uid()); nobody may SELECT via anon key
 
-Leaderboard badge: `fetchLeaderboard` also selects `profiles(is_supporter)`
-via the `scores.user_id → profiles.id` relation (anonymous scores have
-no badge).
+-- Leaderboard with badge (scores.user_id → auth.users, so no PostgREST join to profiles):
+create function public.is_supporter(uid uuid) returns boolean security definer ...;  -- exists() on entitlements
+create view public.leaderboard with (security_invoker = true) as
+  select s.id, s.name, s.wave, s.kills, s.created_at, public.is_supporter(s.user_id) as is_supporter
+  from public.scores s;
+```
+All of the above is APPLIED to the live project (migration
+`supporter_pack_entitlements_events_leaderboard`).
+
+Leaderboard badge: `fetchLeaderboard` selects from the `leaderboard` view
+(`id, name, wave, kills, created_at, is_supporter`) instead of `scores`.
+Anonymous scores (null user_id) never get a badge.
 
 ### Client contracts (so parallel work lines up)
 
