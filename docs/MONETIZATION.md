@@ -140,3 +140,42 @@ Anonymous scores (null user_id) never get a badge.
 - Rewarded/interstitial ads interrupt the loop and need portal approval; revisit
   only as part of a CrazyGames/Poki distribution deal (their SDK, their ads).
 - Subscription has nothing recurring to sell. Loot boxes are a dark pattern.
+
+## Server implementation notes
+
+Files: `api/checkout.js`, `api/stripe-webhook.js`, `api/store-config.js`; shared
+helpers in `api/_lib/` (underscore-prefixed, so Vercel does not deploy them as
+functions). Tests: `npx vitest run api` (offline, no keys; signature tests use
+the real `stripe` lib with a fake `whsec_test` secret).
+
+| Endpoint | Request | Responses |
+|---|---|---|
+| `GET /api/store-config` | — | `200 { checkoutEnabled, priceLabel: '€4.99', sku: 'supporter_pack' }`, `Cache-Control: public, max-age=60` |
+| `POST /api/checkout` | `Authorization: Bearer <supabase access_token>` | `200 { url }` (redirect to Stripe) · `401 unauthorized` · `409 already_owned` · `503 checkout_unavailable` · `405` |
+| `POST /api/stripe-webhook` | Stripe-signed raw body | `200 { received: true }` · `400 invalid_signature` · `500 db_error` (Stripe retries) · `503` |
+
+- Checkout verifies the token with `supabase.auth.getUser(token)` using the
+  service-role client, then rejects if an `entitlements` row exists.
+  Redirect origin comes from `x-forwarded-host`/`host` but only if allowlisted
+  (`cabin.puodzius.dev`, `testzombieshooter.vercel.app`,
+  `*-juspus-projects.vercel.app`, `localhost:*`); otherwise `https://cabin.puodzius.dev`.
+- Webhook grants only on `checkout.session.completed` /
+  `async_payment_succeeded` with `payment_status === 'paid'`. `user_id` must be
+  a UUID and `sku` in the allowlist (metadata is untrusted). Unique violations
+  (`23505`) count as success, so redelivery is harmless.
+- Env: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`
+  (required); `SUPABASE_URL`, `SUPPORTER_PRICE_CENTS` (optional).
+- In the Stripe dashboard, point a webhook endpoint at
+  `https://<domain>/api/stripe-webhook` for `checkout.session.completed` and
+  `checkout.session.async_payment_succeeded`.
+
+Local webhook testing (`vercel dev` serves `api/`):
+
+```sh
+vercel dev --listen 3000
+stripe listen --forward-to localhost:3000/api/stripe-webhook   # prints a whsec_... secret
+# put that secret in STRIPE_WEBHOOK_SECRET, then:
+stripe trigger checkout.session.completed
+```
+(`stripe trigger` fixtures lack our metadata, so they are acknowledged but
+ignored; do a real test-mode checkout to see a grant.)
