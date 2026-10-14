@@ -57,6 +57,11 @@ export default async function handler(req, res) {
       ...(user.email ? { customer_email: user.email } : {}),
       success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancel`,
+      custom_text: {
+        submit: {
+          message: `By paying you agree to immediate delivery of this digital content and acknowledge that your 14-day right of withdrawal ends once it is delivered. Terms: ${origin}/terms.html`,
+        },
+      },
     })
 
     return res.status(200).json({ url: session.url })

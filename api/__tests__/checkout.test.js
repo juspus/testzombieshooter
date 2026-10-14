@@ -100,6 +100,10 @@ describe('POST /api/checkout', () => {
     expect(arg.line_items[0].price_data).toMatchObject({ currency: 'eur', unit_amount: 499 })
     expect(arg.success_url).toBe('https://cabin.puodzius.dev/?checkout=success&session_id={CHECKOUT_SESSION_ID}')
     expect(arg.cancel_url).toBe('https://cabin.puodzius.dev/?checkout=cancel')
+    expect(arg.custom_text.submit.message).toContain('right of withdrawal')
+    expect(arg.custom_text.submit.message).toContain('https://cabin.puodzius.dev/terms.html')
+    expect(arg.custom_text.submit.message.length).toBeLessThanOrEqual(1200)
+    expect(arg.consent_collection).toBeUndefined()
   })
 
   it('uses SUPPORTER_PRICE_CENTS', async () => {
