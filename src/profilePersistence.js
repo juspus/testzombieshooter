@@ -146,6 +146,10 @@ export async function syncProfileWithCloud(user) {
 
   try {
     store.setEntitlements(await fetchEntitlements())
+    // Drop any equipped paid item the signed-in account doesn't own (e.g. a
+    // supporter's gold finish left in this device's local profile after
+    // switching to a non-supporter account). Skipped if the fetch above threw.
+    store.revalidateCosmetics()
   } catch (err) {
     console.warn('[profile] could not fetch entitlements', err)
   }

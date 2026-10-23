@@ -61,7 +61,7 @@ cancel `/?checkout=cancel`. On success the client re-fetches entitlements
 | `SUPABASE_URL` | optional; defaults to the project URL in `src/supabase.js` |
 | `SUPPORTER_PRICE_CENTS` | optional, default `499` (EUR, inline `price_data`) |
 
-If `STRIPE_SECRET_KEY` is missing, `/api/store-config` reports
+If any of `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` or `SUPABASE_SERVICE_ROLE_KEY` is missing, `/api/store-config` reports
 `checkoutEnabled:false` and the locker shows supporter items as
 "coming soon" (no broken button).
 
@@ -179,3 +179,18 @@ stripe trigger checkout.session.completed
 ```
 (`stripe trigger` fixtures lack our metadata, so they are acknowledged but
 ignored; do a real test-mode checkout to see a grant.)
+
+### Gotchas found in review
+
+- **Raw body on Vercel.** `export const config = { api: { bodyParser: false } }`
+  is a Next.js option. Plain `api/*.js` functions on Vercel ignore it: the
+  runtime reads the body before the handler and replays it via
+  `req.on('data'/'end')`. `api/_lib/rawBody.js` reads through those events,
+  accepts `req.body` only as Buffer/string, and fails closed on a parsed
+  object (never re-serialises JSON, which would break the signature).
+- **Checkout idempotency.** Sessions use a per-user, per-10-minute Stripe
+  idempotency key, so two tabs can't create two payable sessions.
+- **Duplicate purchase.** If a second paid session still slips through, the
+  webhook logs `stripe-webhook: duplicate purchase, refund needed` and returns
+  200. Refund it from the Stripe dashboard.
+- **Refunds/chargebacks** do not revoke the pack. Accepted: it is cosmetic.

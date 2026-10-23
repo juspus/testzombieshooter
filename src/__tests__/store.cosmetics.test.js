@@ -75,6 +75,17 @@ describe('recordRunEnd', () => {
     expect(s.stats.runs).toBe(1) // lifetime stats survive startGame
   })
 
+  it('startGame records an unfinished run (dropped co-op die event) but never a recorded one twice', () => {
+    useGameStore.setState({ phase: 'intermission', wave: 4, kills: 20 })
+    useGameStore.getState().startGame()
+    expect(useGameStore.getState().stats).toMatchObject({ bestWave: 4, totalKills: 20, runs: 1 })
+    // Normal path: die() records, then restarting from the death screen must not add again.
+    useGameStore.setState({ phase: 'playing', wave: 2, kills: 5 })
+    useGameStore.getState().die()
+    useGameStore.getState().startGame()
+    expect(useGameStore.getState().stats).toMatchObject({ bestWave: 4, totalKills: 25, runs: 2 })
+  })
+
   it('counts headshot and knife kills over the run', () => {
     useGameStore.setState({
       phase: 'playing',

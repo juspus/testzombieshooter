@@ -1209,6 +1209,7 @@ function LockerTile({ kind, item, selected, unlocked, onEquip }) {
         justifyContent: 'center',
         gap: 3,
         minWidth: 'clamp(62px, 15vmin, 90px)',
+        minHeight: 44,  // >= 40px tap target on phones
         padding: 'clamp(5px, 1.2vmin, 9px) clamp(4px, 1vmin, 8px)',
         background: selected ? 'rgba(255,51,0,0.12)' : 'rgba(255,255,255,0.03)',
         border: `1px solid ${selected ? '#ff3300' : 'rgba(255,255,255,0.14)'}`,
@@ -1272,7 +1273,7 @@ function LockerPanel({ user, notice }) {
     if (viewTracked.current) return
     viewTracked.current = true
     track('locker_open')
-    track('supporter_cta_view')
+    if (!useGameStore.getState().entitlements.includes(SUPPORTER_SKU)) track('supporter_cta_view')
   }, [])
 
   useEffect(() => {

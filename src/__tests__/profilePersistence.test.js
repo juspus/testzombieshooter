@@ -83,6 +83,17 @@ describe('syncProfileWithCloud', () => {
     expect(useGameStore.getState().cosmetics.crosshairColor).toBe('amber')
   })
 
+  it('drops a paid cosmetic the signed-in account does not own', async () => {
+    const { fetchEntitlements } = await import('../supabase')
+    vi.mocked(fetchEntitlements).mockResolvedValueOnce([])
+    useGameStore.setState({ cosmetics: { ...DEFAULT_COSMETICS, skin: 'gold', crosshairColor: 'amber' } })
+    vi.mocked(loadProfileExtras).mockResolvedValue({ stats: {}, cosmetics: {} })
+    await syncProfileWithCloud(user)
+    const c = useGameStore.getState().cosmetics
+    expect(c.skin).toBe('default')       // gold is supporter-only
+    expect(c.crosshairColor).toBe('amber') // free item untouched
+  })
+
   it('never throws when the cloud is down', async () => {
     vi.mocked(loadProfileExtras).mockRejectedValue(new Error('offline'))
     await expect(syncProfileWithCloud(user)).resolves.toBeUndefined()

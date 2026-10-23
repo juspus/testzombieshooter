@@ -207,6 +207,12 @@ export const useGameStore = create((set, get) => ({
   hitEventId: 0,     // bumped on every hitPlayer() call; HUD watches this to trigger the damage decal
 
   startGame: () => {
+    // A run that never reached die() (e.g. a co-op guest whose 'die' event was
+    // dropped, or a restart from intermission) still counts toward lifetime stats.
+    const prevRun = get()
+    if (prevRun.phase !== 'start' && prevRun.phase !== 'dead' && !prevRun.runRecorded) {
+      get().recordRunEnd()
+    }
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
