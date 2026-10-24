@@ -12,6 +12,7 @@ Things only the product owner can do. The code is live-safe without them
 ## 2. Supabase (≈5 min)
 - [ ] Project `cabin` must not be paused (free tier pauses after 7 days idle — the leaderboard and login die with it). Either upgrade to Pro (~$25/mo) or keep it awake; a paused project is the #1 reason a purchase would fail.
 - [ ] Settings → API → copy the **service_role** key (server only).
+- [ ] SQL Editor → paste and run `supabase/migrations/20261015000000_harden_scores_events_entitlements.sql`. It is safe to run twice. It stops fake ★ leaderboard scores and rate-limits analytics inserts. (The first migration in that folder is already applied.)
 
 ## 3. Vercel env vars (project `testzombieshooter`, Production + Preview)
 - [ ] `STRIPE_SECRET_KEY`
