@@ -27,6 +27,8 @@ start of every session. Keep entries short — a few lines each.
   against all 6 windows.
 
 - Supporter Pack shipped in code but inert until STRIPE_* env vars are set
+  Also pending: run `supabase/migrations/20261015000000_harden_scores_events_entitlements.sql`
+  in the Supabase SQL editor (MCP SQL timed out). PR #125.
   (see docs/LAUNCH_CHECKLIST.md).
 
 ## Feature inventory (as of 2026-06-14)
