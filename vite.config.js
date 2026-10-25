@@ -7,6 +7,7 @@ export default defineConfig({
   // into client code so debug-only features can check it at runtime.
   define: {
     'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV || 'development'),
+    '__APP_VERSION__': JSON.stringify(process.env.npm_package_version || '0.0.0'),
   },
   plugins: [
     react(),
