@@ -2,6 +2,16 @@ import { create } from 'zustand'
 import { buildGrid } from './walls'
 import { getMap, getInitialMapId } from './maps'
 import { playPlankBreak, playGlassShatter } from './sounds'
+import {
+  DEFAULT_COSMETICS,
+  DEFAULT_STATS,
+  getItem,
+  isUnlocked,
+  newUnlocksBetween,
+  sanitizeCosmetics,
+  sanitizeStats,
+} from './cosmetics'
+import { persistProfile } from './profilePersistence'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -183,6 +193,9 @@ export const useGameStore = create((set, get) => ({
   waveElapsed: 0,
   waveHeadshots: 0,
   waveKnifeKills: 0,
+  runHeadshots: 0,    // run-total counters (cosmetic milestone stats only)
+  runKnifeKills: 0,
+  runRecorded: false, // guards recordRunEnd() against double-calls
   wavePlanksLost: 0,
   waveStartPlanks: 0,
   lastWaveBonuses: null,
@@ -194,6 +207,12 @@ export const useGameStore = create((set, get) => ({
   hitEventId: 0,     // bumped on every hitPlayer() call; HUD watches this to trigger the damage decal
 
   startGame: () => {
+    // A run that never reached die() (e.g. a co-op guest whose 'die' event was
+    // dropped, or a restart from intermission) still counts toward lifetime stats.
+    const prevRun = get()
+    if (prevRun.phase !== 'start' && prevRun.phase !== 'dead' && !prevRun.runRecorded) {
+      get().recordRunEnd()
+    }
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
@@ -229,6 +248,10 @@ export const useGameStore = create((set, get) => ({
       waveElapsed: 0,
       waveHeadshots: 0,
       waveKnifeKills: 0,
+      runHeadshots: 0,
+      runKnifeKills: 0,
+      runRecorded: false,
+      lastRunUnlocks: [],
       wavePlanksLost: 0,
       waveStartPlanks: 0,
       lastWaveBonuses: null,
@@ -369,6 +392,9 @@ export const useGameStore = create((set, get) => ({
   die: () => {
     if (get().phase !== 'playing') return
     set({ phase: 'dead' })
+    // Single choke point for death: covers hitPlayer() and the co-op 'die'
+    // net event (NetManager -> store.die()). runRecorded makes it once-only.
+    get().recordRunEnd()
   },
 
   // Called by Zombie.jsx's attack_player state. Fully client-local: each
@@ -550,6 +576,65 @@ export const useGameStore = create((set, get) => ({
   setMpConnected: (v) => set({ mpConnected: v }),
   setRemotePlayer: (data) => set({ remotePlayer: data }),
   clearMp: () => set({ mpRole: null, mpConnected: false, remotePlayer: null, roomCode: null }),
+
+  // ── Cosmetics / lifetime stats (visual only — never read by gameplay code) ─
+  cosmetics: { ...DEFAULT_COSMETICS },  // equipped: { skin, crosshair, crosshairColor, knifeSkin }
+  stats: { ...DEFAULT_STATS },          // lifetime: { bestWave, totalKills, runs, totalHeadshots, totalKnifeKills }
+  entitlements: [],                     // owned skus, e.g. ['supporter_pack']
+  lastRunUnlocks: [],                   // cosmetic items that unlocked during the run that just ended
+
+  // kind: 'skin' | 'crosshair' | 'crosshairColor' | 'knifeSkin'. Returns true if equipped.
+  setCosmetic: (kind, id) => {
+    const { cosmetics, stats, entitlements } = get()
+    if (!Object.prototype.hasOwnProperty.call(DEFAULT_COSMETICS, kind)) return false
+    const item = getItem(kind, id)
+    if (!item || !isUnlocked(item, { entitlements, stats })) return false
+    if (cosmetics[kind] === id) return true
+    const next = { ...cosmetics, [kind]: id }
+    set({ cosmetics: next })
+    persistProfile(stats, next)
+    return true
+  },
+
+  setEntitlements: (list) => set({ entitlements: Array.isArray(list) ? list.filter((x) => typeof x === 'string') : [] }),
+  setStats: (stats) => set({ stats: sanitizeStats(stats) }),
+  setCosmetics: (obj) => set({ cosmetics: sanitizeCosmetics(obj) }),
+
+  // Re-checks equipped items against current unlocks (e.g. after sign-out
+  // clears entitlements); locked slots fall back to their default.
+  revalidateCosmetics: () => {
+    const { cosmetics, stats, entitlements } = get()
+    const next = { ...cosmetics }
+    let changed = false
+    for (const kind of Object.keys(DEFAULT_COSMETICS)) {
+      if (!isUnlocked(getItem(kind, cosmetics[kind]), { entitlements, stats })) {
+        next[kind] = DEFAULT_COSMETICS[kind]
+        changed = true
+      }
+    }
+    if (changed) set({ cosmetics: next })
+  },
+
+  // Called once when the player dies: folds this run into lifetime stats,
+  // works out which milestones just flipped, and persists. Idempotent per run.
+  recordRunEnd: () => {
+    const s = get()
+    if (s.runRecorded) return
+    const prev = s.stats
+    const next = {
+      bestWave: Math.max(prev.bestWave, s.wave),
+      totalKills: prev.totalKills + s.kills,
+      runs: prev.runs + 1,
+      totalHeadshots: prev.totalHeadshots + s.runHeadshots,
+      totalKnifeKills: prev.totalKnifeKills + s.runKnifeKills,
+    }
+    set({
+      stats: next,
+      runRecorded: true,
+      lastRunUnlocks: newUnlocksBetween(prev, next, s.entitlements),
+    })
+    persistProfile(next, s.cosmetics)
+  },
 }))
 
 // Debug-only URL params for fast manual testing: ?wave=5&money=500&weapon=ak47
@@ -593,6 +678,7 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
   const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks } = get()
   const zombie = zombies.find((z) => z.id === id)
   if (!zombie || zombie.dying) return false
+  const { runHeadshots, runKnifeKills } = get()
 
   const newHealth = zombie.health - damage
 
@@ -617,6 +703,8 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
       waveKills: newWaveKills,
       waveHeadshots: newWaveHeadshots,
       waveKnifeKills: newWaveKnifeKills,
+      runHeadshots: runHeadshots + (source === 'gun' && isHeadshot ? 1 : 0),
+      runKnifeKills: runKnifeKills + (source === 'knife' ? 1 : 0),
     }
     set(waveOver
       ? {

@@ -21,6 +21,7 @@ import NetManager from './NetManager'
 import MobileControls from './MobileControls'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
+import { initAnalytics } from '../analytics'
 
 // Blocks iOS address-bar-triggered resize events (small height-only changes < 15%)
 // at the ResizeObserver level so R3F never calls setSize for spurious viewport shifts.
@@ -63,6 +64,7 @@ function ForceRenderOnShopOpen() {
 
 export default function Game() {
   useMobileViewport()
+  useEffect(() => { initAnalytics() }, [])
   const phase = useGameStore((s) => s.phase)
   const mapId = useGameStore((s) => s.mapId)
   const isPlaying = phase === 'playing'
