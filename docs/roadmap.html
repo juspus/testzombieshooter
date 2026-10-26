@@ -1,0 +1,790 @@
+<title>Cabin Roadmap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Saira+Stencil+One&display=swap">
+<style>
+/* Layout: one narrow column read like a run. Wave 0 to Wave 5, with
+   intermission panels between waves where the product owner makes a call.
+   Dark-first (night in the cabin): ember = firelight accent, moon = moonlight. */
+:root {
+  --bg: #0c1011;
+  --surface: #141a1b;
+  --raised: #1b2324;
+  --line: #2a3537;
+  --fg: #e4e8e3;
+  --muted: #93a09c;
+  --ember: #ff7b33;
+  --ember-ink: #1a0d05;
+  --moon: #9cc4dc;
+  --go: #86c46f;
+  --talk: #e6c35c;
+  --skip: #e0675a;
+  --display: 'Saira Stencil One', Impact, 'Arial Narrow', sans-serif;
+  --body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef1ef; --surface: #ffffff; --raised: #f5f7f6; --line: #d2d9d6;
+    --fg: #151b1c; --muted: #56625f; --ember: #b94c0e; --ember-ink: #ffffff;
+    --moon: #2d6a8e; --go: #3b7a2a; --talk: #8a6a00; --skip: #b23a2e;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef1ef; --surface: #ffffff; --raised: #f5f7f6; --line: #d2d9d6;
+  --fg: #151b1c; --muted: #56625f; --ember: #b94c0e; --ember-ink: #ffffff;
+  --moon: #2d6a8e; --go: #3b7a2a; --talk: #8a6a00; --skip: #b23a2e;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 56px;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg);
+}
+.wrap { max-width: 720px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+a { color: var(--moon); }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--raised); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+.eyebrow, .label {
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* ── Hero ─────────────────────────────────────────── */
+.hero { display: grid; gap: 14px; padding-block: 40px 28px; }
+.hero h1 {
+  font-family: var(--display); font-weight: 400;
+  font-size: clamp(2.7rem, 12vw, 4.6rem); line-height: 0.95; letter-spacing: 0.01em;
+}
+.hero h1 span { color: var(--ember); }
+.lede { font-size: 1.25rem; max-width: 34ch; }
+.build {
+  font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
+  border-block: 1px solid var(--line); padding-block: 10px;
+}
+.build b { color: var(--fg); font-weight: 600; }
+.howto { color: var(--muted); max-width: 62ch; }
+
+/* ── Sections ─────────────────────────────────────── */
+.section { display: grid; gap: 16px; padding-block: 28px; border-top: 1px solid var(--line); }
+.section > h2 { font-size: 1.45rem; }
+.prose { max-width: 62ch; display: grid; gap: 12px; }
+
+.findings { display: grid; gap: 12px; }
+.finding { display: grid; gap: 6px; padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.finding h3 { font-size: 1.1rem; }
+.finding .fix { font-family: var(--mono); font-size: 0.75rem; color: var(--ember); }
+.finding p { color: var(--muted); }
+
+.strip { display: flex; flex-wrap: wrap; gap: 8px; }
+.strip a {
+  font-family: var(--mono); font-size: 0.8rem; text-decoration: none; color: var(--fg);
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; background: var(--surface);
+}
+.strip a b { color: var(--ember); font-weight: 600; margin-right: 6px; }
+
+.legend { display: grid; gap: 6px; font-size: 0.88rem; color: var(--muted); }
+.legend b { color: var(--fg); font-weight: 700; }
+
+/* ── Sticky filter bar ────────────────────────────── */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  padding-block: 10px; display: grid; gap: 8px;
+}
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button {
+  font: 600 0.8rem var(--mono); color: var(--muted); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.filters button[aria-pressed="true"] { color: var(--ember-ink); background: var(--ember); border-color: var(--ember); }
+.sync { font-size: 0.8rem; color: var(--muted); }
+.sync[data-state="error"] { color: var(--skip); }
+
+/* ── Waves ────────────────────────────────────────── */
+.wave { display: grid; gap: 14px; padding-block: 32px 8px; scroll-margin-top: 110px; }
+.wave-head { display: flex; align-items: center; gap: 16px; }
+.wave-num {
+  display: grid; justify-items: center; line-height: 1; min-width: 64px;
+  font-family: var(--display); color: var(--ember);
+}
+.wave-num span { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+.wave-num b { font-size: 3.2rem; font-weight: 400; }
+.wave-head h2 { font-family: var(--display); font-weight: 400; font-size: 1.9rem; line-height: 1.05; letter-spacing: 0.01em; }
+.wave-head .tag { color: var(--muted); }
+.moves { font-size: 0.88rem; color: var(--muted); }
+.moves .label { color: var(--moon); margin-right: 8px; }
+.cards { display: grid; gap: 10px; }
+.empty-note { font-size: 0.88rem; color: var(--muted); font-style: italic; }
+
+/* ── Card ─────────────────────────────────────────── */
+.card {
+  display: grid; gap: 10px; padding: 14px 14px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  min-width: 0;
+}
+.card[data-call="go"] { border-color: color-mix(in srgb, var(--go) 55%, var(--line)); }
+.card[data-call="skip"] { opacity: 0.62; }
+.card.ruled-out { opacity: 0.5; }
+.card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.card h3 { font-size: 1.06rem; line-height: 1.3; }
+.effort {
+  flex: none; font: 600 0.72rem var(--mono); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; white-space: nowrap;
+}
+.line { color: var(--fg); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font: 0.74rem var(--mono); color: var(--muted); }
+.hook { display: inline-flex; align-items: center; gap: 3px; }
+.hook i { display: inline-block; width: 6px; height: 12px; border-radius: 1px; background: var(--line); }
+.hook i.on { background: var(--ember); }
+.perf-faster { color: var(--go); }
+.pill { font: 600 0.7rem var(--mono); border-radius: 999px; padding: 2px 8px; letter-spacing: 0.04em; }
+.pill.building { color: var(--moon); border: 1px solid var(--moon); }
+.pill.shipped { color: var(--go); border: 1px solid var(--go); }
+.dep { color: var(--talk); }
+
+details { border-top: 1px dashed var(--line); padding-top: 8px; }
+summary { cursor: pointer; font-size: 0.86rem; color: var(--moon); list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "+ "; font-family: var(--mono); }
+details[open] summary::before { content: "− "; }
+.why { display: grid; gap: 10px; padding-top: 8px; color: var(--muted); }
+.why label { display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+textarea {
+  font: 0.92rem/1.45 var(--body); color: var(--fg); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical; min-height: 64px; width: 100%;
+}
+textarea:disabled { opacity: 0.6; }
+
+.calls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.calls button {
+  font: 700 0.86rem var(--body); min-height: 40px; cursor: pointer;
+  color: var(--muted); background: var(--raised); border: 1px solid var(--line); border-radius: 8px;
+}
+.calls button:disabled { cursor: default; opacity: 0.55; }
+.calls button[data-call="go"][aria-pressed="true"] { color: var(--go); border-color: var(--go); background: color-mix(in srgb, var(--go) 14%, var(--raised)); }
+.calls button[data-call="talk"][aria-pressed="true"] { color: var(--talk); border-color: var(--talk); background: color-mix(in srgb, var(--talk) 14%, var(--raised)); }
+.calls button[data-call="skip"][aria-pressed="true"] { color: var(--skip); border-color: var(--skip); background: color-mix(in srgb, var(--skip) 14%, var(--raised)); }
+
+/* ── Intermission (decision) ──────────────────────── */
+.intermission {
+  display: grid; gap: 12px; margin-block: 28px 4px; padding: 16px;
+  border: 1px dashed var(--ember); border-radius: 12px; background: color-mix(in srgb, var(--ember) 6%, var(--bg));
+}
+.intermission .label { color: var(--ember); }
+.intermission h2 { font-size: 1.25rem; }
+.intermission > p { color: var(--muted); max-width: 62ch; }
+.options { display: grid; gap: 10px; }
+.option { display: grid; gap: 8px; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.option-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.option h3 { font-size: 1rem; }
+.option p { color: var(--muted); font-size: 0.94rem; }
+.rec { font: 600 0.68rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ember); white-space: nowrap; }
+.option button, .talk-btn {
+  font: 700 0.86rem var(--body); min-height: 40px; cursor: pointer; justify-self: start; padding: 0 16px;
+  color: var(--fg); background: var(--raised); border: 1px solid var(--line); border-radius: 8px;
+}
+.option button[aria-pressed="true"] { color: var(--ember-ink); background: var(--ember); border-color: var(--ember); }
+.talk-btn[aria-pressed="true"] { color: var(--talk); border-color: var(--talk); }
+.option button:disabled, .talk-btn:disabled { cursor: default; opacity: 0.55; }
+.option[data-picked="true"] { border-color: var(--ember); }
+
+/* ── This week ────────────────────────────────────── */
+.thisweek { display: grid; gap: 12px; padding-block: 24px 0; }
+.thisweek .label { color: var(--ember); }
+
+/* ── Not doing / measure ──────────────────────────── */
+.nots { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.nots li { display: grid; gap: 2px; padding-left: 14px; border-left: 2px solid var(--skip); }
+.nots b { font-weight: 700; }
+.nots span { color: var(--muted); font-size: 0.94rem; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { text-align: left; padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 0.7rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+td:last-child { font-family: var(--mono); font-size: 0.8rem; color: var(--ember); white-space: nowrap; }
+td:nth-child(2) { color: var(--muted); }
+footer { padding-block: 28px 0; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--muted); }
+
+@media (min-width: 640px) {
+  .findings { grid-template-columns: repeat(3, 1fr); }
+  .options { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Product roadmap · updated 26 Oct 2026</p>
+    <h1>Cabin <span>Roadmap</span></h1>
+    <p class="lede">From a game that plays like a flash game to one you keep coming back to.</p>
+    <p class="build"><b>Today:</b> 6 zombie types · 5 guns + knife · 1 live map (+ diner in preview) · 2-player co-op · HP and armour · cosmetics locker</p>
+    <p class="howto">Tap <b>Go</b>, <b>Discuss</b> or <b>Skip</b> on each card and open the details to leave a note. Your picks are saved on this page, and Claude reads them at the start of the next session.</p>
+  </header>
+
+  <section class="section" aria-labelledby="diag">
+    <h2 id="diag">Why it plays like a flash game</h2>
+    <div class="findings">
+      <article class="finding">
+        <p class="label">Look</p>
+        <h3>It looks flat</h3>
+        <p>Every surface is a flat colour on a box, nothing goes through post-processing, and the camera is bolted in place: no head bob, no sway, no kick. The pixel-art zombies are the most stylised thing in the game, and the world around them doesn't match.</p>
+        <p class="fix">Fixed in Wave 2</p>
+      </article>
+      <article class="finding">
+        <p class="label">Feel</p>
+        <h3>Hits don't land</h3>
+        <p>A shot that connects gives almost nothing back. No hit marker, the zombie doesn't flinch, no blood leaves the body, and a kill is a 0.75 s tip-over before the body vanishes. Zombie footsteps and plank hits play flat in both ears, so you can't tell which window is under attack.</p>
+        <p class="fix">Fixed in Wave 1</p>
+      </article>
+      <article class="finding">
+        <p class="label">Loop</p>
+        <h3>Every run is the same run</h3>
+        <p>The buy order is solved (pistol, shotgun, AK, Deagle), the whole cabin is open from the first second, and between runs only cosmetics carry over. Nothing gives you a reason to play tomorrow that you didn't have today.</p>
+        <p class="fix">Fixed in Waves 3 and 4</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="order">
+    <h2 id="order">The order, and why</h2>
+    <div class="prose">
+      <p><b>Feel first.</b> It touches every second of play and it's the cheapest work on this list. Retention systems on top of a game that doesn't feel good keep nobody, because the first session decides whether there is a second one.</p>
+      <p><b>Then the look,</b> so the game reads as deliberate in screenshots, in a portal thumbnail and in the first ten seconds. <b>Then the run and the long-term hooks,</b> which are what actually bring people back.</p>
+    </div>
+    <nav class="strip" aria-label="Jump to a wave">
+      <a href="#w0"><b>W0</b>Tools</a>
+      <a href="#w1"><b>W1</b>Feel</a>
+      <a href="#w2"><b>W2</b>Look</a>
+      <a href="#w3"><b>W3</b>The run</a>
+      <a href="#w4"><b>W4</b>Progression</a>
+      <a href="#w5"><b>W5</b>Together</a>
+      <a href="#later"><b>…</b>Later</a>
+    </nav>
+    <div class="legend">
+      <p><b>Effort</b> S = one session · M = two or three · L = a week or more of sessions</p>
+      <p><b>Hook</b> <span class="hook" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span> how hard it pulls players back. Three bars is the strongest.</p>
+      <p><b>Perf</b> cost on a mid-range phone. Every visual effect plugs into a quality tier.</p>
+    </div>
+  </section>
+
+  <div class="bar" role="region" aria-label="Filter by your call">
+    <div class="filters" id="filters"></div>
+    <p class="sync" id="sync" data-state="loading">Loading your picks…</p>
+  </div>
+
+  <section class="thisweek" aria-labelledby="tw">
+    <p class="label" id="tw">Optional, this week</p>
+    <div class="cards" id="thisweek"></div>
+  </section>
+
+  <main id="waves"></main>
+
+  <section class="section" aria-labelledby="notdoing" style="margin-top: 32px;">
+    <h2 id="notdoing">What we're not doing</h2>
+    <ul class="nots">
+      <li><b>Realistic models and textures</b><span>Months of asset work, heavier downloads, slower phones, and it still loses side by side with games made in real engines.</span></li>
+      <li><b>Real money for random rewards</b><span>The Mystery Box costs in-game money only. No loot boxes, nothing that buys power.</span></li>
+      <li><b>Fear-of-missing-out pressure</b><span>Nothing you pay for expires. Seasonal items are earned by playing.</span></li>
+      <li><b>Energy or lives systems</b><span>Never stop someone who wants to play another run.</span></li>
+      <li><b>Crafting, base building, open world</b><span>Complexity that dilutes the tight defend-the-cabin loop.</span></li>
+      <li><b>4-player before solo is sticky</b><span>Most runs are solo. Fix the invite friction first.</span></li>
+    </ul>
+  </section>
+
+  <section class="section" aria-labelledby="measure">
+    <h2 id="measure">How we'll know it works</h2>
+    <p class="prose">Wave 0 records a baseline from the existing analytics events. After that, every wave has to move its number, or we change course.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Metric</th><th>What it tells us</th><th>Moved by</th></tr></thead>
+        <tbody>
+          <tr><td>Day-1 return</td><td>Share of new players who play again the next day</td><td>W4</td></tr>
+          <tr><td>Day-7 return</td><td>Whether the habit sticks past the novelty</td><td>W4</td></tr>
+          <tr><td>Runs per session</td><td>The "one more run" pull</td><td>W1 · W3</td></tr>
+          <tr><td>Session length</td><td>How long a sitting lasts</td><td>W3</td></tr>
+          <tr><td>First-run wave reached</td><td>Whether new players get hooked before they die</td><td>W1</td></tr>
+          <tr><td>Quit in first minute</td><td>Whether the first look sells the game</td><td>W2</td></tr>
+          <tr><td>Co-op share of runs</td><td>Whether friends are bringing friends</td><td>W5</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Source lives in the repo at <code>docs/roadmap.html</code>. Your picks and notes are saved with this page; build status is updated by Claude as work ships.
+  </footer>
+</div>
+
+<script>
+// ── Content ─────────────────────────────────────────────────────────────
+// hook: 0–3 (0 = enabler, no direct pull). effort: S | M | L.
+// perf: none | low | tiered | faster.  dep: decision id this card depends on.
+const THIS_WEEK = [
+  { id: 'halloween', title: 'Halloween event (31 Oct)', effort: 'S', hook: 2, perf: 'none',
+    line: "Jack-o'-lantern heads on zombies, an orange-lit cabin, candy drops, and a free Pumpkin knife and crosshair for anyone who plays during the event.",
+    why: "Five days out. It's the cheapest real test of whether a limited-time reason brings people back, and it reuses the cosmetics system. Skip it if it delays the playground or Wave 1." },
+]
+
+const WAVES = [
+  { id: 'w0', n: '0', name: 'Tools', tag: 'Build the workshop first.',
+    moves: 'Nothing for players yet. Speeds up and de-risks every later wave.',
+    items: [
+      { id: 'playground', title: 'Model playground', effort: 'M', hook: 0, perf: 'none',
+        line: 'A /?playground page to view every model on your phone: zombies by type, guns, knife, props, pickups.',
+        why: 'Touch to orbit and zoom, switch animations (walk, attack, die, burning) and swap lighting presets that match the cabin. Each new model lands here first, so you review it from the Vercel preview before it touches the game. It extends the existing Test Lab instead of starting over.' },
+      { id: 'quality', title: 'Quality tiers', effort: 'S', hook: 0, perf: 'none',
+        line: 'Low, Medium and High graphics, picked automatically per device and changeable in settings.',
+        why: 'Every visual upgrade in Wave 2 plugs into a tier, so a mid-range phone never pays for a desktop effect. Without this, each new effect is a fight between looking good and running well.' },
+      { id: 'perf', title: 'Frame budget check', effort: 'S', hook: 0, perf: 'none',
+        line: 'An FPS and draw-call overlay in preview builds, plus a fixed stress scene (wave 10, 25 zombies).',
+        why: "Every change gets measured on a real phone instead of guessed. Guessing has cost us before: the spawn freeze took five separate fixes." },
+      { id: 'metrics', title: 'Retention baseline', effort: 'S', hook: 0, perf: 'none', todo: true,
+        line: 'Saved queries over the existing events table: day-1 and day-7 return, runs per session, wave reached, where people quit.',
+        why: "We need numbers before we change things, or we can't tell which wave worked. Each wave below names the number it should move." },
+    ] },
+
+  { id: 'w1', n: '1', name: 'Feel', tag: 'Every shot lands.',
+    moves: 'Runs per session · first-run wave reached',
+    items: [
+      { id: 'hitmarker', title: 'Hit markers and kill confirm', effort: 'S', hook: 3, perf: 'none',
+        line: 'A crosshair tick on every hit, a red X on a kill, and a sharper sound and bigger marker on headshots.',
+        why: 'The cheapest, most proven feedback in shooters. It tells your brain the shot mattered, and headshots start to feel like a skill worth chasing.' },
+      { id: 'flinch', title: 'Zombies react to hits', effort: 'M', hook: 3, perf: 'low',
+        line: 'A flash on impact, a stagger, the head snapping back on headshots. Brutes only flinch on big hits.',
+        why: 'Right now a zombie on its last hit point and one at full health look identical. Reactions make damage readable and make the shotgun feel heavy.' },
+      { id: 'deaths', title: 'Deaths that match the weapon', effort: 'M', hook: 3, perf: 'low',
+        line: 'The shotgun blasts them backwards, a Deagle headshot pops the head, a knife kill slumps. Bodies stay down until the wave ends.',
+        why: 'The kill is the reward, so it should be the best-looking moment in the game. Corpses are capped and frozen (no per-frame logic), so they cost almost nothing.' },
+      { id: 'camera', title: 'A camera with weight', effort: 'S', hook: 3, perf: 'none',
+        line: 'Head bob while walking, weapon sway that trails your aim, and per-weapon screen kick: big for the Deagle and shotgun, a climbing rattle for the AK.',
+        why: "A rigid camera is the biggest flash-game tell. Each of these is small and changes how every second feels. Kept subtle, with a toggle for motion-sensitive players." },
+      { id: 'audio3d', title: 'Hear them coming', effort: 'S', hook: 3, perf: 'none',
+        line: 'Zombie footsteps, groans and plank hits come from where they happen, so you hear which window is under attack.',
+        why: "Positional audio already exists for the co-op partner (the panner in sounds.js); zombies just don't use it. Directional dread is half of horror, and it costs nothing on performance." },
+      { id: 'blood', title: 'Blood that stays', effort: 'M', hook: 2, perf: 'low',
+        line: 'A burst at the exact impact point, plus splatter on the floor and walls that stays until the wave ends.',
+        why: 'The room records the fight: by wave 10 the cabin looks like a siege happened. Built as a fixed pool, the same pattern as the claw decals, so nothing is allocated mid-wave.' },
+      { id: 'lowhp', title: 'Danger you can feel', effort: 'S', hook: 2, perf: 'none',
+        line: 'A red vignette, heartbeat and muffled sound at low HP, plus an arrow showing which side hit you.',
+        why: 'Near-death moments are the stories people retell. Making them loud turns a close call into a memorable one.' },
+      { id: 'lastkill', title: 'The last kill', effort: 'S', hook: 2, perf: 'none',
+        line: 'The final zombie of each wave dies in slow motion with a sound sting, then WAVE CLEARED lands.',
+        why: 'A ritual that closes every wave with a payoff. Players start waiting for it.' },
+    ] },
+
+  { decision: true, id: 'd-art', title: 'What should Cabin look like?',
+    intro: 'This decides how Wave 2 is built, so it needs your call before we get there.',
+    options: [
+      { key: 'A', rec: true, title: 'Lo-fi horror',
+        text: "Lower internal resolution, dithering, heavy fog, film grain and strong colour. It leans into the pixel-art zombies and reads as a choice, the way Dusk, Iron Lung or Buckshot Roulette do. It's also cheaper on phones, because fewer pixels get drawn." },
+      { key: 'B', title: 'Push toward realism',
+        text: "Imported 3D models, PBR textures and realistic lighting. Months of asset work, heavier downloads, worse mobile performance, and it still loses side by side with games made in real engines. I don't recommend it." },
+    ] },
+
+  { id: 'w2', n: '2', name: 'Look', tag: 'Make it look deliberate.',
+    moves: 'Quit in first minute · first-session length',
+    items: [
+      { id: 'lofi', title: 'Lo-fi render pass', effort: 'M', hook: 3, perf: 'faster', dep: 'd-art',
+        line: 'Render at a lower internal resolution with ordered dithering and a limited palette, scaled up crisp.',
+        why: 'One switch that pulls the boxes, the pixel-art zombies and the forest panorama into a single look. It makes phones faster, not slower.' },
+      { id: 'post', title: 'Colour, grain and glow', effort: 'M', hook: 3, perf: 'tiered',
+        line: 'Cold moonlight against warm firelight, a vignette, film grain, and bloom on muzzle flashes, fire and the flamethrower.',
+        why: "This is most of the gap between a prototype and a screenshot. Phones get the colour grade and vignette in one cheap pass; bloom is High tier only." },
+      { id: 'storm', title: 'Thunderstorm', effort: 'S', hook: 2, perf: 'none',
+        line: 'Lightning flashes through the windows, silhouetting the tree line and any zombie outside, with rolling thunder and rain.',
+        why: 'Maximum atmosphere for almost nothing: one light pulse and some audio. A flash that reveals a zombie at the window is a free jump scare.' },
+      { id: 'lights', title: 'Lights that misbehave', effort: 'S', hook: 2, perf: 'low',
+        line: 'Fireplace flicker, a bulb that sputters, lights that die when the boss arrives, moonbeams and dust in the windows.',
+        why: 'Changing light makes a static room feel alive and unsafe. It reuses the existing lights; moonbeams are cheap glowing cones with no shadows.' },
+      { id: 'textures', title: 'Real surfaces', effort: 'M', hook: 2, perf: 'low',
+        line: 'Wood grain, plaster and stone generated in code at load time. No downloads, same recipe as the forest skybox.',
+        why: 'Flat colour is what makes boxes look like boxes. A handful of shared textures fixes most of it without touching geometry.' },
+      { id: 'variety', title: 'No two zombies alike', effort: 'M', hook: 2, perf: 'none',
+        line: 'Random clothes and skin tone, height, a missing arm or jaw per spawn, all built from the cached geometry.',
+        why: 'Twenty-five identical clones read as cheap. Variety also makes types easier to tell apart at a glance. Same geometry and a small fixed set of materials, so no shader stalls.' },
+      { id: 'impacts', title: 'Muzzle flash and impacts', effort: 'S', hook: 2, perf: 'low',
+        line: 'A proper flash sprite, sparks and splinters on wood, debris when planks break.',
+        why: 'Small, but you see it on every single shot.' },
+    ] },
+
+  { decision: true, id: 'd-doors', title: 'Should runs start sealed in the main room?',
+    intro: 'The biggest design change on this list. It shapes Wave 3, so it needs your call first.',
+    options: [
+      { key: 'A', rec: true, title: 'Yes, buyable doors',
+        text: "Spend money to open the hall, kitchen and bedroom. Each room adds windows to defend and holds something you want: the box, a perk, the upgrade bench. Every run becomes a route decision. The pathfinding grid already rebuilds from wall data, so it's work, not a rewrite." },
+      { key: 'B', title: 'No, keep it open',
+        text: 'The whole cabin stays open from the start, and the box and bench sit in fixed spots. Less strategy, less work.' },
+    ] },
+
+  { id: 'w3', n: '3', name: 'The run', tag: 'One more run.',
+    moves: 'Runs per session · session length',
+    items: [
+      { id: 'powerups', title: 'Power-up drops', effort: 'M', hook: 3, perf: 'none',
+        line: 'Zombies sometimes drop Max Ammo, Insta-Kill, Double Money, Nuke or Carpenter (repairs every window).',
+        why: 'The most excitement per hour of work on this list. A Nuke at the right moment is a story. In co-op the host decides drops and syncs them as one event.' },
+      { id: 'box', title: 'Mystery Box', effort: 'M', hook: 3, perf: 'none',
+        line: 'Pay in-game money for a random weapon, including box-only weapons. It moves now and then.',
+        why: "A gamble that turns money into anticipation and makes each run's loadout different. In-game money only, never real money." },
+      { id: 'bench', title: 'Upgrade bench', effort: 'M', hook: 3, perf: 'none',
+        line: 'Spend big late-game money to upgrade a weapon: more damage, a bigger mag, a new name and a glowing finish.',
+        why: 'Right now money piles up after the Deagle with nothing to spend it on. This gives wave 15 and beyond a goal.' },
+      { id: 'doors', title: 'Buyable doors', effort: 'L', hook: 3, perf: 'none', dep: 'd-doors',
+        line: 'Start sealed in the main room and open the cabin room by room.',
+        why: 'See the decision above. Turns money into territory and gives every run a shape.' },
+      { id: 'special', title: 'Special waves', effort: 'S', hook: 2, perf: 'none',
+        line: 'Every 5th wave is themed (runner swarm, crawler flood, boss with escorts) and ends with a guaranteed Max Ammo.',
+        why: "A rhythm players learn and brace for. It breaks up the 'same wave, more zombies' flatness." },
+      { id: 'modifiers', title: 'Wave modifiers', effort: 'M', hook: 2, perf: 'none', todo: true,
+        line: 'Random twists announced at intermission: Fog, Bloodlust (double speed), Blackout (flashlight only), Horde (double count, half HP).',
+        why: 'Cheap variety from systems we already have. Blackout alone turns the cabin into a different map.' },
+      { id: 'archetypes', title: 'New zombie types', effort: 'M', hook: 2, perf: 'low', todo: true,
+        line: 'Exploder (punishes letting them close), Spitter (ranged acid, pushes you off windows), Armored (only the shotgun and Deagle get through).',
+        why: 'Each one changes how you play, not just how much damage you take. Each is built and reviewed in the playground first. Effort is per type.' },
+      { id: 'grenades', title: 'Grenades', effort: 'M', hook: 2, perf: 'low', todo: true,
+        line: 'Limited stock, cook-and-throw, area kill.',
+        why: 'The crowd-control answer for late waves, and the thing you save for the moment it all goes wrong.' },
+    ] },
+
+  { id: 'w4', n: '4', name: 'Progression', tag: 'Come back tomorrow.',
+    moves: 'Day-1 and day-7 return',
+    items: [
+      { id: 'xp', title: 'Player level', effort: 'M', hook: 3, perf: 'none',
+        line: 'Every run earns XP for kills, headshots, waves and challenges. The death screen counts it into a level bar and shows the next unlock.',
+        why: 'The most proven return hook in the genre. Even a bad run moves the bar, so dying feels like progress instead of a reset.' },
+      { id: 'mastery', title: 'Weapon mastery', effort: 'M', hook: 3, perf: 'none',
+        line: 'Kills with each weapon raise its level and unlock earned camos.',
+        why: 'Gives every weapon a long tail, so players pick up the ones they normally skip. Plugs into the existing milestone unlocks. Earned camos stay different from the Supporter finishes so the pack keeps its value.' },
+      { id: 'challenges', title: 'Daily and weekly challenges', effort: 'M', hook: 3, perf: 'none',
+        line: "Three dailies ('20 pistol headshots', 'clear wave 5 without boarding') and one weekly, paid in XP.",
+        why: 'A fresh reason to open the game today. Generated from the date, so it works offline and needs no server.' },
+      { id: 'daily', title: 'Daily seeded run', effort: 'M', hook: 2, perf: 'none', todo: true,
+        line: 'The same spawns and box rolls for everyone each day, with its own leaderboard and one ranked attempt.',
+        why: 'Something to compare with friends every day. The leaderboard already exists.' },
+      { id: 'maps', title: 'Diner unlock', effort: 'S', hook: 2, perf: 'none', todo: true,
+        line: 'Put the diner on the start screen, unlocked by player level or by reaching wave 10 in the cabin.',
+        why: 'The map is already built. It doubles the content and gives level-ups a headline reward.' },
+      { id: 'loadouts', title: 'Starting loadouts', effort: 'S', hook: 2, perf: 'none', todo: true,
+        line: 'Milestones unlock different starting weapons or a perk for future runs.',
+        why: 'Lets veterans skip the slow opening and try new routes. Capped so it never trivialises early waves.' },
+      { id: 'achievements', title: 'Achievements', effort: 'S', hook: 1, perf: 'none',
+        line: "A visible list, plus a few hidden ones ('kill the boss with the knife').",
+        why: 'A checklist people try to finish. The hidden ones get shared.' },
+    ] },
+
+  { id: 'w5', n: '5', name: 'Together', tag: 'Bring friends.',
+    moves: 'Co-op share of runs · new players per week',
+    items: [
+      { id: 'invite', title: 'One-tap invite', effort: 'S', hook: 2, perf: 'none',
+        line: 'A link that drops a friend straight into your co-op room.',
+        why: 'Co-op exists, but getting a friend in means typing a room code. Every step removed is more friends who make it in.' },
+      { id: 'revive', title: 'Down, not out', effort: 'M', hook: 3, perf: 'none',
+        line: 'In co-op, zero HP means crawling with a pistol, and your partner holds E to revive you.',
+        why: 'Turns a death into a rescue. The best co-op moments in the genre come from this.' },
+      { id: 'weekly', title: 'Weekly and friends leaderboards', effort: 'M', hook: 2, perf: 'none',
+        line: 'A leaderboard that resets every week, plus a friends filter.',
+        why: 'All-time boards are hopeless for new players. A weekly board gives everyone a race they can win.' },
+      { id: 'portals', title: 'CrazyGames and Poki', effort: 'M', hook: 0, perf: 'none', todo: true,
+        line: 'Ship to web game portals, with rev-share ads at natural breaks only (start screen, after death).',
+        why: 'They bring the players. They also judge games by first-session retention, so this goes after Waves 1 and 2, not before.' },
+      { id: 'fourp', title: '3–4 players', effort: 'L', hook: 2, perf: 'low', todo: true,
+        line: 'Bigger co-op lobbies.',
+        why: 'Later. Most runs are solo, so invite friction comes first.' },
+    ] },
+
+  { id: 'later', n: '…', name: 'Later', tag: 'Big bets that need a conversation.',
+    moves: 'Long-term identity of the game',
+    items: [
+      { id: 'quest', title: 'Map secrets and an ending', effort: 'L', hook: 3, perf: 'none',
+        line: 'A hidden step-by-step quest per map: find the radio parts, call for rescue, survive until extraction.',
+        why: 'This is what keeps Call of Duty Zombies communities obsessed for years. Heavy design work, so only once the loop is solid.' },
+      { id: 'newmaps', title: 'New maps', effort: 'L', hook: 2, perf: 'none', todo: true,
+        line: 'A barn with a hayloft, and a windowless bunker with breach points.',
+        why: 'Already picked as the next maps after the diner. Each one is a big build.' },
+      { id: 'seasons', title: 'Seasonal events', effort: 'M', hook: 2, perf: 'none',
+        line: 'Limited-time map dressing and earnable cosmetics around holidays.',
+        why: 'A calendar of reasons to come back. Earned by playing, never sold under time pressure.' },
+    ] },
+]
+
+// ── Rendering ───────────────────────────────────────────────────────────
+const PERF_LABEL = { none: 'Perf: none', low: 'Perf: low', tiered: 'Perf: tiered', faster: 'Perf: faster on phones' }
+const EFFORT_LABEL = { S: 'S · 1 session', M: 'M · 2–3 sessions', L: 'L · week+' }
+const CALLS = [['go', 'Go'], ['talk', 'Discuss'], ['skip', 'Skip']]
+const DEP_LABEL = { 'd-art': 'Only if you pick lo-fi', 'd-doors': 'Only if you pick doors' }
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
+function hookHtml(n) {
+  if (!n) return '<span>Enabler</span>'
+  let bars = ''
+  for (let i = 1; i <= 3; i++) bars += `<i class="${i <= n ? 'on' : ''}"></i>`
+  return `<span class="hook" role="img" aria-label="Hook strength ${n} of 3">${bars}</span>`
+}
+
+function cardHtml(it) {
+  const perfCls = it.perf === 'faster' ? ' class="perf-faster"' : ''
+  return `
+  <article class="card" id="item-${it.id}" data-id="${it.id}">
+    <div class="card-top">
+      <h3>${esc(it.title)}</h3>
+      <span class="effort" title="Effort">${EFFORT_LABEL[it.effort]}</span>
+    </div>
+    <p class="line">${esc(it.line)}</p>
+    <div class="meta">
+      ${hookHtml(it.hook)}
+      <span${perfCls}>${PERF_LABEL[it.perf]}</span>
+      ${it.todo ? '<span>From TODO.md</span>' : ''}
+      ${it.dep ? `<span class="dep">${DEP_LABEL[it.dep]}</span>` : ''}
+      <span class="pill" data-status hidden></span>
+    </div>
+    <details>
+      <summary>Why it matters</summary>
+      <div class="why">
+        <p>${esc(it.why)}</p>
+        <label>Note for Claude
+          <textarea id="note-${it.id}" data-note="${it.id}" rows="2" placeholder="Anything to change, add or watch out for" disabled></textarea>
+        </label>
+      </div>
+    </details>
+    <div class="calls" role="group" aria-label="Your call on ${esc(it.title)}">
+      ${CALLS.map(([k, label]) => `<button type="button" data-item="${it.id}" data-call="${k}" aria-pressed="false" disabled>${label}</button>`).join('')}
+    </div>
+  </article>`
+}
+
+function decisionHtml(d) {
+  return `
+  <section class="intermission" id="item-${d.id}" data-decision="${d.id}" aria-labelledby="h-${d.id}">
+    <p class="label">Intermission · your call</p>
+    <h2 id="h-${d.id}">${esc(d.title)}</h2>
+    <p>${esc(d.intro)}</p>
+    <div class="options">
+      ${d.options.map((o) => `
+      <div class="option" data-key="${o.key}">
+        <div class="option-top"><h3>${o.key}. ${esc(o.title)}</h3>${o.rec ? '<span class="rec">Recommended</span>' : ''}</div>
+        <p>${esc(o.text)}</p>
+        <button type="button" data-item="${d.id}" data-call="${o.key}" aria-pressed="false" disabled>Pick ${o.key}</button>
+      </div>`).join('')}
+    </div>
+    <button type="button" class="talk-btn" data-item="${d.id}" data-call="talk" aria-pressed="false" disabled>Let's discuss first</button>
+  </section>`
+}
+
+function waveHtml(w) {
+  return `
+  <section class="wave" id="${w.id}" aria-labelledby="h-${w.id}">
+    <header class="wave-head">
+      <div class="wave-num" aria-hidden="true"><span>Wave</span><b>${esc(w.n)}</b></div>
+      <div><h2 id="h-${w.id}">${esc(w.name)}</h2><p class="tag">${esc(w.tag)}</p></div>
+    </header>
+    <p class="moves"><span class="label">Should move</span>${esc(w.moves)}</p>
+    <div class="cards">${w.items.map(cardHtml).join('')}</div>
+    <p class="empty-note" hidden>Nothing in this wave matches the filter.</p>
+  </section>`
+}
+
+document.getElementById('thisweek').innerHTML = THIS_WEEK.map(cardHtml).join('')
+document.getElementById('waves').innerHTML = WAVES.map((w) => (w.decision ? decisionHtml(w) : waveHtml(w))).join('')
+
+const ALL_CARD_IDS = [...THIS_WEEK, ...WAVES.flatMap((w) => w.items || [])].map((it) => it.id)
+const DEPS = Object.fromEntries([...THIS_WEEK, ...WAVES.flatMap((w) => w.items || [])].filter((it) => it.dep).map((it) => [it.id, it.dep]))
+
+// ── State ───────────────────────────────────────────────────────────────
+let calls = {}      // itemId -> { call, note }   written by the product owner on this page
+let progress = {}   // itemId -> { status }       written by Claude ('building' | 'shipped')
+let db = null
+let writable = false
+let filter = 'all'
+const dirty = new Set()
+const inflight = {}
+const queued = {}
+const noteTimers = {}
+
+try { filter = localStorage.getItem('cabin-roadmap-filter') || 'all' } catch (_) {}
+
+const FILTERS = [['all', 'All'], ['none', 'Undecided'], ['go', 'Go'], ['talk', 'Discuss'], ['skip', 'Skip']]
+
+function counts() {
+  const c = { all: ALL_CARD_IDS.length, none: 0, go: 0, talk: 0, skip: 0 }
+  for (const id of ALL_CARD_IDS) {
+    const k = calls[id]?.call
+    if (k === 'go' || k === 'talk' || k === 'skip') c[k]++
+    else c.none++
+  }
+  return c
+}
+
+function renderFilters() {
+  const c = counts()
+  document.getElementById('filters').innerHTML = FILTERS.map(([k, label]) =>
+    `<button type="button" data-filter="${k}" aria-pressed="${filter === k}">${label} ${c[k]}</button>`).join('')
+}
+
+function renderState() {
+  for (const el of document.querySelectorAll('[data-item]')) {
+    const picked = calls[el.dataset.item]?.call === el.dataset.call
+    el.setAttribute('aria-pressed', String(picked))
+    el.disabled = !writable
+    const opt = el.closest('.option')
+    if (opt) opt.dataset.picked = String(picked)
+  }
+  for (const ta of document.querySelectorAll('[data-note]')) {
+    ta.disabled = !writable
+    if (document.activeElement !== ta && !dirty.has(ta.dataset.note)) ta.value = calls[ta.dataset.note]?.note || ''
+  }
+  for (const id of ALL_CARD_IDS) {
+    const card = document.getElementById('item-' + id)
+    const call = calls[id]?.call
+    if (call) card.dataset.call = call
+    else delete card.dataset.call
+    const dep = DEPS[id]
+    card.classList.toggle('ruled-out', !!dep && calls[dep]?.call === 'B')
+    const pill = card.querySelector('[data-status]')
+    const st = progress[id]?.status
+    pill.hidden = !(st === 'building' || st === 'shipped')
+    pill.className = 'pill ' + (st || '')
+    pill.textContent = st === 'shipped' ? 'Shipped' : st === 'building' ? 'Building' : ''
+  }
+  applyFilter()
+  renderFilters()
+}
+
+function applyFilter() {
+  for (const id of ALL_CARD_IDS) {
+    const card = document.getElementById('item-' + id)
+    const call = calls[id]?.call
+    card.hidden = !(filter === 'all' || (filter === 'none' ? !call : call === filter))
+  }
+  for (const wave of document.querySelectorAll('.wave')) {
+    const anyVisible = [...wave.querySelectorAll('.card')].some((c) => !c.hidden)
+    wave.querySelector('.empty-note').hidden = anyVisible
+  }
+  for (const d of document.querySelectorAll('[data-decision]')) {
+    d.hidden = !(filter === 'all' || (filter === 'none' && !calls[d.dataset.decision]?.call))
+  }
+  const tw = document.querySelector('.thisweek')
+  tw.hidden = [...tw.querySelectorAll('.card')].every((c) => c.hidden)
+}
+
+function setSync(text, state) {
+  const el = document.getElementById('sync')
+  el.textContent = text
+  el.dataset.state = state || ''
+}
+
+// ── Saving (one write at a time per document) ───────────────────────────
+async function writeCall(id) {
+  const body = { call: calls[id]?.call ?? null, note: calls[id]?.note ?? '', at: Date.now() }
+  const ref = db.collection('calls').doc(id)
+  try {
+    await ref.set(body)
+  } catch (e) {
+    if (e?.code !== 'unavailable') throw e
+    await new Promise((r) => setTimeout(r, 500 + Math.random() * 700))
+    await ref.set(body)
+  }
+}
+
+async function save(id) {
+  if (!db || !writable) return
+  if (inflight[id]) { queued[id] = true; return }
+  inflight[id] = true
+  try {
+    await writeCall(id)
+    setSync('Saved. Claude reads your picks at the start of the next session.', 'ok')
+  } catch (e) {
+    if (e?.code === 'invalid_argument') {
+      writable = false
+      setSync('This view is read-only, so picks are not saved.', 'error')
+      renderState()
+    } else {
+      setSync("Couldn't save that change. Try again in a moment.", 'error')
+    }
+  }
+  inflight[id] = false
+  if (queued[id]) { queued[id] = false; save(id) }
+  else dirty.delete(id)
+}
+
+document.addEventListener('click', (ev) => {
+  const f = ev.target.closest('[data-filter]')
+  if (f) {
+    filter = f.dataset.filter
+    try { localStorage.setItem('cabin-roadmap-filter', filter) } catch (_) {}
+    applyFilter(); renderFilters()
+    return
+  }
+  const b = ev.target.closest('[data-item][data-call]')
+  if (!b || !writable) return
+  const id = b.dataset.item
+  const next = calls[id]?.call === b.dataset.call ? null : b.dataset.call
+  calls = { ...calls, [id]: { ...(calls[id] || {}), call: next } }
+  dirty.add(id)
+  renderState()
+  save(id)
+})
+
+document.addEventListener('input', (ev) => {
+  const ta = ev.target.closest('[data-note]')
+  if (!ta || !writable) return
+  const id = ta.dataset.note
+  calls = { ...calls, [id]: { ...(calls[id] || {}), note: ta.value } }
+  dirty.add(id)
+  clearTimeout(noteTimers[id])
+  noteTimers[id] = setTimeout(() => save(id), 900)
+})
+
+document.addEventListener('focusout', (ev) => {
+  const ta = ev.target.closest?.('[data-note]')
+  if (!ta || !noteTimers[ta.dataset.note]) return
+  clearTimeout(noteTimers[ta.dataset.note])
+  noteTimers[ta.dataset.note] = null
+  save(ta.dataset.note)
+})
+
+renderState()
+
+// ── Connect to the page's database ──────────────────────────────────────
+;(async () => {
+  if (!window.claude?.use) { setSync('Open this page on claude.ai to save picks.', 'error'); return }
+  const [store, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')])
+  if (!store) { setSync("Picks can't be saved in this view. Open it on claude.ai while signed in.", 'error'); return }
+  db = store
+  const can = user ? await user.can('data.write') : null
+  writable = can !== false
+  setSync(writable ? 'Picks save automatically. Claude reads them at the start of the next session.' : 'You can read this roadmap, but only the owner can make calls.', writable ? 'ok' : '')
+  db.collection('calls').onSnapshot((snap) => {
+    const next = {}
+    for (const d of snap.docs) next[d.id] = d.data()
+    for (const id of dirty) if (calls[id]) next[id] = calls[id]
+    calls = next
+    renderState()
+  }, () => setSync('Lost the connection to saved picks. Reload to try again.', 'error'))
+  db.collection('progress').onSnapshot((snap) => {
+    const next = {}
+    for (const d of snap.docs) next[d.id] = d.data()
+    progress = next
+    renderState()
+  }, () => {})
+  renderState()
+})()
+</script>

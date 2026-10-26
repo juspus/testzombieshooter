@@ -5,6 +5,13 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- Roadmap: https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz (source
+  `docs/roadmap.html`, republish from that file with the URL). The owner
+  marks each item Go / Discuss / Skip (+ notes) on the page; read them at
+  session start with ArtifactData `list` on collection `calls` (doc id =
+  item id, `{call, note}`; decisions `d-art`/`d-doors` use `A`/`B`/`talk`).
+  When work starts/ships, write `progress/<item id>` `{status: 'building'|'shipped'}`.
+  Agreed next step after the roadmap: the model playground (`/?playground`).
 - New maps: cabin was the only map, now generalized into a src/maps/ schema
   (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
   is dev/preview-only via `?map=diner` (gated same as other debug params) —
@@ -118,6 +125,16 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - (none yet)
 
 ## Dated log
+
+- 2026-10-26: Built the visual roadmap (artifact above). Diagnosis of the
+  "flash game" feel: flat look (no post, rigid camera), hits don't land (no
+  hit marker/flinch/blood, 0.75 s tip-over death, zombie audio not
+  positional), every run identical (solved buy order, no meta-progression).
+  Order proposed: W0 tools (playground, quality tiers, perf overlay,
+  retention baseline) → W1 feel → W2 look → W3 run variety (power-ups, box,
+  upgrade bench, doors) → W4 progression (XP, mastery, challenges) → W5
+  together. Open owner decisions: art direction (lo-fi recommended),
+  buyable doors on the cabin, Halloween mini-event.
 
 - 2026-10-14: Monetization v1. The Supabase project had been paused
   (free tier idle pause) -> restored. Shipped on branch
