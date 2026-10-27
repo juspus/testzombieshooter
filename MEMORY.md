@@ -13,8 +13,11 @@ start of every session. Keep entries short — a few lines each.
   When work starts/ships, write `progress/<item id>` `{status: 'building'|'shipped'}`.
   Agreed next step after the roadmap: the model playground (`/?playground`).
 - Owner calls (2026-10-27): art = lo-fi (A), buyable doors = yes (A).
-  Skip: quality tiers, special waves, portals, Halloween. Discuss before
-  building: playground, weapon mastery, seasons, 3-4 players. Everything
+  Skip: quality tiers, special waves, portals, Halloween. Postponed: weapon
+  mastery, seasons, 3-4 players (needs bigger maps first; it's a PeerJS
+  star-topology refactor of single-partner code, not a tech change).
+  Playground: split Test Lab into /?models (model viewer + registry) and
+  /?testlab (sounds/weapons) - owner approved. Everything
   else Go. Owner asked for autonomous implementation by Sonnet (medium)
   subagents in worktrees, merged onto claude/wizardly-pascal-c4k091 (PR #126),
   continuing across usage-limit resets (send_later safety net), leaving ~10%
