@@ -23,6 +23,10 @@ import { ZOMBIE_ARCHETYPES } from '../store'
 import {
   ZombieDisplay, WeaponDisplay, KnifeDisplay, AmmoCrateDisplay, ArmourDisplay,
 } from './models'
+import {
+  RockingChair, Bookshelf, OldDesk, Bed, Nightstand, KitchenTable, WoodStove,
+  DeerHead, CellarDoor, FloorRug, Chest,
+} from '../components/Arena'
 
 export const CATEGORIES = [
   { id: 'zombies', label: 'Zombies' },
@@ -30,6 +34,7 @@ export const CATEGORIES = [
   { id: 'knife', label: 'Knife' },
   { id: 'armour', label: 'Armour' },
   { id: 'pickups', label: 'Pickups' },
+  { id: 'props', label: 'Props' },
 ]
 
 const ZOMBIE_ANIMS = [
@@ -68,6 +73,14 @@ const armourEntry = (id, label, props, cam) => ({
   defaultCamera: cam, humanScale: true,
 })
 
+// Cabin furniture/props (exported from Arena.jsx; base at y = 0). They take a
+// `position` prop and ignore `ctrl`, so they work as-is with no animations.
+const PROP_CAM = (d, h = 1.1) => ({ position: [d * 0.5, h + 0.3, d * 0.65], target: [0, h * 0.6, 0], fit: 'width' })
+const propEntry = (id, label, Component, props, cam, extra) => ({
+  id, category: 'props', label, Component, props: { position: [0, 0, 0], ...props },
+  animations: [], defaultCamera: cam, ...extra,
+})
+
 export const ENTRIES = [
   ...zombieEntries,
   weaponEntry('pistol', 'Pistol'),
@@ -93,6 +106,17 @@ export const ENTRIES = [
     animations: [],
     defaultCamera: { position: [0.9, 0.5, 1.1], target: [0, 0.2, 0], fit: 'width' }, floorY: 0,
   },
+  propEntry('rocking_chair', 'Rocking chair', RockingChair, {}, PROP_CAM(2.4, 1.0), { humanScale: true }),
+  propEntry('bookshelf', 'Bookshelf', Bookshelf, {}, PROP_CAM(3.2, 1.0)),
+  propEntry('old_desk', 'Old desk', OldDesk, {}, PROP_CAM(2.4, 0.7)),
+  propEntry('bed', 'Bed', Bed, {}, PROP_CAM(3.6, 0.7)),
+  propEntry('nightstand', 'Nightstand', Nightstand, {}, PROP_CAM(1.6, 0.5)),
+  propEntry('kitchen_table', 'Kitchen table', KitchenTable, {}, PROP_CAM(2.0, 0.6)),
+  propEntry('wood_stove', 'Wood stove', WoodStove, {}, PROP_CAM(3.0, 1.0)),
+  propEntry('deer_head', 'Deer head', DeerHead, { position: [0, 1, 0] }, PROP_CAM(1.8, 1.0), { floorY: 0 }),
+  propEntry('cellar_door', 'Cellar door', CellarDoor, {}, { position: [0.9, 1.5, 1.4], target: [0, 0, 0], fit: 'width' }),
+  propEntry('floor_rug', 'Floor rug', FloorRug, { args: [2.5, 1.8] }, { position: [1.6, 2.2, 2.0], target: [0, 0, 0], fit: 'width' }),
+  propEntry('chest', 'Loot chest', Chest, {}, PROP_CAM(1.8, 0.4)),
 ]
 
 export const getEntry = (id) => ENTRIES.find((e) => e.id === id) ?? null
