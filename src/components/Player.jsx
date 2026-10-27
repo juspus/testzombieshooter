@@ -1,3 +1,4 @@
+import { runRandom } from '../rng'
 import { useEffect, useRef, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { viewState } from '../viewState'
@@ -409,8 +410,8 @@ export default function Player() {
       const killed = new Set()
       let anyHit = false, anyHead = false, anyKill = false
       for (let i = 0; i < PELLETS; i++) {
-        const angle = Math.random() * Math.PI * 2
-        const r = Math.sqrt(Math.random()) * SPREAD  // sqrt for even circular distribution
+        const angle = runRandom('spread')() * Math.PI * 2
+        const r = Math.sqrt(runRandom('spread')()) * SPREAD  // sqrt for even circular distribution
         const pelletRC = new THREE.Raycaster()
         pelletRC.setFromCamera({ x: Math.cos(angle) * r, y: Math.sin(angle) * r }, camera)
         checkWindowShatter(pelletRC.ray.origin, pelletRC.ray.direction, 30)

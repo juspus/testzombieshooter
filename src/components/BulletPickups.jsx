@@ -1,3 +1,4 @@
+import { runRandom } from '../rng'
 import { useRef, useState, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
@@ -84,7 +85,7 @@ export default function BulletPickups() {
       const occupied = new Set(pickups.map((p) => p.cornerIdx))
       const free = CORNERS.map((_, i) => i).filter((i) => !occupied.has(i))
       if (free.length > 0) {
-        const cornerIdx = free[Math.floor(Math.random() * free.length)]
+        const cornerIdx = free[Math.floor(runRandom('pickup')() * free.length)]
         const pos = CORNERS[cornerIdx].clone()
         setPickups((prev) => [...prev, { id: _nextId++, cornerIdx, position: pos }])
       }

@@ -13,6 +13,7 @@ Things only the product owner can do. The code is live-safe without them
 - [ ] Project `cabin` must not be paused (free tier pauses after 7 days idle — the leaderboard and login die with it). Either upgrade to Pro (~$25/mo) or keep it awake; a paused project is the #1 reason a purchase would fail.
 - [ ] Settings → API → copy the **service_role** key (server only).
 - [ ] SQL Editor → paste and run `supabase/migrations/20261015000000_harden_scores_events_entitlements.sql`. It is safe to run twice. It stops fake ★ leaderboard scores and rate-limits analytics inserts. (The first migration in that folder is already applied.)
+- [ ] SQL Editor → then paste and run `supabase/migrations/20261027000000_daily_weekly_leaderboards.sql` (idempotent; run it after the hardening one). It adds the Daily Run (one ranked attempt per player per UTC day) and the weekly/daily leaderboard views. Until it is applied the game still works: "This week" falls back to a date filter on the all-time board and the "Daily" tab shows "coming soon". Check afterwards: play a Daily Run signed out, die, submit — the Daily tab should list it, and a second ranked submit the same day must be rejected.
 
 ## 3. Vercel env vars (project `testzombieshooter`, Production + Preview)
 - [ ] `STRIPE_SECRET_KEY`
