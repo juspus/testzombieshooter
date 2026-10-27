@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { modFx } from '../modifiers'
@@ -150,8 +150,9 @@ export default function LofiPass({ exposure = 1 }) {
   }, [gl])
 
   // Map exposure x the player's brightness setting (src/brightness.js)
+  const baseExposure = useRef(exposure)
   useEffect(() => {
-    const apply = (b) => { api.mat.uniforms.uExposure.value = exposure * b }
+    const apply = (b) => { baseExposure.current = exposure * b; api.mat.uniforms.uExposure.value = baseExposure.current * modFx.exposureMul }
     apply(getBrightness())
     return onBrightness(apply)
   }, [api, exposure])
@@ -176,6 +177,7 @@ export default function LofiPass({ exposure = 1 }) {
     }
     mat.uniforms.uTime.value = clock.elapsedTime
     mat.uniforms.uTint.value = modFx.tint
+    mat.uniforms.uExposure.value = baseExposure.current * modFx.exposureMul   // Blackout dims the final pass
     r.setRenderTarget(rt)
   }, 0.5)
 
