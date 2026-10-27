@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { GRENADE } from '../grenades'
 import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT, FLAME_DPS, BANDAGE_COST, BANDAGE_HEAL, HELMET_DEFS, BODY_ARMOR_DEFS } from '../store'
 
 const ITEMS = [
@@ -37,6 +38,13 @@ const ITEMS = [
       ? `${CALIBER_LABELS.flamethrower} · +${FLAMETHROWER_AMMO_PACK_AMOUNT} fuel`
       : `${CALIBER_LABELS[weapon]} · +${perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT} rounds to reserve`,
     price: (perks, weapon) => weapon === 'flamethrower' ? FLAMETHROWER_AMMO_PACK_COST : AMMO_PACK_COST,
+    oneTime: false,
+  },
+  {
+    id: 'grenade',
+    name: 'Frag Grenade',
+    desc: `Hold G to cook, release to throw · 4.5 m blast · carry up to ${GRENADE.MAX} · +${GRENADE.RESTOCK} free each wave`,
+    price: GRENADE.COST,
     oneTime: false,
   },
   {
@@ -127,6 +135,7 @@ export default function Shop() {
   const maxHp = useGameStore((s) => s.maxHp)
   const helmet = useGameStore((s) => s.helmet)
   const bodyArmor = useGameStore((s) => s.bodyArmor)
+  const grenades = useGameStore((s) => s.grenades)
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
 
@@ -185,7 +194,7 @@ export default function Shop() {
           {ITEMS.map((item) => {
             const owned = item.oneTime && ownedWeapons.includes(item.id)
             const isActive = item.oneTime && weapon === item.id
-            const atFullHp = item.heal && hp >= maxHp
+            const atFullHp = (item.heal && hp >= maxHp) || (item.id === 'grenade' && grenades >= GRENADE.MAX)
             const price = typeof item.price === 'function' ? item.price(perks, weapon) : item.price
             const canAfford = money >= price
             const disabled = owned || !canAfford || atFullHp

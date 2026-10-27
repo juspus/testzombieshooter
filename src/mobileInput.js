@@ -10,6 +10,7 @@ export const mobileInput = {
   swapPressed: false,
   reloadPressed: false,
   autoShootHeld: false,
+  grenadeHeld: false,   // hold to cook a frag grenade, release to throw
 }
 
 export function consumeMobileLook() {
@@ -51,4 +52,5 @@ export function resetMobileInput() {
   mobileInput.swapPressed = false
   mobileInput.reloadPressed = false
   mobileInput.autoShootHeld = false
+  mobileInput.grenadeHeld = false
 }

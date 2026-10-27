@@ -46,7 +46,8 @@ export const feel = {
   lagX: 0, lagY: 0,                  // sway lag (screen space, radians-ish)
   gunBobX: 0, gunBobY: 0,
   // internals
-  _tPitch: 0, _tYaw: 0, _tRoll: 0, _phase: 0, _amp: 0,
+  shakeX: 0, shakeY: 0, shakeRoll: 0,   // explosion shake (camera offsets, radians)
+  _tPitch: 0, _tYaw: 0, _tRoll: 0, _phase: 0, _amp: 0, _shake: 0,
 }
 
 export function resetFeel() {
@@ -61,6 +62,12 @@ export function kick(weapon) {
   feel._tRoll += (Math.random() * 2 - 1) * k.roll
 }
 
+// Explosion shake impulse (0..1+). Decays in ~0.6 s; ignored under reduce-motion.
+export function shake(amount) {
+  if (getReduceMotion()) return
+  feel._shake = Math.min(1.5, feel._shake + amount)
+}
+
 // speed: actual horizontal speed this frame (m/s). nominalSpeed: unmodified walk speed.
 // dYaw / dPitch: aim change this frame (radians).
 export function updateFeel(dt, speed, nominalSpeed, dYaw, dPitch, weapon) {
@@ -72,6 +79,18 @@ export function updateFeel(dt, speed, nominalSpeed, dYaw, dPitch, weapon) {
   const swayDecay = Math.exp(-SWAY_RATE * dt)
   feel.lagX = Math.max(-SWAY_MAX, Math.min(SWAY_MAX, (feel.lagX + dYaw * SWAY_GAIN * swayScale) * swayDecay))
   feel.lagY = Math.max(-SWAY_MAX, Math.min(SWAY_MAX, (feel.lagY + dPitch * SWAY_GAIN * swayScale) * swayDecay))
+
+  // Shake: random jitter scaled by a decaying impulse (squared for a punchy tail)
+  if (feel._shake > 0.002 && !reduce) {
+    feel._shake *= Math.exp(-5 * dt)
+    const a = feel._shake * feel._shake * 0.06
+    feel.shakeX = (Math.random() * 2 - 1) * a
+    feel.shakeY = (Math.random() * 2 - 1) * a
+    feel.shakeRoll = (Math.random() * 2 - 1) * a * 0.6
+  } else {
+    feel._shake = 0
+    feel.shakeX = feel.shakeY = feel.shakeRoll = 0
+  }
 
   if (reduce) {
     feel.bobY = feel.bobRoll = feel.gunBobX = feel.gunBobY = 0

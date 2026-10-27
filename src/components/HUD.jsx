@@ -5,6 +5,7 @@ import { CROSSHAIR_HEX } from '../cosmetics'
 import DoorPrompt from './DoorPrompt'
 import { HitMarker, DangerFx, DamageIndicator, LastKillFx } from './FeelFx'
 import PowerUpHud from './PowerUpHud'
+import GrenadeHud from './GrenadeHud'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -375,6 +376,7 @@ export default function HUD() {
       <DamageIndicator />
       <LastKillFx />
       <PowerUpHud />
+      <GrenadeHud />
     </div>
   )
 }

@@ -24,6 +24,7 @@ import {
 } from './powerups'
 import { withLinksOpened, doorBuyStatus, allDoorsOpen, openRoomSet } from './doors'
 import { playDoorOpen } from './sounds'
+import { GRENADE, restockGrenades, canBuyGrenade } from './grenades'
 import { rollModifier, modifiedZombieCount, modifiedZombieHealth, modifierBonus, debugForcedModifier } from './modifiers'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
@@ -349,6 +350,28 @@ export const useGameStore = create((set, get) => ({
     set({ instaKillOn: false, doubleMoneyOn: false, killsSinceDrop: 0, lastDropType: null, powerupBannerType: null })
   },
 
+  // ── Wave 3 "Grenades" ────────────────────────────────────────────────────────
+  // Inventory only (carry/restock rules live in grenades.js); the throw sim and blast are
+  // in components/Grenades.jsx. Per-client state like ammo: +2 each wave (nextWave, which
+  // guests also run), refilled by Max Ammo (_maxAmmoState), buyable in the Shop.
+  grenades: GRENADE.START,
+  grenadeCooking: false,   // true while G / the mobile button is held (HUD cook bar)
+  resetGrenades: () => set({ grenades: GRENADE.START, grenadeCooking: false }),
+  setGrenadeCooking: (v) => { if (get().grenadeCooking !== v) set({ grenadeCooking: v }) },
+  // Spend one grenade for a throw; false when empty.
+  useGrenade: () => {
+    const n = get().grenades
+    if (n <= 0) return false
+    set({ grenades: n - 1 })
+    return true
+  },
+  buyGrenade: () => {
+    const { grenades, money } = get()
+    if (!canBuyGrenade(grenades, money)) return false
+    set({ grenades: grenades + 1, money: money - GRENADE.COST })
+    return true
+  },
+
   startGame: () => {
     // A run that never reached die() (e.g. a co-op guest whose 'die' event was
     // dropped, or a restart from intermission) still counts toward lifetime stats.
@@ -413,6 +436,7 @@ export const useGameStore = create((set, get) => ({
     })
     cancelLastKillFx()
     get().resetPowerups()
+    get().resetGrenades()
 
     applyDebugOverrides(set, get)
   },
@@ -434,6 +458,7 @@ export const useGameStore = create((set, get) => ({
       waveModifier,
       plankHits: {},
       waveKills: 0,
+      grenades: restockGrenades(get().grenades),   // Wave 3 grenades: +2 per wave, max 4
       intermissionLeft: intermissionForWave(wave),
       zombies: [],
       pendingSpawns: [],
@@ -709,6 +734,7 @@ export const useGameStore = create((set, get) => ({
     if (itemId === 'deagle')  return buyWeapon('deagle',  DEAGLE_COST, DEAGLE_CLIP)
     if (itemId === 'shotgun') return buyWeapon('shotgun', SHOTGUN_COST, SHOTGUN_CLIP)
     if (itemId === 'flamethrower') return buyWeapon('flamethrower', FLAMETHROWER_COST, 0, FLAMETHROWER_START_AMMO)
+    if (itemId === 'grenade') return get().buyGrenade()
     if (itemId === 'ammo_pack') {
       if (weapon === 'flamethrower') {
         if (money < FLAMETHROWER_AMMO_PACK_COST) return false
@@ -1065,6 +1091,7 @@ export function _maxAmmoState(st) {
     reserveBullets: Math.max(st.reserveBullets, full(st.weapon)),
     savedClips,
     savedReserves,
+    grenades: GRENADE.MAX,   // Max Ammo also refills grenades
   }
 }
 

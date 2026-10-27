@@ -999,9 +999,9 @@ export default function Player() {
       yaw.current - prevYaw.current, pitch.current - prevPitch.current, weaponRef.current)
     prevYaw.current = yaw.current
     prevPitch.current = pitch.current
-    camera.rotation.y = yaw.current + feel.kickYaw
-    camera.rotation.x = pitch.current + feel.kickPitch
-    camera.rotation.z = feel.bobRoll + feel.kickRoll
+    camera.rotation.y = yaw.current + feel.kickYaw + feel.shakeX
+    camera.rotation.x = pitch.current + feel.kickPitch + feel.shakeY
+    camera.rotation.z = feel.bobRoll + feel.kickRoll + feel.shakeRoll
     camera.position.y = PLAYER_HEIGHT + feel.bobY
   })
 

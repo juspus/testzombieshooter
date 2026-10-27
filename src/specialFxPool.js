@@ -86,16 +86,17 @@ export const spawnScorch = (x, z) => addPuddle(x, z, 1)
 // ── Flashes (exploder burst) ─────────────────────────────────────────────────
 const fLive = new Uint8Array(FLASH_POOL)
 const fX = new Float32Array(FLASH_POOL), fY = new Float32Array(FLASH_POOL), fZ = new Float32Array(FLASH_POOL)
-const fLife = new Float32Array(FLASH_POOL)
+const fLife = new Float32Array(FLASH_POOL), fScale = new Float32Array(FLASH_POOL)
 const FLASH_TIME = 0.4
 const FLASH_RADIUS = 3.0
 const FLASH_COLOR = new THREE.Color('#ffa63a')
 let fNext = 0
 
-export function spawnFlash(x, y, z) {
+// scale 1 = exploder burst; the frag grenade passes a bigger one
+export function spawnFlash(x, y, z, scale = 1) {
   const i = fNext
   fNext = (fNext + 1) % FLASH_POOL
-  fLive[i] = 1; fX[i] = x; fY[i] = y; fZ[i] = z; fLife[i] = FLASH_TIME
+  fLive[i] = 1; fX[i] = x; fY[i] = y; fZ[i] = z; fLife[i] = FLASH_TIME; fScale[i] = scale
   flashMesh.count = FLASH_POOL
 }
 
@@ -196,7 +197,7 @@ export function updateSpecialFx(dt, camX, camZ, playing) {
       continue
     }
     const k = 1 - fLife[i] / FLASH_TIME            // 0 -> 1
-    const s = 0.4 + FLASH_RADIUS * (1 - (1 - k) * (1 - k))
+    const s = (0.4 + FLASH_RADIUS * (1 - (1 - k) * (1 - k))) * fScale[i]
     _c.copy(FLASH_COLOR).multiplyScalar(Math.pow(1 - k, 1.4))
     flashMesh.setColorAt(i, _c)
     _d.position.set(fX[i], fY[i], fZ[i]); _d.scale.set(s, s, s); _d.rotation.set(0, 0, 0); _d.updateMatrix()
