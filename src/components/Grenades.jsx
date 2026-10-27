@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore } from '../store'
+import { isSelfDowned } from '../store'   // W5: downed players can't throw
 import { time } from '../timeScale'
 import { getMap, getInitialMapId } from '../maps'
 import { raycastWorld } from '../worldRay'
@@ -151,7 +152,7 @@ function detonate(x, y, z, mine) {
 export const cookState = { active: false, t: 0, nextTick: 0, armedHeld: false }
 let _keyHeld = false
 
-const canAct = (st) => st.phase === 'playing' && !st.shopOpen && !st.paused
+const canAct = (st) => st.phase === 'playing' && !st.shopOpen && !st.paused && !isSelfDowned(st)
 
 // Release: spend a grenade and launch it from the camera. cook >= FUSE = it goes off in your hand.
 function release(cam, cook) {

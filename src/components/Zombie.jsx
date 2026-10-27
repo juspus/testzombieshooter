@@ -1227,10 +1227,18 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         : 0.8 + Math.random() * 1.2
     }
 
+    // W5 co-op: downed / bled-out players are ignored (zombies retarget the partner).
+    const gs0 = useGameStore.getState()
+    const myRole = gs0.mpRole
+    const selfOk = !myRole || gs0.coop[myRole].status === 'alive'
+    const partnerOk = !myRole || gs0.coop[myRole === 'host' ? 'guest' : 'host'].status === 'alive'
+
     // Pick the closest player as the chase/face target
-    const rp = getRemotePlayerPos()
+    const rp = partnerOk ? getRemotePlayerPos() : null
     let px, pz
-    if (rp) {
+    if (rp && !selfOk) {
+      px = rp.x; pz = rp.z
+    } else if (rp) {
       const dl2 = (pos.x - lx) ** 2 + (pos.z - lz) ** 2
       const dr2 = (pos.x - rp.x) ** 2 + (pos.z - rp.z) ** 2
       px = dr2 < dl2 ? rp.x : lx
@@ -1363,7 +1371,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       // which may be the remote player. Damage is fully client-local, mirroring
       // how the old kill-distance check only ever tested against lx,lz.
       const ldx = lx - pos.x, ldz = lz - pos.z
-      if (!isExploder && ldx * ldx + ldz * ldz <= PLAYER_ATTACK_RANGE * PLAYER_ATTACK_RANGE) {
+      if (selfOk && !isExploder && ldx * ldx + ldz * ldz <= PLAYER_ATTACK_RANGE * PLAYER_ATTACK_RANGE) {
         modeRef.current = 'attack_player'
         ref.current.lookAt(lx, pos.y, lz)
         isAttackingRef.current = true
@@ -1377,7 +1385,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         isAttackingRef.current = false
         if (isExploder) {
           // reaching either player arms the fuse
-          let nd2 = ldx * ldx + ldz * ldz
+          let nd2 = selfOk ? ldx * ldx + ldz * ldz : Infinity
           if (rp) nd2 = Math.min(nd2, (pos.x - rp.x) ** 2 + (pos.z - rp.z) ** 2)
           if (nd2 <= EXPLODER.PRIME_RANGE * EXPLODER.PRIME_RANGE) startFuse(EXPLODER.PRIME_TIME, pos)
         }

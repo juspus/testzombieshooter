@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
+import { otherRole } from '../coopDown'   // W5 down/revive
 
 // ── Position ring buffer (written by NetManager, read by useFrame) ────────
 const _buffer = []
@@ -80,6 +81,9 @@ export default function RemotePlayer() {
   const vestRef         = useRef()
   const knightArmorRef  = useRef()
 
+  // W5: partner downed -> lie flat + floating red marker; bled out -> hidden
+  const markerRef = useRef()
+  const markerMatRef = useRef()
   // Walk state
   const walkPhase = useRef(0)
   const lastPos   = useRef(null)
@@ -87,13 +91,17 @@ export default function RemotePlayer() {
   useFrame(() => {
     const g = groupRef.current
     if (!g) return
+    const gs = useGameStore.getState()
+    const pStatus = gs.mpRole && gs.mpConnected ? gs.coop[otherRole(gs.mpRole)].status : 'alive'
+    const marker = markerRef.current
+    if (marker) marker.visible = false
 
     if (!mpConnected || _buffer.length === 0) {
       g.visible = false
       _currentPos = null
       return
     }
-    g.visible = true
+    g.visible = pStatus !== 'dead'
 
     const renderTime = performance.now() - INTERP_DELAY
 
@@ -142,7 +150,19 @@ export default function RemotePlayer() {
 
     g.position.x = px
     g.position.z = pz
+    g.rotation.order = 'YXZ'
     g.rotation.y = pyaw
+    // Downed: tip onto their back (head trails behind) and hover a red marker above them
+    const downTarget = pStatus === 'down' ? 1.4 : 0
+    g.rotation.x += (downTarget - g.rotation.x) * 0.15
+    g.position.y = g.rotation.x * 0.1
+    if (marker && pStatus === 'down') {
+      const t = performance.now() * 0.004
+      marker.visible = true
+      marker.position.set(px, 0.95 + Math.sin(t) * 0.06, pz)
+      marker.rotation.y = t
+      if (markerMatRef.current) markerMatRef.current.opacity = 0.7 + 0.3 * Math.sin(t * 2.5)
+    }
 
     _currentPos = { x: px, z: pz }
 
@@ -192,6 +212,11 @@ export default function RemotePlayer() {
   // All weapon groups share the same local-space transform on rightArmRef
 
   return (
+    <>
+    <mesh ref={markerRef} visible={false}>
+      <octahedronGeometry args={[0.12, 0]} />
+      <meshBasicMaterial ref={markerMatRef} color="#ff2a2a" transparent depthTest={false} />
+    </mesh>
     <group ref={groupRef} visible={false}>
 
       {/* ── Torso / shirt ── */}
@@ -748,5 +773,6 @@ export default function RemotePlayer() {
       </group>
 
     </group>
+    </>
   )
 }

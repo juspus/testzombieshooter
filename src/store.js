@@ -32,6 +32,7 @@ import * as WR from './weaponRules'
 import { emitGameEvent } from './gameEvents'
 import { settleRun } from './progressTracker'
 import { effectiveLoadout, loadoutPatch, readPref, writePref, LOADOUT_PREF_KEY } from './mapSelect'
+import { createCoop } from './coopDown'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -205,6 +206,13 @@ const fastClearParForWave = (wave) => 10 + wave * 2
 export { CLIP_SIZE, AK_CLIP, AK_COST, DEAGLE_CLIP, DEAGLE_COST, SHOTGUN_CLIP, SHOTGUN_COST, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, HITS_PER_PLANK, PLANK_COST, STRONG_PLANK_COST, STRONG_HITS_PER_PLANK, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT }
 
 const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0, crossbow: 0 }
+
+// W5: true when this client is a downed / bled-out co-op player
+export function isSelfDowned(s) {
+  return !!s.mpRole && !!s.mpConnected && !!s.coop && s.coop[s.mpRole].status !== 'alive'
+}
+let _selfZeroHook = null
+export function setSelfZeroHook(fn) { _selfZeroHook = fn }
 
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
@@ -460,6 +468,7 @@ export const useGameStore = create((set, get) => ({
       bodyArmor: null,
       hitEventId: 0,
       lastKillPending: false,
+      coop: createCoop(),   // W5: everyone starts standing
       runMode: daily ? 'daily' : 'normal',
       dailyDate: daily ? daily.date : null,
       dailyRanked: daily ? daily.ranked : false,
@@ -659,11 +668,18 @@ export const useGameStore = create((set, get) => ({
   // same as the pre-HP instant-kill check did — no net sync needed.
   // ax/az: attacker world position, for the directional damage indicator.
   hitPlayer: (damage, ax = 0, az = 0) => {
-    const { phase, hp, hitEventId } = get()
+    const { phase, hp, hitEventId, mpRole, mpConnected, coop } = get()
     if (phase !== 'playing') return
+    const inCoop = !!mpRole && mpConnected
+    // W5: a downed / bled-out co-op player can't be hurt (zombies retarget the partner)
+    if (inCoop && coop[mpRole].status !== 'alive') return
     const newHp = Math.max(0, hp - damage)
     set({ hp: newHp, hitEventId: hitEventId + 1, lastHitX: ax, lastHitZ: az })
-    if (newHp <= 0) get().die()
+    if (newHp <= 0) {
+      // W5: in co-op 0 HP means DOWN (coopRuntime registers the hook); solo is unchanged
+      if (inCoop && _selfZeroHook) _selfZeroHook()
+      else get().die()
+    }
   },
 
   buyBandage: () => {
@@ -750,13 +766,14 @@ export const useGameStore = create((set, get) => ({
     }
   },
 
-  toggleItem: () => set((s) => ({ activeItem: s.activeItem === 'gun' ? 'knife' : 'gun' })),
+  toggleItem: () => set((s) => (isSelfDowned(s) ? {} : { activeItem: s.activeItem === 'gun' ? 'knife' : 'gun' })),
   setKnifeCooldown: (v) => set({ knifeCooldown: v }),
 
   // Scroll-wheel weapon switch — saves current clip/reserve, loads next weapon's saved values
-  switchWeapon: (nextWeapon) => {
+  switchWeapon: (nextWeapon, opts) => {
     const { weapon, bulletsInClip, reserveBullets, savedClips, savedReserves, ownedWeapons } = get()
     if (nextWeapon === weapon || !ownedWeapons.includes(nextWeapon) || get().benchBusy) return
+    if (!opts?.force && isSelfDowned(get())) return   // W5: downed players are stuck with their sidearm
     set({
       weapon: nextWeapon,
       bulletsInClip:  savedClips[nextWeapon],
@@ -767,7 +784,7 @@ export const useGameStore = create((set, get) => ({
     })
   },
 
-  openShop: () => set({ shopOpen: true }),
+  openShop: () => { if (!isSelfDowned(get())) set({ shopOpen: true }) },
   closeShop: () => set({ shopOpen: false }),
 
   buyItem: (itemId) => {
@@ -953,7 +970,19 @@ export const useGameStore = create((set, get) => ({
   setMpRole: (role, code = null) => set({ mpRole: role, roomCode: code }),
   setMpConnected: (v) => set({ mpConnected: v }),
   setRemotePlayer: (data) => set({ remotePlayer: data }),
-  clearMp: () => set({ mpRole: null, mpConnected: false, remotePlayer: null, roomCode: null }),
+  clearMp: () => set({ mpRole: null, mpConnected: false, remotePlayer: null, roomCode: null, coop: createCoop() }),
+
+  // ── W5 co-op "Down, not out" (state machine: coopDown.js, orchestration: coopRuntime.js) ──
+  // coop[role] = { status: 'alive'|'down'|'dead', bleed (s left), revive (0..1 hold progress) }.
+  // Host-authoritative; the guest mirrors snapshots. Solo play never leaves 'alive'.
+  coop: createCoop(),
+  coopReviveProgress: 0,        // my own hold progress while reviving the partner (HUD ring)
+  revivedPartnerEventId: 0,     // ++ each time I revive my partner (progression hooks subscribe to this)
+  revivedByPartnerEventId: 0,   // ++ each time my partner revives me
+  setCoop: (coop) => set({ coop }),
+  coopNearPartner: false,       // standing within revive range of a downed partner (HUD prompt)
+  setCoopNear: (v) => { if (get().coopNearPartner !== v) set({ coopNearPartner: v }) },
+  setCoopReviveProgress: (v) => { if (get().coopReviveProgress !== v) set({ coopReviveProgress: v }) },
 
   // ── Cosmetics / lifetime stats (visual only — never read by gameplay code) ─
   cosmetics: { ...DEFAULT_COSMETICS },  // equipped: { skin, crosshair, crosshairColor, knifeSkin }

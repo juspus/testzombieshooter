@@ -8,6 +8,7 @@ import { weaponName, clipSize as wrClipSize } from '../weaponRules'
 import { HitMarker, DangerFx, DamageIndicator, LastKillFx } from './FeelFx'
 import PowerUpHud from './PowerUpHud'
 import GrenadeHud from './GrenadeHud'
+import CoopFx from './CoopFx'   // W5 co-op down / revive
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -379,6 +380,7 @@ export default function HUD() {
       <HitMarker />
       <DangerFx />
       <DamageIndicator />
+      <CoopFx />
       <LastKillFx />
       <PowerUpHud />
       <GrenadeHud />
