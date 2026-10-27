@@ -84,7 +84,8 @@ export default function MobileControls() {
   const nearMachine = useGameStore((s) => s.nearMachine)
   const nearDownedPartner = useGameStore((s) => s.coopNearPartner)   // W5: interact = revive
   const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null || nearMachine !== null || nearDownedPartner
-  const showInstallHint = !isStandalone && !installHintDismissed
+  // Never during a wave: it covers the top HUD (wave/kills/money)
+  const showInstallHint = !isStandalone && !installHintDismissed && phase !== 'playing'
 
   useEffect(() => {
     const update = () => {
