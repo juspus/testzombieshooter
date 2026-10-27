@@ -14,8 +14,11 @@ start of every session. Keep entries short — a few lines each.
   Agreed next step after the roadmap: the model playground (`/?playground`).
 - Owner calls (2026-10-27): art = lo-fi (A), buyable doors = yes (A).
   Skip: quality tiers, special waves, portals, Halloween. Postponed: weapon
-  mastery, seasons, 3-4 players (needs bigger maps first; it's a PeerJS
-  star-topology refactor of single-partner code, not a tech change).
+  mastery, seasons, 3-4 players (needs bigger maps first). 3-4p tech note:
+  game data works over PeerJS star topology (refactor only), but voice chat
+  mesh, NAT failures (needs TURN relay) and host-leaves-ends-game get worse
+  with 4 -> that's the point to decide P2P vs a small authoritative server
+  (monthly cost). Discuss with owner before building.
   Playground: split Test Lab into /?models (model viewer + registry) and
   /?testlab (sounds/weapons) - owner approved. Everything
   else Go. Owner asked for autonomous implementation by Sonnet (medium)
