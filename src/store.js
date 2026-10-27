@@ -555,6 +555,24 @@ export const useGameStore = create((set, get) => ({
     return true
   },
 
+  // ── Crossbow bolt pick-ups (client-local; see Bolts.jsx) ──
+  // +1 crossbow reserve (the held one, or the parked pool). False when not carried / at cap.
+  collectBolt: () => {
+    const st = get()
+    if (!st.ownedWeapons.includes('crossbow')) return false
+    const cap = Math.round(MAX_RESERVE.crossbow * (st.perks?.deep_pockets ? 1.5 : 1))
+    if (st.weapon === 'crossbow') {
+      const n = WR.collectBoltReserve(st.reserveBullets, cap)
+      if (n === null) return false
+      set({ reserveBullets: n })
+    } else {
+      const n = WR.collectBoltReserve(st.savedReserves.crossbow ?? 0, cap)
+      if (n === null) return false
+      set({ savedReserves: { ...st.savedReserves, crossbow: n } })
+    }
+    return true
+  },
+
   finishReload: () => {
     const { bulletsInClip, reserveBullets, weapon, upgradedWeapons } = get()
     const clipSize = clipSizeForWeapon(weapon, !!upgradedWeapons[weapon])
@@ -1236,7 +1254,7 @@ export function doubleMoneyExtra(source, isHeadshot) {
 }
 
 // Reserve rounds a "full" Max Ammo refills to, per weapon (flamethrower = fuel units).
-export const MAX_RESERVE = { pistol: 60, shotgun: 48, ak47: 150, deagle: 42, flamethrower: 2000, crossbow: 30 }
+export const MAX_RESERVE = { pistol: 60, shotgun: 48, ak47: 150, deagle: 42, flamethrower: 2000, crossbow: 40 }
 
 // Max Ammo for every owned weapon: clips topped up, reserves raised to MAX_RESERVE
 // (x1.5 with Deep Pockets). Never lowers an existing reserve.

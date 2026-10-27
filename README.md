@@ -38,6 +38,7 @@ Four weapons, each using a distinct caliber with its own separate ammo pool. Swi
 - **Shotgun** fires 12 pellets per shot in a cone spread; each pellet is independently raycasted.
 - **AK-47** fires continuously at 10 rounds/s while the mouse button is held.
 - **Desert Eagle** delivers an instant kill and pierces through up to 3 enemies in a line.
+- **Crossbow** (Mystery Box only) is a repeating bolt gun: 5-bolt magazine, a shot every 0.45 s, 1.8 s reload (1.2 s with Fast Hands), 30 bolts in reserve (Max Ammo refills to 40). Each bolt pierces up to 6 zombies in a line (stopped by walls and closed doors) and kills anything but brutes, armored and bosses outright; those take heavy damage (armour is ignored, a boss is never one-shot). Bolts that stick in a wall, the floor or a corpse stay put: walk within 1 m to pick one up (+1 reserve, up to the cap). Pick-ups are local to the shooter in co-op. Upgraded (Wraith): 8-bolt magazine, bolts explode on impact (2 m blast) and cannot be picked up.
 - Switching weapons preserves each weapon's clip and reserve separately.
 
 ---

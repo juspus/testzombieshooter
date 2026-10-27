@@ -10,6 +10,7 @@ import { zombieHitFx, fxNet } from '../hitFx'
 import ShellCasings from './ShellCasings'
 import FlameSpray from './FlameSpray'
 import { Zombie } from './Zombie'
+import { playCrossbowReload } from '../sounds'
 import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, playPumpAction, playShellThonk, playKnifeSwing, startFlamethrowerSound, stopFlamethrowerSound, setListenerPose } from '../sounds'
 import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION, BODY_ARMOR_DEFS } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
@@ -111,7 +112,8 @@ const BASE_KNIFE_COOLDOWN = 0.4
 const BASE_KNIFE_RANGE = 2.2
 const SKIP_TIME = 0.6
 
-const reloadTimeForPerks = (perks, weapon) => (weapon === 'crossbow' ? 2.2 : 1.5) - (perks.fast_hands ? (weapon === 'crossbow' ? 0.7 : 0.5) : 0)
+const reloadTimeForPerks = (perks, weapon) => (weapon === 'crossbow' ? WR.crossbowReloadTime(!!perks.fast_hands) : 1.5 - (perks.fast_hands ? 0.5 : 0))
+const playReloadFor = (weapon) => (weapon === 'crossbow' ? playCrossbowReload() : playReload())
 const boardTimeForPerks = (perks) => perks.carpenter ? 1.3 : 2.0
 const moveSpeedForPerks = (perks, bodyArmor) => MOVE_SPEED * (perks.runners_breath ? 1.15 : 1) * (BODY_ARMOR_DEFS[bodyArmor]?.speedMultiplier ?? 1)
 const knifeCooldownForPerks = (perks) => perks.knife_mastery ? 0.25 : BASE_KNIFE_COOLDOWN
@@ -330,7 +332,7 @@ export default function Player() {
       }
       if (e.code === 'KeyR' && !shopOpenRef.current && activeItemRef.current === 'gun' && beginReload()) {
         reloadTimer.current = reloadTimeForPerks(perksRef.current, weaponRef.current)
-        playReload()
+        playReloadFor(weaponRef.current)
       }
     }
     const onKeyUp = (e) => { keys.current[e.code] = false }
@@ -365,7 +367,7 @@ export default function Player() {
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera({ x: 0, y: 0 }, camera)
 
-    if (weaponRef.current === 'shotgun' && shotgunCooldownRef.current > 0) return
+    if ((weaponRef.current === 'shotgun' || weaponRef.current === 'crossbow') && shotgunCooldownRef.current > 0) return
 
     if (useGameStore.getState().benchBusy) return   // gun is inside the Upgrade Bench
     if (!consumeBullet()) { playEmptyClick(); return }
@@ -456,9 +458,14 @@ export default function Player() {
       // One marker per trigger pull, not per pellet
       if (anyHit) registerHit(markerKind(anyKill, anyHead))
     } else if (weaponRef.current === 'crossbow') {
-      // Silent bolt: instant-kill, pierces 1 (two zombies in line). Damage resolves now;
-      // Bolts.jsx draws the bolt streaking to where it ends.
-      checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, 50)
+      // Repeating crossbow: one bolt pierces every zombie on its line (WR.CROSSBOW.PIERCE) until a
+      // wall / closed door. Damage resolves now; Bolts.jsx draws the bolt, keeps it as a pick-up when
+      // it sticks (walls, floor, a corpse) or detonates it (Wraith).
+      shotgunCooldownRef.current = WR.CROSSBOW.FIRE_INTERVAL
+      checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, WR.CROSSBOW.RANGE)
+      const hitWorld = worldImpact(raycaster.ray, WR.CROSSBOW.RANGE, windowPlanksRef.current, !upg, 0.5)
+      const worldDist = hitWorld ? _wr.dist : Infinity
+      const worldPt = hitWorld ? _worldHit.clone() : null
       const hits = []
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
         if (!ref) continue
@@ -468,22 +475,35 @@ export default function Player() {
       hits.sort((a, b) => a.dist - b.dist)
       const targets = []
       for (const hit of hits) {
+        if (hit.dist > worldDist) break
         if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, BULLET_WALLS)) break
         targets.push(hit)
-        if (targets.length >= 2) break
+        if (targets.length >= WR.CROSSBOW.PIERCE) break
       }
-      let boltEnd = targets.length > 0 ? targets[targets.length - 1].point : null
-      if (targets.length < 2 && worldImpact(raycaster.ray, 50, windowPlanksRef.current, true, 0.5)) {
-        if (!boltEnd || _wr.dist > boltEnd.distanceTo(raycaster.ray.origin)) boltEnd = _worldHit.clone()
-      }
-      if (!boltEnd) boltEnd = camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
-      Bolts.fire?.(muzzle, boltEnd)
-      let anyKill = false, anyHead = false
+      const capped = targets.length >= WR.CROSSBOW.PIERCE
+      const lastT = targets.length > 0 ? targets[targets.length - 1] : null
+      let boltEnd = capped ? lastT.point : worldPt
+      let anyKill = false, anyHead = false, lastDied = false
+      const zs = useGameStore.getState().zombies
       for (const t of targets) {
-        if (hitZombie(t.id, t.head, 'gun', 'crossbow', t.dist, dmgMult)) { anyKill = true; deathSound(zombieRefs.current, t.id) }
+        const mult = WR.boltMult(zs.find((z) => z.id === t.id)?.type, upg)
+        const died = hitZombie(t.id, t.head, 'gun', 'crossbow', t.dist, mult)
+        if (died) { anyKill = true; deathSound(zombieRefs.current, t.id) }
+        if (t === lastT) lastDied = died
         if (t.head) anyHead = true
         zombieHitFx(t.id, t.point, raycaster.ray.direction, t.head, 'crossbow', t.dist)
-        netSend('hit_zombie', { id: t.id, isHeadshot: t.head, source: 'gun', mult: dmgMult, ...fxNet(t.point, raycaster.ray.direction, t.dist, 'crossbow') })
+        netSend('hit_zombie', { id: t.id, isHeadshot: t.head, source: 'gun', mult, ...fxNet(t.point, raycaster.ray.direction, t.dist, 'crossbow') })
+      }
+      // Bolts are local to the shooter (not synced in co-op): the partner only sees the hit effects.
+      if (boltEnd) {
+        Bolts.fire?.(muzzle, boltEnd, {
+          wraith: upg,
+          stick: !upg,
+          attachId: capped ? (lastDied ? lastT.id : -2) : -1,   // -2: ends in a live zombie, drops to the floor
+        })
+      } else {
+        boltEnd = camera.position.clone().addScaledVector(raycaster.ray.direction, WR.CROSSBOW.RANGE)
+        Bolts.fire?.(muzzle, boltEnd, { wraith: false, stick: false, attachId: -1 })
       }
       if (targets.length > 0) registerHit(markerKind(anyKill, anyHead))
     } else if (weaponRef.current === 'deagle') {
@@ -698,7 +718,7 @@ export default function Player() {
 
     if (mobilePressed.reload && !shopOpenRef.current && activeItemRef.current === 'gun' && beginReload()) {
       reloadTimer.current = reloadTimeForPerks(perksRef.current, weaponRef.current)
-      playReload()
+      playReloadFor(weaponRef.current)
     }
 
     if (shopOpenRef.current || pausedRef.current) return

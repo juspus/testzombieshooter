@@ -4,6 +4,7 @@ vi.mock('../profilePersistence', () => ({ persistProfile: vi.fn() }))
 
 import { useGameStore, CALIBER_LABELS, ALL_WEAPONS, MAX_RESERVE } from '../store'
 import * as WR from '../weaponRules'
+import { armorMultiplier } from '../zombieSpecials'
 
 const S = () => useGameStore.getState()
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length] }
@@ -47,8 +48,8 @@ describe('carrying slots (max 3 guns, CoD replace rule)', () => {
     const p = WR.giveWeapon(base(), 'crossbow')
     expect(p.ownedWeapons).toEqual(['pistol', 'crossbow'])
     expect(p.weapon).toBe('crossbow')
-    expect(p.bulletsInClip).toBe(1)
-    expect(p.reserveBullets).toBe(10)
+    expect(p.bulletsInClip).toBe(5)
+    expect(p.reserveBullets).toBe(30)
     expect(p.savedClips.pistol).toBe(4)
     expect(p.savedReserves.pistol).toBe(9)
   })
@@ -100,7 +101,7 @@ describe('upgrade stats and naming', () => {
     expect(WR.clipSize('ak47', true)).toBe(45)
     expect(WR.clipSize('shotgun', true)).toBe(12)
     expect(WR.clipSize('deagle', true)).toBe(11)
-    expect(WR.clipSize('crossbow', true)).toBe(2)
+    expect(WR.clipSize('crossbow', true)).toBe(8)
     expect(WR.clipSize('flamethrower', true)).toBe(0)
     expect(WR.damageMult('pistol')).toBe(1)
     expect(WR.damageMult('pistol', true)).toBe(2)
@@ -122,8 +123,8 @@ describe('store integration: ammo pools', () => {
     const s = S()
     expect(s.weapon).toBe('crossbow')
     expect(s.ownedWeapons).toEqual(['pistol', 'crossbow'])
-    expect(s.bulletsInClip).toBe(1)
-    expect(s.reserveBullets).toBe(10)
+    expect(s.bulletsInClip).toBe(5)
+    expect(s.reserveBullets).toBe(30)
     expect(s.savedClips.pistol).toBe(6)
     expect(s.savedReserves.pistol).toBe(17)
     expect(s.box.phase).toBe('idle')
@@ -131,7 +132,7 @@ describe('store integration: ammo pools', () => {
     S().switchWeapon('pistol')
     expect(S().bulletsInClip).toBe(6)
     expect(S().reserveBullets).toBe(17)
-    expect(S().savedClips.crossbow).toBe(1)
+    expect(S().savedClips.crossbow).toBe(5)
   })
 
   it('only the payer can take; a stale result cannot be taken', () => {
@@ -209,13 +210,13 @@ describe('store integration: ammo pools', () => {
 
   it('upgraded mags survive reload math; Max Ammo refills crossbow + upgraded clips', () => {
     useGameStore.setState({ weapon: 'crossbow', ownedWeapons: ['pistol', 'crossbow', 'ak47'], upgradedWeapons: { crossbow: true, ak47: true },
-      bulletsInClip: 0, reserveBullets: 3, savedClips: { ...S().savedClips, ak47: 1 }, savedReserves: { ...S().savedReserves, ak47: 4 } })
+      bulletsInClip: 0, reserveBullets: 10, savedClips: { ...S().savedClips, ak47: 1 }, savedReserves: { ...S().savedReserves, ak47: 4 } })
     expect(S().beginReload()).toBe(true)
     S().finishReload()
-    expect(S().bulletsInClip).toBe(2)               // upgraded crossbow mag = 2
-    expect(S().reserveBullets).toBe(1)
+    expect(S().bulletsInClip).toBe(8)               // upgraded crossbow mag = 8
+    expect(S().reserveBullets).toBe(2)
     S().applyPowerup('max_ammo')
-    expect(S().bulletsInClip).toBe(2)
+    expect(S().bulletsInClip).toBe(8)
     expect(S().reserveBullets).toBe(MAX_RESERVE.crossbow)
     expect(S().savedClips.ak47).toBe(45)
     expect(S().savedReserves.ak47).toBe(MAX_RESERVE.ak47)
@@ -234,5 +235,76 @@ describe('store integration: ammo pools', () => {
     S().startGame()
     expect(S().upgradedWeapons).toEqual({})
     expect(S().box.uses).toBe(0)
+  })
+})
+
+describe('repeating crossbow', () => {
+  it('magazine / reserve / timings', () => {
+    expect(WR.clipSize('crossbow')).toBe(5)
+    expect(WR.START_RESERVE.crossbow).toBe(30)
+    expect(MAX_RESERVE.crossbow).toBe(40)
+    expect(WR.CROSSBOW.FIRE_INTERVAL).toBe(0.45)
+    expect(WR.crossbowReloadTime(false)).toBe(1.8)
+    expect(WR.crossbowReloadTime(true)).toBe(1.2)
+    expect(WR.CROSSBOW.PIERCE).toBe(6)
+  })
+
+  it('bolts one-shot ordinary zombies, hurt tough ones without killing the boss', () => {
+    const hp = { walker: 2, runner: 1, brute: 7, armored: 5, boss: 16 }
+    for (const t of ['walker', 'runner', 'crawler', 'exploder', 'screamer', 'spitter']) expect(WR.boltMult(t) * 1).toBeGreaterThanOrEqual(2)
+    for (const t of ['brute', 'armored']) {
+      expect(WR.boltMult(t)).toBeLessThan(hp[t])       // body: heavy, not lethal
+      expect(WR.boltMult(t) * 3).toBeGreaterThanOrEqual(hp[t])   // head kills
+    }
+    expect(WR.boltMult('boss') * 3).toBeLessThan(hp.boss)        // not even a headshot
+    expect(WR.boltMult('boss')).toBeGreaterThanOrEqual(2)
+    expect(WR.boltMult('walker', true)).toBe(WR.boltMult('walker') * 2)
+    expect(armorMultiplier('armored', { weapon: 'crossbow', head: false, source: 'gun' })).toBe(1)
+    expect(armorMultiplier('armored', { weapon: 'pistol', head: false, source: 'gun' })).toBeLessThan(1)
+  })
+
+  const zs = (n, type = 'walker') => Array.from({ length: n }, (_, i) => ({ id: i + 1, x: 0, z: -i, health: 2, type }))
+  it('one bolt kills a line of zombies through hitZombie', () => {
+    useGameStore.setState({ phase: 'playing', zombies: zs(6), pendingSpawns: [] })
+    for (let id = 1; id <= 6; id++) expect(S().hitZombie(id, false, 'gun', 'crossbow', id, WR.boltMult('walker'))).toBe(true)
+    expect(S().zombies.filter((z) => !z.dying).length).toBe(0)
+  })
+
+  it('a boss survives a bolt in the head; an armored zombie takes full damage', () => {
+    useGameStore.setState({ phase: 'playing', zombies: [{ id: 1, health: 16, type: 'boss' }, { id: 2, health: 5, type: 'armored' }], pendingSpawns: [] })
+    expect(S().hitZombie(1, true, 'gun', 'crossbow', 5, WR.boltMult('boss'))).toBe(false)
+    expect(S().zombies.find((z) => z.id === 1).health).toBe(10)
+    expect(S().hitZombie(2, false, 'gun', 'crossbow', 5, WR.boltMult('armored'))).toBe(false)
+    expect(S().zombies.find((z) => z.id === 2).health).toBe(1)   // no 0.25 armour scaling
+  })
+
+  it('collecting bolts: +1 reserve, capped at MAX_RESERVE (Deep Pockets x1.5), parked pool too', () => {
+    useGameStore.setState({ weapon: 'crossbow', ownedWeapons: ['pistol', 'crossbow'], reserveBullets: 10, perks: {} })
+    expect(S().collectBolt()).toBe(true)
+    expect(S().reserveBullets).toBe(11)
+    useGameStore.setState({ reserveBullets: MAX_RESERVE.crossbow })
+    expect(S().collectBolt()).toBe(false)
+    useGameStore.setState({ perks: { deep_pockets: true } })
+    expect(S().collectBolt()).toBe(true)
+    expect(S().reserveBullets).toBe(MAX_RESERVE.crossbow + 1)
+    useGameStore.setState({ weapon: 'pistol', perks: {}, savedReserves: { ...S().savedReserves, crossbow: 5 } })
+    expect(S().collectBolt()).toBe(true)
+    expect(S().savedReserves.crossbow).toBe(6)
+    useGameStore.setState({ ownedWeapons: ['pistol'] })
+    expect(S().collectBolt()).toBe(false)   // no crossbow carried
+    expect(WR.collectBoltReserve(39, 40)).toBe(40)
+    expect(WR.collectBoltReserve(40, 40)).toBeNull()
+  })
+
+  it('Wraith blast: small radius, kills walkers close, spares brutes', () => {
+    expect(WR.boltBlastDamage(0)).toBe(WR.CROSSBOW.BLAST_MAX)
+    expect(WR.boltBlastDamage(WR.CROSSBOW.BLAST_RADIUS)).toBe(0)
+    expect(WR.boltBlastDamage(1.2)).toBeGreaterThanOrEqual(2)
+    expect(WR.boltBlastDamage(1.9)).toBeLessThan(2)
+    expect(WR.CROSSBOW.BLAST_MAX).toBeLessThan(7)
+    expect(WR.CROSSBOW.BLAST_RADIUS).toBe(2)
+    // 'bolt' source blast kills a walker via hitZombieBurst
+    useGameStore.setState({ phase: 'playing', zombies: zs(1), pendingSpawns: [] })
+    expect(S().hitZombieBurst(1, WR.boltBlastDamage(0.5), 'bolt')).toBe(true)
   })
 })

@@ -16,9 +16,9 @@ export const weaponName = (w, upgraded = false) =>
   (upgraded ? UPGRADED_NAMES[w] : WEAPON_NAMES[w]) ?? String(w)
 
 // ── Ammo / damage ────────────────────────────────────────────────────────────
-export const BASE_CLIP = { pistol: 10, shotgun: 8, ak47: 30, deagle: 7, flamethrower: 0, crossbow: 1 }
+export const BASE_CLIP = { pistol: 10, shotgun: 8, ak47: 30, deagle: 7, flamethrower: 0, crossbow: 5 }
 // Reserve a freshly obtained box weapon starts with (flamethrower = fuel units).
-export const START_RESERVE = { pistol: 30, shotgun: 24, ak47: 90, deagle: 21, flamethrower: 1000, crossbow: 10 }
+export const START_RESERVE = { pistol: 30, shotgun: 24, ak47: 90, deagle: 21, flamethrower: 1000, crossbow: 30 }
 export const UPGRADE_CLIP_MULT = 1.5
 export const UPGRADE_DAMAGE_MULT = 2
 
@@ -27,9 +27,41 @@ export const clipSize = (w, upgraded = false) => {
   return upgraded && base > 0 ? Math.round(base * UPGRADE_CLIP_MULT) : base
 }
 
-// Crossbow bolts one-shot everything (even a boss: 20 body / 60 head vs 16 hp).
+// Repeating crossbow: each bolt pierces every zombie on its line (up to PIERCE) and kills
+// anything that is not a brute / armored / boss outright. Tuning lives here; Player.jsx fires,
+// Bolts.jsx owns the pooled bolts (pick-ups + Wraith blast).
+export const CROSSBOW = {
+  FIRE_INTERVAL: 0.45,    // s between shots
+  RELOAD: 1.8,            // s
+  RELOAD_FAST_HANDS: 1.2, // s
+  PIERCE: 6,              // zombies one bolt passes through
+  RANGE: 50,
+  PICKUP_RADIUS: 1,       // m: walk this close to a stuck bolt to collect it (+1 reserve)
+  MAX_BOLTS: 24,          // pooled bolts in the world; oldest recycled
+  BLAST_RADIUS: 2,        // Wraith: bolts explode on impact
+  BLAST_INNER: 0.6,
+  BLAST_MAX: 4,           // < brute (7) / armored (5): walkers die inside ~1.3 m
+  BLAST_SHAKE: 0.25,
+}
+export const crossbowReloadTime = (fastHands) => (fastHands ? CROSSBOW.RELOAD_FAST_HANDS : CROSSBOW.RELOAD)
+
+// Bolt damage multiplier on the base hit (body 1 / head 3). Tough types take heavy but not
+// lethal body damage (armour is ignored for the crossbow, see zombieSpecials.armorMultiplier):
+// brute 7 hp: body 4 (a head kills), armored 5 hp: body 4 (a head kills), boss 16 hp: body 2 / head 6.
 export const CROSSBOW_DAMAGE_MULT = 20
+const BOLT_TYPE_MULT = { brute: 4, armored: 4, boss: 2 }
+export const boltMult = (type, upgraded = false) =>
+  (BOLT_TYPE_MULT[type] ?? CROSSBOW_DAMAGE_MULT) * (upgraded ? UPGRADE_DAMAGE_MULT : 1)
+// Wraith blast damage at distance d (m) from the impact: full inside BLAST_INNER, 0 at BLAST_RADIUS.
+export function boltBlastDamage(d) {
+  if (d <= CROSSBOW.BLAST_INNER) return CROSSBOW.BLAST_MAX
+  if (d >= CROSSBOW.BLAST_RADIUS) return 0
+  return CROSSBOW.BLAST_MAX * (CROSSBOW.BLAST_RADIUS - d) / (CROSSBOW.BLAST_RADIUS - CROSSBOW.BLAST_INNER)
+}
+// Reserve after collecting one bolt, or null when already at the cap.
+export const collectBoltReserve = (reserve, cap) => (reserve >= cap ? null : reserve + 1)
 // Multiplier on top of the base hit damage (body 1 / head 3, flame tick) for this weapon.
+// (Crossbow: the per-type boltMult is used instead; this is the generic / unknown-type value.)
 export const damageMult = (w, upgraded = false) =>
   (w === 'crossbow' ? CROSSBOW_DAMAGE_MULT : 1) * (upgraded ? UPGRADE_DAMAGE_MULT : 1)
 

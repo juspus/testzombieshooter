@@ -548,12 +548,12 @@ export default function Gun() {
         groupRef.current.position.set(0.18 + jitterX, -0.25 + jitterY, -0.28)
         groupRef.current.rotation.set(0, 0, 0)
       } else if (isCrossbow) {
-        groupRef.current.position.set(0.17, -0.24, -(0.5 - recoil.current * 0.05))
-        groupRef.current.rotation.set(recoil.current * 0.1, 0, 0)
-        if (boltRef.current) {
-          const st = useGameStore.getState()
-          boltRef.current.visible = st.bulletsInClip > 0 && !st.isReloading
-        }
+        // Hard kick back + muzzle climb, then (while reloading) a cranking wobble and dip
+        const st = useGameStore.getState()
+        const crank = st.isReloading ? Math.sin(performance.now() * 0.016) : 0
+        groupRef.current.position.set(0.17 + crank * 0.006, -0.24 - (st.isReloading ? 0.035 : 0), -(0.5 - recoil.current * 0.11))
+        groupRef.current.rotation.set(recoil.current * 0.2 + (st.isReloading ? 0.12 : 0), 0, crank * 0.07)
+        if (boltRef.current) boltRef.current.visible = st.bulletsInClip > 0 && !st.isReloading
       } else {
         const recoilZ = recoil.current * 0.06
         const recoilAngle = recoil.current * 0.18

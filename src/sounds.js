@@ -1624,11 +1624,34 @@ export function playGrenadeBoom(x, y, z) {
 
 // ─── Wave 3: Mystery Box, Upgrade Bench, crossbow ───────────────────────────
 
-// Crossbow: near-silent. String thwip + a short wooden clack, no muzzle blast.
+// Crossbow: no muzzle blast. A taut string "thwack" (low twang + wooden slap) and a thin whistle.
 function _playCrossbowShot(ac, t, dest = null) {
-  playTone(ac, t, 380, 120, 0.09, 0.18, dest)
-  playNoise(ac, noiseBuffer(ac, 0.1), t, 0.07, 0.12, 'bandpass', 1800, 2, dest)
-  playTone(ac, t + 0.03, 900, 500, 0.05, 0.05, dest)
+  playTone(ac, t, 210, 90, 0.14, 0.3, dest)                                   // string twang
+  playNoise(ac, noiseBuffer(ac, 0.08), t, 0.05, 0.38, 'bandpass', 1400, 1.6, dest)   // limb slap
+  playTone(ac, t + 0.012, 880, 340, 0.07, 0.12, dest)
+  playNoise(ac, noiseBuffer(ac, 0.2), t + 0.02, 0.16, 0.06, 'highpass', 4500, 0.8, dest)   // bolt whistle
+}
+
+// Repeating crossbow reload: a ratchet crank (clicks speed up over the 1.8 s) + a final latch.
+export function playCrossbowReload() {
+  const ac = ctx()
+  const t = ac.currentTime
+  for (let i = 0; i < 9; i++) {
+    const at = t + 0.15 + i * (0.15 - i * 0.006)
+    mechanicalClick(ac, at, 0.35)
+    playTone(ac, at, 260 + i * 25, 200 + i * 25, 0.035, 0.07)
+  }
+  playNoise(ac, noiseBuffer(ac, 0.5), t + 0.1, 1.2, 0.07, 'bandpass', 700, 1.2)   // winding rasp
+  mechanicalClick(ac, t + 1.55, 0.8)
+  playTone(ac, t + 1.55, 140, 70, 0.08, 0.25)
+}
+
+// Collecting a stuck bolt: one small click.
+export function playBoltPickup() {
+  const ac = ctx()
+  const t = ac.currentTime
+  mechanicalClick(ac, t, 0.4)
+  playTone(ac, t + 0.01, 1300, 1700, 0.05, 0.06)
 }
 
 // Upgraded weapons: a bright metallic zing + high shimmer on top of the normal shot,

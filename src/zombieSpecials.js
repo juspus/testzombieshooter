@@ -12,6 +12,7 @@ export const ARMOR_SHOTGUN_PEN_DIST = 5  // shotgun pellets inside this range pu
 export function armorMultiplier(type, { head = false, weapon = null, dist = Infinity, source = 'gun' } = {}) {
   if (type !== 'armored') return 1
   if (head) return 1
+  if (weapon === 'crossbow') return 1                  // bolts punch through plate
   if (source !== 'gun') return 1                       // knife / flame / burst
   if (weapon === 'deagle') return 1
   if (weapon === 'shotgun' && dist < ARMOR_SHOTGUN_PEN_DIST) return 1
