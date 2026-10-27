@@ -10,6 +10,24 @@ start of every session. Keep entries short — a few lines each.
   first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
   brightness slider (src/brightness.js). Bloodlust speed 1.4x (2x too hard).
 - Cancelled by owner (stopped agents): Barn map, cabin escape quest. Don't restart unasked.
+- Mobile roadmap (2026-10-27): https://claude.ai/artifact/Y6wqJxYQUme3yGerfDAZJz
+  (source `docs/mobile-roadmap.html`, screenshots inlined as base64; republish
+  from that file with the URL). Same picks model as the main roadmap: ArtifactData
+  `list` on `calls` (ids `m-*`, decision `d-portrait` = A/B/C/talk) and write
+  `progress/<id>` when building/shipped. Waves: M1 Unbreak (pause, shadow diet,
+  touch skip, 48px buttons, notch, offline cache, overlaps, wording, emoji) ->
+  M2 Teach and tune (coach marks, settings panel, text floor, menus, USE finger,
+  floating stick) -> M3 Feels native -> M4 Hold the frame (invisible perf only).
+- Audit facts to remember (2026-10-27, not yet fixed):
+  - The shadow map regressed to 1024 / ±30 in both Arena.jsx:1021 and
+    DinerArena.jsx:551. The scene has 843 castShadow meshes, not ~43.
+  - vite.config.js:28 precaches /forest-panorama.png, which no longer exists
+    (the skybox is a canvas texture now), so the service worker likely fails
+    to install. Check production.
+  - Solo has no pause or visibilitychange handling.
+  - Zombie.jsx and Player.jsx use unclamped frame deltas.
+  - PeerJS has no TURN server.
+  - CLAUDE.md is stale on the panorama PNG, the shadow map and the caster count.
 - Crossbow reworked: repeating (mag 5), pierces 6, retrievable bolts (Bolts.jsx,
   store.collectBolt), Wraith = exploding bolts (source 'bolt'); CROSSBOW constants in weaponRules.js.
 - Cabin furnished (Evil Dead look): pieces in src/furniturePieces.js, merged per room by
@@ -202,6 +220,18 @@ onboarding summary — see CLAUDE.md for architecture detail.
   is Chrome's own unlock key; Windows re-handles the press after we re-lock.
   Linux/headless Chrome can't reproduce that, so pointer-lock changes need an
   owner test on Windows.
+
+- 2026-10-27: Mobile playability/UX audit and roadmap (artifact above).
+  Four Sonnet audit agents (touch controls, screens/HUD at 844x390, 667x375
+  and 390x844, perf/platform, a mobile-shooter benchmark) and one builder
+  agent. Verdict: it runs, but a phone player isn't treated as a real player.
+  - 36 px buttons and 7 px HUD text.
+  - No solo pause.
+  - No touch skip for the intermission.
+  - No touch onboarding: the start screen says "WASD · Mouse · Click" on phones.
+  - Portrait is a rotate wall, even for invite links.
+  The perf audit recommends against quality tiers, matching the owner's skip;
+  the cost is in shadows and static draw calls.
 
 - 2026-10-26: Built the visual roadmap (artifact above). Diagnosis of the
   "flash game" feel: flat look (no post, rigid camera), hits don't land (no

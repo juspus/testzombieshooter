@@ -49,7 +49,9 @@ this file stays the raw idea stash.
 
 ## Mobile / UX
 
-- **Onboarding overlay** — first-run tip for pointer lock / touch controls
+Prioritised in the mobile roadmap (`docs/mobile-roadmap.html`, link in MEMORY.md).
+
+- **Onboarding overlay** — first-run tip for pointer lock / touch controls (touch half = `m-onboard` on the mobile roadmap)
 
 ## Tech / dev
 
