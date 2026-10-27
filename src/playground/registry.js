@@ -30,6 +30,11 @@ import {
   RockingChair, Bookshelf, OldDesk, Bed, Nightstand, KitchenTable, WoodStove,
   DeerHead, CellarDoor, FloorRug, Chest,
 } from '../components/Arena'
+import {
+  Sofa, Armchair, DiningChair, BrokenChair, PorchBench, Wardrobe, Dresser, GrandfatherClock,
+  OldFridge, KitchenCounter, WallCupboards, JarShelf, KeroseneLamp, BookTable, ShotgunRack,
+  WallClock, CrackedMirror, WallPhotos, CoatHooks, FirewoodStack, ChoppingBlock, Trunk,
+} from '../components/Furniture'
 
 export const CATEGORIES = [
   { id: 'zombies', label: 'Zombies' },
@@ -124,6 +129,29 @@ export const ENTRIES = [
   propEntry('cellar_door', 'Cellar door', CellarDoor, {}, { position: [0.9, 1.5, 1.4], target: [0, 0, 0], fit: 'width' }),
   propEntry('floor_rug', 'Floor rug', FloorRug, { args: [2.5, 1.8] }, { position: [1.6, 2.2, 2.0], target: [0, 0, 0], fit: 'width' }),
   propEntry('chest', 'Loot chest', Chest, {}, PROP_CAM(1.8, 0.4)),
+  // Cabin furniture (merged static meshes, see components/Furniture.jsx)
+  propEntry('sofa', 'Sofa', Sofa, {}, PROP_CAM(3.2, 0.9)),
+  propEntry('armchair', 'Armchair', Armchair, {}, PROP_CAM(2.0, 0.8)),
+  propEntry('dining_chair', 'Dining chair', DiningChair, {}, PROP_CAM(1.6, 0.8)),
+  propEntry('broken_chair', 'Broken chair', BrokenChair, {}, PROP_CAM(1.4, 0.4)),
+  propEntry('porch_bench', 'Bench', PorchBench, {}, PROP_CAM(2.4, 0.8)),
+  propEntry('wardrobe', 'Wardrobe', Wardrobe, {}, PROP_CAM(3.0, 1.6)),
+  propEntry('dresser', 'Dresser', Dresser, {}, PROP_CAM(2.2, 0.8)),
+  propEntry('grandfather_clock', 'Grandfather clock', GrandfatherClock, {}, PROP_CAM(3.2, 1.7)),
+  propEntry('old_fridge', 'Old fridge', OldFridge, {}, PROP_CAM(3.0, 1.4)),
+  propEntry('kitchen_counter', 'Kitchen counter', KitchenCounter, {}, PROP_CAM(3.0, 0.9)),
+  propEntry('wall_cupboards', 'Wall cupboards', WallCupboards, { position: [0, 1, 0] }, PROP_CAM(3.0, 1.0), { floorY: 0 }),
+  propEntry('jar_shelf', 'Jar shelf', JarShelf, { position: [0, 1, 0] }, PROP_CAM(2.8, 1.0), { floorY: 0 }),
+  propEntry('kerosene_lamp', 'Kerosene lamp', KeroseneLamp, {}, PROP_CAM(0.9, 0.2)),
+  propEntry('book_table', 'Book + tape table', BookTable, {}, PROP_CAM(2.0, 0.7)),
+  propEntry('shotgun_rack', 'Shotgun rack', ShotgunRack, { position: [0, 1, 0] }, PROP_CAM(2.0, 1.0), { floorY: 0 }),
+  propEntry('wall_clock', 'Wall clock', WallClock, { position: [0, 1, 0] }, PROP_CAM(1.2, 1.0), { floorY: 0 }),
+  propEntry('cracked_mirror', 'Cracked mirror', CrackedMirror, { position: [0, 1, 0] }, PROP_CAM(1.6, 1.0), { floorY: 0 }),
+  propEntry('wall_photos', 'Framed photos', WallPhotos, { position: [0, 1, 0] }, PROP_CAM(1.8, 1.0), { floorY: 0 }),
+  propEntry('coat_hooks', 'Coat hooks', CoatHooks, { position: [0, 1.2, 0] }, PROP_CAM(2.0, 1.0), { floorY: 0 }),
+  propEntry('firewood', 'Firewood stack', FirewoodStack, {}, PROP_CAM(1.8, 0.4)),
+  propEntry('chopping_block', 'Chopping block', ChoppingBlock, {}, PROP_CAM(1.5, 0.4)),
+  propEntry('trunk', 'Trunk', Trunk, {}, PROP_CAM(1.8, 0.4)),
   {
     id: 'mystery_box', category: 'props', label: 'Mystery Box', Component: MysteryBoxDisplay,
     animations: [{ id: 'closed', label: 'Closed', loop: true }, { id: 'open', label: 'Open', loop: true }, { id: 'teddy', label: 'Teddy', loop: true }],
