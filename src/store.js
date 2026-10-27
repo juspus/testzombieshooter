@@ -24,6 +24,7 @@ import {
 } from './powerups'
 import { withLinksOpened, doorBuyStatus, allDoorsOpen, openRoomSet } from './doors'
 import { playDoorOpen } from './sounds'
+import { rollModifier, modifiedZombieCount, modifiedZombieHealth, modifierBonus, debugForcedModifier } from './modifiers'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -196,6 +197,11 @@ const EMPTY_SAVED = { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0
 export const useGameStore = create((set, get) => ({
   phase: 'start', // 'start' | 'intermission' | 'playing' | 'wave_clear' | 'dead'
   mapId: getInitialMapId(), // which map's visuals/skybox to render — fixed for the session
+  // ── Wave 3 wave modifiers ──
+  // Modifier of the CURRENT `wave` (null | 'fog' | 'bloodlust' | 'blackout' | 'horde'). Rolled by the
+  // host/solo when the wave's intermission begins (nextWave), so the intermission card can announce it.
+  // Guests receive it via the next_wave / wave_start net events. Effects apply only while phase==='playing'.
+  waveModifier: null,
   money: 10,
   weapon: 'pistol',        // currently equipped weapon
   ownedWeapons: ['pistol'], // all purchased weapons (determines scroll-cycle pool)
@@ -396,6 +402,7 @@ export const useGameStore = create((set, get) => ({
       wavePlanksLost: 0,
       waveStartPlanks: 0,
       lastWaveBonuses: null,
+      waveModifier: null,
       paused: false,
       hp: BASE_HP,
       maxHp: BASE_HP,
@@ -410,9 +417,12 @@ export const useGameStore = create((set, get) => ({
     applyDebugOverrides(set, get)
   },
 
-  nextWave: () => {
+  // forcedMod: co-op guest passes the host's roll (null = none); undefined = roll here.
+  nextWave: (forcedMod) => {
     const { wave: prevWave, windowPlanks, openDoors, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
     const wave = prevWave + 1
+    const waveModifier = forcedMod !== undefined ? forcedMod
+      : get().mpRole === 'guest' ? null : rollModifier(wave, get().waveModifier)
     buildGrid(allWallSegments(windowPlanks, openDoors))
     const walls = playerCollisionWalls(openDoors)
     set({
@@ -421,6 +431,7 @@ export const useGameStore = create((set, get) => ({
       shopOpen: false,
       walls,
       wave,
+      waveModifier,
       plankHits: {},
       waveKills: 0,
       intermissionLeft: intermissionForWave(wave),
@@ -510,6 +521,7 @@ export const useGameStore = create((set, get) => ({
           wavePlanksLost,
           waveStartPlanks,
           waveElapsed,
+          modifier: get().waveModifier,
         }),
       }
       : { zombies: newZombies }
@@ -531,7 +543,7 @@ export const useGameStore = create((set, get) => ({
           set({ intermissionLeft: 0 })
           return
         }
-        const all = spawnZombies(wave, nextId, activeSpawnClusters(get().openDoors))
+        const all = spawnZombies(wave, nextId, activeSpawnClusters(get().openDoors), get().waveModifier)
         const cap = Math.min(25, all.length)
         set({
           phase: 'playing',
@@ -777,7 +789,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   getZombieSpeed: () => speedForWave(get().wave),
-  getZombiesForWave: () => zombiesForWave(get().wave),
+  getZombiesForWave: () => modifiedZombieCount(zombiesForWave(get().wave), get().waveModifier),
 
   // ── Multiplayer ──────────────────────────────────────────────────────────
   mpRole: null,       // 'host' | 'guest' | null
@@ -860,6 +872,8 @@ function applyDebugOverrides(set, get) {
   // ?doors=open — start with every door open (dev/preview only, like ?wave=/?money=).
   if (params.get('doors') === 'open' || params.has('bench')) applyDoorsOpen(set, get)
   if (params.has('bench')) applyBench(set)
+  const forcedMod = debugForcedModifier()   // ?mod= — forces the first wave's modifier
+  if (forcedMod) set({ waveModifier: forcedMod })
   if (!params.has('wave') && !params.has('money') && !params.has('weapon')) return
 
   const updates = {}
@@ -998,6 +1012,7 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot, weapon = nu
         wavePlanksLost,
         waveStartPlanks,
         waveElapsed,
+        modifier: get().waveModifier,
       })
       set({ ...statUpdate, lastKillPending: true })
       get().startLastKillFx()
@@ -1087,12 +1102,13 @@ function countPlanks(windowPlanks) {
   return Object.values(windowPlanks).reduce((sum, count) => sum + count, 0)
 }
 
-function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed }) {
+function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed, modifier = null }) {
   const fastClearPar = fastClearParForWave(wave)
   const headshots = waveHeadshots * HEADSHOT_KILL_BONUS
   const knifeKills = waveKnifeKills * KNIFE_KILL_BONUS
   const noPlanksLost = waveStartPlanks > 0 && wavePlanksLost === 0 ? NO_PLANK_LOSS_BONUS : 0
   const fastClear = waveElapsed > 0 && waveElapsed <= fastClearPar ? FAST_CLEAR_BONUS : 0
+  const modBonus = modifierBonus(modifier)   // Wave 3 modifier waves pay extra
   return {
     base: WAVE_REWARD,
     kills: waveKills * ZOMBIE_KILL_REWARD,
@@ -1100,7 +1116,9 @@ function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills,
     knifeKills,
     noPlanksLost,
     fastClear,
-    total: headshots + knifeKills + noPlanksLost + fastClear,
+    modifier,
+    modifierBonus: modBonus,
+    total: headshots + knifeKills + noPlanksLost + fastClear + modBonus,
     elapsed: waveElapsed,
     fastClearPar,
     headshotsCount: waveHeadshots,
@@ -1123,8 +1141,8 @@ function getSpawnBasis(edge) {
   }
 }
 
-function spawnZombies(wave, startId, clusters = SPAWN_CLUSTERS) {
-  const count = zombiesForWave(wave)
+export function spawnZombies(wave, startId, clusters = SPAWN_CLUSTERS, modifier = null) {
+  const count = modifiedZombieCount(zombiesForWave(wave), modifier)
   const typeList = buildTypeList(wave, count)
   const zombies = []
   for (let i = 0; i < count; i++) {
@@ -1140,8 +1158,8 @@ function spawnZombies(wave, startId, clusters = SPAWN_CLUSTERS) {
       id: startId + i,
       x: cluster.x + basis.tangentX * tangentJitter - basis.outwardX * spawnOffset + basis.outwardX * bossEntranceOffset,
       z: cluster.z + basis.tangentZ * tangentJitter - basis.outwardZ * spawnOffset + basis.outwardZ * bossEntranceOffset,
-      health: archetype.health,
-      maxHealth: archetype.health,
+      health: modifiedZombieHealth(archetype.health, modifier),
+      maxHealth: modifiedZombieHealth(archetype.health, modifier),
       type,
       bossEntrance: archetype.boss,
     })

@@ -7,6 +7,7 @@ import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
 import { getReduceMotion, setReduceMotion } from '../cameraFeel'
+import { MODIFIERS, MOD_BONUS } from '../modifiers'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -110,6 +111,7 @@ export default function Screens() {
   const startGame = useGameStore((s) => s.startGame)
   const nextWave = useGameStore((s) => s.nextWave)
   const intermissionLeft = useGameStore((s) => s.intermissionLeft)
+  const waveModifier = useGameStore((s) => s.waveModifier)
   const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
   const skipProgress = useGameStore((s) => s.skipProgress)
   const lastWaveBonuses = useGameStore((s) => s.lastWaveBonuses)
@@ -153,7 +155,7 @@ export default function Screens() {
 
   if (phase === 'intermission') {
     const nextCount = getZombiesForWave()
-    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} money={money} skipProgress={skipProgress} />
+    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} money={money} skipProgress={skipProgress} modifier={waveModifier} />
   }
 
   if (phase === 'dead') {
@@ -174,7 +176,7 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
     if (mpRole === 'guest') return
     const id = setTimeout(() => {
       nextWave()
-      if (isConnected()) send('game_event', { event: 'next_wave', data: {} })
+      if (isConnected()) send('game_event', { event: 'next_wave', data: { modifier: useGameStore.getState().waveModifier } })
     }, 3200)
     return () => clearTimeout(id)
   }, [nextWave, mpRole])
@@ -197,6 +199,7 @@ function BonusBreakdown({ bonuses }) {
     bonuses.headshots > 0 && [`Headshot kills (${bonuses.headshotsCount})`, bonuses.headshots],
     bonuses.knifeKills > 0 && [`Knife kills (${bonuses.knifeKillsCount})`, bonuses.knifeKills],
     bonuses.noPlanksLost > 0 && ['No planks lost', bonuses.noPlanksLost],
+    bonuses.modifierBonus > 0 && [`${MODIFIERS[bonuses.modifier]?.name ?? 'Modifier'} wave`, bonuses.modifierBonus],
     bonuses.fastClear > 0 && [`Fast clear (${formatSeconds(bonuses.elapsed)} / ${formatSeconds(bonuses.fastClearPar)})`, bonuses.fastClear],
   ].filter(Boolean)
   const payout = bonuses.base + bonuses.kills + bonuses.total
@@ -215,6 +218,26 @@ function BonusBreakdown({ bonuses }) {
         <span>Total banked next wave</span>
         <span>+€{payout.toFixed(2)}</span>
       </div>
+    </div>
+  )
+}
+
+// Wave 3: announces the next wave's modifier under the intermission countdown.
+function ModifierCard({ mod, compact }) {
+  return (
+    <div data-modifier-card={mod.id} style={{
+      display: 'flex', alignItems: 'center', gap: compact ? 8 : 12, margin: compact ? '4px auto' : '8px auto',
+      padding: compact ? '4px 10px' : '8px 16px', maxWidth: 'min(380px, 92vw)',
+      background: 'rgba(0,0,0,0.5)', border: `1px solid ${mod.color}`, borderRadius: 6,
+      boxShadow: `0 0 14px ${mod.color}55`, fontFamily: 'Courier New, monospace', textAlign: 'left',
+    }}>
+      <span style={{ fontSize: compact ? 20 : 30, lineHeight: 1 }}>{mod.icon}</span>
+      <span>
+        <div style={{ color: mod.color, fontWeight: 'bold', letterSpacing: 3, fontSize: compact ? 12 : 16 }}>
+          {mod.name} WAVE <span style={{ color: '#88cc44', letterSpacing: 1, fontSize: compact ? 10 : 12 }}>+€{MOD_BONUS}</span>
+        </div>
+        <div style={{ color: '#ccc', fontSize: compact ? 10 : 13, letterSpacing: 1 }}>{mod.desc}</div>
+      </span>
     </div>
   )
 }
@@ -261,7 +284,7 @@ const styles = {
   },
 }
 
-function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress }) {
+function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress, modifier }) {
   const [isMobile, setIsMobile] = useState(getIsMobileScreen)
   const seconds = Math.ceil(intermissionLeft)
   const urgent = seconds <= 3
@@ -302,6 +325,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
       }}>
         {seconds}s
       </div>
+      {modifier && MODIFIERS[modifier] && <ModifierCard mod={MODIFIERS[modifier]} compact={isMobile} />}
       {wave > 1 && (
         <div style={rewardStyle}>
           +€15.00 WAVE REWARD

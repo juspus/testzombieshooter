@@ -1,4 +1,5 @@
 // Procedural sound synthesis via Web Audio API — no audio files required.
+import { modFx } from './modifiers'   // Wave 3: Fog modifier boosts idle groans
 
 let _ctx = null
 
@@ -869,7 +870,7 @@ let _zGroanLastMs = 0
 export function zombieGroanAllowed(dist = 0) {
   if (_zGroanActive >= Z_GROAN_MAX) return false
   if (performance.now() - _zGroanLastMs < 300) return false
-  const reach = _zGroanActive === 0 ? 26 : _zGroanActive === 1 ? 16 : 9
+  const reach = (_zGroanActive === 0 ? 26 : _zGroanActive === 1 ? 16 : 9) * modFx.groanReach
   return dist <= reach
 }
 
@@ -906,7 +907,7 @@ export function playZombieGroan(x, y, z, pitch = 1, dist = 0) {
 
   const gain = ac.createGain()
   gain.gain.setValueAtTime(0.001, t)
-  gain.gain.exponentialRampToValueAtTime(0.32, t + 0.12)
+  gain.gain.exponentialRampToValueAtTime(0.32 * modFx.groanGain, t + 0.12)
   gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
 
   osc.connect(formant)

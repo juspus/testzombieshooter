@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { WINDOW_DEFS } from '../maps/cabin'
 import { weather, FX_OFF } from '../weather'
+import { modFx } from '../modifiers'
 
 // Cabin lights that misbehave + static moonbeams with drifting dust.
 // The Arena's existing point lights register themselves in `lightReg` (callback
@@ -196,11 +197,13 @@ export default function LivingLights() {
       const l = lightReg[KEYS[i]]
       if (!l) continue
       if (l.userData.baseI === undefined) l.userData.baseI = l.intensity
-      let m = black
-      if (i === 0) m *= fire
-      else if (i === 1) m *= fire2
+      // Wave 3 Blackout modifier: lightMul kills the interior bulbs for the whole wave,
+      // fireMul leaves the fireplace as a dim flickering source, ambMul drops the fill.
+      let m = black * modFx.lightMul
+      if (i === 0) m = black * modFx.fireMul * fire
+      else if (i === 1) m = black * modFx.fireMul * fire2
       else if (i === 2) m *= bulb
-      else if (i === 7) m = AMB_BLACKOUT + (1 - AMB_BLACKOUT) * black // ambient only partly dies
+      else if (i === 7) m = (AMB_BLACKOUT + (1 - AMB_BLACKOUT) * black) * modFx.ambMul // ambient only partly dies
       l.intensity = l.userData.baseI * m
     }
 

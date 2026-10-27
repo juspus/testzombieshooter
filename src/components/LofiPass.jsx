@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { modFx } from '../modifiers'
 
 // Lo-fi horror final pass. The whole scene (world + viewmodel, which Gun/Knife render
 // themselves at useFrame priority 1) is drawn into a small linear render target, then
@@ -39,6 +40,7 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform float uAspect;
 uniform float uExposure;
+uniform float uTint;      // Bloodlust modifier: 0..1 red grade
 varying vec2 vUv;
 
 const float LEVELS = ${LOFI_LEVELS.toFixed(1)};
@@ -74,6 +76,7 @@ void main() {
   c *= mix(vec3(0.82, 0.96, 1.14), vec3(1.12, 1.0, 0.84), smoothstep(0.12, 0.6, l));  // cold shadows / warm highlights
   c = mix(vec3(l), c, ${SATURATION.toFixed(2)});
   c += vec3(${SHADOW_LIFT}) * (1.0 - l);                                               // cold shadow lift
+  c = mix(c, vec3(l * 1.25 + 0.05, l * 0.32, l * 0.3), uTint * 0.5);                  // bloodlust red grade
   c = mix(c, c * c * (3.0 - 2.0 * c), 0.3);                                            // contrast
   vec2 d = (vUv - 0.5) * vec2(uAspect, 1.0);
   c *= mix(${VIGNETTE.toFixed(2)}, 1.0, smoothstep(0.95, 0.25, length(d)));
@@ -125,6 +128,7 @@ export default function LofiPass({ exposure = 1 }) {
         uTime: { value: 0 },
         uAspect: { value: 1 },
         uExposure: { value: 1 },
+        uTint: { value: 0 },
       },
       depthTest: false,
       depthWrite: false,
@@ -165,6 +169,7 @@ export default function LofiPass({ exposure = 1 }) {
       mat.uniforms.uAspect.value = w / h
     }
     mat.uniforms.uTime.value = clock.elapsedTime
+    mat.uniforms.uTint.value = modFx.tint
     r.setRenderTarget(rt)
   }, 0.5)
 

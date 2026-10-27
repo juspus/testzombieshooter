@@ -18,6 +18,7 @@ import * as THREE from 'three'
 // Wave 3 special archetypes (exploder / spitter / armored)
 import { EXPLODER, SPITTER, burstPlayerDamage, burstZombieDamage, burstPlankHits, globFlightTime } from '../zombieSpecials'
 import { raycastWorld } from '../worldRay'
+import { modFx } from '../modifiers'
 import { spawnImpact } from '../impactParticles'
 import SpecialFX from './SpecialFX'
 import { playExploderHiss, playExplosion, playSpitWindup, playSpitLaunch } from '../sounds'
@@ -317,14 +318,15 @@ function applyMove(pos, vx, vz, walls) {
 
 // `seed` (default: id) picks the look, see zombieVariant.js. `variant` may be passed
 // pre-computed (ZombieComponent also needs it for the gait) to skip the lookup.
-export function ZombieBody({ type = 'walker', id = 'display', seed, variant: variantProp, health, leftArmRef, rightArmRef, leftLegRef, rightLegRef, headRef, sacRef, holes = [] }) {
+export function ZombieBody({ type = 'walker', id = 'display', seed, variant: variantProp, health, maxHealth, leftArmRef, rightArmRef, leftLegRef, rightLegRef, headRef, sacRef, holes = [] }) {
   const archetype = getZombieArchetype(type)
   const hp = health ?? archetype.health
-  const colors = getZombieColors(type, hp, archetype.health)
+  const maxHp = maxHealth ?? archetype.health   // Horde modifier halves spawn HP
+  const colors = getZombieColors(type, hp, maxHp)
   const variant = useMemo(() => variantProp ?? getZombieVariant(type, seed ?? id), [variantProp, type, seed, id])
   // Per-variant colours (shared, cached, fed through sm()). Only the walker's palette
   // darkens with health (the other archetypes override those colours entirely).
-  const vc = getVariantColors(type, variant, colors, type === 'walker' && hp <= Math.ceil(archetype.health / 2))
+  const vc = getVariantColors(type, variant, colors, type === 'walker' && hp <= Math.ceil(maxHp / 2))
   const { accent, eye } = colors
   const { skin, skinVein, shirt, shirtTear, pants, skullBone, skullDark } = vc
   const heightScale = archetype.heightScale ?? 1
@@ -742,6 +744,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const phase = useGameStore((s) => s.phase)
   const hitPlayer = useGameStore((s) => s.hitPlayer)
   const health = useGameStore((s) => s.zombies.find((z) => z.id === id)?.health ?? archetype.health)
+  const maxHealth = useGameStore((s) => s.zombies.find((z) => z.id === id)?.maxHealth ?? archetype.health)
   const dying = useGameStore((s) => s.zombies.find((z) => z.id === id)?.dying ?? false)
   const hitPlank = useGameStore((s) => s.hitPlank)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
@@ -1410,7 +1413,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           }
         }
       }
-      const step = speed * speedMultiplier * delta
+      const step = speed * speedMultiplier * modFx.speedMul * delta   // Bloodlust modifier
       applyMove(pos, moveDir.x * step, moveDir.z * step, zombieWallsRef.current)
 
       // Footstep sound — proximity to local player's ears
@@ -1476,6 +1479,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           id={id}
           variant={variant}
           health={health}
+          maxHealth={maxHealth}
           leftArmRef={leftArmRef}
           rightArmRef={rightArmRef}
           leftLegRef={leftLegRef}

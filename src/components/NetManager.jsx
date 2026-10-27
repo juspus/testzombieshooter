@@ -63,6 +63,7 @@ export default function NetManager() {
           wave: s.wave,
           waveStartPlanks: s.waveStartPlanks,
           openDoors: s.openDoors,   // Wave 3: late-join / reconnect door state
+          modifier: s.waveModifier, // Wave 3: wave modifier (guest applies the same visuals/speeds)
         },
       })
     }
@@ -214,7 +215,7 @@ function applyRemoteEvent(event, data) {
       store.startGame()
       break
     case 'next_wave':
-      store.nextWave()
+      store.nextWave(data?.modifier ?? null)   // host's modifier roll (announced during intermission)
       break
     case 'wave_start':
       useGameStore.setState({
@@ -224,6 +225,7 @@ function applyRemoteEvent(event, data) {
         pendingSpawns: data.pendingSpawns,
         nextId: data.nextId,
         wave: data.wave,
+        waveModifier: data.modifier ?? null,
         waveElapsed: 0,
         waveHeadshots: 0,
         waveKnifeKills: 0,

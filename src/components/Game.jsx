@@ -24,6 +24,7 @@ import PowerUps from './PowerUps'
 import NetManager from './NetManager'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
+import ModifierFx from './ModifierFx'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
@@ -135,6 +136,7 @@ export default function Game() {
         {mapId === 'diner' ? <DinerArena /> : <Arena />}
         <DoorBarricades />
         <Player />
+        <ModifierFx />
         <Gun />
         <Knife />
         <ZombieManager />

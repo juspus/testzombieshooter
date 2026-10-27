@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react'
+import { MODIFIERS } from '../modifiers'
 import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
 import { CROSSHAIR_HEX } from '../cosmetics'
 import DoorPrompt from './DoorPrompt'
@@ -124,6 +125,7 @@ export default function HUD() {
   const knifeCooldown = useGameStore((s) => s.knifeCooldown)
   const nearChest = useGameStore((s) => s.nearChest)
   const hp = useGameStore((s) => s.hp)
+  const waveModifier = useGameStore((s) => s.waveModifier)
   const maxHp = useGameStore((s) => s.maxHp)
   const helmet = useGameStore((s) => s.helmet)
   const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
@@ -202,6 +204,19 @@ export default function HUD() {
               €{money.toFixed(2)}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Wave 3: active wave modifier badge */}
+      {phase === 'playing' && waveModifier && MODIFIERS[waveModifier] && (
+        <div data-modifier-badge={waveModifier} style={{
+          position: 'absolute', top: isMobile ? 94 : 150, left: '50%', transform: 'translateX(-50%)',
+          padding: '2px 10px', borderRadius: 4, background: 'rgba(0,0,0,0.55)',
+          border: `1px solid ${MODIFIERS[waveModifier].color}`, color: MODIFIERS[waveModifier].color,
+          fontFamily: 'Courier New, monospace', fontSize: isMobile ? 10 : 13, letterSpacing: 3, fontWeight: 'bold',
+          pointerEvents: 'none', whiteSpace: 'nowrap',
+        }}>
+          {MODIFIERS[waveModifier].icon} {MODIFIERS[waveModifier].name}
         </div>
       )}
 

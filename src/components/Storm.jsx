@@ -4,6 +4,8 @@ import { useGameStore } from '../store'
 import { getMap } from '../maps'
 import { startRain, stopRain, setRainIndoor, playThunder } from '../sounds'
 import { weather, FX_DEBUG, FX_OFF } from '../weather'
+import { modFx } from '../modifiers'
+import { lightReg } from './LivingLights'
 
 // Thunderstorm: randomized lightning that flashes the moonlight, the hemisphere
 // fill and the skybox (silhouetting trees / zombies outside), plus rain + thunder
@@ -35,6 +37,8 @@ export default function Storm() {
   const indoor = useRef(null)
   const dims = useRef({ hw: 9, hd: 10 })
   const wasFlashing = useRef(false)
+  const lastAmbMul = useRef(1)
+  const extras = useRef([])   // ambient lights LivingLights doesn't own (e.g. the diner's)
 
   const trigger = useRef(null)
   trigger.current = (distance) => {
@@ -122,7 +126,9 @@ export default function Storm() {
       scene.traverse((o) => {
         if (!moon.current && o.isDirectionalLight) moon.current = o
         else if (!hemi.current && o.isHemisphereLight) hemi.current = o
+        else if (o.isAmbientLight && !lightReg.amb) extras.current.push(o)
       })
+      for (const o of extras.current) o.userData.baseI = o.intensity
       if (moon.current) moon.current.userData.baseI = moon.current.intensity
       if (hemi.current) hemi.current.userData.baseI = hemi.current.intensity
     }
@@ -158,12 +164,16 @@ export default function Storm() {
     if (weather.hold != null) f = weather.hold
     weather.flash = f
 
-    if (f > 0.002 || wasFlashing.current) {
+    // Blackout modifier: moonlight / hemisphere / ambient fill scale by modFx.ambMul (lightning still cuts through).
+    const amb = modFx.ambMul
+    if (f > 0.002 || wasFlashing.current || amb !== lastAmbMul.current) {
       wasFlashing.current = f > 0.002
+      lastAmbMul.current = amb
       const m = moon.current
       const h = hemi.current
-      if (m) m.intensity = m.userData.baseI + f * MOON_BOOST
-      if (h) h.intensity = h.userData.baseI + f * HEMI_BOOST
+      if (m) m.intensity = m.userData.baseI * amb + f * MOON_BOOST
+      if (h) h.intensity = h.userData.baseI * amb + f * HEMI_BOOST
+      for (const o of extras.current) o.intensity = o.userData.baseI * amb
       const sky = weather.skyMat
       if (sky) sky.color.setRGB(1 + f * SKY_BOOST_R, 1 + f * SKY_BOOST_G, 1 + f * SKY_BOOST_B)
     }
