@@ -11,6 +11,7 @@ import {
   CHEST_POS,
 } from '../maps/cabin'
 import { texBoxProps, texPlaneProps } from '../textures'
+import CabinFurniture from './Furniture'
 
 const HW = CABIN_HW
 const HD = CABIN_HD
@@ -49,7 +50,6 @@ const IRON    = '#1a1614'   // Old iron frame
 const COPPER  = '#3a2410'   // Tarnished copper (kettle / pots)
 const RUG1    = '#2a0808'   // Rug dark red
 const RUG2    = '#180808'   // Rug almost black
-const COBWEB  = '#1c1c18'   // Dusty cobweb strands
 const ROOF    = '#1e0e04'   // Dark weathered shingles
 const FOREST_FLOOR = '#020605' // Exterior grass/leaf bed blends into spawn thickets
 
@@ -282,39 +282,6 @@ function CeilingBeams() {
       {[6.5, 8.5].map((z) => (
         <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
       ))}
-    </group>
-  )
-}
-
-// ─── Cobwebs ─────────────────────────────────────────────────────────────────
-
-function Cobweb({ x, y, z, rx = 0, ry = 0, rz = 0, sx = 0.6, sy = 0.01, sz = 0.5 }) {
-  return (
-    <mesh position={[x, y, z]} rotation={[rx, ry, rz]} castShadow={false}>
-      <boxGeometry args={[sx, sy, sz]} />
-      <meshStandardMaterial color={COBWEB} roughness={1} transparent opacity={0.55} />
-    </mesh>
-  )
-}
-
-function Cobwebs() {
-  return (
-    <group>
-      {/* Main room corners */}
-      <Cobweb x={-1.8} y={WH - 0.3} z={-9.7} rx={0} ry={Math.PI/4} sz={0.8} sx={0.8} />
-      <Cobweb x={ 8.7} y={WH - 0.3} z={-9.7} rx={0} ry={-Math.PI/4} sz={0.8} sx={0.8} />
-      <Cobweb x={-1.8} y={WH - 0.3} z={ 9.7} rx={0} ry={-Math.PI/4} sz={0.7} sx={0.7} />
-      <Cobweb x={ 8.7} y={WH - 0.3} z={ 9.7} rx={0} ry={Math.PI/4}  sz={0.7} sx={0.7} />
-      {/* Hanging strands from beams */}
-      <Cobweb x={0}   y={WH - 0.55} z={-8} rx={Math.PI/2} sy={0.008} sz={0.5} sx={0.3} />
-      <Cobweb x={6.5} y={WH - 0.55} z={6}  rx={Math.PI/2} sy={0.008} sz={0.4} sx={0.25} />
-      {/* Bedroom corners */}
-      <Cobweb x={-8.7} y={WH - 0.3} z={-9.7} rx={0} ry={Math.PI/4} sz={0.6} sx={0.6} />
-      <Cobweb x={-2.3} y={WH - 0.3} z={-9.7} rx={0} ry={-Math.PI/4} sz={0.6} sx={0.6} />
-      {/* Hall corner */}
-      <Cobweb x={-8.7} y={WH - 0.3} z={-3.7} rx={0} ry={Math.PI/4} sz={0.5} sx={0.5} />
-      {/* Kitchen corner */}
-      <Cobweb x={-8.7} y={WH - 0.3} z={ 9.7} rx={0} ry={Math.PI/4} sz={0.6} sx={0.6} />
     </group>
   )
 }
@@ -668,9 +635,9 @@ export function CellarDoor({ position }) {
 
 // ─── Wood stove ──────────────────────────────────────────────────────────────
 
-export function WoodStove({ position }) {
+export function WoodStove({ position, rotation }) {
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* Body */}
       <Box position={[0, 0.44, 0]} args={[0.52, 0.88, 0.44]} color="#1a1612" roughness={0.8} metalness={0.2} tex="metal" />
       {/* Top plate */}
@@ -1101,7 +1068,7 @@ export default function Arena() {
       <WindowPlanks />
 
       {/* ── Atmosphere ───────────────────────────────────────────────────── */}
-      <Cobwebs />
+      <CabinFurniture />
 
       {/* ── Main room ────────────────────────────────────────────────────── */}
       <Fireplace />
@@ -1135,8 +1102,8 @@ export default function Arena() {
       <WallLantern position={[-HW + WT, 1.8, -2.8]} rotation={[0, Math.PI / 2, 0]} />
 
       {/* ── Kitchen ──────────────────────────────────────────────────────── */}
-      <WoodStove position={[-6.5, 0, -HD + WT + 0.38]} />
-      <KitchenTable position={[-4.5, 0, 7.5]} />
+      <WoodStove position={[-8.3, 0, 7.7]} rotation={[0, Math.PI / 2, 0]} />
+      <KitchenTable position={[-3.4, 0, 6.4]} />
       <WallLantern position={[-HW + WT, 1.8, 7.5]} rotation={[0, Math.PI / 2, 0]} />
       {/* Hanging pots */}
       <mesh position={[-5.5, WH - 0.45, 6.5]} castShadow>

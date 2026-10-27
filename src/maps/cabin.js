@@ -142,6 +142,30 @@ export const isWindowActive = (id, openDoors) => (openDoors ? _isWindowActive(WI
 export const activeSpawnClusters = (openDoors) =>
   (openDoors ? _activeSpawnClusters(SPAWN_CLUSTERS, WINDOW_DEFS, DOOR_DEFS, openDoors) : SPAWN_CLUSTERS)
 
+// ─── Furniture colliders ─────────────────────────────────────────────────────
+// Big solid pieces (see src/components/Furniture.jsx for the visuals). They block
+// the PLAYER and ZOMBIE pathing like walls (nav grid cells are 1 m, so keep them
+// off windows / door gaps / anchors — src/__tests__/furniture.test.js checks it).
+// `bullet: true` only for pieces taller than ~1 m (wardrobe, fridge, clock): low
+// furniture (sofa, tables, counter) never stops shots. Small clutter has no collider.
+export const FURNITURE_COLLIDERS = [
+  // main room
+  { x:  3.8,   z: -6.2,  halfW: 1.0,  halfD: 0.45 },               // sofa (faces the fireplace)
+  { x:  1.9,   z: -6.2,  halfW: 0.55, halfD: 0.55 },               // armchair
+  { x:  8.42,  z: -2.3,  halfW: 0.22, halfD: 0.5  },               // console table (book + recorder)
+  // hall
+  { x: -8.54,  z:  4.15, halfW: 0.18, halfD: 0.26, bullet: true }, // grandfather clock
+  { x: -2.5,   z:  2.0,  halfW: 0.22, halfD: 0.5  },               // hall console
+  // bedroom
+  { x: -3.2,   z: -4.58, halfW: 0.58, halfD: 0.3,  bullet: true }, // wardrobe
+  { x: -7.9,   z: -4.53, halfW: 0.5,  halfD: 0.25 },               // dresser
+  // kitchen
+  { x: -3.4,   z:  6.4,  halfW: 0.57, halfD: 0.33 },               // dining table
+  { x: -2.62,  z:  8.0,  halfW: 0.31, halfD: 0.8  },               // counter + sink
+  { x: -3.1,   z:  9.36, halfW: 0.38, halfD: 0.35, bullet: true }, // fridge
+  { x: -8.3,   z:  7.7,  halfW: 0.24, halfD: 0.28 },               // stove
+]
+
 // Full wall segment list for the nav grid / zombie collision: structure + boarded
 // windows + closed doors + the windows of rooms that are still sealed.
 export function allWallSegments(windowPlanks = {}, openDoors = null) {
@@ -149,7 +173,7 @@ export function allWallSegments(windowPlanks = {}, openDoors = null) {
   const extra = Object.entries(windowPlanks)
     .filter(([, count]) => count > 0)
     .map(([id]) => windowBlockSegment(Number(id)))
-  return [...base, ...extra, ..._closedSegs(openDoors), ..._sealedWinSegs(openDoors)]
+  return [...base, ...extra, ...FURNITURE_COLLIDERS, ..._closedSegs(openDoors), ..._sealedWinSegs(openDoors)]
 }
 
 // Player collision walls: cabin structure + every window opening always blocked + closed doors.
@@ -157,6 +181,7 @@ export function playerCollisionWalls(openDoors = null) {
   return [
     ...cabinWallSegments(),
     ...WINDOW_DEFS.map((win) => windowBlockSegment(win.id)),
+    ...FURNITURE_COLLIDERS,
     ..._closedSegs(openDoors),
   ]
 }
@@ -181,9 +206,9 @@ export const CHEST_POS = { x: 5, z: 7 }
 export const HW = CABIN_HW
 export const HD = CABIN_HD
 export const wallSegments = cabinWallSegments
-// The cabin has no low-cover obstacles (every wall is full-height), so
-// gunfire is blocked by the same segments as movement/pathing.
-export const bulletWallSegments = (openDoors = null) => [...cabinWallSegments(), ..._closedSegs(openDoors)]
+// Gunfire is blocked by the walls (+ tall furniture); low furniture never stops shots.
+const _tallFurniture = FURNITURE_COLLIDERS.filter((c) => c.bullet)
+export const bulletWallSegments = (openDoors = null) => [...cabinWallSegments(), ..._tallFurniture, ..._closedSegs(openDoors)]
 
 // Room id containing a floor point (interior only) — used to keep power-up drops out of sealed rooms.
 export function roomAt(x, z) {
