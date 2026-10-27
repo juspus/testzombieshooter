@@ -650,6 +650,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const dying = useGameStore((s) => s.zombies.find((z) => z.id === id)?.dying ?? false)
   const hitPlank = useGameStore((s) => s.hitPlank)
   const windowPlanks = useGameStore((s) => s.windowPlanks)
+  const openDoors = useGameStore((s) => s.openDoors)   // Wave 3 buyable doors
   const removeDyingZombie = useGameStore((s) => s.removeDyingZombie)
 
   const [holes, setHoles] = useState([])
@@ -662,6 +663,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const targetWindowRef = useRef(-1)
   const attackTimerRef  = useRef(0)
   const windowPlanksRef = useRef(windowPlanks)
+  const openDoorsRef    = useRef(openDoors)
   const zombieWallsRef  = useRef(ACTIVE_MAP.wallSegments())
   const stepTimerRef    = useRef(Math.random() * 0.6)
   const groanTimerRef   = useRef(3 + Math.random() * 8)   // idle groan countdown (positional, globally rate-limited in sounds.js)
@@ -732,12 +734,13 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   useEffect(() => {
     if (corpseRef.current) return
     windowPlanksRef.current = windowPlanks
-    const segs = [...ACTIVE_MAP.wallSegments()]
-    for (const [wid, count] of Object.entries(windowPlanks)) {
-      if (count > 0) segs.push(windowBlockSegment(Number(wid)))
-    }
-    zombieWallsRef.current = segs
-  }, [windowPlanks])
+    openDoorsRef.current = openDoors
+    // Structure + boarded windows + closed doors + windows of still-sealed rooms
+    zombieWallsRef.current = ACTIVE_MAP.allWallSegments(windowPlanks, openDoors)
+  }, [windowPlanks, openDoors])
+
+  // Windows of rooms that are still sealed are never attacked (Wave 3 doors).
+  const isWinActive = (wid) => (ACTIVE_MAP.isWindowActive ? ACTIVE_MAP.isWindowActive(wid, openDoorsRef.current) : true)
 
   // Called from hitFx.js on every gun/knife hit (dir = world shot direction).
   // Mutates refs only — no React state. Returns blood intensity (see Zombie.hitReact).
@@ -1012,7 +1015,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     pathTimer.current -= delta
     if (pathTimer.current <= 0) {
       pathTimer.current = PATH_INTERVAL
-      const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0)
+      const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0 && isWinActive(w.id))
 
       // Consider switching to attack_window mode
       if (type !== 'runner' && type !== 'screamer' && modeRef.current !== 'attack_window' && boardedWins.length > 0) {
@@ -1054,7 +1057,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           // Player unreachable via open path — force nearest window attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
-            if ((planks[win.id] ?? 0) === 0) continue
+            if ((planks[win.id] ?? 0) === 0 || !isWinActive(win.id)) continue
             const dx = pos.x - win.ax, dz = pos.z - win.az
             const d = dx * dx + dz * dz
             if (d < nearDist) { nearDist = d; nearWin = win.id }

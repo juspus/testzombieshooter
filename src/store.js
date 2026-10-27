@@ -15,6 +15,8 @@ import {
 } from './cosmetics'
 import { persistProfile } from './profilePersistence'
 import { time as gameTime } from './timeScale'
+import { withLinksOpened, doorBuyStatus, allDoorsOpen } from './doors'
+import { playDoorOpen } from './sounds'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -24,6 +26,8 @@ function _plankBreakNormal(w) {
   return { x: ns ? 0 : (w.wall === 'W' ? 1 : -1), y: 0.3, z: ns ? (w.wall === 'N' ? 1 : -1) : 0 }
 }
 const { playerCollisionWalls, wallSegments, allWallSegments, SPAWN_CLUSTERS } = ACTIVE_MAP
+const DOOR_DEFS = ACTIVE_MAP.DOOR_DEFS ?? []
+const activeSpawnClusters = ACTIVE_MAP.activeSpawnClusters ?? (() => SPAWN_CLUSTERS)
 //
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
 const CLIP_SIZE = 10
@@ -255,10 +259,14 @@ export const useGameStore = create((set, get) => ({
     const wave = 1
     const total = bulletsForWave(wave)
     const clip = Math.min(CLIP_SIZE, total)
-    buildGrid(wallSegments())
-    const walls = playerCollisionWalls()
+    // Wave 3 doors: every run starts sealed (debug ?doors=open overrides below).
+    buildGrid(allWallSegments({}, {}))
+    const walls = playerCollisionWalls({})
     set({
       phase: 'intermission',
+      openDoors: {},
+      nearDoorId: null,
+      doorProgress: 0,
       money: 10,
       weapon: 'pistol',
       ownedWeapons: ['pistol'],
@@ -308,10 +316,10 @@ export const useGameStore = create((set, get) => ({
   },
 
   nextWave: () => {
-    const { wave: prevWave, windowPlanks, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
+    const { wave: prevWave, windowPlanks, openDoors, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
     const wave = prevWave + 1
-    buildGrid(allWallSegments(windowPlanks))
-    const walls = playerCollisionWalls()
+    buildGrid(allWallSegments(windowPlanks, openDoors))
+    const walls = playerCollisionWalls(openDoors)
     set({
       phase: 'intermission',
       money: money + WAVE_REWARD + (prevWaveKills * ZOMBIE_KILL_REWARD) + (lastWaveBonuses?.total ?? 0),
@@ -423,7 +431,7 @@ export const useGameStore = create((set, get) => ({
           set({ intermissionLeft: 0 })
           return
         }
-        const all = spawnZombies(wave, nextId)
+        const all = spawnZombies(wave, nextId, activeSpawnClusters(get().openDoors))
         const cap = Math.min(25, all.length)
         set({
           phase: 'playing',
@@ -504,7 +512,7 @@ export const useGameStore = create((set, get) => ({
     if (money < cost) return false
     const newPlanks = { ...windowPlanks, [id]: current + 1 }
     const newStrong = strongPlanksMode ? { ...windowPlankStrong, [id]: true } : windowPlankStrong
-    buildGrid(allWallSegments(newPlanks))
+    buildGrid(allWallSegments(newPlanks, get().openDoors))
     set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, money: money - cost })
     return true
   },
@@ -538,7 +546,7 @@ export const useGameStore = create((set, get) => ({
       const newStrong = newPlanks[id] === 0
         ? { ...windowPlankStrong, [id]: false }
         : windowPlankStrong
-      buildGrid(allWallSegments(newPlanks))
+      buildGrid(allWallSegments(newPlanks, get().openDoors))
       const bw = ACTIVE_MAP.WINDOW_DEFS?.[id]
       playPlankBreak(bw?.winX, 1.2, bw?.winZ)
       if (bw) spawnImpact({ x: bw.winX, y: 1.2, z: bw.winZ }, _plankBreakNormal(bw), 'break')
@@ -623,6 +631,51 @@ export const useGameStore = create((set, get) => ({
   setSkipProgress: (v) => set({ skipProgress: v }),
   setNearChest: (v) => set({ nearChest: v }),
 
+  // ── Wave 3: buyable doors ───────────────────────────────────────────────────
+  // Runs start sealed in the main room. `openDoors` is { [doorId]: true } (see
+  // src/doors.js + DOOR_DEFS in the map). Opening rebuilds the nav grid + player
+  // collision once; zombies re-path on their next PATH_INTERVAL tick.
+  openDoors: {},
+  nearDoorId: null,   // id of the closed, buyable door the player stands at (Player.jsx)
+  doorProgress: 0,    // 0–1 hold-E progress (HUD bar)
+  setNearDoorId: (id) => { if (get().nearDoorId !== id) set({ nearDoorId: id }) },
+  setDoorProgress: (v) => set({ doorProgress: v }),
+
+  // Opens a door without charging anyone (host/guest sync, debug). Returns false if already open.
+  applyDoorOpen: (id, silent = false) => {
+    const { openDoors, windowPlanks } = get()
+    if (openDoors[id]) return false
+    const def = DOOR_DEFS.find((d) => d.id === id)
+    if (!def) return false
+    const next = withLinksOpened(DOOR_DEFS, { ...openDoors, [id]: true })
+    buildGrid(allWallSegments(windowPlanks, next))
+    set({ openDoors: next, walls: playerCollisionWalls(next) })
+    if (!silent) playDoorOpen(def.x, 1.2, def.z)
+    return true
+  },
+
+  // Local purchase: checks status + money, charges this client, opens the door.
+  // (Co-op: money is per-player; Player.jsx routes guests through a host request.)
+  buyDoor: (id) => {
+    const { openDoors, money } = get()
+    const def = DOOR_DEFS.find((d) => d.id === id)
+    if (!def || doorBuyStatus(def, DOOR_DEFS, openDoors, money) !== 'ok') return false
+    set({ money: money - def.cost })
+    return get().applyDoorOpen(id)
+  },
+  // Host-side validation of a guest's request: open only (the guest pays on the ack).
+  canOpenDoor: (id, money = Infinity) => {
+    const def = DOOR_DEFS.find((d) => d.id === id)
+    return !!def && doorBuyStatus(def, DOOR_DEFS, get().openDoors, money) === 'ok'
+  },
+  // Replace the whole door state (guest join / wave_start sync).
+  setOpenDoors: (doors) => {
+    const next = { ...(doors || {}) }
+    const { windowPlanks } = get()
+    buildGrid(allWallSegments(windowPlanks, next))
+    set({ openDoors: next, walls: playerCollisionWalls(next) })
+  },
+
   getZombieSpeed: () => speedForWave(get().wave),
   getZombiesForWave: () => zombiesForWave(get().wave),
 
@@ -704,6 +757,8 @@ function applyDebugOverrides(set, get) {
   if (typeof window === 'undefined') return
 
   const params = new URLSearchParams(window.location.search)
+  // ?doors=open — start with every door open (dev/preview only, like ?wave=/?money=).
+  if (params.get('doors') === 'open' || params.has('bench')) applyDoorsOpen(set, get)
   if (params.has('bench')) applyBench(set)
   if (!params.has('wave') && !params.has('money') && !params.has('weapon')) return
 
@@ -734,6 +789,12 @@ function applyDebugOverrides(set, get) {
   set(updates)
 }
 
+function applyDoorsOpen(set, get) {
+  const next = allDoorsOpen(DOOR_DEFS)
+  buildGrid(allWallSegments(get().windowPlanks, next))
+  set({ openDoors: next, walls: playerCollisionWalls(next) })
+}
+
 // ?bench — fixed stress scene for comparing builds on a real phone: wave 10, 25 live
 // zombies (rest queued), huge HP so the scene stays put. Player placement lives in
 // PerfOverlay.jsx (needs the camera). Combine with ?perf.
@@ -749,7 +810,7 @@ function applyBench(set) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
   let all
-  try { all = spawnZombies(wave, 0) } finally { Math.random = realRandom }
+  try { all = spawnZombies(wave, 0, SPAWN_CLUSTERS) } finally { Math.random = realRandom }
   const cap = Math.min(25, all.length)
   const total = bulletsForWave(wave)
   const clip = Math.min(CLIP_SIZE, total)
@@ -891,12 +952,12 @@ function getSpawnBasis(edge) {
   }
 }
 
-function spawnZombies(wave, startId) {
+function spawnZombies(wave, startId, clusters = SPAWN_CLUSTERS) {
   const count = zombiesForWave(wave)
   const typeList = buildTypeList(wave, count)
   const zombies = []
   for (let i = 0; i < count; i++) {
-    const cluster = SPAWN_CLUSTERS[i % SPAWN_CLUSTERS.length]
+    const cluster = clusters[i % clusters.length]
     const basis = getSpawnBasis(cluster.edge)
     const tangentJitter = (Math.random() - 0.5) * SPAWN_TANGENT_SPREAD
     const inwardJitter = Math.random() * 1.3

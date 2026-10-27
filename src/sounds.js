@@ -1303,3 +1303,35 @@ export function setSlowMoMuffle(amount) {
   _muffleSlow = amount
   _applyMuffle()
 }
+
+// ─── Wave 3: buyable doors ────────────────────────────────────────────────────
+// Register ding + barricade boards ripped off + heavy thud as the door clears.
+export function playDoorOpen(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+
+  // Coin "ka-ching" so the purchase reads as a purchase
+  playTone(ac, t, 1320, 1320, 0.09, 0.10, dest)
+  playTone(ac, t + 0.07, 1760, 1760, 0.18, 0.09, dest)
+
+  // Nails squealing out of old wood
+  playNoise(ac, noiseBuffer(ac, 0.35), t + 0.04, 0.3, 0.22, 'bandpass', 2400, 4, dest)
+  playTone(ac, t + 0.04, 520, 260, 0.28, 0.07, dest)
+
+  // Boards clattering down
+  playNoise(ac, noiseBuffer(ac, 0.45), t + 0.12, 0.4, 0.5, 'bandpass', 380, 1.2, dest)
+  playNoise(ac, noiseBuffer(ac, 0.2), t + 0.2, 0.15, 0.4, 'highpass', 1500, 1, dest)
+
+  // Final heavy thud
+  playTone(ac, t + 0.3, 110, 38, 0.3, 0.5, dest)
+}
+
+// Dull "locked" knock for a door you can't afford / can't reach yet.
+export function playDoorDenied() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 180, 120, 0.09, 0.25)
+  playTone(ac, t + 0.1, 150, 90, 0.12, 0.25)
+  playNoise(ac, noiseBuffer(ac, 0.08), t, 0.06, 0.15, 'bandpass', 500, 2)
+}
