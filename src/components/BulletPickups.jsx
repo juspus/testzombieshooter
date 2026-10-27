@@ -16,7 +16,7 @@ const CORNERS = [
 
 let _nextId = 0
 
-function PickupMesh({ position, onCollect }) {
+export function PickupMesh({ position, onCollect }) {
   const ref = useRef()
   const { camera } = useThree()
 
