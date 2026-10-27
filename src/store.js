@@ -15,6 +15,12 @@ import {
 } from './cosmetics'
 import { persistProfile } from './profilePersistence'
 import { time as gameTime } from './timeScale'
+import { collidesWithWalls } from './walls'
+import {
+  POWERUP_DEFS, NUKE_REWARD, CARPENTER_REWARD,
+  rollPowerupDrop, clampDropPoint, isPointReachable, getZombieWorldPos, getPlayerWorldPos,
+  startEffect, tickEffects, clearEffects, clearDrops, addDrop,
+} from './powerups'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -245,6 +251,75 @@ export const useGameStore = create((set, get) => ({
   },
   endLastKillFx: () => { cancelLastKillFx() },
 
+  // ── Wave 3 "Power-ups" ───────────────────────────────────────────────────────
+  // Drops are rolled by the host/solo player only (applyZombieDamage -> maybeDropPowerup),
+  // placed in the module pool in powerups.js, and applied on collect via applyPowerup().
+  // Money / ammo / planks are per-client state, so in co-op every client applies the
+  // effect to its own store when the host broadcasts `powerup_apply`.
+  instaKillOn: false,     // Insta-Kill active (any hit kills). Remaining time: powerups.effects
+  doubleMoneyOn: false,   // Double Money active
+  powerupBannerId: 0,     // bumped on every pickup; PowerUpHud subscribes to this itself
+  powerupBannerType: null,
+  killsSinceDrop: 0,      // pity counter (see dropChance)
+  lastDropType: null,
+
+  // Spawn a pickup in the world (also the dev hook: __game.getState().dropPowerup('nuke', x, z)).
+  dropPowerup: (type, x, z) => {
+    if (!POWERUP_DEFS[type]) return null
+    const p = _dropPoint(get, x, z)
+    return addDrop({ type, x: p.x, z: p.z })
+  },
+
+  // Apply a collected power-up to THIS client's state.
+  applyPowerup: (type) => {
+    if (!POWERUP_DEFS[type]) return
+    const st = get()
+    const upd = { powerupBannerId: st.powerupBannerId + 1, powerupBannerType: type }
+    if (type === 'insta_kill') { startEffect(type); upd.instaKillOn = true }
+    else if (type === 'double_money') { startEffect(type); upd.doubleMoneyOn = true }
+    else if (type === 'max_ammo') Object.assign(upd, _maxAmmoState(st))
+    else if (type === 'carpenter') {
+      // Boards every window to 2 planks and resets hit progress. New planks follow the
+      // current strong-plank mode (same rule as addPlank); windows already holding strong
+      // planks stay strong; existing plain planks are not auto-upgraded.
+      const planks = { ...st.windowPlanks }
+      const strong = { ...st.windowPlankStrong }
+      const hits = { ...st.plankHits }
+      for (const w of ACTIVE_MAP.WINDOW_DEFS ?? []) {
+        if ((planks[w.id] ?? 0) < 2) {
+          if ((planks[w.id] ?? 0) === 0) strong[w.id] = st.strongPlanksMode
+          planks[w.id] = 2
+        }
+        hits[w.id] = 0
+      }
+      buildGrid(allWallSegments(planks))
+      Object.assign(upd, { windowPlanks: planks, windowPlankStrong: strong, plankHits: hits, money: st.money + CARPENTER_REWARD })
+    } else if (type === 'nuke') {
+      upd.money = st.money + NUKE_REWARD
+    }
+    set(upd)
+    // Host/solo: kill every live zombie through the normal kill path (pending ones
+    // slot in as usual). Guests just receive the dying flags via zombie_update.
+    if (type === 'nuke' && st.mpRole !== 'guest') {
+      for (const z of get().zombies) if (!z.dying) applyZombieDamage(get, set, z.id, 1e9, 'nuke', false)
+    }
+  },
+
+  // Advance timed effects; called every frame by PowerUps.jsx (pause-aware there).
+  tickPowerups: (dt) => {
+    const expired = tickEffects(dt)
+    if (expired.length === 0) return
+    const upd = {}
+    if (expired.includes('insta_kill')) upd.instaKillOn = false
+    if (expired.includes('double_money')) upd.doubleMoneyOn = false
+    set(upd)
+  },
+
+  resetPowerups: () => {
+    clearEffects(); clearDrops()
+    set({ instaKillOn: false, doubleMoneyOn: false, killsSinceDrop: 0, lastDropType: null, powerupBannerType: null })
+  },
+
   startGame: () => {
     // A run that never reached die() (e.g. a co-op guest whose 'die' event was
     // dropped, or a restart from intermission) still counts toward lifetime stats.
@@ -303,6 +378,7 @@ export const useGameStore = create((set, get) => ({
       lastKillPending: false,
     })
     cancelLastKillFx()
+    get().resetPowerups()
 
     applyDebugOverrides(set, get)
   },
@@ -791,11 +867,13 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
   if (!zombie || zombie.dying) return false
   const { runHeadshots, runKnifeKills } = get()
 
-  const newHealth = zombie.health - damage
+  // Insta-Kill: any hit (bullet, knife, burn tick) is lethal.
+  const newHealth = get().instaKillOn ? 0 : zombie.health - damage
 
   if (newHealth <= 0) {
+    const nuked = source === 'nuke'
     const newKills = kills + 1
-    const newWaveKills = waveKills + 1
+    const newWaveKills = waveKills + (nuked ? 0 : 1)   // nuke kills pay no per-kill money
     const newWaveHeadshots = waveHeadshots + (source === 'gun' && isHeadshot ? 1 : 0)
     const newWaveKnifeKills = waveKnifeKills + (source === 'knife' ? 1 : 0)
     // Immediately slot in the next pending zombie so the active count stays at the cap
@@ -816,6 +894,12 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
       waveKnifeKills: newWaveKnifeKills,
       runHeadshots: runHeadshots + (source === 'gun' && isHeadshot ? 1 : 0),
       runKnifeKills: runKnifeKills + (source === 'knife' ? 1 : 0),
+    }
+    if (!nuked) {
+      // Double Money: pay the kill money again now (base + headshot / knife bonus).
+      if (get().doubleMoneyOn) statUpdate.money = get().money + doubleMoneyExtra(source, isHeadshot)
+      // Drop roll (host / solo only; never on the wave's last kill).
+      if (!isGuest && !waveOver) maybeDropPowerup(get, set, zombie)
     }
     if (waveOver) {
       // Hold wave_clear back for LAST_KILL_DELAY_MS so the slow-mo plays out. The
@@ -849,6 +933,62 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
     set({ zombies: zombies.map((z) => z.id === id ? { ...z, health: newHealth } : z) })
     return false
   }
+}
+
+// ── Wave 3 "Power-ups" helpers ───────────────────────────────────────────────
+// Extra money granted per kill while Double Money is active (mirrors the per-kill
+// reward + headshot/knife bonuses that are otherwise paid at wave end). The wave-clear
+// base reward and wave bonuses (no-planks-lost, fast clear) are NOT doubled.
+export function doubleMoneyExtra(source, isHeadshot) {
+  return ZOMBIE_KILL_REWARD
+    + (source === 'gun' && isHeadshot ? HEADSHOT_KILL_BONUS : 0)
+    + (source === 'knife' ? KNIFE_KILL_BONUS : 0)
+}
+
+// Reserve rounds a "full" Max Ammo refills to, per weapon (flamethrower = fuel units).
+export const MAX_RESERVE = { pistol: 60, shotgun: 48, ak47: 150, deagle: 42, flamethrower: 2000 }
+
+// Max Ammo for every owned weapon: clips topped up, reserves raised to MAX_RESERVE
+// (x1.5 with Deep Pockets). Never lowers an existing reserve.
+export function _maxAmmoState(st) {
+  const mult = st.perks?.deep_pockets ? 1.5 : 1
+  const full = (w) => Math.round(MAX_RESERVE[w] * mult)
+  const savedClips = { ...st.savedClips }
+  const savedReserves = { ...st.savedReserves }
+  for (const w of st.ownedWeapons) {
+    if (w === st.weapon) continue
+    savedClips[w] = clipSizeForWeapon(w)
+    savedReserves[w] = Math.max(savedReserves[w] ?? 0, full(w))
+  }
+  return {
+    bulletsInClip: Math.max(st.bulletsInClip, clipSizeForWeapon(st.weapon)),
+    reserveBullets: Math.max(st.reserveBullets, full(st.weapon)),
+    savedClips,
+    savedReserves,
+  }
+}
+
+// Where a drop lands: inside the playable interior, off interior walls, and on a
+// reachable spot (isPointReachable — the hook the buyable-doors work implements).
+// Blocked / unreachable spots slide toward the player's current position.
+function _dropPoint(get, x, z) {
+  const walls = get().walls
+  const pl = getPlayerWorldPos()
+  return clampDropPoint(x, z, {
+    hw: ACTIVE_MAP.HW, hd: ACTIVE_MAP.HD,
+    anchorX: pl ? pl.x : 0, anchorZ: pl ? pl.z : 0,
+    isFree: (px, pz) => !collidesWithWalls(px, pz, 0.6, walls) && isPointReachable(px, pz),
+  })
+}
+
+function maybeDropPowerup(get, set, zombie) {
+  if (get().phase !== 'playing') return
+  const count = get().killsSinceDrop + 1
+  const r = rollPowerupDrop(count, get().lastDropType)
+  if (!r.drop) { set({ killsSinceDrop: count }); return }
+  set({ killsSinceDrop: 0, lastDropType: r.type })
+  const zp = getZombieWorldPos(zombie.id) ?? zombie
+  get().dropPowerup(r.type, zp.x, zp.z)
 }
 
 function countPlanks(windowPlanks) {

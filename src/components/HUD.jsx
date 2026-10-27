@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
 import { CROSSHAIR_HEX } from '../cosmetics'
 import { HitMarker, DangerFx, DamageIndicator, LastKillFx } from './FeelFx'
+import PowerUpHud from './PowerUpHud'
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -354,6 +355,7 @@ export default function HUD() {
       <DangerFx />
       <DamageIndicator />
       <LastKillFx />
+      <PowerUpHud />
     </div>
   )
 }

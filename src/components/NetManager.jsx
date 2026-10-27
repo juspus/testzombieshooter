@@ -7,6 +7,7 @@ import { pushRemotePlayerSample } from './RemotePlayer'
 import { zombieHitFxFromNet } from '../hitFx'
 import { buildGrid } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
+import { addDrop, takeDrop } from '../powerups'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
@@ -99,6 +100,25 @@ export default function NetManager() {
       else if (sound === 'knife')    playRemoteKnifeSwing(x, y, z)
     })
 
+    // ── Power-ups (host-authoritative) ────────────────────────────────────
+    if (mpRole === 'guest') {
+      // Host rolled a drop: mirror it (same id) without re-broadcasting
+      onMessage('powerup_spawn', (d) => addDrop(d, { notify: false }))
+      // Host validated a collect (by either player): both apply it to their own state
+      onMessage('powerup_apply', ({ id, type }) => {
+        takeDrop(id)
+        useGameStore.getState().applyPowerup(type)
+      })
+    } else {
+      // Guest asks to collect: validate the drop still exists, then apply on both
+      onMessage('powerup_collect', ({ id }) => {
+        const d = takeDrop(id)
+        if (!d) return
+        useGameStore.getState().applyPowerup(d.type)
+        send('powerup_apply', { id: d.id, type: d.type })
+      })
+    }
+
     if (mpRole === 'guest') {
       onMessage('zombie_update', (posMap) => {
         applyRemoteZombiePositions(posMap)
@@ -123,6 +143,9 @@ export default function NetManager() {
       offMessage('game_event')
       offMessage('zombie_update')
       offMessage('remote_sound')
+      offMessage('powerup_spawn')
+      offMessage('powerup_apply')
+      offMessage('powerup_collect')
     }
   }, [mpConnected, mpRole])
 

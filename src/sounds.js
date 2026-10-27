@@ -1303,3 +1303,46 @@ export function setSlowMoMuffle(amount) {
   _muffleSlow = amount
   _applyMuffle()
 }
+
+// ─── Wave 3: power-up drops ──────────────────────────────────────────────────
+// Soft shimmer when a drop lands in the world
+export function playPowerupDrop() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 880, 1320, 0.18, 0.05)
+  playTone(ac, t + 0.09, 1320, 1760, 0.22, 0.04)
+}
+
+// Pickup chime + announcer-ish stinger (formant-filtered saw "voice"), one per type
+const _PU_NOTES = {
+  max_ammo:     [523, 659, 784, 1046],     // bright major arpeggio
+  insta_kill:   [392, 311, 233, 196],      // ominous falling line
+  double_money: [988, 1319, 988, 1319],    // coin ka-ching
+  nuke:         [110, 82, 55, 41],         // boom
+  carpenter:    [330, 392, 330, 262],      // hammer-ish
+}
+export function playPowerupPickup(type) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const out = _realDest ?? ac.destination
+  const notes = _PU_NOTES[type] ?? _PU_NOTES.max_ammo
+  notes.forEach((f, i) => playTone(ac, t + i * 0.075, f, f * 1.01, 0.25, 0.09, out))
+  // Announcer: vowel-ish formant sweep on a low saw
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  const base = type === 'nuke' ? 70 : type === 'insta_kill' ? 85 : 100
+  osc.frequency.setValueAtTime(base * 1.25, t + 0.05)
+  osc.frequency.exponentialRampToValueAtTime(base, t + 0.7)
+  const bp = ac.createBiquadFilter()
+  bp.type = 'bandpass'; bp.Q.value = 4
+  bp.frequency.setValueAtTime(500, t + 0.05)
+  bp.frequency.linearRampToValueAtTime(1400, t + 0.25)
+  bp.frequency.linearRampToValueAtTime(700, t + 0.6)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.0001, t + 0.05)
+  g.gain.exponentialRampToValueAtTime(0.32, t + 0.12)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.75)
+  osc.connect(bp); bp.connect(g); g.connect(out)
+  osc.start(t + 0.05); osc.stop(t + 0.8)
+  if (type === 'nuke') playNoise(ac, noiseBuffer(ac, 1.2), t, 1.2, 0.35, 'lowpass', 500, 0.8, out)
+}

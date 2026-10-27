@@ -19,6 +19,7 @@ import Shop from './Shop'
 import ForestSkybox from './ForestSkybox'
 import GasStationSkybox from './GasStationSkybox'
 import RemotePlayer from './RemotePlayer'
+import PowerUps from './PowerUps'
 import NetManager from './NetManager'
 import MobileControls from './MobileControls'
 import VoiceChat from './VoiceChat'
@@ -137,6 +138,7 @@ export default function Game() {
         <FlameSpray />
         <BloodFX />
         <RemotePlayer />
+        <PowerUps />
         <NetManager />
         <ForceRenderOnShopOpen />
         {(PERF_ON || BENCH_ON) && <PerfOverlay />}
