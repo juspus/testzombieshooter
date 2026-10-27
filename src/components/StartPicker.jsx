@@ -55,7 +55,7 @@ export default function StartPicker() {
           const locked = !isMapUnlocked(m.id, stats)
           return (
             <Chip key={m.id} testid={`map-${m.id}`} label={m.label} active={m.id === mapId} locked={locked}
-              sub={locked ? `Reach level ${m.reqLevel}` : null} onClick={() => pickMap(m.id)} />
+              sub={locked ? `LV ${m.reqLevel}` : null} onClick={() => pickMap(m.id)} />
           )
         })}
       </div>
@@ -65,12 +65,9 @@ export default function StartPicker() {
           const locked = !isLoadoutUnlocked(l.id, stats)
           return (
             <Chip key={l.id} testid={`loadout-${l.id}`} label={l.label} active={l.id === selLoadout.id} locked={locked}
-              sub={locked ? `Reach level ${l.reqLevel}` : null} onClick={() => setLoadout(l.id)} />
+              sub={locked ? `LV ${l.reqLevel}` : null} onClick={() => setLoadout(l.id)} />
           )
         })}
-      </div>
-      <div style={{ color: '#666', fontFamily: mono, fontSize: 'clamp(8px, 1.5vmin, 11px)', letterSpacing: 1, textAlign: 'center' }}>
-        {selLoadout.blurb} &middot; Daily Run: cabin, pistol start
       </div>
     </div>
   )

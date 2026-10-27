@@ -8,10 +8,10 @@ export const MOD_CHANCE = 0.35    // chance per eligible wave
 export const MOD_BONUS = 10       // € paid on clear for a modifier wave
 
 export const MODIFIERS = {
-  fog:       { id: 'fog',       name: 'FOG',       icon: '🌫', color: '#9fb4c8', desc: 'Visibility crushed. Listen for the groans.' },
-  bloodlust: { id: 'bloodlust', name: 'BLOODLUST', icon: '🩸', color: '#ff4433', desc: 'Zombies move twice as fast.' },
-  blackout:  { id: 'blackout',  name: 'BLACKOUT',  icon: '🔦', color: '#ffd27a', desc: 'Lights out. You get a flashlight.' },
-  horde:     { id: 'horde',     name: 'HORDE',     icon: '🧟', color: '#9acd32', desc: 'Double the zombies, half the health each.' },
+  fog:       { id: 'fog',       name: 'FOG',       icon: '🌫', color: '#9fb4c8', desc: 'Can’t see far' },
+  bloodlust: { id: 'bloodlust', name: 'BLOODLUST', icon: '🩸', color: '#ff4433', desc: 'Zombies 2× faster' },
+  blackout:  { id: 'blackout',  name: 'BLACKOUT',  icon: '🔦', color: '#ffd27a', desc: 'Lights out · flashlight' },
+  horde:     { id: 'horde',     name: 'HORDE',     icon: '🧟', color: '#9acd32', desc: '2× zombies · half HP' },
 }
 export const MODIFIER_IDS = Object.keys(MODIFIERS)
 

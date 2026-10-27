@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useGameStore } from '../store'
 import { GRENADE } from '../grenades'
 import { cookState } from './Grenades'
+import { hintsActive } from '../hints'
 
 // Wave 3 grenade HUD: carried count next to the ammo box, a throw hint, and a cook bar
 // under the crosshair. The count/cooking flag come from the store; the bar itself is
@@ -54,7 +55,7 @@ export default function GrenadeHud() {
       {!isMobile && (
         <div data-grenade-hud style={S.box}>
           <div style={S.row}><span style={S.icon}>💣</span><span style={S.pips}>{pips}</span></div>
-          <div style={S.hint}>{grenades > 0 ? 'G — grenade · hold to cook' : 'No grenades'}</div>
+          {hintsActive() && <div style={S.hint}>{grenades > 0 ? 'G · hold to cook' : ''}</div>}
         </div>
       )}
       {cooking && (

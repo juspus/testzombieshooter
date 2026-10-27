@@ -14,6 +14,7 @@ import { MODIFIERS, MOD_BONUS } from '../modifiers'
 import { DailyEntry, LeaderboardTabs } from './DailyPanels'
 import { writeLocalDaily } from '../daily'
 import StartPicker from './StartPicker'
+import { hintsActive } from '../hints'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -84,7 +85,7 @@ function useCheckoutReturn() {
           const list = await fetchEntitlements()
           if (list.includes(SUPPORTER_SKU)) {
             useGameStore.getState().setEntitlements(list)
-            setNotice('Thank you — Supporter Pack unlocked')
+            setNotice('Supporter Pack unlocked')
             stripCheckoutParams()
             return
           }
@@ -190,9 +191,7 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
   return (
     <Overlay>
       <Badge style={{ color: '#00ff88' }}>WAVE {wave} CLEARED</Badge>
-      <Title style={{ fontSize: 'clamp(20px, 6vmin, 48px)' }}>NICE SHOT!</Title>
-      <Sub>Kills this wave: {waveKills}</Sub>
-      <Sub style={{ marginTop: 4, color: '#888' }}>Total kills: {kills}</Sub>
+      <Sub>{waveKills} kills · {kills} total</Sub>
       {bonuses && <BonusBreakdown bonuses={bonuses} />}
     </Overlay>
   )
@@ -200,19 +199,18 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
 
 function BonusBreakdown({ bonuses }) {
   const rows = [
-    ['Wave reward', bonuses.base],
-    [`Kill reward (${Math.round(bonuses.kills)} kills)`, bonuses.kills],
-    bonuses.headshots > 0 && [`Headshot kills (${bonuses.headshotsCount})`, bonuses.headshots],
-    bonuses.knifeKills > 0 && [`Knife kills (${bonuses.knifeKillsCount})`, bonuses.knifeKills],
-    bonuses.noPlanksLost > 0 && ['No planks lost', bonuses.noPlanksLost],
-    bonuses.modifierBonus > 0 && [`${MODIFIERS[bonuses.modifier]?.name ?? 'Modifier'} wave`, bonuses.modifierBonus],
-    bonuses.fastClear > 0 && [`Fast clear (${formatSeconds(bonuses.elapsed)} / ${formatSeconds(bonuses.fastClearPar)})`, bonuses.fastClear],
+    ['Wave', bonuses.base],
+    [`Kills ×${Math.round(bonuses.kills)}`, bonuses.kills],
+    bonuses.headshots > 0 && [`Headshots ×${bonuses.headshotsCount}`, bonuses.headshots],
+    bonuses.knifeKills > 0 && [`Knife ×${bonuses.knifeKillsCount}`, bonuses.knifeKills],
+    bonuses.noPlanksLost > 0 && ['Planks intact', bonuses.noPlanksLost],
+    bonuses.modifierBonus > 0 && [MODIFIERS[bonuses.modifier]?.name ?? 'Modifier', bonuses.modifierBonus],
+    bonuses.fastClear > 0 && [`Fast ${formatSeconds(bonuses.elapsed)}`, bonuses.fastClear],
   ].filter(Boolean)
   const payout = bonuses.base + bonuses.kills + bonuses.total
 
   return (
     <div style={styles.bonusPanel}>
-      <div style={styles.bonusTitle}>PERFORMANCE PAYOUT</div>
       {rows.map(([label, value]) => (
         <div key={label} style={styles.bonusRow}>
           <span>{label}</span>
@@ -221,7 +219,7 @@ function BonusBreakdown({ bonuses }) {
       ))}
       <div style={styles.bonusDivider} />
       <div style={{ ...styles.bonusRow, color: '#ffe066', fontWeight: 'bold' }}>
-        <span>Total banked next wave</span>
+        <span>Total</span>
         <span>+€{payout.toFixed(2)}</span>
       </div>
     </div>
@@ -240,7 +238,7 @@ function ModifierCard({ mod, compact }) {
       <span style={{ fontSize: compact ? 20 : 30, lineHeight: 1 }}>{mod.icon}</span>
       <span>
         <div style={{ color: mod.color, fontWeight: 'bold', letterSpacing: 3, fontSize: compact ? 12 : 16 }}>
-          {mod.name} WAVE <span style={{ color: '#88cc44', letterSpacing: 1, fontSize: compact ? 10 : 12 }}>+€{MOD_BONUS}</span>
+          {mod.name} <span style={{ color: '#88cc44', letterSpacing: 1, fontSize: compact ? 10 : 12 }}>+€{MOD_BONUS}</span>
         </div>
         <div style={{ color: '#ccc', fontSize: compact ? 10 : 13, letterSpacing: 1 }}>{mod.desc}</div>
       </span>
@@ -322,7 +320,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
       border: `1px solid ${urgent ? 'rgba(255,50,0,0.6)' : 'rgba(255,200,0,0.3)'}`,
     }}>
       <div style={titleStyle}>
-        WAVE {wave} INCOMING — {zombieCount} ZOMBIES
+        WAVE {wave} · {zombieCount} 🧟
       </div>
       <div style={{
         ...timerStyle,
@@ -334,16 +332,18 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
       {modifier && MODIFIERS[modifier] && <ModifierCard mod={MODIFIERS[modifier]} compact={isMobile} />}
       {wave > 1 && (
         <div style={rewardStyle}>
-          +€15.00 WAVE REWARD
+          +€15
         </div>
       )}
-      <div style={hintStyle}>
-        {isMobile ? 'HOLD USE NEAR WINDOWS · €2.50/PLANK' : 'HOLD E NEAR WINDOWS TO BOARD · €2.50 PER PLANK'}
-      </div>
+      {wave <= 1 && hintsActive() && (
+        <div style={hintStyle}>
+          {isMobile ? 'USE: board windows · €2.50' : 'E: board windows · €2.50'}
+        </div>
+      )}
       {!isMobile && (
         <div style={skipStyle}>
           <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>
-            HOLD T TO SKIP
+            T — skip
           </div>
           <div style={{ width: 140, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${skipProgress * 100}%`, background: '#aaa', borderRadius: 2, transition: 'width 0.05s linear' }} />
@@ -420,25 +420,25 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
 
   const onDisconnected = useCallback(() => {
     setConnected(false)
-    setStatus('Disconnected.')
+    setStatus('')
     setMpConnected(false)
     useGameStore.getState().clearMp()
   }, [setMpConnected])
 
   const handleHost = useCallback(() => {
     setView('host')
-    setStatus('Generating room code…')
+    setStatus('…')
     setMpRoleLocal('host')
     setMpRole('host')
     createRoom(
       (code) => {
         setRoomCode(code)
         navigator.clipboard?.writeText(code).catch(() => {})
-        setStatus('Code copied to clipboard — share with Player 2')
+        setStatus('Code copied')
       },
       () => {
         setConnected(true)
-        setStatus('Player 2 connected!')
+        setStatus('Connected')
         setMpConnected(true)
       },
       onDisconnected,
@@ -448,20 +448,20 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const handleJoin = useCallback((override) => {
     const code = (typeof override === 'string' ? override : joinCode).trim()
     if (!code) return
-    setStatus('Connecting…')
+    setStatus('…')
     setMpRoleLocal('guest')
     setMpRole('guest')
     joinRoom(
       code,
       () => {
         setConnected(true)
-        setStatus('Connected! Host will start the game.')
+        setStatus('Connected')
         setMpConnected(true)
         // Guests don't call startGame — they wait for the host's start_game event
       },
       (err) => {
         setStatus(err?.type === 'peer-unavailable'
-          ? 'Room not found - the code is wrong or the host has left.'
+          ? 'Room not found'
           : `Failed: ${err?.type ?? 'connection error'}`)
         setMpRoleLocal(null)
         useGameStore.getState().clearMp()
@@ -493,8 +493,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   return (
     <Overlay scroll>
       {!compactView && <Title>CABIN</Title>}
-      {!compactView && <Sub>Survive the waves. Kill all zombies to advance.</Sub>}
-      {!compactView && <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>}
+      {!compactView && hintsActive() && <Controls>WASD · Mouse · Click</Controls>}
 
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
@@ -503,8 +502,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
           <StartPicker />
           <Btn onClick={startGame}>SOLO</Btn>
           <DailyEntry Btn={Btn} />
-          <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
-          <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 12 }}>
             <Btn onClick={handleHost}>HOST GAME</Btn>
             <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
           </div>
@@ -559,7 +557,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
           <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
           {connected && mapMismatch && (
             <div style={{ color: '#cc9944', fontSize: 12, letterSpacing: 1, textAlign: 'center', maxWidth: 320 }}>
-              Partner loaded the {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} - both players must pick the same map (it applies on reload).
+              Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
             </div>
           )}
           {connected && <Btn onClick={handleStartGame} disabled={mapMismatch}>START GAME</Btn>}
@@ -571,11 +569,11 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
           {!isValidRoomCode(invite.code) ? (
             <div data-testid="invite-error" style={{ color: '#ff6666', fontSize: 14, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>
-              That invite link is invalid or has expired.
+              Invalid invite
             </div>
           ) : (
             <>
-              <div style={{ color: '#888', fontSize: 13, letterSpacing: 3 }}>YOU'VE BEEN INVITED</div>
+              <div style={{ color: '#888', fontSize: 13, letterSpacing: 3 }}>INVITED</div>
               {!connected && !status && <Btn onClick={() => handleJoin(invite.code)}>{`JOIN ${invite.code}`}</Btn>}
               {status && (
                 <div data-testid="invite-status" style={{ color: status.startsWith('Room not') || status.startsWith('Failed') ? '#ff6666' : '#888', fontSize: 13, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>{status}</div>
@@ -629,7 +627,7 @@ function ReduceMotionToggle() {
       aria-pressed={on}
       style={{ ...textLinkStyle, marginTop: 2 }}
     >
-      Reduce camera motion: {on ? 'on' : 'off'}
+      Reduce motion: {on ? 'on' : 'off'}
     </button>
   )
 }
@@ -726,14 +724,14 @@ function UsernamePickerView({ onDone }) {
       await saveUsername(value)
       onDone()
     } catch (err) {
-      setErrorMsg(err?.message?.includes('unique') ? 'Name taken — try another.' : 'Something went wrong.')
+      setErrorMsg(err?.message?.includes('unique') ? 'Name taken' : 'Error')
       setStatus('error')
     }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
-      <Sub>Choose a username to save your scores:</Sub>
+      <Sub>Pick a username</Sub>
       <input
         value={value}
         onChange={(e) => { setValue(e.target.value.slice(0, 24)); setStatus('idle'); setErrorMsg('') }}
@@ -1015,19 +1013,19 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
     try {
       if (navigator.share) {
         await navigator.share(shareData)
-        setShareStatus('Shared run link with preview image!')
+        setShareStatus('Shared')
       } else {
         await copyGameLink(shareUrl)
-        setShareStatus('Share link copied with OG preview image.')
+        setShareStatus('Link copied')
       }
     } catch (error) {
       if (error?.name === 'AbortError') {
-        setShareStatus('Share canceled.')
+        setShareStatus('')
         return
       }
       console.error('Unable to share run', error)
       await copyGameLink(shareUrl)
-      setShareStatus('Share failed. Link copied instead.')
+      setShareStatus('Link copied')
     }
   }
 
@@ -1098,7 +1096,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
           textAlign: 'center',
           maxWidth: '88vw',
         }}>
-          NEW UNLOCK: {lastRunUnlocks.map(describeUnlock).join(', ')}
+          UNLOCK: {lastRunUnlocks.map(describeUnlock).join(', ')}
         </div>
       )}
 
@@ -1114,7 +1112,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
 
         {isPractice ? (
           <div style={{ color: '#aaa', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4, textAlign: 'center' }}>
-            PRACTICE RUN — ONLY YOUR FIRST DAILY EACH DAY IS RANKED
+            PRACTICE
           </div>
         ) : username ? (
           scoreStatus === 'done' ? (
@@ -1163,7 +1161,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
                 transition: 'all 0.2s',
               }}
             >
-              {scoreStatus === 'submitting' ? '…' : 'Submit Score'}
+              {scoreStatus === 'submitting' ? '…' : 'Submit'}
             </button>
           </div>
         ) : (
@@ -1173,13 +1171,13 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         )}
         {scoreStatus === 'error' && (
           <div style={{ color: '#ff6644', fontSize: 11, letterSpacing: 2, fontFamily: 'Courier New, monospace' }}>
-            FAILED TO SAVE — TRY AGAIN
+            SAVE FAILED
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
-            Share Run
+            Share
           </DeathButton>
           {mpRole === 'guest' ? (
             <div style={{
@@ -1193,11 +1191,11 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
               textAlign: 'center',
               textTransform: 'uppercase',
             }}>
-              Waiting for host…
+              Waiting…
             </div>
           ) : (
             <DeathButton onClick={onRestart}>
-              Start New Game
+              Retry
             </DeathButton>
           )}
         </div>
@@ -1225,7 +1223,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
             textTransform: 'uppercase',
           }}
         >
-          {showLeaderboard ? '▲ Hide Leaderboard' : '▼ View Leaderboard'}
+          {showLeaderboard ? '▲ Leaderboard' : '▼ Leaderboard'}
         </button>
         {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
       </div>
@@ -1245,9 +1243,9 @@ function LeaderboardPanel({ highlightWave, highlightKills, initialTab = 'all' } 
 const CROSSHAIR_GLYPHS = { cross: '+', dot: '●', chevron: '⌃', circle: '◎' }
 
 const CHECKOUT_ERRORS = {
-  already_owned: 'You already own the Supporter Pack.',
-  checkout_unavailable: 'Checkout is unavailable right now.',
-  unauthorized: 'Please sign in again.',
+  already_owned: 'Already owned',
+  checkout_unavailable: 'Checkout unavailable',
+  unauthorized: 'Sign in again',
 }
 
 function LockIcon() {
@@ -1380,22 +1378,22 @@ function LockerPanel({ user, notice }) {
     } catch (err) {
       const code = err?.message ?? ''
       if (code === 'already_owned') fetchEntitlements().then((l) => useGameStore.getState().setEntitlements(l)).catch(() => {})
-      setError(CHECKOUT_ERRORS[code] ?? (code.includes(' ') ? code : 'Something went wrong — please try again.'))
+      setError(CHECKOUT_ERRORS[code] ?? (code.includes(' ') ? code : 'Try again'))
       setBusy(false)
     }
   }
 
   let button
   if (owned) {
-    button = <Btn disabled style={supporterBtnStyle}>★ Supporter — thank you</Btn>
+    button = <Btn disabled style={supporterBtnStyle}>★ Supporter</Btn>
   } else if (!config) {
     button = <Btn disabled style={supporterBtnStyle}>…</Btn>
   } else if (!config.checkoutEnabled) {
     button = <Btn disabled style={supporterBtnStyle}>Coming soon</Btn>
   } else if (!user) {
-    button = <Btn onClick={() => signInWithGoogle()} style={supporterBtnStyle}>Sign in with Google to support</Btn>
+    button = <Btn onClick={() => signInWithGoogle()} style={supporterBtnStyle}>Sign in to support</Btn>
   } else {
-    button = <Btn onClick={handleSupport} disabled={busy} style={supporterBtnStyle}>{busy ? 'Opening checkout…' : `Support ${priceLabel}`}</Btn>
+    button = <Btn onClick={handleSupport} disabled={busy} style={supporterBtnStyle}>{busy ? '…' : `Support ${priceLabel}`}</Btn>
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../store'
 import { levelFromXp, MAX_LEVEL } from '../progression'
 import { nextLevelReward } from '../cosmetics'
@@ -57,7 +57,7 @@ export function ChallengeTeaser({ onClick }) {
   const done = daily.filter((c) => c.done).length
   return (
     <button type="button" data-testid="challenge-teaser" onClick={onClick} style={{ ...linkBtn, color: done === daily.length ? '#88cc44' : '#bbb' }}>
-      DAILY CHALLENGES {done}/{daily.length} · resets in {formatCountdown(dailyMs)} ›
+      CHALLENGES {done}/{daily.length} · {formatCountdown(dailyMs)} ›
     </button>
   )
 }
@@ -85,11 +85,10 @@ export function ChallengesPanel() {
     <div data-testid="challenges-panel" style={panelStyle}>
       <PanelHead>CHALLENGES</PanelHead>
       <div style={{ padding: 'clamp(6px, 1.4vmin, 12px) clamp(10px, 2vmin, 16px)', fontSize: 'clamp(9px, 1.8vmin, 13px)', letterSpacing: 1 }}>
-        <SectionLabel right={`resets in ${formatCountdown(dailyMs)}`}>Daily</SectionLabel>
+        <SectionLabel right={formatCountdown(dailyMs)}>Daily</SectionLabel>
         {daily.map((c) => <ChallengeRow key={c.id} c={c} />)}
-        <SectionLabel right={`resets in ${formatCountdown(weeklyMs)}`} style={{ marginTop: 10 }}>Weekly</SectionLabel>
+        <SectionLabel right={formatCountdown(weeklyMs)} style={{ marginTop: 10 }}>Weekly</SectionLabel>
         {weekly.map((c) => <ChallengeRow key={c.id} c={c} />)}
-        <div style={{ color: '#555', fontSize: '0.85em', marginTop: 8, textAlign: 'center' }}>Progress carries across runs. Resets at 00:00 UTC.</div>
       </div>
     </div>
   )
@@ -128,6 +127,7 @@ export function DeathXpPanel() {
   const totalRef = useRef(null)
   const flashRef = useRef(null)
   const skipRef = useRef(null)
+  const [open, setOpen] = useState(false)   // breakdown rows: collapsed to the total until tapped
 
   useEffect(() => {
     if (!prog) return undefined
@@ -187,14 +187,14 @@ export function DeathXpPanel() {
   const next = prog.nextUnlock ?? (lv.level < MAX_LEVEL ? (() => { const n = nextLevelReward(lv.level); return n && { ...n, xpToGo: xpToReach(n.level, prog.xpAfter) } })() : null)
 
   return (
-    <div data-testid="death-xp" onClick={() => skipRef.current?.()} style={{
+    <div data-testid="death-xp" onClick={() => { skipRef.current?.(); setOpen((v) => !v) }} style={{
       position: 'relative', width: 'min(520px, 90vw)', marginTop: 'clamp(6px, 1.6vmin, 14px)',
       fontFamily: mono, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,209,102,0.25)', borderRadius: 4,
       padding: 'clamp(5px, 1.2vmin, 10px) clamp(8px, 2vmin, 14px)', cursor: 'pointer', userSelect: 'none',
     }}>
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', columnGap: 14, rowGap: 1,
-        fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 1, color: '#bbb', minHeight: 14,
+        display: open ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', columnGap: 14, rowGap: 1,
+        fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 1, color: '#bbb', minHeight: 14, marginBottom: 4,
       }}>
         {prog.rows.map((r, i) => (
           <div key={r.id} ref={(el) => { rowEls.current[i] = el }} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, opacity: 0, transition: 'opacity 0.2s' }}>
@@ -209,6 +209,7 @@ export function DeathXpPanel() {
           <span ref={barRef} style={{ display: 'block', height: '100%', width: 0, background: GOLD }} />
         </span>
         <span ref={totalRef} style={{ minWidth: 64, textAlign: 'right', fontWeight: 'bold' }}>+0 XP</span>
+        <span style={{ color: '#777' }}>{open ? '▾' : '▸'}</span>
       </div>
       <div ref={xpRef} style={{ textAlign: 'right', color: '#777', fontSize: 'clamp(8px, 1.5vmin, 11px)', letterSpacing: 1 }} />
       <div ref={flashRef} data-testid="level-up-flash" style={{
@@ -219,17 +220,17 @@ export function DeathXpPanel() {
         <div key={u.level} ref={(el) => { lvlEls.current[i] = el }} data-testid={`levelup-${u.level}`} style={{
           opacity: 0, transition: 'opacity 0.3s', color: '#fff', fontSize: 'clamp(9px, 1.8vmin, 12px)', letterSpacing: 2, textAlign: 'center', marginTop: 2,
         }}>
-          LEVEL {u.level}{u.reward ? <> — <span style={{ color: GOLD }}>{u.reward}</span></> : null}
+          LV {u.level}{u.reward ? <> · <span style={{ color: GOLD }}>{u.reward}</span></> : null}
         </div>
       ))}
       <div data-testid="next-unlock" style={{ marginTop: 'clamp(3px, 0.8vmin, 6px)', textAlign: 'center', color: '#8fb8d8', fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 1 }}>
-        {next ? `Next unlock: ${next.text} at level ${next.level} (${next.xpToGo} XP to go)` : 'Every level reward unlocked'}
+        {next ? `Next: ${next.text} · LV ${next.level}` : ''}
       </div>
       {(prog.achievements.length > 0 || prog.challenges.length > 0) && (
         <div style={{ textAlign: 'center', color: '#88cc44', fontSize: 'clamp(8px, 1.5vmin, 11px)', letterSpacing: 1, marginTop: 2 }}>
-          {prog.challenges.length > 0 && `Challenges: ${prog.challenges.length} done`}
+          {prog.challenges.length > 0 && `✔ ${prog.challenges.length}`}
           {prog.challenges.length > 0 && prog.achievements.length > 0 && ' · '}
-          {prog.achievements.length > 0 && `Achievements: ${prog.achievements.join(', ')}`}
+          {prog.achievements.length > 0 && `★ ${prog.achievements.join(', ')}`}
         </div>
       )}
     </div>

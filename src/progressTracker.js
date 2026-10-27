@@ -127,7 +127,7 @@ function checkAchievements(evt) {
     achievements[id] = day
     run.newAchievements.push(id)
     const a = ACHIEVEMENT_BY_ID[id]
-    pushToast('achievement', a.name, a.desc)
+    pushToast('achievement', a.name)
     playAchievement()
     track('achievement', { id, wave: run.wave })
   }
@@ -143,7 +143,7 @@ function feedChallenges(evt) {
   if (!done.length) return
   for (const ch of done) {
     run.completed.push({ id: ch.id, scope: ch.scope, text: ch.text, xp: ch.xp })
-    pushToast('challenge', `${ch.scope === 'weekly' ? 'Weekly' : 'Daily'} challenge complete`, `${ch.text}  +${ch.xp} XP`)
+    pushToast('challenge', ch.text, `+${ch.xp} XP`)
     playChallengeDone()
     track('challenge_complete', { id: ch.id, tpl: ch.tpl, scope: ch.scope, xp: ch.xp })
   }
@@ -279,7 +279,7 @@ export function settleRun(nextStats, prevStats, storeRun = null) {
         achievements[id] = day
         run.newAchievements.push(id)
         const a = ACHIEVEMENT_BY_ID[id]
-        pushToast('achievement', a.name, a.desc)
+        pushToast('achievement', a.name)
         track('achievement', { id, wave: run.wave })
       }
       stats = { ...stats, achievements }

@@ -27,7 +27,7 @@ const PowerUpBanner = memo(function PowerUpBanner() {
     const def = POWERUP_DEFS[type]
     const el = elRef.current
     if (!def || !el) return
-    el.textContent = `${def.label}!`
+    el.textContent = def.label
     el.style.color = def.color
     el.style.textShadow = `0 0 14px ${def.color}, 0 2px 0 #000`
     el.animate([
@@ -64,7 +64,6 @@ function Chip({ type }) {
   return (
     <div ref={wrapRef} style={{ ...styles.chip, borderColor: def.color }}>
       <span style={{ ...styles.tag, background: def.color }}>{CHIP[type].tag}</span>
-      <span style={styles.chipLabel}>{CHIP[type].label}</span>
       <span ref={textRef} style={{ ...styles.secs, color: def.color }} />
       <div ref={barRef} style={{ ...styles.bar, background: def.color }} />
     </div>

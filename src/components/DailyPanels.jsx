@@ -38,11 +38,11 @@ export function DailyEntry({ Btn }) {
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       {/* The daily is cabin-only (fixed seed): from another map, switch back and reload. */}
       <Btn onClick={() => { if (mapId === 'cabin') startDaily(!used); else applyMapChoice('cabin') }} style={{ marginTop: 4 }}>
-        {mapId === 'cabin' ? 'DAILY RUN' : 'DAILY RUN (CABIN)'}
+        {mapId === 'cabin' ? 'DAILY' : 'DAILY (CABIN)'}
       </Btn>
       <div style={{ color: used ? '#887' : '#cc9944', fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 2, marginTop: 5, fontFamily: 'Courier New, monospace', textAlign: 'center' }}>
-        {used ? "Today's daily: attempt used (practice)" : "Today's daily: ranked attempt available"}
-        {' · next in '}{formatCountdown(msToNextDaily())}
+        {used ? 'Practice' : 'Ranked'}
+        {' · '}{formatCountdown(msToNextDaily())}
       </div>
     </div>
   )
@@ -54,9 +54,9 @@ const TABS = [
   { id: 'daily', label: 'DAILY' },
 ]
 const COMING_SOON = {
-  week: 'Weekly leaderboard coming soon',
-  daily: 'Daily leaderboard coming soon',
-  all: 'Leaderboard unavailable',
+  week: 'Coming soon',
+  daily: 'Coming soon',
+  all: 'Unavailable',
 }
 
 const GRID = '28px 1fr 60px 54px'
@@ -82,8 +82,8 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
   const hlWave = highlightWave ?? mine?.wave
   const hlKills = highlightKills ?? mine?.kills
 
-  const sub = tab === 'week' ? `Resets Monday 00:00 UTC · in ${formatCountdown(msToWeekReset())}`
-    : tab === 'daily' ? `${dailyDate()} · next daily in ${formatCountdown(msToNextDaily())}` : null
+  const sub = tab === 'week' ? formatCountdown(msToWeekReset())
+    : tab === 'daily' ? `${dailyDate()} · ${formatCountdown(msToNextDaily())}` : null
 
   return (
     <div style={{
@@ -121,11 +121,11 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
         ))}
       </div>
       {sub && <div style={{ color: '#666', textAlign: 'center', padding: '5px 8px 0', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2 }}>{sub}</div>}
-      {state === 'error' && <div style={{ color: '#ff6644', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Failed to load</div>}
+      {state === 'error' && <div style={{ color: '#ff6644', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Failed</div>}
       {state === 'unavailable' && <div style={{ color: '#887', textAlign: 'center', padding: 12, letterSpacing: 2 }}>{COMING_SOON[tab]}</div>}
       {state === 'loading' && <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Loading…</div>}
       {state === 'ok' && rows && rows.length === 0 && (
-        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>{tab === 'all' ? 'No scores yet' : 'No scores yet — be the first'}</div>
+        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>{tab === 'all' ? 'No scores yet' : 'No scores yet'}</div>
       )}
       {state === 'ok' && rows && rows.length > 0 && (
         <div>

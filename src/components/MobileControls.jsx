@@ -165,8 +165,8 @@ export default function MobileControls() {
     return (
       <div style={styles.rotateOverlay}>
         <div style={styles.rotateIcon}>↻</div>
-        <div style={styles.rotateTitle}>ROTATE DEVICE</div>
-        <div style={styles.rotateText}>Cabin mobile controls require landscape mode.</div>
+        <div style={styles.rotateTitle}>ROTATE</div>
+        <div style={styles.rotateText}>Landscape only</div>
       </div>
     )
   }
@@ -433,7 +433,7 @@ export default function MobileControls() {
         <div style={styles.installHint} onClick={dismissInstallHint}>
           <div>
             <div style={styles.installTitle}>FULLSCREEN MODE</div>
-            <div style={styles.installText}>For more playable space in Safari: Share → Add to Home Screen, then launch Cabin from the icon.</div>
+            <div style={styles.installText}>Share → Add to Home Screen for fullscreen</div>
           </div>
           <button
             type="button"

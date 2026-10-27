@@ -59,7 +59,7 @@ const DownedView = memo(function DownedView() {
               <div style={{ width: `${frac * 100}%`, height: '100%', background: '#cc2222', transition: 'width 1s linear' }} />
             </div>
             <div style={{ color: '#ddd', fontSize: 'clamp(11px,1.6vw,15px)', letterSpacing: 3, marginTop: 10, textShadow: '0 2px 4px #000' }}>
-              {beingRevived > 0 ? 'BEING REVIVED…' : 'CRAWL TO YOUR PARTNER  ·  PISTOL ONLY'}
+              {beingRevived > 0 ? 'REVIVING…' : 'CRAWL TO PARTNER'}
             </div>
             {beingRevived > 0 && (
               <div style={{ width: 'min(50vw,260px)', height: 8, background: 'rgba(0,0,0,0.6)', marginTop: 6, borderRadius: 4, overflow: 'hidden' }}>
@@ -71,7 +71,7 @@ const DownedView = memo(function DownedView() {
           <>
             <div style={{ color: '#ff5555', fontSize: 'clamp(18px,3vw,30px)', letterSpacing: 6, textShadow: '0 0 8px #000' }}>YOU BLED OUT</div>
             <div data-testid="coop-waiting" style={{ color: '#ddd', fontSize: 'clamp(12px,1.8vw,16px)', letterSpacing: 3, marginTop: 10, textShadow: '0 2px 4px #000' }}>
-              WAITING FOR YOUR PARTNER TO CLEAR THE WAVE…
+              WAITING…
             </div>
           </>
         )}
@@ -92,7 +92,7 @@ const RevivePrompt = memo(function RevivePrompt() {
       paddingTop: '18vh', fontFamily: 'Courier New, monospace',
     }}>
       <div style={{ color: '#ffe066', fontSize: 'clamp(13px,2vw,20px)', letterSpacing: 3, textShadow: '0 2px 4px #000' }}>
-        {mobile ? 'HOLD ✋ TO REVIVE' : 'HOLD E — REVIVE PARTNER'}
+        {mobile ? '✋ REVIVE' : 'E  REVIVE'}
       </div>
       <div style={{ width: 'min(50vw,240px)', height: 10, background: 'rgba(0,0,0,0.65)', border: '1px solid #666', marginTop: 8, borderRadius: 5, overflow: 'hidden' }}>
         <div style={{ width: `${progress * 100}%`, height: '100%', background: '#66dd66' }} />

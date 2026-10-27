@@ -13,13 +13,13 @@ export default function InviteShare({ code }) {
       await navigator.clipboard.writeText(link)
       setNote('LINK COPIED')
     } catch {
-      setNote('COPY FAILED - SELECT THE LINK ABOVE')
+      setNote('COPY FAILED')
     }
     setTimeout(() => setNote(''), 2500)
   }
   const share = async () => {
     try {
-      await navigator.share({ title: 'CABIN co-op', text: 'Join my CABIN co-op game!', url: link })
+      await navigator.share({ title: 'CABIN co-op', text: 'Join my CABIN game!', url: link })
     } catch (e) {
       if (e?.name !== 'AbortError') copy()   // share sheet unavailable / failed -> fall back
     }
@@ -36,8 +36,8 @@ export default function InviteShare({ code }) {
         textAlign: 'center', maxWidth: 'min(88vw, 360px)', userSelect: 'all',
       }}>{link}</div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {canShare && <button data-testid="invite-share-btn" style={btn} onClick={share}>SHARE INVITE</button>}
-        <button data-testid="invite-copy-btn" style={btn} onClick={copy}>COPY INVITE LINK</button>
+        {canShare && <button data-testid="invite-share-btn" style={btn} onClick={share}>SHARE</button>}
+        <button data-testid="invite-copy-btn" style={btn} onClick={copy}>COPY LINK</button>
       </div>
       <div style={{ color: '#88cc44', fontSize: 11, letterSpacing: 3, minHeight: 14 }}>{note}</div>
     </div>

@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from 'react'
 import { MODIFIERS } from '../modifiers'
-import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
+import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
 import { CROSSHAIR_HEX } from '../cosmetics'
 import DoorPrompt from './DoorPrompt'
 import MachinePrompt from './MachinePrompt'
@@ -8,6 +8,7 @@ import { weaponName, clipSize as wrClipSize } from '../weaponRules'
 import { HitMarker, DangerFx, DamageIndicator, LastKillFx } from './FeelFx'
 import PowerUpHud from './PowerUpHud'
 import GrenadeHud from './GrenadeHud'
+import { hintsActive, noteWaveStarted } from '../hints'
 import CoopFx from './CoopFx'   // W5 co-op down / revive
 
 const BASE_KNIFE_COOLDOWN = 0.4
@@ -108,6 +109,7 @@ function getIsMobileHud() {
 
 export default function HUD() {
   const [isMobile, setIsMobile] = useState(getIsMobileHud)
+  const [showHints, setShowHints] = useState(hintsActive)
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
@@ -144,7 +146,6 @@ export default function HUD() {
   const activeCost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
   const upgradeCost = STRONG_PLANK_COST * nearPlankCount
   const canAfford = canUpgrade ? money >= upgradeCost : money >= activeCost
-  const unlockedTypes = zombieTypesForWave(wave)
   const topBarStyle = isMobile ? { ...styles.topBar, ...styles.mobileTopBar } : styles.topBar
   const statStyle = isMobile ? { ...styles.stat, ...styles.mobileStat } : styles.stat
   const labelStyle = isMobile ? { ...styles.label, ...styles.mobileLabel } : styles.label
@@ -160,6 +161,13 @@ export default function HUD() {
   const hpPct = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0
   const hpColor = hpPct <= 0.25 ? '#ff3300' : hpPct <= 0.5 ? '#ffaa00' : '#00ff88'
   const visionLimited = Boolean(HELMET_DEFS[helmet]?.visionLimit)
+
+  // Count each started wave; control hints fade out after the first few.
+  useEffect(() => {
+    if (phase !== 'playing') return
+    noteWaveStarted()
+    setShowHints(hintsActive())
+  }, [phase, wave])
 
   useEffect(() => {
     const update = () => setIsMobile(getIsMobileHud())
@@ -226,14 +234,6 @@ export default function HUD() {
         </div>
       )}
 
-      {unlockedTypes.length > 0 && (
-        <div style={styles.threatBox}>
-          <span style={styles.threatLabel}>THREATS</span>
-          <span style={styles.threatValue}>
-            {unlockedTypes.map((type) => type.toUpperCase()).join(' · ')}
-          </span>
-        </div>
-      )}
 
       {/* Weapon info — bottom right */}
       {activeItem === 'knife' ? (
@@ -256,7 +256,7 @@ export default function HUD() {
               READY
             </div>
           )}
-          {!isMobile && <div style={reloadHintStyle}>Q — switch to gun{perks.knife_mastery ? ' · mastery' : ''}</div>}
+          {!isMobile && showHints && <div style={reloadHintStyle}>Q — gun</div>}
         </div>
       ) : weapon === 'flamethrower' ? (
         <div style={ammoBoxStyle}>
@@ -268,11 +268,7 @@ export default function HUD() {
           }}>
             {Math.ceil(reserveBullets)}<span style={styles.ammoSep}> fuel</span>
           </div>
-          {!isMobile && (
-            <div style={styles.reloadHint}>
-              {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}Q — knife
-            </div>
-          )}
+          {!isMobile && showHints && <div style={styles.reloadHint}>Q — knife</div>}
         </div>
       ) : (
         <div style={ammoBoxStyle}>
@@ -299,9 +295,9 @@ export default function HUD() {
               ))}
             </div>
           )}
-          {!isMobile && (
+          {!isMobile && showHints && (
             <div style={styles.reloadHint}>
-              {ownedWeapons.length > 1 ? 'Scroll — switch · ' : ''}R — reload · Q — knife
+              {ownedWeapons.length > 1 ? 'Scroll · ' : ''}R · Q
             </div>
           )}
         </div>
@@ -310,7 +306,7 @@ export default function HUD() {
       {/* Chest prompt */}
       {nearChest && !showBoardPrompt && (
         <div style={{ ...styles.boardPrompt, ...(isMobile ? styles.mobileBoardPrompt : {}), borderColor: '#5a3a10', bottom: isMobile ? 8 : 90 }}>
-          <span style={{ color: '#c8801a' }}>{isMobile ? 'USE — open chest' : 'E — open supply chest'}</span>
+          <span style={{ color: '#c8801a' }}>{isMobile ? 'USE' : 'E'} chest</span>
         </div>
       )}
 
@@ -320,11 +316,11 @@ export default function HUD() {
           <span style={{ color: canAfford ? (strongPlanksMode ? '#aaccee' : '#ffe066') : '#ff6644' }}>
             {canUpgrade
               ? canAfford
-                ? isMobile ? `UPGRADE STRONG €${upgradeCost.toFixed(2)}` : `HOLD E — upgrade to STRONG (€${upgradeCost.toFixed(2)})`
-                : isMobile ? `NEED €${upgradeCost.toFixed(2)}` : `NOT ENOUGH MONEY — €${upgradeCost.toFixed(2)} needed`
+                ? `${isMobile ? '' : 'E  '}⚡ €${upgradeCost.toFixed(2)}`
+                : `€${upgradeCost.toFixed(2)}`
               : canAfford
-                ? isMobile ? `BOARD [${nearPlankCount}/2] €${activeCost.toFixed(2)}${strongPlanksMode ? ' ⚡' : ''}` : `HOLD E — board window (€${activeCost.toFixed(2)}) [${nearPlankCount}/2]${strongPlanksMode ? ' ⚡' : ''}`
-                : isMobile ? `NEED €${activeCost.toFixed(2)}` : `NOT ENOUGH MONEY — €${activeCost.toFixed(2)} needed`}
+                ? `${isMobile ? 'BOARD' : 'E  board'} ${nearPlankCount}/2 · €${activeCost.toFixed(2)}${strongPlanksMode ? ' ⚡' : ''}`
+                : `€${activeCost.toFixed(2)}`}
           </span>
           {canAfford && (
             <div style={styles.boardBar}>
@@ -339,7 +335,7 @@ export default function HUD() {
       <MachinePrompt isMobile={isMobile} />
 
       {/* Bottom hint */}
-      {!isMobile && <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>}
+      {!isMobile && showHints && <div style={styles.hint}>WASD · Mouse · Click</div>}
 
       {/* Zombie count bar */}
       <div style={barOuterStyle}>

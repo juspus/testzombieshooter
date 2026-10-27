@@ -1,6 +1,5 @@
 import { useGameStore } from '../store'
 import { machineAction } from '../machineInput'
-import * as WR from '../weaponRules'
 
 // Wave 3: hold-E prompt for the Mystery Box / Upgrade Bench (same pattern as DoorPrompt).
 // Subscribes to the few fields it needs; the bar fills with machineProgress.
@@ -23,16 +22,16 @@ export default function MachinePrompt({ isMobile }) {
   if (act.action === 'upgraded') {
     return (
       <div data-testid="machine-prompt" style={{ ...styles.prompt, ...(isMobile ? styles.mobilePrompt : {}), borderColor: borderBase }}>
-        <span style={{ color: '#58e6ff' }}>{act.name} is already upgraded</span>
+        <span style={{ color: '#58e6ff' }}>{act.name} ✓</span>
       </div>
     )
   }
-  const price = act.cost ? ` (€${act.cost})` : ''
+  const k = isMobile ? '' : 'E  '
   let text
-  if (act.action === 'buy') text = isMobile ? `MYSTERY BOX €${act.cost}` : `Hold E — Mystery Box${price}`
-  else if (act.action === 'take') text = isMobile ? `TAKE ${act.name.toUpperCase()}` : `Hold E — Take ${act.name}`
-  else text = isMobile ? `UPGRADE €${act.cost}` : `Hold E — Upgrade ${act.name}${price}`
-  if (!act.ok) text = isMobile ? `NEED €${act.cost}` : `${text} — not enough money`
+  if (act.action === 'buy') text = `${k}🎁 €${act.cost}`
+  else if (act.action === 'take') text = `${k}take ${act.name}`
+  else text = `${k}upgrade ${act.name}${act.cost ? ` · €${act.cost}` : ''}`
+  if (!act.ok) text = act.cost ? `€${act.cost}` : text
   const color = !act.ok ? '#ff6644' : kind === 'bench' ? '#58e6ff' : '#ffd24a'
   return (
     <div
@@ -44,9 +43,6 @@ export default function MachinePrompt({ isMobile }) {
         <div style={styles.bar}>
           <div style={{ ...styles.barFill, background: color, width: `${progress * 100}%` }} />
         </div>
-      )}
-      {act.action === 'take' && !isMobile && (
-        <span style={{ color: '#aaa', fontSize: 11 }}>take it before it sinks back ({Math.round(WR.BOX_TAKE_MS / 1000)}s)</span>
       )}
     </div>
   )
