@@ -21,11 +21,11 @@ const ctx = (o = {}) => ({ entitlements: [], stats: stats(), ...o })
 describe('catalog', () => {
   it('has exactly the specified items', () => {
     const ids = (kind) => COSMETICS.filter((i) => i.kind === kind).map((i) => i.id)
-    expect(ids('skin')).toEqual(['default', 'blood_rust', 'field_worn', 'gold', 'obsidian'])
+    expect(ids('skin')).toEqual(['default', 'blood_rust', 'field_worn', 'arctic', 'verdigris', 'gold', 'obsidian'])
     expect(ids('crosshair')).toEqual(['cross', 'dot', 'chevron', 'circle'])
-    expect(ids('knifeSkin')).toEqual(['default', 'ember'])
+    expect(ids('knifeSkin')).toEqual(['default', 'bone', 'bloodied', 'ember'])
     expect(ids('badge')).toEqual(['supporter_star'])
-    expect(CROSSHAIR_COLORS.map((c) => c.id)).toEqual(['white', 'amber', 'green', 'red', 'cyan'])
+    expect(CROSSHAIR_COLORS.map((c) => c.id)).toEqual(['white', 'amber', 'green', 'violet', 'red', 'cyan'])
   })
 
   it('every paid skin has a palette covering all roles', () => {
@@ -63,11 +63,12 @@ describe('isUnlocked', () => {
     expect(isUnlocked(rust, ctx({ stats: stats({ bestWave: 9 }) }))).toBe(false)
     expect(isUnlocked(rust, ctx({ stats: stats({ bestWave: 10 }) }))).toBe(true)
     const worn = getItem('skin', 'field_worn')
-    expect(isUnlocked(worn, ctx({ stats: stats({ totalKills: 249 }) }))).toBe(false)
-    expect(isUnlocked(worn, ctx({ stats: stats({ totalKills: 250 }) }))).toBe(true)
+    // Wave 4: field_worn = level 3 (260 XP), green = level 2 (100 XP)
+    expect(isUnlocked(worn, ctx({ stats: stats({ xp: 259 }) }))).toBe(false)
+    expect(isUnlocked(worn, ctx({ stats: stats({ xp: 260 }) }))).toBe(true)
     const green = getItem('crosshairColor', 'green')
-    expect(isUnlocked(green, ctx({ stats: stats({ bestWave: 4 }) }))).toBe(false)
-    expect(isUnlocked(green, ctx({ stats: stats({ bestWave: 5 }) }))).toBe(true)
+    expect(isUnlocked(green, ctx({ stats: stats({ xp: 99 }) }))).toBe(false)
+    expect(isUnlocked(green, ctx({ stats: stats({ xp: 100 }) }))).toBe(true)
   })
 
   it('does not crash on missing / junk input', () => {
@@ -78,7 +79,7 @@ describe('isUnlocked', () => {
 
   it('unlockText', () => {
     expect(unlockText(getItem('skin', 'blood_rust'))).toBe('Reach wave 10')
-    expect(unlockText(getItem('skin', 'field_worn'))).toBe('250 kills')
+    expect(unlockText(getItem('skin', 'field_worn'))).toBe('Level 3')
     expect(unlockText(getItem('skin', 'gold'))).toBe('Supporter')
     expect(unlockText(getItem('skin', 'default'))).toBe('')
   })
@@ -103,7 +104,7 @@ describe('applySkin', () => {
 
 describe('newUnlocksBetween', () => {
   it('reports items that cross a milestone', () => {
-    const out = newUnlocksBetween(stats({ bestWave: 4, totalKills: 200 }), stats({ bestWave: 10, totalKills: 260 }), [])
+    const out = newUnlocksBetween(stats({ bestWave: 4, xp: 0 }), stats({ bestWave: 10, xp: 300 }), [])
     expect(out.map((i) => i.id).sort()).toEqual(['blood_rust', 'field_worn', 'green'])
   })
 
@@ -114,17 +115,17 @@ describe('newUnlocksBetween', () => {
 
   it('does not report supporter items (entitlements do not change during a run)', () => {
     const out = newUnlocksBetween(stats(), stats({ bestWave: 50, totalKills: 9999 }), ['supporter_pack'])
-    expect(out.every((i) => i.unlock.type === 'milestone')).toBe(true)
+    expect(out.every((i) => i.unlock.type === 'milestone' || i.unlock.type === 'level')).toBe(true)
   })
 })
 
 describe('mergeStats', () => {
   it('maxes bestWave and sums counters', () => {
     const merged = mergeStats(
-      { bestWave: 7, totalKills: 100, runs: 3, totalHeadshots: 10, totalKnifeKills: 2 },
-      { bestWave: 5, totalKills: 40, runs: 2, totalHeadshots: 4, totalKnifeKills: 1 }
+      { bestWave: 7, totalKills: 100, runs: 3, totalHeadshots: 10, totalKnifeKills: 2, xp: 500 },
+      { bestWave: 5, totalKills: 40, runs: 2, totalHeadshots: 4, totalKnifeKills: 1, xp: 120 }
     )
-    expect(merged).toEqual({ bestWave: 7, totalKills: 140, runs: 5, totalHeadshots: 14, totalKnifeKills: 3 })
+    expect(merged).toEqual({ ...DEFAULT_STATS, bestWave: 7, totalKills: 140, runs: 5, totalHeadshots: 14, totalKnifeKills: 3, xp: 620 })
   })
 
   it('tolerates empty / junk blocks', () => {
@@ -133,7 +134,7 @@ describe('mergeStats', () => {
   })
 
   it('maxStats never double counts the same lineage', () => {
-    const a = { bestWave: 7, totalKills: 100, runs: 3, totalHeadshots: 10, totalKnifeKills: 2 }
+    const a = { ...DEFAULT_STATS, bestWave: 7, totalKills: 100, runs: 3, totalHeadshots: 10, totalKnifeKills: 2, xp: 400 }
     expect(maxStats(a, a)).toEqual(a)
   })
 })

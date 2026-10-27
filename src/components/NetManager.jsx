@@ -9,6 +9,7 @@ import { buildGrid } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
 import { addDrop, takeDrop } from '../powerups'
 import { BOX_COST } from '../weaponRules'
+import { withRemoteSource } from '../gameEvents'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
@@ -249,11 +250,12 @@ function applyRemoteEvent(event, data) {
       store.die()
       break
     case 'hit_zombie':
-      store.hitZombie(data.id, data.isHeadshot, data.source ?? 'gun', data.weapon ?? null, data.dist ?? Infinity, data.mult ?? 1)
+      // The partner's kill is theirs for XP / challenges (their own client counts it).
+      withRemoteSource(() => store.hitZombie(data.id, data.isHeadshot, data.source ?? 'gun', data.weapon ?? null, data.dist ?? Infinity, data.mult ?? 1))
       zombieHitFxFromNet(data)
       break
     case 'hit_zombie_flame':
-      store.hitZombieFlame(data.id, data.damage)
+      withRemoteSource(() => store.hitZombieFlame(data.id, data.damage))
       Zombie.ignite(data.id)
       break
     case 'hit_plank':

@@ -29,6 +29,8 @@ import ModifierFx from './ModifierFx'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
+import { initProgression } from '../progressTracker'
+import ProgressToasts from './ProgressToasts'
 import PerfOverlay, { PERF_ON, BENCH_ON } from './PerfOverlay'
 import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
 
@@ -73,7 +75,7 @@ function ForceRenderOnShopOpen() {
 
 export default function Game() {
   useMobileViewport()
-  useEffect(() => { initAnalytics() }, [])
+  useEffect(() => { initAnalytics(); initProgression() }, [])
   const phase = useGameStore((s) => s.phase)
   const mapId = useGameStore((s) => s.mapId)
   const isPlaying = phase === 'playing'
@@ -161,6 +163,7 @@ export default function Game() {
       <MobileControls />
       <Shop />
       <Screens />
+      <ProgressToasts />
     </div>
   )
 }

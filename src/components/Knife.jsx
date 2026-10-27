@@ -2,20 +2,21 @@ import { useRef, useMemo } from 'react'
 import { useThree, useFrame, createPortal } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import * as THREE from 'three'
+import { KNIFE_PALETTES } from '../cosmetics'
 
 const SWING_DUR = 0.35  // seconds for full swing arc
 
 export function HuntingKnifeModel() {
-  const ember = useGameStore((s) => s.cosmetics?.knifeSkin) === 'ember'  // cosmetic only
-  // Blade material always carries emissive (black / 0 on the default skin) so both
-  // skins are the same material config -> one shader program, no recompile on equip.
+  const kp = KNIFE_PALETTES[useGameStore((s) => s.cosmetics?.knifeSkin)] ?? KNIFE_PALETTES.default  // cosmetic only
+  // Blade material always carries emissive (black / 0 on the default skin) so every
+  // skin is the same material config -> one shader program, no recompile on equip.
   const metal  = (
     <meshStandardMaterial
-      color={ember ? '#3a3a40' : '#b8b8b8'}
-      metalness={ember ? 0.9 : 0.95}
-      roughness={ember ? 0.25 : 0.10}
-      emissive={ember ? '#ff4a1a' : '#000000'}
-      emissiveIntensity={ember ? 0.9 : 0}
+      color={kp.color}
+      metalness={kp.metalness}
+      roughness={kp.roughness}
+      emissive={kp.emissive}
+      emissiveIntensity={kp.emissiveIntensity}
     />
   )
   const spine  = <meshStandardMaterial color="#1a1a1a" metalness={0.80} roughness={0.35} />

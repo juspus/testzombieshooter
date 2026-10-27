@@ -26,6 +26,8 @@ import { withLinksOpened, doorBuyStatus, allDoorsOpen, openRoomSet } from './doo
 import { playDoorOpen } from './sounds'
 import { rollModifier, modifiedZombieCount, modifiedZombieHealth, modifierBonus, debugForcedModifier } from './modifiers'
 import * as WR from './weaponRules'
+import { emitGameEvent } from './gameEvents'
+import { settleRun } from './progressTracker'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -305,6 +307,7 @@ export const useGameStore = create((set, get) => ({
   applyPowerup: (type) => {
     if (!POWERUP_DEFS[type]) return
     const st = get()
+    emitGameEvent('powerup', { type })   // Wave 4 progression (before the nuke kills below)
     const upd = { powerupBannerId: st.powerupBannerId + 1, powerupBannerType: type }
     if (type === 'insta_kill') { startEffect(type); upd.instaKillOn = true }
     else if (type === 'double_money') { startEffect(type); upd.doubleMoneyOn = true }
@@ -402,6 +405,7 @@ export const useGameStore = create((set, get) => ({
       runKnifeKills: 0,
       runRecorded: false,
       lastRunUnlocks: [],
+      lastRunProgress: null,
       wavePlanksLost: 0,
       waveStartPlanks: 0,
       lastWaveBonuses: null,
@@ -416,6 +420,7 @@ export const useGameStore = create((set, get) => ({
     })
     cancelLastKillFx()
     get().resetPowerups()
+    emitGameEvent('run_start')   // Wave 4 progression
 
     applyDebugOverrides(set, get)
   },
@@ -630,6 +635,7 @@ export const useGameStore = create((set, get) => ({
     const newStrong = strongPlanksMode ? { ...windowPlankStrong, [id]: true } : windowPlankStrong
     buildGrid(allWallSegments(newPlanks, get().openDoors))
     set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, money: money - cost })
+    emitGameEvent('plank')   // Wave 4 progression
     return true
   },
 
@@ -758,6 +764,7 @@ export const useGameStore = create((set, get) => ({
     const next = withLinksOpened(DOOR_DEFS, { ...openDoors, [id]: true })
     buildGrid(allWallSegments(windowPlanks, next))
     set({ openDoors: next, walls: playerCollisionWalls(next) })
+    emitGameEvent('door_open', { id })   // Wave 4 progression
     if (!silent) playDoorOpen(def.x, 1.2, def.z)
     return true
   },
@@ -823,6 +830,7 @@ export const useGameStore = create((set, get) => ({
     if (box.phase !== 'ready' || box.payer !== role || !box.result || box.result === 'teddy') return null
     const w = box.result
     set({ ...WR.giveWeapon(get(), w), box: { ...box, phase: 'idle', result: null, payer: null, at: performance.now() } })
+    emitGameEvent('box_take', { weapon: w })   // Wave 4 progression
     return w
   },
   // Time-driven phases. Returns 'moved' when the host/solo box relocated (caller broadcasts), else null.
@@ -856,6 +864,7 @@ export const useGameStore = create((set, get) => ({
     if (left > 0) { set({ benchLeft: left }); return false }
     const mult = s.perks?.deep_pockets ? 1.5 : 1
     set({ ...WR.upgradePatch(s, Math.round((MAX_RESERVE[s.weapon] ?? 0) * mult)), benchBusy: null, benchLeft: 0 })
+    emitGameEvent('upgrade', { weapon: s.weapon })   // Wave 4 progression
     return true
   },
 
@@ -878,6 +887,7 @@ export const useGameStore = create((set, get) => ({
   stats: { ...DEFAULT_STATS },          // lifetime: { bestWave, totalKills, runs, totalHeadshots, totalKnifeKills }
   entitlements: [],                     // owned skus, e.g. ['supporter_pack']
   lastRunUnlocks: [],                   // cosmetic items that unlocked during the run that just ended
+  lastRunProgress: null,                // Wave 4: XP breakdown / level-ups of the run that just ended (settleRun)
 
   // kind: 'skin' | 'crosshair' | 'crosshairColor' | 'knifeSkin'. Returns true if equipped.
   setCosmetic: (kind, id) => {
@@ -917,16 +927,20 @@ export const useGameStore = create((set, get) => ({
     const s = get()
     if (s.runRecorded) return
     const prev = s.stats
-    const next = {
+    const base = {
+      ...prev,
       bestWave: Math.max(prev.bestWave, s.wave),
       totalKills: prev.totalKills + s.kills,
       runs: prev.runs + 1,
       totalHeadshots: prev.totalHeadshots + s.runHeadshots,
       totalKnifeKills: prev.totalKnifeKills + s.runKnifeKills,
     }
+    // Wave 4: XP / level / achievements / challenge state for this run (progressTracker.js)
+    const { stats: next, summary } = settleRun(base, prev, s)
     set({
       stats: next,
       runRecorded: true,
+      lastRunProgress: summary,
       lastRunUnlocks: newUnlocksBetween(prev, next, s.entitlements),
     })
     persistProfile(next, s.cosmetics)
@@ -1055,6 +1069,8 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot, weapon = nu
     const withNext = nextPending ? [...newZombies, nextPending] : newZombies
     const activeCount = withNext.filter((z) => !z.dying).length
     const isGuest = get().mpRole === 'guest'
+    // Wave 4 progression: one tiny event per kill (XP, challenges, achievements).
+    emitGameEvent('kill', { type: zombie.type, source, head: isHeadshot, weapon: weapon ?? (source === 'gun' ? get().weapon : null), big: damage >= 900 })
     const waveOver = !isGuest && activeCount === 0 && newPending.length === 0
     const statUpdate = {
       zombies: withNext,

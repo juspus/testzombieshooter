@@ -7,6 +7,7 @@ import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
 import { getReduceMotion, setReduceMotion } from '../cameraFeel'
+import { LevelBadge, ChallengeTeaser, ChallengesPanel, AchievementsPanel, DeathXpPanel } from './ProgressPanels'
 import { MODIFIERS, MOD_BONUS } from '../modifiers'
 
 function useAuthUser() {
@@ -471,15 +472,19 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     useGameStore.getState().clearMp()
   }, [])
 
+  // Locker / challenge / achievement panels replace the title block so they fit short screens.
+  const compactView = view === 'locker' || view === 'challenges' || view === 'achievements'
+
   return (
-    <Overlay>
-      {view !== 'locker' && <Title>CABIN</Title>}
-      {view !== 'locker' && <Sub>Survive the waves. Kill all zombies to advance.</Sub>}
-      {view !== 'locker' && <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>}
+    <Overlay scroll>
+      {!compactView && <Title>CABIN</Title>}
+      {!compactView && <Sub>Survive the waves. Kill all zombies to advance.</Sub>}
+      {!compactView && <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>}
 
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
+          <LevelBadge onClick={() => setView('achievements')} />
           <Btn onClick={startGame}>SOLO</Btn>
           <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
           <div style={{ display: 'flex', gap: 12 }}>
@@ -493,7 +498,11 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
             <button onClick={() => setView('locker')} style={textLinkStyle}>
               Locker
             </button>
+            <button onClick={() => setView('achievements')} style={textLinkStyle}>
+              Achievements
+            </button>
           </div>
+          <ChallengeTeaser onClick={() => setView('challenges')} />
           <ReduceMotionToggle />
         </div>
       )}
@@ -501,6 +510,20 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       {view === 'locker' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
           <LockerPanel user={user} notice={checkoutReturn?.notice} />
+          <BackBtn onClick={() => setView('main')} />
+        </div>
+      )}
+
+      {view === 'challenges' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+          <ChallengesPanel />
+          <BackBtn onClick={() => setView('main')} />
+        </div>
+      )}
+
+      {view === 'achievements' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+          <AchievementsPanel />
           <BackBtn onClick={() => setView('main')} />
         </div>
       )}
@@ -799,7 +822,22 @@ const intermissionStyles = {
   },
 }
 
-function Overlay({ children, dim = 0.78 }) {
+function Overlay({ children, dim = 0.78, scroll = false }) {
+  const gap = 'clamp(5px, 1.5vmin, 12px)'
+  if (scroll) {
+    // Short landscape phones: content taller than the screen scrolls instead of clipping.
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        background: `rgba(0,0,0,${dim})`, fontFamily: 'Courier New, monospace',
+      }}>
+        <div style={{ margin: 'auto 0', padding: '10px 0', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap }}>
+          {children}
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{
       position: 'absolute',
@@ -950,12 +988,14 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      overflowY: 'auto',            // short landscape phones: the breakdown scrolls
+      WebkitOverflowScrolling: 'touch',
       background: `rgba(0,0,0,${0.3 + opacity * 0.55})`,
       gap: 0,
       fontFamily: 'Garamond, Georgia, serif',
       transition: 'background 0.1s',
     }}>
+      <div style={{ margin: 'auto 0', padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       <h1 style={{
         color: `rgba(180,0,0,${opacity})`,
         fontSize: 'clamp(38px, 11vmin, 120px)',
@@ -993,6 +1033,8 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         <DeathStat label="Weapon" value={runSummary.weapon} />
         <DeathStat label="Perks" value={runSummary.perks.length || 'None'} />
       </div>
+
+      <div style={{ opacity }}><DeathXpPanel /></div>
 
       {lastRunUnlocks?.length > 0 && (
         <div style={{
@@ -1133,6 +1175,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         </button>
         {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} />}
       </div>
+      </div>
     </div>
   )
 }
@@ -1272,7 +1315,7 @@ function LockerTile({ kind, item, selected, unlocked, onEquip }) {
             borderRadius: kind === 'crosshairColor' ? '50%' : 3,
             background: swatchColor,
             border: '1px solid rgba(255,255,255,0.35)',
-            boxShadow: kind === 'knifeSkin' && item.id === 'ember' ? '0 0 6px #ff4a1a' : 'none',
+            boxShadow: kind === 'knifeSkin' && (item.id === 'ember' || item.id === 'bloodied') ? `0 0 6px ${item.swatch}` : 'none',
           }} />
         ) : null}
       </span>
