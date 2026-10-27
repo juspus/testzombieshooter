@@ -62,17 +62,17 @@ function CameraRig({ entry, resetNonce }) {
   return null
 }
 
-function Stage({ entry, ctrl, onStats }) {
+function Stage({ entry, ctrl, onStats, variant }) {
   const ref = useRef()
   useEffect(() => {
     // Models mount lazily (textures, RemotePlayer store flag) - measure after a beat.
     const id = setTimeout(() => onStats(countScene(ref.current)), 400)
     return () => clearTimeout(id)
-  }, [entry.id, onStats])
+  }, [entry.id, variant, onStats])
   const C = entry.Component
   return (
     <group ref={ref}>
-      <C ctrl={ctrl} {...(entry.props || {})} />
+      <C ctrl={ctrl} variant={variant} {...(entry.props || {})} />
     </group>
   )
 }
@@ -124,6 +124,7 @@ export default function ModelPlayground() {
   const [entry, setEntry] = useState(readInitial)
   const [category, setCategory] = useState(() => readInitial().category)
   const [anim, setAnim] = useState(null)
+  const [variant, setVariant] = useState(() => Number(new URLSearchParams(window.location.search).get('v')) || 0)
   const [light, setLight] = useState('cabin')
   const [turntable, setTurntable] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
@@ -134,7 +135,7 @@ export default function ModelPlayground() {
   const ctrl = useRef({ id: null, n: 0 })
 
   // Select a model: reset animation + reference box, sync the URL for sharing.
-  const select = useCallback((e) => {
+  const select = useCallback((e, keepVariant) => {
     setEntry(e)
     setCategory(e.category)
     setStats(null)
@@ -142,10 +143,15 @@ export default function ModelPlayground() {
     ctrl.current = { id: first, n: 0 }
     setAnim(first)
     setShowHuman(!!e.humanScale)
+    if (keepVariant !== true) setVariant(0)
     try { window.history.replaceState(null, '', `?models&m=${e.id}`) } catch { /* ignore */ }
   }, [])
+  const pickVariant = (n) => {
+    setVariant(n)
+    try { window.history.replaceState(null, '', `?models&m=${entry.id}&v=${n}`) } catch { /* ignore */ }
+  }
 
-  useEffect(() => { select(entry) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { select(entry, true) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const playAnim = (a) => {
     ctrl.current = { id: a.id, n: ctrl.current.n + 1 }
@@ -177,7 +183,7 @@ export default function ModelPlayground() {
         onPointerDown={onDown} onPointerUp={onUp} onDoubleClick={() => setResetNonce((n) => n + 1)}>
         <Canvas camera={{ fov: 45, near: 0.02, far: 100, position: [2, 1.5, 3] }} dpr={[1, 2]} data-testid="pg-canvas">
           <Lights preset={light} />
-          <Stage key={entry.id} entry={entry} ctrl={ctrl} onStats={setStats} />
+          <Stage key={entry.id} entry={entry} ctrl={ctrl} onStats={setStats} variant={variant} />
           <Reference entry={entry} grid={L.grid} showGrid={showGrid} showHuman={showHuman} />
           <OrbitControls makeDefault enablePan={false} enableDamping minDistance={0.25} maxDistance={14}
             autoRotate={turntable} autoRotateSpeed={2.2} />
@@ -223,6 +229,15 @@ export default function ModelPlayground() {
             <Chips items={inCat} isActive={(e) => e.id === entry.id} onPick={select} />
             {entry.animations.length > 0 && (
               <Chips items={entry.animations} isActive={(a) => a.loop && a.id === anim} onPick={playAnim} />
+            )}
+            {entry.variants > 0 && (
+              <div style={row} className="pg-row">
+                {Array.from({ length: entry.variants }, (_, i) => (
+                  <button key={i} data-testid={`variant-${i}`} style={chip(variant === i)} onClick={() => pickVariant(i)}>Variant {i + 1}</button>
+                ))}
+                <button data-testid="variant-shuffle" style={chip(variant >= entry.variants)}
+                  onClick={() => pickVariant(entry.variants + Math.floor(Math.random() * 9000))}>Shuffle</button>
+              </div>
             )}
             <div style={row} className="pg-row">
               {Object.entries(LIGHTS).map(([id, l]) => (

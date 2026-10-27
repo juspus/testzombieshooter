@@ -11,16 +11,18 @@ import { ZombieBody } from '../components/Zombie'
 import { PickupMesh } from '../components/BulletPickups'
 import RemotePlayer, { pushRemotePlayerSample } from '../components/RemotePlayer'
 import { useGameStore } from '../store'
+import { getZombieVariant } from '../zombieVariant'
 
 const FEET_OFFSET = 0.866   // ZombieBody origin sits this far above its feet
 
 // ─── Zombie ──────────────────────────────────────────────────────────────────
 const FLAME_POS = [[-0.2, 0.25, 0.05], [0.2, 0.3, -0.05], [0, 0.55, 0.1], [0, -0.1, 0.15], [-0.25, -0.35, 0], [0.25, -0.4, 0]]
 
-export function ZombieDisplay({ type, ctrl }) {
+export function ZombieDisplay({ type, ctrl, variant = 0 }) {
   const outer = useRef()
   const lArm = useRef(), rArm = useRef(), lLeg = useRef(), rLeg = useRef()
   const flames = useRef([])
+  const g = useMemo(() => getZombieVariant(type, `pg${variant}`).gait, [type, variant])
   const st = useRef({ t: 0, walk: 0, death: 0, n: -1 })
   const flameGeo = useMemo(() => new THREE.ConeGeometry(0.13, 0.5, 6), [])
   const flameMat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#ff7a1a', transparent: true, opacity: 0.8, depthWrite: false }), [])
@@ -46,7 +48,7 @@ export function ZombieDisplay({ type, ctrl }) {
       } else if (id === 'walk' || id === 'burning') {
         s.walk += dt * 4
         const w = Math.sin(s.walk)
-        ll = w * 0.32; rl = -w * 0.32; la = -w * 0.2; ra = w * 0.2
+        ll = Math.sin(s.walk + g.phL) * g.ampL; rl = -Math.sin(s.walk + g.phR) * g.ampR; la = -w * 0.2; ra = w * 0.2
       } else {
         const b = Math.sin(s.t * 1.6) * 0.04
         la = b + 0.05; ra = -b + 0.05; ll = rl = 0
@@ -72,7 +74,7 @@ export function ZombieDisplay({ type, ctrl }) {
   return (
     <group ref={outer}>
       <group position={[0, FEET_OFFSET, 0]}>
-        <ZombieBody type={type} id="playground" leftArmRef={lArm} rightArmRef={rArm} leftLegRef={lLeg} rightLegRef={rLeg} />
+        <ZombieBody type={type} id="playground" seed={`pg${variant}`} leftArmRef={lArm} rightArmRef={rArm} leftLegRef={lLeg} rightLegRef={rLeg} />
         {FLAME_POS.map((p, i) => (
           <mesh key={i} ref={(el) => (flames.current[i] = el)} position={p} visible={false} geometry={flameGeo} material={flameMat} />
         ))}
