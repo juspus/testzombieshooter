@@ -24,6 +24,7 @@ import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
 import PerfOverlay, { PERF_ON, BENCH_ON } from './PerfOverlay'
+import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
 
 // Blocks iOS address-bar-triggered resize events (small height-only changes < 15%)
 // at the ResizeObserver level so R3F never calls setSize for spurious viewport shifts.
@@ -57,7 +58,7 @@ function ForceRenderOnShopOpen() {
   useLayoutEffect(() => {
     if (shopOpen) {
       console.log('[ForceRender] shopOpen=true → calling gl.render at', performance.now().toFixed(1))
-      gl.render(scene, camera)
+      renderLofiNow(gl, scene, camera)
       console.log('[ForceRender] gl.render done at', performance.now().toFixed(1))
     }
   }, [shopOpen, gl, scene, camera])
@@ -94,7 +95,9 @@ export default function Game() {
     <div style={{ position: 'fixed', top: 0, left: 0, width: 'var(--app-width, 100vw)', height: 'var(--app-height, 100dvh)', background: '#000', overflow: 'hidden' }}>
       <Canvas
         shadows
-        gl={{ preserveDrawingBuffer: true }}
+        // Lo-fi pass: the scene renders at ~300px tall, so MSAA and hi-dpi are wasted work.
+        gl={{ preserveDrawingBuffer: true, antialias: !LOFI_ON }}
+        dpr={LOFI_ON ? 1 : [1, 2]}
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%' }}
         resize={{ polyfill: FilteredResizeObserver }}
@@ -123,7 +126,7 @@ export default function Game() {
           }
         }}
       >
-        <fog attach="fog" args={['#0a0a0a', 10, 40]} />
+        <fog attach="fog" args={['#0b1118', 7, 34]} />
         {mapId === 'diner' ? <GasStationSkybox /> : <ForestSkybox />}
         {mapId === 'diner' ? <DinerArena /> : <Arena />}
         <Player />
@@ -137,6 +140,7 @@ export default function Game() {
         <RemotePlayer />
         <NetManager />
         <ForceRenderOnShopOpen />
+        {LOFI_ON && <LofiPass exposure={LOFI_EXPOSURE[mapId] ?? 1.5} />}
         {(PERF_ON || BENCH_ON) && <PerfOverlay />}
       </Canvas>
 
