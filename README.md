@@ -68,8 +68,11 @@ Each zombie pathfinds toward the player using A*. Zombies can switch to "attack 
 |---:|---|---|
 | 1 | Walker | Standard |
 | 3 | Crawler | Low profile, harder to hit |
+| 4 | Exploder | Glowing bloated zombie; speeds up near you. Bursts ~0.6 s after reaching you or a window (and ~0.5 s after dying): up to 12 damage within 2.5 m, hurts nearby zombies (chains), breaks planks. Shoot it at range |
 | 5 | Brute | High health, slow, hits planks hard |
+| 6 | Armored | Riot gear: pistol/AK body hits deal 25%, shown as sparks + metal ping. Headshots, Desert Eagle, knife, flame and close-range shotgun (<5 m) ignore the armour |
 | 7 | Runner | Fast, low health |
+| 8 | Spitter | Stays at range / at a window and lobs a dodgeable acid glob every 3-4 s (0.75 s wind-up, shoot it to interrupt); leaves a 4 s acid puddle that burns |
 | 9 | Screamer | Buffs nearby zombies' speed |
 | 10 | Boss | Massive health, unique entrance |
 

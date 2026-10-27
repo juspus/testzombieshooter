@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { getZombieVariant, getVariantColors, SHIRTS, PANTS, TONES, hash32 } from '../zombieVariant'
 
-const TYPES = ['walker', 'runner', 'brute', 'screamer', 'crawler', 'boss']
+const TYPES = ['walker', 'runner', 'brute', 'screamer', 'crawler', 'boss', 'exploder', 'armored', 'spitter']
 const BASE = { skin: '#7d8c65', skinDark: '#5c6e4e', skinVein: '#4a5c3a' }
 
 describe('zombie variants', () => {

@@ -1397,3 +1397,94 @@ export function playThunder(distance = 0.5) {
     playNoise(ac, noiseBuffer(ac, 0.5), t0, 0.35, 0.7 * (1 - d), 'bandpass', 1400, 0.6)
   }
 }
+
+// ─── Wave 3 special zombies ───────────────────────────────────────────────────
+
+// Bullet glancing off armour: bright metallic "tink" with an inharmonic ring.
+// Tone-only (no buffer allocation) and rate-limited so a full-auto spray stays a rattle.
+let _armorPingMs = 0
+export function playArmorPing(x, y, z) {
+  const now = performance.now()
+  if (now - _armorPingMs < 60) return
+  _armorPingMs = now
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const f = 2300 + Math.random() * 500
+  playTone(ac, t, f, f * 0.9, 0.16, 0.2, dest)
+  playTone(ac, t, f * 1.51, f * 1.4, 0.1, 0.1, dest)
+  playTone(ac, t, f * 2.76, f * 2.5, 0.06, 0.05, dest)
+}
+
+// Exploder fuse: rising wet hiss
+export function playExploderHiss(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const g = ac.createGain()
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 0.7)
+  const f = ac.createBiquadFilter()
+  f.type = 'bandpass'
+  f.Q.value = 1.4
+  f.frequency.setValueAtTime(1200, t)
+  f.frequency.exponentialRampToValueAtTime(5200, t + 0.6)
+  g.gain.setValueAtTime(0.001, t)
+  g.gain.exponentialRampToValueAtTime(0.4, t + 0.5)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.62)
+  src.connect(f); f.connect(g); g.connect(dest ?? ac.destination)
+  src.start(t); src.stop(t + 0.65)
+  playTone(ac, t, 90, 190, 0.6, 0.12, dest)
+}
+
+// Exploder burst: low boom + wet splat
+export function playExplosion(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 0.6), t, 0.5, 0.9, 'lowpass', 700, 0.8, dest)
+  playTone(ac, t, 120, 28, 0.55, 0.8, dest)
+  playNoise(ac, noiseBuffer(ac, 0.25), t, 0.18, 0.5, 'bandpass', 2200, 1.2, dest)
+}
+
+// Spitter wind-up: wet rising gurgle
+export function playSpitWindup(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(70, t)
+  osc.frequency.exponentialRampToValueAtTime(240, t + 0.7)
+  const lfo = ac.createOscillator()
+  lfo.frequency.value = 22
+  const lg = ac.createGain()
+  lg.gain.value = 30
+  lfo.connect(lg); lg.connect(osc.frequency)
+  const bp = ac.createBiquadFilter()
+  bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 4
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.001, t)
+  g.gain.exponentialRampToValueAtTime(0.25, t + 0.5)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.78)
+  osc.connect(bp); bp.connect(g); g.connect(dest ?? ac.destination)
+  osc.start(t); lfo.start(t); osc.stop(t + 0.8); lfo.stop(t + 0.8)
+}
+
+// Spitter launch: short wet "thwup"
+export function playSpitLaunch(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 0.2), t, 0.14, 0.45, 'bandpass', 1500, 2, dest)
+  playTone(ac, t, 420, 140, 0.14, 0.25, dest)
+}
+
+// Acid glob landing: sizzling splat
+export function playAcidSplash(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 0.5), t, 0.4, 0.35, 'highpass', 3500, 0.8, dest)
+  playTone(ac, t, 260, 70, 0.16, 0.3, dest)
+}

@@ -5,11 +5,25 @@
 // store.hitZombie so the zombie's `dying` flag is already set.
 import BloodFX from './components/BloodFX'
 import { Zombie, getZombiePositions } from './components/Zombie'
+import { useGameStore } from './store'
+import { isArmorDeflect } from './zombieSpecials'
+import { spawnImpact } from './impactParticles'
+import { playArmorPing } from './sounds'
 
 const _p = { x: 0, y: 0, z: 0 }
 const _d = { x: 0, y: 0, z: 1 }
+const _back = { x: 0, y: 0, z: 0 }
 
 export function zombieHitFx(id, point, dir, head, weapon, dist) {
+  // Armour deflect: sparks + metal ping instead of blood, no flinch. A killing blow
+  // (zombie already dying) falls through to the normal reaction.
+  const z = useGameStore.getState().zombies.find((q) => q.id === id)
+  if (z && z.type === 'armored' && !z.dying && isArmorDeflect('armored', { head, weapon, dist, source: 'gun' })) {
+    _back.x = -dir.x; _back.y = 0.25 - dir.y * 0.5; _back.z = -dir.z
+    spawnImpact(point, _back, 'metal', weapon === 'shotgun' ? 0.4 : 1)
+    playArmorPing(point.x, point.y, point.z)
+    return
+  }
   const intensity = Zombie.hitReact(id, dir.x, dir.y, dir.z, head, weapon, dist)
   BloodFX.spawn?.(point, dir, intensity, weapon === 'shotgun')
 }

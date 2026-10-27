@@ -411,7 +411,7 @@ export default function Player() {
         BulletTrails.add(muzzle, trailEnd)
         if (bestId !== null) {
           if (!bestHead) bestHead = isIronSightsHeadshot(zombieRefs.current[bestId], bestPoint, perksRef.current)
-          const died = hitZombie(bestId, bestHead)
+          const died = hitZombie(bestId, bestHead, 'gun', 'shotgun', bestDist)
           anyHit = true
           if (bestHead) anyHead = true
           if (died && !killed.has(bestId)) { killed.add(bestId); anyKill = true; deathSound(zombieRefs.current, bestId) }
@@ -511,7 +511,7 @@ export default function Player() {
           localPos.addScaledVector(hitFaceNormal, 0.012)
           Zombie.addBulletHole(id, localPos, hitFaceNormal)
         }
-        const singleKill = hitZombie(id, isHeadshot)
+        const singleKill = hitZombie(id, isHeadshot, 'gun', weaponRef.current, closestDist)
         if (singleKill) deathSound(zombieRefs.current, id)
         registerHit(markerKind(singleKill, isHeadshot))
         if (hitPoint) zombieHitFx(id, hitPoint, raycaster.ray.direction, isHeadshot, weaponRef.current, closestDist)

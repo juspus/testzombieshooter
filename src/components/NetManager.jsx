@@ -209,7 +209,7 @@ function applyRemoteEvent(event, data) {
       store.die()
       break
     case 'hit_zombie':
-      store.hitZombie(data.id, data.isHeadshot, data.source ?? 'gun')
+      store.hitZombie(data.id, data.isHeadshot, data.source ?? 'gun', data.weapon ?? null, data.dist ?? Infinity)
       zombieHitFxFromNet(data)
       break
     case 'hit_zombie_flame':

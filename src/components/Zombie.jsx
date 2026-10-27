@@ -15,6 +15,13 @@ import { getRemotePlayerPos } from './RemotePlayer'
 import BloodFX from './BloodFX'
 import { getZombieVariant, getVariantColors, SHIRTS, PANTS, TONES } from '../zombieVariant'
 import * as THREE from 'three'
+// Wave 3 special archetypes (exploder / spitter / armored)
+import { EXPLODER, SPITTER, burstPlayerDamage, burstZombieDamage, burstPlankHits, globFlightTime } from '../zombieSpecials'
+import { raycastWorld } from '../worldRay'
+import { spawnImpact } from '../impactParticles'
+import SpecialFX from './SpecialFX'
+import { playExploderHiss, playExplosion, playSpitWindup, playSpitLaunch } from '../sounds'
+import { send, isConnected } from '../net'
 
 const _geoCache = new Map()
 function bg(x, y, z) {
@@ -212,6 +219,9 @@ const _TYPE_COLORS = {
   brute: { skin: '#6f715e', skinDark: '#4c4d40', skinVein: '#2e3326', shirt: '#241d24', shirtTear: '#151018', accent: '#8b2d18', eye: '#ff8a00' },
   screamer: { skin: '#6f6894', skinDark: '#494269', skinVein: '#39235b', shirt: '#21172b', shirtTear: '#140c1b', accent: '#9b4dff', eye: '#b26cff' },
   crawler: { skin: '#5f7b55', skinDark: '#3f5538', skinVein: '#263c28', shirt: '#171f17', shirtTear: '#0d130d', accent: '#7dbb58', eye: '#aaff66' },
+  exploder: { skin: '#9aa14a', skinDark: '#6d7430', skinVein: '#c9731c', shirt: '#4a3a22', shirtTear: '#2c2214', accent: '#ff8a1a', eye: '#ffd23a' },
+  armored: { skin: '#6b7a78', skinDark: '#48524f', skinVein: '#2e3836', shirt: '#1d2128', shirtTear: '#12151a', accent: '#5aa0d8', eye: '#ff5a1a' },
+  spitter: { skin: '#6f8a4a', skinDark: '#4a6232', skinVein: '#8acf2a', shirt: '#2b3a22', shirtTear: '#1a2414', accent: '#9aff3a', eye: '#c6ff3a' },
   boss: { skin: '#8b4c43', skinDark: '#5b2d28', skinVein: '#2d0707', shirt: '#201010', shirtTear: '#120808', accent: '#ff2a1a', eye: '#ff1000' },
 }
 
@@ -255,6 +265,21 @@ function hasDirectPath(x1, z1, x2, z2, walls) {
   return true
 }
 
+// ── Wave 3 special archetypes: module helpers ───────────────────────────────
+const BULLET_WALLS = ACTIVE_MAP.bulletWallSegments()
+const MAP_WALL_H = ACTIVE_MAP.WALL_H ?? 3.2
+const _spitWr = { dist: 0, nx: 0, ny: 0, nz: 0, kind: 0 }
+const _burstUp = { x: 0, y: 1, z: 0 }
+const _burstPt = { x: 0, y: 0.9, z: 0 }
+// Spitter line of sight: mouth height -> player's chest, against the bullet wall list
+// (window gaps are open; boarded planks do not block the acid).
+function spitLOS(x1, z1, x2, z2) {
+  const dx = x2 - x1, dy = 1.0 - 1.45, dz = z2 - z1
+  const len = Math.hypot(dx, dy, dz) || 1
+  return !raycastWorld(x1, 1.45, z1, dx / len, dy / len, dz / len, len - 0.2, BULLET_WALLS, MAP_WALL_H, null, null, 0, 0, 0, _spitWr)
+}
+const netEvent = (event, data) => { if (isConnected()) send('game_event', { event, data }) }
+
 // Move a zombie: full move → axis-split for wall-threading → push-out.
 // The axis-split is needed so zombies can thread through narrow window
 // openings when following A* paths at a slight angle.
@@ -292,7 +317,7 @@ function applyMove(pos, vx, vz, walls) {
 
 // `seed` (default: id) picks the look, see zombieVariant.js. `variant` may be passed
 // pre-computed (ZombieComponent also needs it for the gait) to skip the lookup.
-export function ZombieBody({ type = 'walker', id = 'display', seed, variant: variantProp, health, leftArmRef, rightArmRef, leftLegRef, rightLegRef, headRef, holes = [] }) {
+export function ZombieBody({ type = 'walker', id = 'display', seed, variant: variantProp, health, leftArmRef, rightArmRef, leftLegRef, rightLegRef, headRef, sacRef, holes = [] }) {
   const archetype = getZombieArchetype(type)
   const hp = health ?? archetype.health
   const colors = getZombieColors(type, hp, archetype.health)
@@ -308,15 +333,18 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
   const isRunner = type === 'runner'
   const isBrute = type === 'brute'
   const isBoss = archetype.boss
+  const isExploder = type === 'exploder'
+  const isArmored = type === 'armored'
+  const isSpitter = type === 'spitter'
   // Variant build: scales the whole model group, so meshes (and therefore the raycast
   // hitboxes, head included) scale with the visuals. Feet are re-seated on the floor.
   const baseHeight = isCrawler ? 0.7 : isScreamer ? heightScale * 1.08 : heightScale
-  const widthScale = (isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.08 : isScreamer ? 0.82 : 1) * variant.w
-  const depthScale = (isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.22 : isScreamer ? 0.88 : 1) * variant.w
+  const widthScale = (isBoss ? 1.42 : isExploder ? 1.2 : isArmored ? 1.12 : isSpitter ? 0.9 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.08 : isScreamer ? 0.82 : 1) * variant.w
+  const depthScale = (isBoss ? 1.42 : isExploder ? 1.3 : isArmored ? 1.12 : isSpitter ? 0.9 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.22 : isScreamer ? 0.88 : 1) * variant.w
   const visualHeightScale = baseHeight * variant.h
   const modelPosition = isCrawler ? [0, -0.36, 0.10] : [0, 0.866 * baseHeight * (variant.h - 1), 0]
   // limp = a slight static lean toward the bad leg
-  const modelRotation = isCrawler ? [-0.82, 0, 0] : isScreamer ? [0.16, 0, 0] : [0, 0, variant.limp * 0.05]
+  const modelRotation = isCrawler ? [-0.82, 0, 0] : isScreamer ? [0.16, 0, 0] : isSpitter ? [0.24, 0, 0] : [0, 0, variant.limp * 0.05]
   const headPosition = isCrawler ? [0, -0.70, 0.63] : [0, 0, 0]
   // Keep the crawler head in the existing crawl pose, but counter-rotate the torso
   // so the chest pitches forward into the ground instead of arching backward.
@@ -485,6 +513,29 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
       {/* Hair wisps */}
       <mesh geometry={bg(0.008, 0.080, 0.005)} position={[-0.095, 0.918, -0.082]} rotation={[0.38, 0.28, 0.18]} userData={{ zombieId: id, isHead: true }} material={sm(hair, 1)} />
       <mesh geometry={bg(0.006, 0.062, 0.005)} position={[0.070, 0.924, -0.090]} rotation={[0.30, -0.20, -0.12]} userData={{ zombieId: id, isHead: true }} material={sm(hair, 1)} />
+
+      {isArmored && (
+        <>
+          {/* Riot helmet — shell, brow band, neck + cheek guards (eyes/mouth stay open) */}
+          <mesh geometry={bg(0.37, 0.30, 0.35)} position={[0, 0.905, -0.012]} userData={{ zombieId: id, isHead: true }} material={sm('#2a3744', 0.4, 0.6)} />
+          <mesh geometry={bg(0.33, 0.07, 0.36)} position={[0, 1.07, -0.012]} userData={{ zombieId: id, isHead: true }} material={sm('#2a3744', 0.4, 0.6)} />
+          <mesh geometry={bg(0.05, 0.40, 0.30)} position={[0, 1.05, -0.012]} userData={{ zombieId: id, isHead: true }} material={sm('#c9ccd0', 0.5, 0.4)} />
+          <mesh geometry={bg(0.36, 0.075, 0.06)} position={[0, 0.835, 0.172]} userData={{ zombieId: id, isHead: true }} material={sm('#161d24', 0.3, 0.7)} />
+          <mesh geometry={bg(0.34, 0.20, 0.07)} position={[0, 0.74, -0.178]} userData={{ zombieId: id, isHead: true }} material={sm('#2a3744', 0.4, 0.6)} />
+          <mesh geometry={bg(0.05, 0.26, 0.24)} position={[-0.178, 0.76, 0.01]} userData={{ zombieId: id, isHead: true }} material={sm('#2a3744', 0.4, 0.6)} />
+          <mesh geometry={bg(0.05, 0.26, 0.24)} position={[0.178, 0.76, 0.01]} userData={{ zombieId: id, isHead: true }} material={sm('#2a3744', 0.4, 0.6)} />
+        </>
+      )}
+      {isSpitter && (
+        <>
+          {/* Swollen cheek pouches */}
+          <mesh geometry={bg(0.07, 0.13, 0.13)} position={[-0.165, 0.665, 0.07]} userData={{ zombieId: id, isHead: true }} material={sm('#7fa03a', 0.7)} />
+          <mesh geometry={bg(0.07, 0.13, 0.13)} position={[0.165, 0.665, 0.07]} userData={{ zombieId: id, isHead: true }} material={sm('#7fa03a', 0.7)} />
+          {/* Acid drool */}
+          <mesh geometry={bg(0.018, 0.12, 0.014)} position={[-0.03, 0.46, 0.15]} material={sm('#9aff3a', 0.4, 0, '#6aff1a', 1.6)} />
+          <mesh geometry={bg(0.014, 0.08, 0.012)} position={[0.04, 0.47, 0.15]} material={sm('#9aff3a', 0.4, 0, '#6aff1a', 1.6)} />
+        </>
+      )}
       </group>
 
       <group rotation={bodyRotation}>
@@ -515,6 +566,46 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
       <mesh geometry={bg(0.06, 0.045, 0.012)} position={[0, -0.085, 0.120]} material={sm("#888060", 0.4, 0.7)} />
       {/* Hips */}
       <mesh geometry={bg(0.38, 0.16, 0.21)} position={[0, -0.175, 0]} userData={{ zombieId: id, isHead: false }} material={sm(isScreamer ? '#d8d0c0' : pants, 0.95)} />
+
+      {isExploder && (
+        <>
+          {/* Swollen, bloated belly with glowing pustules (no userData on pustules: hidden on corpses) */}
+          <mesh geometry={bg(0.60, 0.50, 0.44)} position={[0, 0.06, 0.09]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.75)} />
+          <mesh geometry={bg(0.52, 0.40, 0.50)} position={[0, 0.10, 0.10]} rotation={[0, 0.6, 0]} userData={{ zombieId: id, isHead: false }} material={sm(vc.skinDark, 0.8)} />
+          <mesh geometry={bg(0.012, 0.36, 0.012)} position={[-0.08, 0.08, 0.335]} material={sm(colors.skinVein, 1)} />
+          <mesh geometry={bg(0.012, 0.30, 0.012)} position={[0.14, 0.06, 0.33]} rotation={[0, 0, 0.3]} material={sm(colors.skinVein, 1)} />
+          {[
+            [-0.15, 0.14, 0.34, 0.10], [0.12, 0.00, 0.35, 0.12], [0.02, 0.22, 0.32, 0.075], [-0.21, -0.05, 0.31, 0.085],
+            [0.23, 0.17, 0.30, 0.075], [-0.31, 0.12, 0.12, 0.09], [0.31, 0.02, 0.14, 0.10], [0.0, -0.08, 0.35, 0.07],
+          ].map(([px, py, pz, ps], i) => (
+            <mesh key={`pus${i}`} geometry={bg(ps, ps, ps * 0.7)} position={[px, py, pz]} material={sm('#ffb02e', 0.4, 0, '#ff7a00', 2.8)} />
+          ))}
+        </>
+      )}
+
+      {isArmored && (
+        <>
+          {/* Riot plates: chest, front plate, pauldrons, abdomen guard */}
+          <mesh geometry={bg(0.52, 0.42, 0.27)} position={[0, 0.285, 0]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />
+          <mesh geometry={bg(0.42, 0.30, 0.04)} position={[0, 0.30, 0.148]} userData={{ zombieId: id, isHead: false }} material={sm('#3d4f60', 0.4, 0.65)} />
+          <mesh geometry={bg(0.16, 0.10, 0.25)} position={[-0.285, 0.41, 0]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />
+          <mesh geometry={bg(0.16, 0.10, 0.25)} position={[0.285, 0.41, 0]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />
+          <mesh geometry={bg(0.36, 0.14, 0.23)} position={[0, 0.02, 0]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />
+          <mesh geometry={bg(0.12, 0.05, 0.04)} position={[0, 0.40, 0.17]} userData={{ zombieId: id, isHead: false }} material={sm('#d8a020', 0.5, 0.3, '#d8a020', 0.6)} />
+        </>
+      )}
+
+      {isSpitter && (
+        <>
+          {/* Glowing throat sac (pulses during the spit wind-up) + dorsal spines */}
+          <group ref={sacRef} position={[0, 0.47, 0.085]}>
+            <mesh geometry={bg(0.20, 0.20, 0.17)} userData={{ zombieId: id, isHead: false }} material={sm('#8fe02a', 0.45, 0, '#6aff1a', 1.9)} />
+          </group>
+          {[0.44, 0.30, 0.16].map((y, i) => (
+            <mesh key={`spn${i}`} geometry={bg(0.04, 0.12 - i * 0.02, 0.05)} position={[0, y, -0.14]} rotation={[-0.5, 0, 0]} material={sm('#3a4a1a', 0.8)} />
+          ))}
+        </>
+      )}
 
       {variant.ribs && (
         <>
@@ -556,6 +647,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
         ) : (
           <>
         <mesh geometry={bg(0.11, 0.32, 0.10)} position={[-0.077, -0.347, 0.300]} rotation={[-1.05, 0, -0.08]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
+        {isArmored && <mesh geometry={bg(0.14, 0.22, 0.13)} position={[-0.077, -0.347, 0.300]} rotation={[-1.05, 0, -0.08]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />}
         <mesh geometry={bg(0.007, 0.07, 0.005)} position={[-0.078, -0.403, 0.408]} rotation={[-1.05, 0, -0.05]} material={sm(skinVein, 1)} />
         <mesh geometry={bg(0.105, 0.105, 0.09)} position={[-0.082, -0.410, 0.462]} rotation={[-1.05, 0, -0.05]} userData={{ zombieId: id, isHead: false }} material={sm(skullBone, 0.85)} />
         <mesh geometry={bg(0.025, 0.07, 0.022)} position={[-0.097, -0.433, 0.510]} rotation={[-1.05, -0.15, -0.05]} material={sm(skullBone, 0.85)} />
@@ -582,6 +674,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
         ) : (
           <>
         <mesh geometry={bg(0.11, 0.32, 0.10)} position={[0.074, -0.325, 0.285]} rotation={[-0.95, 0, 0.08]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
+        {isArmored && <mesh geometry={bg(0.14, 0.22, 0.13)} position={[0.074, -0.325, 0.285]} rotation={[-0.95, 0, 0.08]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />}
         <mesh geometry={bg(0.007, 0.07, 0.005)} position={[0.075, -0.387, 0.390]} rotation={[-0.95, 0, 0.05]} material={sm(skinVein, 1)} />
         <mesh geometry={bg(0.105, 0.105, 0.09)} position={[0.080, -0.383, 0.435]} rotation={[-0.95, 0, 0.05]} userData={{ zombieId: id, isHead: false }} material={sm(skullBone, 0.85)} />
         <mesh geometry={bg(0.025, 0.07, 0.022)} position={[0.096, -0.405, 0.483]} rotation={[-0.95, -0.15, 0.04]} material={sm(skullBone, 0.85)} />
@@ -602,6 +695,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
         <>
       {/* ══ LEFT LEG — pivot at hip ══ */}
       <group ref={leftLegRef} position={[-0.12, -0.175, 0]}>
+        {isArmored && <mesh geometry={bg(0.18, 0.13, 0.20)} position={[0, -0.37, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />}
         <mesh geometry={bg(0.16, 0.36, 0.17)} position={[0, -0.200, 0]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
         <mesh geometry={bg(0.08, 0.07, 0.04)} position={[0, -0.380, 0.09]} userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
         <mesh geometry={bg(0.14, 0.30, 0.15)} position={[0, -0.495, 0.01]} userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
@@ -612,6 +706,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
 
       {/* ══ RIGHT LEG — pivot at hip ══ */}
       <group ref={rightLegRef} position={[0.12, -0.175, 0]}>
+        {isArmored && <mesh geometry={bg(0.18, 0.13, 0.20)} position={[0, -0.37, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />}
         <mesh geometry={bg(0.16, 0.36, 0.17)} position={[0, -0.200, 0]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
         <mesh geometry={bg(0.08, 0.07, 0.04)} position={[0, -0.380, 0.09]} userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
         <mesh geometry={bg(0.14, 0.30, 0.15)} position={[0, -0.495, 0.01]} userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
@@ -654,6 +749,14 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
   const [holes, setHoles] = useState([])
 
+  // Wave 3 special archetypes
+  const isExploder = type === 'exploder'
+  const isSpitter = type === 'spitter'
+  const noPlankAttack = type === 'runner' || type === 'screamer' || isSpitter
+  const exRef = useRef({ fuse: -1, total: 1, done: false, flashT: 0, flashOn: false })
+  const spRef = useRef({ state: 0, t: 0, cd: 1.5 + Math.random() * 2, post: -1, postT: 0, los: false, hold: false, gx: 0, gz: 0 })
+  const sacRef = useRef()   // spitter throat sac
+
   // Pathfinding state
   const pathRef         = useRef([])
   const wpIdxRef        = useRef(0)
@@ -665,7 +768,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const zombieWallsRef  = useRef(ACTIVE_MAP.wallSegments())
   const stepTimerRef    = useRef(Math.random() * 0.6)
   const groanTimerRef   = useRef(3 + Math.random() * 8)   // idle groan countdown (positional, globally rate-limited in sounds.js)
-  const groanPitchRef   = useRef((type === 'brute' ? 0.75 : type === 'runner' ? 1.15 : type === 'screamer' ? 1.3 : 0.9 + Math.random() * 0.2))
+  const groanPitchRef   = useRef((type === 'brute' ? 0.75 : type === 'runner' ? 1.15 : type === 'screamer' ? 1.3 : type === 'armored' ? 0.7 : type === 'exploder' ? 0.8 : 0.9 + Math.random() * 0.2))
   const isAggressorRef  = useRef(false)
   const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
   // Deterministic look from the id (same on host and guest, no net data)
@@ -719,7 +822,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   useEffect(() => {
     if (hidden) return
     if (type === 'screamer') playScreamerScreech(startX, 1.4, startZ)
-    const plankAggroChance = type === 'runner' || type === 'screamer'
+    const plankAggroChance = type === 'runner' || type === 'screamer' || type === 'spitter'
       ? 0
       : type === 'brute'
         ? 0.72
@@ -762,7 +865,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       return (head || weapon === 'deagle') ? 2 : 1
     }
 
-    const heavy = type === 'brute' || archetype.boss
+    const heavy = type === 'brute' || type === 'armored' || archetype.boss
     const big = weapon === 'deagle' || (weapon === 'shotgun' && dist < 5)
     if (heavy && !big) return 0   // small hits on brutes/bosses only flash
 
@@ -784,6 +887,134 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       f.staggerCd = STAGGER_COOLDOWN
     }
     return 0
+  }
+
+  // ── Wave 3: Exploder ─────────────────────────────────────────────────────
+  // startFuse: hiss + swell + flash; the burst fires when the fuse runs out. Armed either
+  // by reaching a player / window (PRIME_TIME) or by dying (DEATH_FUSE, plays over the fall).
+  function startFuse(total, pos) {
+    const ex = exRef.current
+    if (ex.done || ex.fuse >= 0) return
+    ex.fuse = ex.total = total
+    playExploderHiss(pos.x, 1.2, pos.z)
+  }
+  function exploderTick(delta, pos) {
+    const ex = exRef.current
+    if (ex.done || ex.fuse < 0) return
+    ex.fuse -= delta
+    const k = Math.min(1, 1 - ex.fuse / ex.total)
+    if (bodyRef.current) bodyRef.current.scale.setScalar(1 + 0.5 * k * k + Math.sin(performance.now() * 0.05) * 0.025 * k)
+    ex.flashT -= delta
+    if (ex.flashT <= 0) {
+      ex.flashOn = !ex.flashOn
+      ex.flashT = 0.13 - 0.08 * k
+      if (ref.current) setFlash(ref.current, ex.flashOn)
+    }
+    if (ex.fuse <= 0) explode(pos)
+  }
+  // Every client plays the VFX and damages its OWN player (same model as melee). Only the
+  // host applies world damage (other zombies, planks, the exploder's own death); guests
+  // receive it through the usual zombie_update / hit_plank sync.
+  function explode(pos) {
+    const ex = exRef.current
+    ex.done = true; ex.fuse = -1
+    if (ref.current) setFlash(ref.current, false)
+    if (bodyRef.current) bodyRef.current.scale.setScalar(1)
+    const x = pos.x, z = pos.z
+    SpecialFX.flash(x, 0.9, z)
+    SpecialFX.scorch(x, z)
+    _burstPt.x = x; _burstPt.z = z
+    spawnImpact(_burstPt, _burstUp, 'burst')
+    playExplosion(x, 1, z)
+    const pd = burstPlayerDamage(Math.hypot(camera.position.x - x, camera.position.z - z))
+    if (pd > 0) hitPlayer(pd, x, z)
+
+    const st = useGameStore.getState()
+    if (st.mpRole && st.mpRole !== 'host') return
+    const me = st.zombies.find((q) => q.id === id)
+    if (me && !me.dying) st.hitZombieBurst(id, 999)
+    for (const [oid, g] of Object.entries(_zombieGroups)) {
+      const n = Number(oid)
+      if (n === id || !g) continue
+      const dx = g.position.x - x, dz = g.position.z - z
+      const d = Math.hypot(dx, dz)
+      const dmg = burstZombieDamage(d)
+      if (dmg <= 0) continue
+      const other = useGameStore.getState().zombies.find((q) => q.id === n)
+      if (!other || other.dying) continue
+      useGameStore.getState().hitZombieBurst(n, dmg)
+      Zombie.hitReact(n, dx / (d || 1), 0.15, dz / (d || 1), false, 'shotgun', d)   // after the store update, so a kill gets the blast-back fall
+    }
+    const planks = useGameStore.getState().windowPlanks
+    for (const w of WINDOW_DEFS) {
+      const hits = burstPlankHits(Math.hypot(w.winX - x, w.winZ - z))
+      if (hits <= 0) continue
+      useGameStore.getState().breakWindow(w.id)
+      if ((planks[w.id] ?? 0) === 0) continue
+      for (let i = 0; i < hits; i++) {
+        useGameStore.getState().hitPlank(w.id)
+        netEvent('hit_plank', { windowId: w.id })
+      }
+    }
+  }
+
+  // ── Wave 3: Spitter ──────────────────────────────────────────────────────
+  // Decides where to stand: hold still while the target is visible and in range; otherwise,
+  // when outside, walk to the nearest window with a clear line to the player (spit through it).
+  function spitterThink(delta, pos, px, pz) {
+    const sp = spRef.current
+    const dist = Math.hypot(px - pos.x, pz - pos.z)
+    sp.postT -= delta
+    if (sp.postT <= 0) {
+      sp.postT = 0.4
+      sp.los = dist <= SPITTER.RANGE && spitLOS(pos.x, pos.z, px, pz)
+      sp.post = -1
+      if (!sp.los && !(Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD)) {
+        let best = Infinity
+        for (const w of WINDOW_DEFS) {
+          const d = (w.ax - pos.x) ** 2 + (w.az - pos.z) ** 2
+          if (d < best && Math.hypot(w.ax - px, w.az - pz) <= SPITTER.RANGE && spitLOS(w.ax, w.az, px, pz)) { best = d; sp.post = w.id }
+        }
+      }
+    }
+    sp.hold = sp.los && dist <= SPITTER.RANGE
+    if (sp.post >= 0 && !sp.hold) { sp.gx = WINDOW_DEFS[sp.post].ax; sp.gz = WINDOW_DEFS[sp.post].az } else { sp.gx = px; sp.gz = pz }
+  }
+  // Wind-up pose: head rears back, throat sac swells (k 0..1)
+  function spitterPose(k) {
+    if (headRef.current && fxRef.current.head <= 0) headRef.current.rotation.x = -0.75 * k
+    if (sacRef.current) {
+      const s = 1 + 1.1 * k + Math.sin(performance.now() * 0.03) * 0.12 * k
+      sacRef.current.scale.set(s, s, s)
+    }
+  }
+  function spitterCancel() {
+    const sp = spRef.current
+    if (sp.state !== 1) return
+    sp.state = 0
+    sp.cd = 1.5          // getting hit mid-wind-up interrupts the spit
+    spitterPose(0)
+  }
+  function spitterTick(delta, pos, px, pz) {
+    const sp = spRef.current
+    if (sp.state === 0) {
+      sp.cd -= delta
+      if (sp.cd <= 0 && sp.hold) { sp.state = 1; sp.t = SPITTER.WINDUP; playSpitWindup(pos.x, 1.3, pos.z) }
+      return
+    }
+    sp.t -= delta
+    spitterPose(1 - Math.max(0, sp.t) / SPITTER.WINDUP)
+    if (sp.t <= 0) {
+      sp.state = 0
+      sp.cd = SPITTER.COOLDOWN_MIN + Math.random() * (SPITTER.COOLDOWN_MAX - SPITTER.COOLDOWN_MIN)
+      spitterPose(0)
+      if (spitLOS(pos.x, pos.z, px, pz)) {
+        const dx = px - pos.x, dz = pz - pos.z
+        const d = Math.hypot(dx, dz) || 1
+        SpecialFX.spit(pos.x + (dx / d) * 0.4, 1.45, pos.z + (dz / d) * 0.4, px, pz, globFlightTime(d))
+        playSpitLaunch(pos.x, 1.4, pos.z)
+      }
+    }
   }
 
   function followPath(pos, fallbackX, fallbackZ) {
@@ -858,6 +1089,10 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     // blow (fx.kill, recorded by onHit): 0 default fall, 1 blast back along the
     // shot (shotgun / deagle), 2 knife slump in place.
     if (dying) {
+      if (isExploder && !exRef.current.done) {
+        if (exRef.current.fuse < 0) startFuse(EXPLODER.DEATH_FUSE, ref.current.position)
+        exploderTick(delta, ref.current.position)
+      }
       if (!removedRef.current) {
         const baseY = (ZOMBIE_HEIGHT * (archetype.heightScale ?? 1)) / 2
         if (!deathStartQuatRef.current) {
@@ -951,8 +1186,15 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     if (phase !== 'playing') return
     const pos = ref.current.position
 
+    // Exploder fuse keeps burning through stagger
+    if (isExploder) exploderTick(delta, pos)
+
     // Hit stagger: brief movement/attack pause (lean pose is applied above)
-    if (fx.stagger > 0) { fx.stagger -= delta; return }
+    if (fx.stagger > 0) {
+      fx.stagger -= delta
+      if (isSpitter) spitterCancel()
+      return
+    }
 
     // First zombie to physically reach a window's opening shatters its glass —
     // covers both boarded (attack_window mode) and unboarded (walked straight
@@ -992,6 +1234,14 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
     const planks = windowPlanksRef.current
 
+    // Spitter: where to stand (gx, gz) and whether to hold + spit; everyone else chases the player
+    let gx = px, gz = pz
+    if (isSpitter) {
+      spitterThink(delta, pos, px, pz)
+      spitterTick(delta, pos, px, pz)
+      gx = spRef.current.gx; gz = spRef.current.gz
+    }
+
     // Revert attack mode if the target plank was destroyed or zombie entered the cabin
     if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
       const insideCabin = Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD
@@ -1015,7 +1265,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0)
 
       // Consider switching to attack_window mode
-      if (type !== 'runner' && type !== 'screamer' && modeRef.current !== 'attack_window' && boardedWins.length > 0) {
+      if (!noPlankAttack && modeRef.current !== 'attack_window' && boardedWins.length > 0) {
         let nearWin = boardedWins[0], nearDist = Infinity
         for (const win of boardedWins) {
           const dx = pos.x - win.ax, dz = pos.z - win.az
@@ -1046,11 +1296,11 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           wpIdxRef.current = 1
         }
       } else {
-        const newPath = findPath(pos.x, pos.z, px, pz)
+        const newPath = findPath(pos.x, pos.z, gx, gz)
         if (newPath && newPath.length > 1) {
           pathRef.current = newPath
           wpIdxRef.current = 1
-        } else if (type !== 'runner' && type !== 'screamer' && !isBlocked(px, pz)) {
+        } else if (!noPlankAttack && !isBlocked(px, pz)) {
           // Player unreachable via open path — force nearest window attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
@@ -1080,7 +1330,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       if (dist <= ATTACK_RANGE) {
         isAttackingRef.current = true
         attackTimerRef.current -= delta
-        if (attackTimerRef.current <= 0) {
+        if (isExploder) {
+          startFuse(EXPLODER.PRIME_TIME, pos)   // bursts at the window instead of clawing the planks
+        } else if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
           // Only host applies plank damage (prevents double-damage in multiplayer)
           if (!useGameStore.getState().mpRole || useGameStore.getState().mpRole === 'host') {
@@ -1104,7 +1356,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       // which may be the remote player. Damage is fully client-local, mirroring
       // how the old kill-distance check only ever tested against lx,lz.
       const ldx = lx - pos.x, ldz = lz - pos.z
-      if (ldx * ldx + ldz * ldz <= PLAYER_ATTACK_RANGE * PLAYER_ATTACK_RANGE) {
+      if (!isExploder && ldx * ldx + ldz * ldz <= PLAYER_ATTACK_RANGE * PLAYER_ATTACK_RANGE) {
         modeRef.current = 'attack_player'
         ref.current.lookAt(lx, pos.y, lz)
         isAttackingRef.current = true
@@ -1116,19 +1368,30 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       } else {
         if (modeRef.current === 'attack_player') modeRef.current = 'chase'
         isAttackingRef.current = false
+        if (isExploder) {
+          // reaching either player arms the fuse
+          let nd2 = ldx * ldx + ldz * ldz
+          if (rp) nd2 = Math.min(nd2, (pos.x - rp.x) ** 2 + (pos.z - rp.z) ** 2)
+          if (nd2 <= EXPLODER.PRIME_RANGE * EXPLODER.PRIME_RANGE) startFuse(EXPLODER.PRIME_TIME, pos)
+        }
         ref.current.lookAt(px, pos.y, pz)
-        if (hasDirectPath(pos.x, pos.z, px, pz, zombieWallsRef.current)) {
-          const dx = px - pos.x, dz = pz - pos.z
+        if (hasDirectPath(pos.x, pos.z, gx, gz, zombieWallsRef.current)) {
+          const dx = gx - pos.x, dz = gz - pos.z
           const dist = Math.sqrt(dx * dx + dz * dz)
           if (dist > 0.01) moveDir = _moveDir.set(dx / dist, 0, dz / dist)
         } else {
-          moveDir = followPath(pos, px, pz)
+          moveDir = followPath(pos, gx, gz)
         }
       }
     }
 
+    // Exploder plants its feet while the fuse burns; spitter holds still to hold the shot
+    if (isExploder && exRef.current.fuse >= 0) moveDir = null
+    if (isSpitter && (spRef.current.hold || spRef.current.state === 1)) moveDir = null
+
     if (moveDir) {
       let speedMultiplier = archetype.speedMultiplier
+      if (isExploder && (px - pos.x) ** 2 + (pz - pos.z) ** 2 <= EXPLODER.RUSH_RANGE * EXPLODER.RUSH_RANGE) speedMultiplier *= EXPLODER.RUSH_MULT
       if (type !== 'screamer') {
         const zombies = useGameStore.getState().zombies
         for (const z of zombies) {
@@ -1215,6 +1478,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           leftLegRef={leftLegRef}
           rightLegRef={rightLegRef}
           headRef={headRef}
+          sacRef={sacRef}
           holes={holes}
         />
       </group>

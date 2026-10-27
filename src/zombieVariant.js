@@ -47,6 +47,10 @@ export const SHIRTS = {
   screamer: ['#21172b'],               // hidden under the dress
   crawler:  ['#171f17', '#3c4e2c', '#2e4660', '#52382a'],
   boss:     ['#201010'],
+  // Wave 3 specials: shirts are mostly covered by gear / swelling, so only a few shades
+  exploder: ['#4a3a22', '#3c4a2a', '#5a3a2a'],
+  armored:  ['#1d2128', '#2a2e22', '#2a2230'],   // under the plates
+  spitter:  ['#2b3a22', '#3a3a24', '#2a2f38'],
 }
 export const PANTS = ['#18180f', '#2a3c5c', '#4a4228', '#3a2e2e']
 // Sickly skin tones as a tint over the archetype's own skin colour, so a
@@ -71,6 +75,9 @@ const RANGE = {
   screamer: { h: 0.04, w: 0.04, dmg: 0.5 },
   crawler:  { h: 0.08, w: 0.07, dmg: 1 },
   boss:     { h: 0.02, w: 0.02, dmg: 0 },
+  exploder: { h: 0.05, w: 0.06, dmg: 0.4 },   // bloated silhouette stays readable
+  armored:  { h: 0.04, w: 0.03, dmg: 0.2 },   // gear hides most damage variants
+  spitter:  { h: 0.06, w: 0.05, dmg: 0.6 },
 }
 const P_ARM = 0.12, P_JAW = 0.10, P_RIBS = 0.14, P_LIMP = 0.18
 
@@ -92,7 +99,7 @@ export function getZombieVariant(type, seed) {
   const d = R.dmg
   const noArm = armRoll < P_ARM * d ? (armSide < 0.5 ? -1 : 1) : 0         // -1 = left, 1 = right
   const noJaw = jawRoll < P_JAW * d
-  const ribs = type !== 'screamer' && ribsRoll < P_RIBS * d                 // dress covers the chest
+  const ribs = type !== 'screamer' && type !== 'exploder' && type !== 'armored' && ribsRoll < P_RIBS * d                 // dress covers the chest
   const limpOn = type !== 'crawler' && limpRoll < P_LIMP * d
   const limp = limpOn ? (limpSide < 0.5 ? -1 : 1) : 0
   const bad = 0.30 + limpAmt * 0.25                                         // bad leg keeps 30-55% swing

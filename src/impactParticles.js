@@ -40,6 +40,9 @@ const pal = (list) => list.map((c) => new THREE.Color(c))   // pre-parsed: no st
 const SPARK = pal(['#fff2a0', '#ffd24a', '#ff9a2a'])
 const DUST = pal(['#8a8478', '#6e695f', '#a39d90'])
 const WOOD = pal(['#b08850', '#8a6334', '#c9a46a', '#5c3a1a'])
+const METAL = pal(['#ffffff', '#cfe8ff', '#ffe9a8'])                 // armour ricochet
+const GORE = pal(['#7a9a1c', '#d9791c', '#a8b04a', '#4a6a14'])       // exploder burst
+const ACID = pal(['#9aff3a', '#6fd01c', '#c8ff70'])                  // spitter splash
 
 function emit(px, py, pz, vx, vy, vz, sx, sy, sz, ttl, g, color) {
   const i = next
@@ -73,7 +76,7 @@ function burst(p, n, count, speed, spread, sMin, sMax, ttl, g, palette, elongate
   }
 }
 
-// kind: 'wall' | 'plank' | 'floor' | 'break'. intensity scales particle count (shotgun pellets use less).
+// kind: 'wall' | 'plank' | 'floor' | 'break' | 'metal' | 'burst' | 'acid'. intensity scales particle count (shotgun pellets use less).
 export function spawnImpact(point, normal, kind = 'wall', intensity = 1) {
   const n = (c) => Math.max(1, Math.round(c * intensity))
   if (kind === 'plank') {
@@ -82,6 +85,15 @@ export function spawnImpact(point, normal, kind = 'wall', intensity = 1) {
   } else if (kind === 'floor') {
     burst(point, normal, n(4), 2.2, 0.7, 0.045, 0.08, 0.45, 8, DUST, false)
     burst(point, normal, n(2), 3.5, 0.6, 0.025, 0.04, 0.2, 4, SPARK, false)
+  } else if (kind === 'metal') {
+    // bright sparks thrown back at the shooter (normal = back toward the muzzle)
+    burst(point, normal, n(9), 7, 0.75, 0.02, 0.04, 0.3, 7, METAL, true)
+    burst(point, normal, n(2), 3, 0.9, 0.03, 0.05, 0.25, 4, SPARK, false)
+  } else if (kind === 'burst') {
+    burst(point, normal, n(30), 7, 1.5, 0.05, 0.13, 0.95, 9, GORE, false)
+    burst(point, normal, n(12), 5, 1.2, 0.025, 0.05, 0.5, 5, SPARK, true)
+  } else if (kind === 'acid') {
+    burst(point, normal, n(10), 3.2, 1.0, 0.03, 0.07, 0.6, 8, ACID, false)
   } else if (kind === 'break') {
     burst(point, normal, n(16), 4.0, 1.1, 0.045, 0.11, 0.9, 9, WOOD, true)
     burst(point, normal, n(5), 2.0, 1.0, 0.04, 0.07, 0.6, 7, DUST, false)
