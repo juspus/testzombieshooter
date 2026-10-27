@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { modFx } from '../modifiers'
+import { getBrightness, onBrightness } from '../brightness'
 
 // Lo-fi horror final pass. The whole scene (world + viewmodel, which Gun/Knife render
 // themselves at useFrame priority 1) is drawn into a small linear render target, then
@@ -10,7 +11,7 @@ import { modFx } from '../modifiers'
 // vignette, animated grain, Bayer 4x4 ordered dither and per-channel palette quantization.
 //
 // Tuning constants (all in this block):
-export const LOFI_HEIGHT = 480      // internal render height in px (width follows aspect)
+export const LOFI_HEIGHT = 400      // internal render height in px (width follows aspect)
 export const LOFI_LEVELS = 64       // palette levels per channel
 const GRAIN = 0.02                 // film grain amplitude (display space)
 const GRAIN_FPS = 14                // grain refresh rate
@@ -148,7 +149,12 @@ export default function LofiPass({ exposure = 1 }) {
     return { rt, geo, mat, present }
   }, [gl])
 
-  useEffect(() => { api.mat.uniforms.uExposure.value = exposure }, [api, exposure])
+  // Map exposure x the player's brightness setting (src/brightness.js)
+  useEffect(() => {
+    const apply = (b) => { api.mat.uniforms.uExposure.value = exposure * b }
+    apply(getBrightness())
+    return onBrightness(apply)
+  }, [api, exposure])
 
   useEffect(() => {
     _api = api

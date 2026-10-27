@@ -14,6 +14,7 @@ import { MODIFIERS, MOD_BONUS } from '../modifiers'
 import { DailyEntry, LeaderboardTabs } from './DailyPanels'
 import { writeLocalDaily } from '../daily'
 import StartPicker from './StartPicker'
+import BrightnessSlider from './BrightnessSlider'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -521,6 +522,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
           </div>
           <ChallengeTeaser onClick={() => setView('challenges')} />
           <ReduceMotionToggle />
+          <BrightnessSlider />
         </div>
       )}
 
