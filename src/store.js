@@ -24,6 +24,9 @@ import {
 } from './powerups'
 import { withLinksOpened, doorBuyStatus, allDoorsOpen, openRoomSet } from './doors'
 import { playDoorOpen } from './sounds'
+import { GRENADE, restockGrenades, canBuyGrenade } from './grenades'
+import { runRandom, waveRandom, keyedRandom, startSeededRun, endSeededRun } from './rng'
+import { dailyDate, dailyAttemptUsed, writeLocalDaily, canStartDaily } from './daily'
 import { rollModifier, modifiedZombieCount, modifiedZombieHealth, modifierBonus, debugForcedModifier } from './modifiers'
 import * as WR from './weaponRules'
 import { emitGameEvent } from './gameEvents'
@@ -159,16 +162,20 @@ export function specialProbsForWave(wave) {
   return probs
 }
 
-export function buildTypeList(wave, count) {
+export function buildTypeList(wave, count, rng = Math.random) {
   const list = []
   if (wave >= 10) list.push('boss')
   const unlocked = zombieTypesForWave(wave).filter((t) => t !== 'boss')
   // Guarantee 1 of each unlocked archetype, shuffled into the front of the list
-  const guaranteed = [...unlocked].sort(() => Math.random() - 0.5)
+  const guaranteed = [...unlocked]
+  for (let i = guaranteed.length - 1; i > 0; i--) {   // Fisher-Yates (seedable, engine-independent)
+    const j = Math.floor(rng() * (i + 1))
+    ;[guaranteed[i], guaranteed[j]] = [guaranteed[j], guaranteed[i]]
+  }
   list.push(...guaranteed)
   const probs = specialProbsForWave(wave)
   while (list.length < count) {
-    const r = Math.random()
+    const r = rng()
     let cumulative = 0
     let chosen = 'walker'
     for (const [type, prob] of probs) {
@@ -354,7 +361,34 @@ export const useGameStore = create((set, get) => ({
     set({ instaKillOn: false, doubleMoneyOn: false, killsSinceDrop: 0, lastDropType: null, powerupBannerType: null })
   },
 
+  // ── Wave 3 "Grenades" ────────────────────────────────────────────────────────
+  // Inventory only (carry/restock rules live in grenades.js); the throw sim and blast are
+  // in components/Grenades.jsx. Per-client state like ammo: +2 each wave (nextWave, which
+  // guests also run), refilled by Max Ammo (_maxAmmoState), buyable in the Shop.
+  grenades: GRENADE.START,
+  grenadeCooking: false,   // true while G / the mobile button is held (HUD cook bar)
+  resetGrenades: () => set({ grenades: GRENADE.START, grenadeCooking: false }),
+  setGrenadeCooking: (v) => { if (get().grenadeCooking !== v) set({ grenadeCooking: v }) },
+  // Spend one grenade for a throw; false when empty.
+  useGrenade: () => {
+    const n = get().grenades
+    if (n <= 0) return false
+    set({ grenades: n - 1 })
+    return true
+  },
+  buyGrenade: () => {
+    const { grenades, money } = get()
+    if (!canBuyGrenade(grenades, money)) return false
+    set({ grenades: grenades + 1, money: money - GRENADE.COST })
+    return true
+  },
+
   startGame: () => {
+    // Daily Run (see startDaily): consume the one-shot flag; any other start is a normal run.
+    const daily = _pendingDaily
+    _pendingDaily = null
+    if (daily) startSeededRun(daily.date)
+    else endSeededRun()
     // A run that never reached die() (e.g. a co-op guest whose 'die' event was
     // dropped, or a restart from intermission) still counts toward lifetime stats.
     const prevRun = get()
@@ -417,12 +451,33 @@ export const useGameStore = create((set, get) => ({
       bodyArmor: null,
       hitEventId: 0,
       lastKillPending: false,
+      runMode: daily ? 'daily' : 'normal',
+      dailyDate: daily ? daily.date : null,
+      dailyRanked: daily ? daily.ranked : false,
     })
     cancelLastKillFx()
     get().resetPowerups()
     emitGameEvent('run_start')   // Wave 4 progression
+    get().resetGrenades()
 
     applyDebugOverrides(set, get)
+  },
+
+  // ── Daily seeded run ──
+  // Same spawns/drops/box rolls for everyone that UTC day. Solo only. The first daily of a
+  // UTC day is "ranked" (score submitted); later ones are practice. Returns false if blocked.
+  runMode: 'normal',     // 'normal' | 'daily'
+  dailyDate: null,       // 'YYYY-MM-DD' of the active daily
+  dailyRanked: false,
+  startDaily: (rankedOverride) => {
+    const st = get()
+    if (!canStartDaily({ mpRole: st.mpRole, mpConnected: st.mpConnected })) return false
+    const date = dailyDate()
+    const ranked = rankedOverride ?? !dailyAttemptUsed()
+    if (ranked) writeLocalDaily({})   // burn the attempt at run start so quitting doesn't refund it
+    _pendingDaily = { date, ranked }
+    get().startGame()
+    return true
   },
 
   // forcedMod: co-op guest passes the host's roll (null = none); undefined = roll here.
@@ -430,7 +485,7 @@ export const useGameStore = create((set, get) => ({
     const { wave: prevWave, windowPlanks, openDoors, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
     const wave = prevWave + 1
     const waveModifier = forcedMod !== undefined ? forcedMod
-      : get().mpRole === 'guest' ? null : rollModifier(wave, get().waveModifier)
+      : get().mpRole === 'guest' ? null : rollModifier(wave, get().waveModifier, waveRandom('mod', wave))
     buildGrid(allWallSegments(windowPlanks, openDoors))
     const walls = playerCollisionWalls(openDoors)
     set({
@@ -442,6 +497,7 @@ export const useGameStore = create((set, get) => ({
       waveModifier,
       plankHits: {},
       waveKills: 0,
+      grenades: restockGrenades(get().grenades),   // Wave 3 grenades: +2 per wave, max 4
       intermissionLeft: intermissionForWave(wave),
       zombies: [],
       pendingSpawns: [],
@@ -488,7 +544,7 @@ export const useGameStore = create((set, get) => ({
     applyZombieDamage(get, set, id, (isHeadshot ? 3 : 1) * mult, source, isHeadshot, weapon, dist),
 
   // Exploder blast (host-side): area damage to another zombie, or the exploder itself (999).
-  hitZombieBurst: (id, damage) => applyZombieDamage(get, set, id, damage, 'burst', false),
+  hitZombieBurst: (id, damage, source = 'burst') => applyZombieDamage(get, set, id, damage, source, false),   // source 'grenade' keeps grenade kills out of Exploder-burst stats
 
   // Fractional damage-over-time hit (flamethrower burn tick)
   hitZombieFlame: (id, damage) => applyZombieDamage(get, set, id, damage, 'flame', false),
@@ -711,6 +767,7 @@ export const useGameStore = create((set, get) => ({
     if (itemId === 'deagle')  return buyWeapon('deagle',  DEAGLE_COST, DEAGLE_CLIP)
     if (itemId === 'shotgun') return buyWeapon('shotgun', SHOTGUN_COST, SHOTGUN_CLIP)
     if (itemId === 'flamethrower') return buyWeapon('flamethrower', FLAMETHROWER_COST, 0, FLAMETHROWER_START_AMMO)
+    if (itemId === 'grenade') return get().buyGrenade()
     if (itemId === 'ammo_pack') {
       if (weapon === 'flamethrower') {
         if (money < FLAMETHROWER_AMMO_PACK_COST) return false
@@ -809,7 +866,7 @@ export const useGameStore = create((set, get) => ({
 
   // Host/solo: roll a paid use for `payer`. Returns the outcome or null if the box is busy.
   // Does NOT charge (buyBox / the guest's ack do). `held` = weapons the payer carries (re-rolled away).
-  boxRoll: (payer, held = [], rng = Math.random) => {
+  boxRoll: (payer, held = [], rng = runRandom('box')) => {
     const { box } = get()
     if (box.phase !== 'idle') return null
     const o = WR.boxRollOutcome(box, rng, held)
@@ -817,7 +874,7 @@ export const useGameStore = create((set, get) => ({
     return o
   },
   // Local purchase (solo / host). Teddy rolls are free (refunded).
-  buyBox: (rng = Math.random) => {
+  buyBox: (rng = runRandom('box')) => {
     const { money, ownedWeapons, box } = get()
     if (box.phase !== 'idle' || money < WR.BOX_COST) return null
     const o = get().boxRoll('host', ownedWeapons, rng)
@@ -843,7 +900,7 @@ export const useGameStore = create((set, get) => ({
     return null
   },
   // After the bear: relocate to another OPEN room and reset the use counter (host/solo).
-  moveBox: (rng = Math.random) => {
+  moveBox: (rng = runRandom('box')) => {
     const { box, openDoors } = get()
     const anchors = ACTIVE_MAP.ROOM_ANCHORS ?? {}
     const room = WR.pickBoxRoom(openRoomSet(DOOR_DEFS, openDoors), box.room, anchors, rng)
@@ -1153,6 +1210,7 @@ export function _maxAmmoState(st) {
     reserveBullets: Math.max(st.reserveBullets, full(st.weapon)),
     savedClips,
     savedReserves,
+    grenades: GRENADE.MAX,   // Max Ammo also refills grenades
   }
 }
 
@@ -1179,7 +1237,7 @@ function _dropPoint(get, x, z) {
 function maybeDropPowerup(get, set, zombie) {
   if (get().phase !== 'playing') return
   const count = get().killsSinceDrop + 1
-  const r = rollPowerupDrop(count, get().lastDropType)
+  const r = rollPowerupDrop(count, get().lastDropType, runRandom('drop'))
   if (!r.drop) { set({ killsSinceDrop: count }); return }
   set({ killsSinceDrop: 0, lastDropType: r.type })
   const zp = getZombieWorldPos(zombie.id) ?? zombie
@@ -1216,6 +1274,7 @@ function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills,
   }
 }
 
+let _pendingDaily = null   // set by startDaily, consumed by startGame
 const SPAWN_EDGE_OFFSET = 0.9
 const SPAWN_TANGENT_SPREAD = 4.0
 
@@ -1231,13 +1290,14 @@ function getSpawnBasis(edge) {
 
 export function spawnZombies(wave, startId, clusters = SPAWN_CLUSTERS, modifier = null) {
   const count = modifiedZombieCount(zombiesForWave(wave), modifier)
-  const typeList = buildTypeList(wave, count)
+  const rng = waveRandom('spawn', wave)   // per-wave stream: seeded in Daily Run, Math.random otherwise
+  const typeList = buildTypeList(wave, count, rng)
   const zombies = []
   for (let i = 0; i < count; i++) {
     const cluster = clusters[i % clusters.length]
     const basis = getSpawnBasis(cluster.edge)
-    const tangentJitter = (Math.random() - 0.5) * SPAWN_TANGENT_SPREAD
-    const inwardJitter = Math.random() * 1.3
+    const tangentJitter = (rng() - 0.5) * SPAWN_TANGENT_SPREAD
+    const inwardJitter = rng() * 1.3
     const type = typeList[i]
     const archetype = getZombieArchetype(type)
     const spawnOffset = SPAWN_EDGE_OFFSET + inwardJitter
@@ -1262,7 +1322,7 @@ if (typeof window !== 'undefined' && import.meta.env.VITE_VERCEL_ENV !== 'produc
 
 // ── Wave 3 machines: fresh per-run state ─────────────────────────────────────
 function freshBox() {
-  return { room: ACTIVE_MAP.ROOM_ANCHORS?.[WR.BOX_START_ROOM] ? WR.BOX_START_ROOM : 'main', uses: 0, maxUses: WR.rollBoxUses(), phase: 'idle', result: null, payer: null, at: 0 }
+  return { room: ACTIVE_MAP.ROOM_ANCHORS?.[WR.BOX_START_ROOM] ? WR.BOX_START_ROOM : 'main', uses: 0, maxUses: WR.rollBoxUses(runRandom('box')), phase: 'idle', result: null, payer: null, at: 0 }
 }
 function freshMachineState() {
   return { upgradedWeapons: {}, benchBusy: null, benchLeft: 0, nearMachine: null, machineProgress: 0, box: freshBox() }

@@ -1569,6 +1569,58 @@ export function playDoorDenied() {
   playNoise(ac, noiseBuffer(ac, 0.08), t, 0.06, 0.15, 'bandpass', 500, 2)
 }
 
+// ── Wave 3 grenades ──────────────────────────────────────────────────────────
+// Pin pull: metal ping + click
+export function playGrenadePin() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 2400, 1800, 0.07, 0.12)
+  playNoise(ac, noiseBuffer(ac, 0.05), t + 0.02, 0.04, 0.3, 'highpass', 3000, 1)
+}
+
+// Cook tick (urgency 0..1 raises the pitch as the fuse runs down)
+export function playGrenadeTick(urgency = 0) {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 1500 + urgency * 1100, 1300 + urgency * 900, 0.04, 0.16)
+}
+
+// Spoon-off throw whoosh
+export function playGrenadeThrow() {
+  const ac = ctx()
+  const t = ac.currentTime
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 0.22)
+  const f = ac.createBiquadFilter()
+  f.type = 'bandpass'; f.Q.value = 1.2
+  f.frequency.setValueAtTime(300, t)
+  f.frequency.exponentialRampToValueAtTime(1100, t + 0.16)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.22, t)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2)
+  src.connect(f); f.connect(g); g.connect(ac.destination)
+  src.start(t); src.stop(t + 0.22)
+}
+
+// Metallic clunk when the grenade lands / bounces (positional)
+export function playGrenadeBounce(x, y, z, strength = 1) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playTone(ac, t, 900, 420, 0.07, 0.16 * strength, dest)
+  playNoise(ac, noiseBuffer(ac, 0.05), t, 0.04, 0.18 * strength, 'bandpass', 2600, 2, dest)
+}
+
+// Frag detonation: bigger and lower than the exploder burst, with a crack and a rumble tail
+export function playGrenadeBoom(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 1.0), t, 0.9, 1.0, 'lowpass', 520, 0.8, dest)
+  playTone(ac, t, 95, 22, 0.8, 1.0, dest)
+  playNoise(ac, noiseBuffer(ac, 0.3), t, 0.2, 0.7, 'bandpass', 2600, 1.2, dest)
+  playNoise(ac, noiseBuffer(ac, 0.5), t + 0.12, 0.45, 0.35, 'lowpass', 300, 0.7, dest)
+}
 
 // ─── Wave 3: Mystery Box, Upgrade Bench, crossbow ───────────────────────────
 

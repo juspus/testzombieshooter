@@ -9,6 +9,8 @@ import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateCh
 import { getReduceMotion, setReduceMotion } from '../cameraFeel'
 import { LevelBadge, ChallengeTeaser, ChallengesPanel, AchievementsPanel, DeathXpPanel } from './ProgressPanels'
 import { MODIFIERS, MOD_BONUS } from '../modifiers'
+import { DailyEntry, LeaderboardTabs } from './DailyPanels'
+import { writeLocalDaily } from '../daily'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -486,6 +488,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
           <LevelBadge onClick={() => setView('achievements')} />
           <Btn onClick={startGame}>SOLO</Btn>
+          <DailyEntry Btn={Btn} />
           <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
           <div style={{ display: 'flex', gap: 12 }}>
             <Btn onClick={handleHost}>HOST GAME</Btn>
@@ -911,6 +914,21 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
   const [playerName, setPlayerName] = useState('')
   const [scoreStatus, setScoreStatus] = useState('idle') // 'idle' | 'submitting' | 'done' | 'error'
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  // Daily Run: only the first run of the UTC day is ranked; the rest are practice (never submitted).
+  const dailyMode = useGameStore((s) => s.runMode === 'daily')
+  const dailyRanked = useGameStore((s) => s.dailyRanked)
+  const dailyDateStr = useGameStore((s) => s.dailyDate)
+  const isPractice = (dailyMode && !dailyRanked) || scoreStatus === 'practice'
+  const sendScore = async (name) => {
+    if (dailyMode && !dailyRanked) { setScoreStatus('practice'); return }
+    try {
+      await submitScore({ name, wave, kills, mode: dailyMode ? 'daily' : 'normal', seedDate: dailyDateStr })
+      if (dailyMode) writeLocalDaily({ wave, kills, name: name.trim().slice(0, 24) })
+      setScoreStatus('done')
+    } catch (e) {
+      setScoreStatus(e?.message === 'daily_already_ranked' ? 'practice' : 'error')
+    }
+  }
 
   const runSummary = useMemo(() => ({
     wave,
@@ -938,20 +956,13 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
   useEffect(() => {
     if (!btnVisible || !username || scoreStatus !== 'idle') return
     setScoreStatus('submitting')
-    submitScore({ name: username, wave, kills })
-      .then(() => setScoreStatus('done'))
-      .catch(() => setScoreStatus('error'))
+    sendScore(username)
   }, [btnVisible, username])
 
   const handleSubmitScore = async () => {
     if (!playerName.trim() || scoreStatus !== 'idle') return
     setScoreStatus('submitting')
-    try {
-      await submitScore({ name: playerName, wave, kills })
-      setScoreStatus('done')
-    } catch {
-      setScoreStatus('error')
-    }
+    await sendScore(playerName)
   }
 
   const handleShare = async () => {
@@ -1062,7 +1073,11 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         gap: 'clamp(6px, 1.5vmin, 12px)',
       }}>
 
-        {username ? (
+        {isPractice ? (
+          <div style={{ color: '#aaa', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4, textAlign: 'center' }}>
+            PRACTICE RUN — ONLY YOUR FIRST DAILY EACH DAY IS RANKED
+          </div>
+        ) : username ? (
           scoreStatus === 'done' ? (
             <div style={{ color: '#88cc44', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
               SCORE SAVED ✓
@@ -1173,84 +1188,15 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         >
           {showLeaderboard ? '▲ Hide Leaderboard' : '▼ View Leaderboard'}
         </button>
-        {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} />}
+        {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
       </div>
       </div>
     </div>
   )
 }
 
-function LeaderboardPanel({ highlightWave, highlightKills } = {}) {
-  const [rows, setRows] = useState(null)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    setRows(null)
-    setError(false)
-    fetchLeaderboard().then(setRows).catch(() => setError(true))
-  }, [])
-
-  return (
-    <div style={{
-      width: 'min(420px, 92vw)',
-      background: 'rgba(0,0,0,0.6)',
-      border: '1px solid rgba(255,50,0,0.25)',
-      borderRadius: 6,
-      fontFamily: 'Courier New, monospace',
-      fontSize: 'clamp(9px, 1.9vmin, 13px)',
-      overflow: 'hidden',
-    }}>
-      <div style={{
-        padding: '8px 14px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
-        color: '#ff3300',
-        letterSpacing: 5,
-        fontSize: 'clamp(8px, 1.6vmin, 11px)',
-        fontWeight: 'bold',
-        textAlign: 'center',
-      }}>
-        LEADERBOARD
-      </div>
-      {error && (
-        <div style={{ color: '#ff6644', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Failed to load</div>
-      )}
-      {!error && !rows && (
-        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Loading…</div>
-      )}
-      {rows && rows.length === 0 && (
-        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>No scores yet</div>
-      )}
-      {rows && rows.length > 0 && (
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 60px 54px', gap: '0 10px', padding: '5px 14px', color: '#555', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <span>#</span><span>NAME</span><span style={{ textAlign: 'right' }}>WAVE</span><span style={{ textAlign: 'right' }}>KILLS</span>
-          </div>
-          {rows.map((row, i) => {
-            const isHighlight = highlightWave != null && row.wave === highlightWave && row.kills === highlightKills
-            return (
-              <div key={row.id} style={{
-                display: 'grid',
-                gridTemplateColumns: '28px 1fr 60px 54px',
-                gap: '0 10px',
-                padding: 'clamp(3px, 0.8vmin, 5px) 14px',
-                color: isHighlight ? '#ffe066' : i === 0 ? '#fff' : '#aaa',
-                background: isHighlight ? 'rgba(255,224,102,0.06)' : 'transparent',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
-              }}>
-                <span style={{ color: i === 0 ? '#ff3300' : '#555' }}>{i + 1}</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {row.is_supporter && <span title="Supporter" aria-label="Supporter" style={{ color: '#ffd166' }}>★ </span>}
-                  {row.name}
-                </span>
-                <span style={{ textAlign: 'right' }}>{row.wave}</span>
-                <span style={{ textAlign: 'right', color: '#888' }}>{row.kills}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+function LeaderboardPanel({ highlightWave, highlightKills, initialTab = 'all' } = {}) {
+  return <LeaderboardTabs highlightWave={highlightWave} highlightKills={highlightKills} initialTab={initialTab} />
 }
 
 // ── Locker (cosmetics) ──────────────────────────────────────────────────────

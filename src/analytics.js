@@ -142,6 +142,7 @@ export function initAnalytics() {
             runId = rid()
             runStartedAt = Date.now()
             track('game_start', { map: s.mapId, mp: s.mpRole ?? 'solo', run_id: runId })
+            if (s.runMode === 'daily') track('daily_start', { date: s.dailyDate, ranked: s.dailyRanked, run_id: runId })
           } else if (s.phase === 'wave_clear') {
             track('wave_clear', { wave: s.wave, kills: s.kills, run_id: runId })
           } else if (s.phase === 'dead') {
@@ -151,6 +152,12 @@ export function initAnalytics() {
               weapon: s.weapon, perks: Object.keys(perks).filter((k) => perks[k]),
               run_id: runId, secs: runStartedAt ? Math.round((Date.now() - runStartedAt) / 1000) : null,
             })
+            if (s.runMode === 'daily') {
+              track('daily_end', {
+                date: s.dailyDate, ranked: s.dailyRanked, wave: s.wave, kills: s.kills,
+                run_id: runId, secs: runStartedAt ? Math.round((Date.now() - runStartedAt) / 1000) : null,
+              })
+            }
           }
         }
         if (s.shopOpen && !prev.shopOpen) track('shop_open', { wave: s.wave })

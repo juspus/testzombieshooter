@@ -73,6 +73,10 @@ export default function MobileControls() {
   const interactBtnRef = useRef(null)
   const reloadBtnRef = useRef(null)
   const swapBtnRef = useRef(null)
+  // Wave 3 grenade button: own pointer (hold = cook, release = throw), never turns into a camera drag
+  const grenBtnRef = useRef(null)
+  const grenPointerRef = useRef(null)
+  const grenades = useGameStore((s) => s.grenades)
   const cycleBtnRef = useRef(null)
   const ownedCount = useGameStore((s) => s.ownedWeapons.length)
 
@@ -110,6 +114,7 @@ export default function MobileControls() {
       lookPointerRef.current = null
       shootPointerRef.current = null
       movePointerRef.current = null
+      grenPointerRef.current = null
       lookBtnRef.current = null
       lookDraggedRef.current = false
       holdFiredRef.current = false
@@ -208,6 +213,7 @@ export default function MobileControls() {
       [interactBtnRef, 'interact'],
       [reloadBtnRef, 'reload'],
       [swapBtnRef, 'swap'],
+      [grenBtnRef, 'grenade'],
       [cycleBtnRef, 'cycle'],
     ]) {
       const el = ref.current
@@ -243,6 +249,13 @@ export default function MobileControls() {
   const onLookStart = (e) => {
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
+
+    // Grenade button: dedicated finger, held = cooking
+    if (grenPointerRef.current === null && hitButton(e.clientX, e.clientY) === 'grenade') {
+      grenPointerRef.current = e.pointerId
+      mobileInput.grenadeHeld = true
+      return
+    }
 
     // Safety: if both slots are stuck from lost pointer events, reset and reclaim primary
     if (lookPointerRef.current !== null && shootPointerRef.current !== null) {
@@ -303,6 +316,7 @@ export default function MobileControls() {
 
   const onLookMove = (e) => {
     e.preventDefault()
+    if (e.pointerId === grenPointerRef.current) return
     if (e.pointerId === lookPointerRef.current) {
       e.preventDefault()
 
@@ -335,6 +349,12 @@ export default function MobileControls() {
   }
 
   const onLookEnd = (e) => {
+    if (e.pointerId === grenPointerRef.current) {
+      e.preventDefault()
+      grenPointerRef.current = null
+      mobileInput.grenadeHeld = false
+      return
+    }
     if (e.pointerId === shootPointerRef.current) {
       // Secondary shoot finger lifted
       e.preventDefault()
@@ -381,6 +401,11 @@ export default function MobileControls() {
   }
 
   const onLookCancel = (e) => {
+    if (e.pointerId === grenPointerRef.current) {
+      grenPointerRef.current = null
+      mobileInput.grenadeHeld = false
+      return
+    }
     if (e.pointerId === shootPointerRef.current) {
       shootPointerRef.current = null
       cancelShootHold()
@@ -447,6 +472,9 @@ export default function MobileControls() {
         <div style={styles.actionsRow}>
           <div ref={reloadBtnRef} style={{ ...styles.roundBtn, ...styles.reloadBtn }}>↻</div>
           <div ref={swapBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>{swapIcon}</div>
+          <div ref={grenBtnRef} style={{ ...styles.roundBtn, ...styles.grenBtn, ...(grenades <= 0 ? { opacity: 0.4 } : {}) }}>
+            💣<span style={styles.grenCount}>{grenades}</span>
+          </div>
           {ownedCount > 1 && <div ref={cycleBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>⇄</div>}
         </div>
         <div style={styles.actionsRow}>
@@ -573,6 +601,27 @@ const styles = {
     fontSize: 15,
     color: 'rgba(200,220,240,0.75)',
     background: 'rgba(8,12,22,0.55)',
+  },
+  grenBtn: {
+    position: 'relative',
+    width: 36,
+    height: 36,
+    fontSize: 15,
+    background: 'rgba(30,40,12,0.62)',
+    border: '1px solid rgba(150,190,70,0.55)',
+  },
+  grenCount: {
+    position: 'absolute',
+    right: -2,
+    bottom: -3,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
+    background: 'rgba(0,0,0,0.8)',
+    color: '#cfe88a',
+    fontSize: 10,
+    lineHeight: '14px',
+    textAlign: 'center',
   },
   swapBtn: {
     width: 36,

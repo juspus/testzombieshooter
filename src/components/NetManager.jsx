@@ -8,6 +8,7 @@ import { zombieHitFxFromNet } from '../hitFx'
 import { buildGrid } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
 import { addDrop, takeDrop } from '../powerups'
+import Grenades from './Grenades'
 import { BOX_COST } from '../weaponRules'
 import { withRemoteSource } from '../gameEvents'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
@@ -109,6 +110,10 @@ export default function NetManager() {
       applyRemoteEvent(event, data)
     })
 
+    // Frag grenade thrown by the partner: simulate it here too (it hurts our own player; the host
+    // alone applies zombie / plank damage). See Grenades.jsx.
+    onMessage('grenade_throw', (d) => Grenades.throw(d))
+
     onMessage('remote_sound', ({ sound, weapon, up, x, y, z }) => {
       if (sound === 'gunshot')  playRemoteGunshot(weapon, x, y, z, !!up)
       else if (sound === 'footstep') playRemoteFootstep(x, y, z)
@@ -158,6 +163,7 @@ export default function NetManager() {
       offMessage('game_event')
       offMessage('zombie_update')
       offMessage('remote_sound')
+      offMessage('grenade_throw')
       offMessage('powerup_spawn')
       offMessage('powerup_apply')
       offMessage('powerup_collect')

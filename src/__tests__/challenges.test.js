@@ -97,6 +97,14 @@ describe('progress', () => {
     expect(applyEvent([ch], s, { name: 'door_open', id: 'bedroom', wave: ch.params.w - 1 }, {})).toHaveLength(1)
   })
 
+  it('grenade challenges count grenade kills / multi-kills only', () => {
+    const ch = find('grenade_multi')
+    const s = { key: ch.key, progress: {}, done: {} }
+    expect(applyEvent([ch], s, { name: 'grenade', count: ch.params.n - 1 }, {})).toHaveLength(0)
+    expect(applyEvent([ch], s, { name: 'burst', count: 9 }, {})).toHaveLength(0)
+    expect(applyEvent([ch], s, { name: 'grenade', count: ch.params.n }, {})).toHaveLength(1)
+  })
+
   it('sliceFor resets when the period key changes; merge keeps the better progress', () => {
     const state = { daily: { key: '2026-10-27', progress: { d0: 3 }, done: {} } }
     expect(sliceFor(state, 'daily', '2026-10-27').progress.d0).toBe(3)

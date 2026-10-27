@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getAnonId, weekStartUTC } from './daily'
 
 // Anon key is intentionally public — safe for client-side use
 export const supabase = createClient(
@@ -45,23 +46,76 @@ export async function setUsername(username) {
   if (error) throw error
 }
 
-export async function submitScore({ name, wave, kills }) {
+
+/**
+ * Submit a score. Normal runs keep the original insert shape (works with or without the
+ * daily migration). Daily ranked runs add mode/seed_date/anon_id; if the migration isn't
+ * applied (missing column) we throw 'daily_unavailable' rather than pollute the all-time board.
+ * Throws Error('daily_already_ranked') when the unique index says today's attempt was used.
+ */
+export async function submitScore({ name, wave, kills, mode = 'normal', seedDate = null }) {
   const { data: { user } } = await supabase.auth.getUser()
-  const { error } = await supabase
-    .from('scores')
-    .insert({ name: name.trim().slice(0, 24), wave, kills, user_id: user?.id ?? null })
-  if (error) throw error
+  const row = { name: name.trim().slice(0, 24), wave, kills, user_id: user?.id ?? null }
+  if (mode === 'daily') {
+    row.mode = 'daily'
+    row.seed_date = seedDate
+    if (!user) row.anon_id = getAnonId()
+  }
+  const { error } = await supabase.from('scores').insert(row)
+  if (error) {
+    if (mode === 'daily') {
+      if (error.code === '23505') throw new Error('daily_already_ranked')
+      if (isMissingSchema(error)) throw new Error('daily_unavailable')
+    }
+    throw error
+  }
 }
 
-export async function fetchLeaderboard({ limit = 20 } = {}) {
-  const { data, error } = await supabase
-    .from('leaderboard')
-    .select('id, name, wave, kills, created_at, is_supporter')
-    .order('wave', { ascending: false })
-    .order('kills', { ascending: false })
-    .limit(limit)
-  if (error) throw error
+/** True when an error means "table/view/column not there" (migration not applied yet). */
+export function isMissingSchema(err) {
+  if (!err) return false
+  const code = String(err.code ?? '')
+  return ['PGRST204', 'PGRST205', '42P01', '42703'].includes(code) || err.status === 404 ||
+    /could not find the .* (column|table)|does not exist|schema cache/i.test(err.message ?? '')
+}
+
+const LB_COLS = 'id, name, wave, kills, created_at, is_supporter'
+const lbOrder = (q) => q.order('wave', { ascending: false }).order('kills', { ascending: false })
+
+/**
+ * period: 'all' | 'week' | 'daily'. Rejects with Error('unavailable') when the view for
+ * 'daily' doesn't exist yet; 'week' falls back to filtering the all-time view by date.
+ */
+export async function fetchLeaderboard({ limit = 20, period = 'all' } = {}) {
+  const view = period === 'week' ? 'leaderboard_week' : period === 'daily' ? 'leaderboard_daily' : 'leaderboard'
+  let { data, error } = await lbOrder(supabase.from(view).select(LB_COLS)).limit(limit)
+  if (error && period === 'week' && isMissingSchema(error)) {
+    ;({ data, error } = await lbOrder(
+      supabase.from('leaderboard').select(LB_COLS).gte('created_at', new Date(weekStartUTC()).toISOString()),
+    ).limit(limit))
+  }
+  if (error) {
+    if (isMissingSchema(error)) throw new Error('unavailable')
+    throw error
+  }
   return data
+}
+
+/**
+ * Has this player already used today's ranked daily on the server? Resolves false when the
+ * migration is missing or the request fails (the local record is the fallback).
+ */
+export async function fetchDailyAttemptUsed(seedDate) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const anon = getAnonId()
+    let q = supabase.from('scores').select('id').eq('mode', 'daily').eq('seed_date', seedDate).limit(1)
+    if (user) q = q.eq('user_id', user.id)
+    else if (anon) q = q.eq('anon_id', anon)
+    else return false
+    const { data, error } = await q
+    return !error && Array.isArray(data) && data.length > 0
+  } catch { return false }
 }
 
 // ── Supporter Pack / cosmetics ──────────────────────────────────────────────

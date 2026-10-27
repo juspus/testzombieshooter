@@ -48,6 +48,8 @@ export let run = newRun()
 let nukeCount = 0
 let burstCount = 0
 let burstTs = -1e9
+let grenadeCount = 0
+let grenadeTs = -1e9
 const BURST_GAP_MS = 40   // victims of one blast are killed in the same synchronous loop
 
 const doorsTotal = () => (getMap(getInitialMapId()).DOOR_DEFS ?? []).filter((d) => !d.link).length
@@ -168,6 +170,13 @@ function handle(evt) {
       if (evt.source === 'nuke') {
         nukeCount += 1
         feedAll({ name: 'nuke', count: nukeCount })
+      } else if (evt.source === 'grenade') {
+        // All victims of one grenade die in the same synchronous loop.
+        const now = performance.now()
+        if (now - grenadeTs > BURST_GAP_MS) grenadeCount = 0
+        grenadeTs = now
+        grenadeCount += 1
+        feedAll({ name: 'grenade', count: grenadeCount })
       } else if (evt.source === 'burst') {
         // All victims of one blast die in the same synchronous loop. The exploder's own
         // 999-damage kill (evt.big) is not a victim.
@@ -338,6 +347,6 @@ export function __resetProgressionForTests() {
   cs = null
   csSrc = null
   periodTs = 0
-  nukeCount = burstCount = 0
-  burstTs = -1e9
+  nukeCount = burstCount = grenadeCount = 0
+  burstTs = grenadeTs = -1e9
 }

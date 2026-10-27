@@ -1,3 +1,4 @@
+import { runRandom, keyedRandom } from '../rng'
 import { memo, useRef, useEffect, useState, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { time } from '../timeScale'
@@ -758,7 +759,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const isSpitter = type === 'spitter'
   const noPlankAttack = type === 'runner' || type === 'screamer' || isSpitter
   const exRef = useRef({ fuse: -1, total: 1, done: false, flashT: 0, flashOn: false })
-  const spRef = useRef({ state: 0, t: 0, cd: 1.5 + Math.random() * 2, post: -1, postT: 0, los: false, hold: false, gx: 0, gz: 0 })
+  const spRef = useRef({ state: 0, t: 0, cd: 1.5 + keyedRandom('spit0', id) * 2, post: -1, postT: 0, los: false, hold: false, gx: 0, gz: 0 })
   const sacRef = useRef()   // spitter throat sac
 
   // Pathfinding state
@@ -832,7 +833,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       : type === 'brute'
         ? 0.72
         : 0.38
-    isAggressorRef.current = Math.random() < plankAggroChance
+    isAggressorRef.current = keyedRandom('aggro', id) < plankAggroChance
   }, [hidden, type])
 
   // Keep collision wall list in sync with plank state.
@@ -1012,7 +1013,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     spitterPose(1 - Math.max(0, sp.t) / SPITTER.WINDUP)
     if (sp.t <= 0) {
       sp.state = 0
-      sp.cd = SPITTER.COOLDOWN_MIN + Math.random() * (SPITTER.COOLDOWN_MAX - SPITTER.COOLDOWN_MIN)
+      sp.cd = SPITTER.COOLDOWN_MIN + runRandom('ai')() * (SPITTER.COOLDOWN_MAX - SPITTER.COOLDOWN_MIN)
       spitterPose(0)
       if (spitLOS(pos.x, pos.z, px, pz)) {
         const dx = px - pos.x, dz = pz - pos.z

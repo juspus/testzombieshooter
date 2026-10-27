@@ -11,6 +11,7 @@ export const mobileInput = {
   reloadPressed: false,
   cyclePressed: false,   // Wave 3: cycle to the next carried gun (up to 3)
   autoShootHeld: false,
+  grenadeHeld: false,   // hold to cook a frag grenade, release to throw
 }
 
 export function consumeMobileLook() {
@@ -54,4 +55,5 @@ export function resetMobileInput() {
   mobileInput.swapPressed = false
   mobileInput.reloadPressed = false
   mobileInput.autoShootHeld = false
+  mobileInput.grenadeHeld = false
 }

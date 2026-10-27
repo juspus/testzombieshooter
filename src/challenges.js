@@ -63,7 +63,7 @@ export function formatCountdown(ms) {
 const WEAPON_NAMES = { pistol: 'pistol', ak47: 'AK-47', shotgun: 'shotgun', deagle: 'Desert Eagle', flamethrower: 'flamethrower', crossbow: 'crossbow' }
 const MOD_NAMES = { fog: 'Fog', bloodlust: 'Bloodlust', blackout: 'Blackout', horde: 'Horde' }
 const SPECIAL_NAMES = { brute: 'Brutes', armored: 'Armored', spitter: 'Spitters' }
-const playerKill = (e) => e.name === 'kill' && e.source !== 'nuke' && e.source !== 'burst'
+const playerKill = (e) => e.name === 'kill' && e.source !== 'nuke' && e.source !== 'burst' && e.source !== 'grenade'
 const W = (weekly, d, w) => (weekly ? w : d)
 
 export const TEMPLATES = [
@@ -115,6 +115,12 @@ export const TEMPLATES = [
   { id: 'box', gen: (r, wk) => ({ n: W(wk, randInt(r, 1, 2), randInt(r, 4, 6)) }),
     text: (p) => `Take ${p.n === 1 ? 'a weapon' : `${p.n} weapons`} from the Mystery Box`, target: (p) => p.n,
     inc: (e) => (e.name === 'box_take' ? 1 : 0) },
+  { id: 'grenade_kills', gen: (r, wk) => ({ n: W(wk, randInt(r, 5, 10), randInt(r, 40, 60)) }),
+    text: (p) => `Kill ${p.n} zombies with grenades`, target: (p) => p.n,
+    inc: (e) => (e.name === 'kill' && e.source === 'grenade' ? 1 : 0) },
+  { id: 'grenade_multi', gen: (r) => ({ n: randInt(r, 3, 5) }),
+    text: (p) => `Land a ${p.n}-kill grenade`, target: () => 1,
+    inc: (e, p) => (e.name === 'grenade' && e.count >= p.n ? 1 : 0) },
   { id: 'nuke', gen: (r) => ({ n: randInt(r, 10, 15) }), weeklyOnly: true,
     text: (p) => `Nuke ${p.n}+ zombies at once`, target: () => 1,
     inc: (e, p) => (e.name === 'nuke' && e.count >= p.n ? 1 : 0) },

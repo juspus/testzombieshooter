@@ -11,6 +11,7 @@ import Knife from './Knife'
 import ZombieManager from './ZombieManager'
 import BulletTrails from './BulletTrails'
 import ImpactFX from './ImpactFX'
+import Grenades from './Grenades'
 import ShellCasings from './ShellCasings'
 import FlameSpray from './FlameSpray'
 import BloodFX from './BloodFX'
@@ -146,6 +147,7 @@ export default function Game() {
         <ZombieManager />
         <BulletTrails />
         <ImpactFX />
+        <Grenades />
         <ShellCasings />
         <FlameSpray />
         <BloodFX />
