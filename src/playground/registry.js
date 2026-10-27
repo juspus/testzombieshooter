@@ -16,6 +16,8 @@
 //                    back on portrait screens, 'height' leaves it alone.
 //     floorY:        y of the floor grid (default 0)
 //     humanScale:    show the 1.8 m reference box by default (default false)
+//     variants:      N > 0 shows a Variant chooser (1..N + shuffle); the chosen index is
+//                    passed to Component as the `variant` prop (also deep link &v=<n>)
 //   }
 // Zombie archetypes are generated from ZOMBIE_ARCHETYPES in store.js, so a new
 // archetype appears here automatically.
@@ -51,6 +53,7 @@ const zombieEntries = Object.entries(ZOMBIE_ARCHETYPES).map(([type, a]) => {
     animations: ZOMBIE_ANIMS,
     defaultCamera: { position: [2.4 * hs, 1.5 * hs, 3.4 * hs], target: [0, 0.9 * hs, 0], fit: 'height' },
     humanScale: true,
+    variants: 8,   // Variant chooser: seed 0 = this zombie's look for id `pg0`, etc.
   }
 })
 

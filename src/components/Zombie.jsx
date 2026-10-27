@@ -1,4 +1,4 @@
-import { memo, useRef, useEffect, useState } from 'react'
+import { memo, useRef, useEffect, useState, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { time } from '../timeScale'
 import { getZombieArchetype, useGameStore } from '../store'
@@ -13,6 +13,7 @@ const ACTIVE_MAP = getMap(getInitialMapId())
 const { WINDOW_DEFS, HW: CABIN_HW, HD: CABIN_HD, windowBlockSegment } = ACTIVE_MAP
 import { getRemotePlayerPos } from './RemotePlayer'
 import BloodFX from './BloodFX'
+import { getZombieVariant, getVariantColors, SHIRTS, PANTS, TONES } from '../zombieVariant'
 import * as THREE from 'three'
 
 const _geoCache = new Map()
@@ -219,6 +220,27 @@ function getZombieColors(type, health, maxHealth) {
   return { ...base, ...(_TYPE_COLORS[type] ?? _TYPE_COLORS.walker) }
 }
 
+// Pre-create every shared variant material at module load (palette-sized: shirts +
+// pants + tones x archetypes, all MeshStandardMaterial = the same shader program as
+// the base look). Each dimension is walked independently, so this is ~100 materials,
+// not the full cross product. ZombieBody never allocates a material while rendering.
+// (sm() with the dominant roughness per slot; rarer roughness combos fill in lazily.)
+;(function warmVariantMaterials() {
+  const touch = (c) => {
+    sm(c.shirt, 0.95); sm(c.shirtTear, 1); sm(c.pants, 0.95)
+    sm(c.skin, 0.9); sm(c.skullBone, 0.85); sm(c.skullDark, 0.84)
+  }
+  for (const type of Object.keys(SHIRTS)) {
+    for (const dmg of type === 'walker' ? [false, true] : [false]) {
+      const base = getZombieColors(type, dmg ? 0 : 99, 99)
+      const v = { shirt: 0, pants: 0, tone: 0 }
+      SHIRTS[type].forEach((_, i) => touch(getVariantColors(type, { ...v, shirt: i }, base, dmg)))
+      PANTS.forEach((_, i) => touch(getVariantColors(type, { ...v, pants: i }, base, dmg)))
+      TONES.forEach((_, i) => touch(getVariantColors(type, { ...v, tone: i }, base, dmg)))
+    }
+  }
+})()
+
 // Geometry-accurate line-of-sight: samples along the segment at half-radius
 // intervals and checks the zombie's full circle against the real wall AABBs.
 function hasDirectPath(x1, z1, x2, z2, walls) {
@@ -268,21 +290,33 @@ function applyMove(pos, vx, vz, walls) {
   pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + pushZ))
 }
 
-export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef, rightArmRef, leftLegRef, rightLegRef, headRef, holes = [] }) {
+// `seed` (default: id) picks the look, see zombieVariant.js. `variant` may be passed
+// pre-computed (ZombieComponent also needs it for the gait) to skip the lookup.
+export function ZombieBody({ type = 'walker', id = 'display', seed, variant: variantProp, health, leftArmRef, rightArmRef, leftLegRef, rightLegRef, headRef, holes = [] }) {
   const archetype = getZombieArchetype(type)
-  const colors = getZombieColors(type, health ?? archetype.health, archetype.health)
-  const { skin, skinDark, skinVein, shirt, shirtTear, accent, eye } = colors
+  const hp = health ?? archetype.health
+  const colors = getZombieColors(type, hp, archetype.health)
+  const variant = useMemo(() => variantProp ?? getZombieVariant(type, seed ?? id), [variantProp, type, seed, id])
+  // Per-variant colours (shared, cached, fed through sm()). Only the walker's palette
+  // darkens with health (the other archetypes override those colours entirely).
+  const vc = getVariantColors(type, variant, colors, type === 'walker' && hp <= Math.ceil(archetype.health / 2))
+  const { accent, eye } = colors
+  const { skin, skinVein, shirt, shirtTear, pants, skullBone, skullDark } = vc
   const heightScale = archetype.heightScale ?? 1
   const isCrawler = type === 'crawler'
   const isScreamer = type === 'screamer'
   const isRunner = type === 'runner'
   const isBrute = type === 'brute'
   const isBoss = archetype.boss
-  const widthScale = isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.08 : isScreamer ? 0.82 : 1
-  const depthScale = isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.22 : isScreamer ? 0.88 : 1
-  const visualHeightScale = isCrawler ? 0.7 : isScreamer ? heightScale * 1.08 : heightScale
-  const modelPosition = isCrawler ? [0, -0.36, 0.10] : [0, 0, 0]
-  const modelRotation = isCrawler ? [-0.82, 0, 0] : isScreamer ? [0.16, 0, 0] : [0, 0, 0]
+  // Variant build: scales the whole model group, so meshes (and therefore the raycast
+  // hitboxes, head included) scale with the visuals. Feet are re-seated on the floor.
+  const baseHeight = isCrawler ? 0.7 : isScreamer ? heightScale * 1.08 : heightScale
+  const widthScale = (isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.08 : isScreamer ? 0.82 : 1) * variant.w
+  const depthScale = (isBoss ? 1.42 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.22 : isScreamer ? 0.88 : 1) * variant.w
+  const visualHeightScale = baseHeight * variant.h
+  const modelPosition = isCrawler ? [0, -0.36, 0.10] : [0, 0.866 * baseHeight * (variant.h - 1), 0]
+  // limp = a slight static lean toward the bad leg
+  const modelRotation = isCrawler ? [-0.82, 0, 0] : isScreamer ? [0.16, 0, 0] : [0, 0, variant.limp * 0.05]
   const headPosition = isCrawler ? [0, -0.70, 0.63] : [0, 0, 0]
   // Keep the crawler head in the existing crawl pose, but counter-rotate the torso
   // so the chest pitches forward into the ground instead of arching backward.
@@ -403,6 +437,8 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
       {/* Throat depth */}
       <mesh geometry={bg(0.160, 0.090, 0.060)} position={[0, 0.560, 0.040]} userData={{ zombieId: id, isHead: true }} material={sm("#020101", 1)} />
 
+      {!variant.noJaw && (
+      <>
       {/* Tongue — lying on lower jaw, dark red */}
       <mesh geometry={bg(0.135, 0.024, 0.115)} position={[0, 0.528, 0.092]} rotation={[0.40, 0, 0]} userData={{ zombieId: id, isHead: true }} material={sm("#7a1a1a", 0.95)} />
       {/* Tongue center groove */}
@@ -428,6 +464,8 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
       {/* Jaw corner — torn right */}
       <mesh geometry={bg(0.026, 0.075, 0.015)} position={[0.108, 0.572, 0.130]} rotation={[0.10, 0, -0.50]} userData={{ zombieId: id, isHead: true }} material={sm(fleshDark, 1)} />
       <mesh geometry={bg(0.018, 0.050, 0.012)} position={[0.118, 0.558, 0.126]} rotation={[0.20, 0, -0.65]} userData={{ zombieId: id, isHead: true }} material={sm(flesh, 1)} />
+      </>
+      )}
 
       {/* Blood — pooled under lower lip */}
       <mesh geometry={bg(0.110, 0.016, 0.010)} position={[0, 0.506, 0.148]} userData={{ zombieId: id, isHead: true }} material={sm(blood, 1)} />
@@ -478,6 +516,17 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
       {/* Hips */}
       <mesh geometry={bg(0.38, 0.16, 0.21)} position={[0, -0.175, 0]} userData={{ zombieId: id, isHead: false }} material={sm(isScreamer ? '#d8d0c0' : pants, 0.95)} />
 
+      {variant.ribs && (
+        <>
+          {/* Exposed ribs — torn-open chest patch */}
+          <mesh geometry={bg(0.19, 0.20, 0.012)} position={[-0.06, 0.27, 0.116]} userData={{ zombieId: id, isHead: false }} material={sm('#210807', 1)} />
+          {[0.19, 0.235, 0.28, 0.325].map((y, i) => (
+            <mesh key={`rib${i}`} geometry={bg(0.17 - i * 0.008, 0.018, 0.016)} position={[-0.06, y, 0.124]} userData={{ zombieId: id, isHead: false }} material={sm(bone, 0.85)} />
+          ))}
+          <mesh geometry={bg(0.016, 0.20, 0.014)} position={[-0.06, 0.27, 0.122]} userData={{ zombieId: id, isHead: false }} material={sm(bone, 0.85)} />
+        </>
+      )}
+
       {isScreamer && (
         <>
           <mesh geometry={bg(0.50, 0.78, 0.045)} position={[0, 0.055, 0.137]} rotation={[0.08, 0, 0]} material={sm('#d9d2c3', 0.98)} />
@@ -502,6 +551,10 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[-0.057, -0.170, 0.095]} rotation={[-0.55, 0, -0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[-0.070, -0.330, 0.195]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
+        {variant.noArm === -1 ? (
+          <mesh geometry={bg(0.10, 0.05, 0.10)} position={[-0.070, -0.352, 0.200]} rotation={[-0.55, 0, 0]} userData={{ zombieId: id, isHead: false }} material={sm(blood, 1)} />
+        ) : (
+          <>
         <mesh geometry={bg(0.11, 0.32, 0.10)} position={[-0.077, -0.347, 0.300]} rotation={[-1.05, 0, -0.08]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
         <mesh geometry={bg(0.007, 0.07, 0.005)} position={[-0.078, -0.403, 0.408]} rotation={[-1.05, 0, -0.05]} material={sm(skinVein, 1)} />
         <mesh geometry={bg(0.105, 0.105, 0.09)} position={[-0.082, -0.410, 0.462]} rotation={[-1.05, 0, -0.05]} userData={{ zombieId: id, isHead: false }} material={sm(skullBone, 0.85)} />
@@ -515,6 +568,8 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
             <mesh geometry={bg(0.012, 0.17, 0.010)} position={[-0.037, -0.505, 0.570]} rotation={[-1.12, 0.18, -0.04]} material={sm('#1b120f', 0.6)} />
           </>
         )}
+          </>
+        )}
       </group>
 
       {/* ══ RIGHT ARM — pivot at shoulder ══ */}
@@ -522,6 +577,10 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[0.057, -0.170, 0.095]} rotation={[-0.45, 0, 0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[0.068, -0.310, 0.185]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
+        {variant.noArm === 1 ? (
+          <mesh geometry={bg(0.10, 0.05, 0.10)} position={[0.068, -0.332, 0.190]} rotation={[-0.45, 0, 0]} userData={{ zombieId: id, isHead: false }} material={sm(blood, 1)} />
+        ) : (
+          <>
         <mesh geometry={bg(0.11, 0.32, 0.10)} position={[0.074, -0.325, 0.285]} rotation={[-0.95, 0, 0.08]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
         <mesh geometry={bg(0.007, 0.07, 0.005)} position={[0.075, -0.387, 0.390]} rotation={[-0.95, 0, 0.05]} material={sm(skinVein, 1)} />
         <mesh geometry={bg(0.105, 0.105, 0.09)} position={[0.080, -0.383, 0.435]} rotation={[-0.95, 0, 0.05]} userData={{ zombieId: id, isHead: false }} material={sm(skullBone, 0.85)} />
@@ -533,6 +592,8 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
             <mesh geometry={bg(0.012, 0.18, 0.010)} position={[0.112, -0.478, 0.545]} rotation={[-1.02, -0.20, 0.05]} material={sm('#1b120f', 0.6)} />
             <mesh geometry={bg(0.012, 0.20, 0.010)} position={[0.075, -0.474, 0.555]} rotation={[-1.02, 0, 0.04]} material={sm('#1b120f', 0.6)} />
             <mesh geometry={bg(0.012, 0.17, 0.010)} position={[0.037, -0.480, 0.543]} rotation={[-1.02, 0.18, 0.03]} material={sm('#1b120f', 0.6)} />
+          </>
+        )}
           </>
         )}
       </group>
@@ -607,6 +668,8 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const groanPitchRef   = useRef((type === 'brute' ? 0.75 : type === 'runner' ? 1.15 : type === 'screamer' ? 1.3 : 0.9 + Math.random() * 0.2))
   const isAggressorRef  = useRef(false)
   const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
+  // Deterministic look from the id (same on host and guest, no net data)
+  const variant         = useMemo(() => getZombieVariant(type, id), [type, id])
   const isAttackingRef  = useRef(false)
   const leftLegRef      = useRef()
   const rightLegRef     = useRef()
@@ -1109,10 +1172,11 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       if (rightLegRef.current) rightLegRef.current.rotation.x = 0
     } else {
       isAttackingRef.current = false
-      if (moveDir) walkCycleRef.current += delta * 4.0
+      const gait = variant.gait
+      if (moveDir) walkCycleRef.current += delta * gait.rate
       const t = walkCycleRef.current
-      if (leftLegRef.current)  leftLegRef.current.rotation.x  =  Math.sin(t) * 0.32
-      if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(t) * 0.32
+      if (leftLegRef.current)  leftLegRef.current.rotation.x  =  Math.sin(t + gait.phL) * gait.ampL
+      if (rightLegRef.current) rightLegRef.current.rotation.x = -Math.sin(t + gait.phR) * gait.ampR
       if (leftArmRef.current)  leftArmRef.current.rotation.x  = -Math.sin(t) * 0.20
       if (rightArmRef.current) rightArmRef.current.rotation.x  =  Math.sin(t) * 0.20
     }
@@ -1144,6 +1208,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         <ZombieBody
           type={type}
           id={id}
+          variant={variant}
           health={health}
           leftArmRef={leftArmRef}
           rightArmRef={rightArmRef}
