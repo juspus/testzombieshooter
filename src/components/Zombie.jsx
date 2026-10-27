@@ -1,5 +1,6 @@
 import { memo, useRef, useEffect, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
+import { time } from '../timeScale'
 import { getZombieArchetype, useGameStore } from '../store'
 import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
@@ -617,8 +618,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     return dist > 0.01 ? _moveDir.set(dx / dist, 0, dz / dist) : null
   }
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
     if (hidden || !ref.current) return
+    const delta = rawDelta * time.scale  // last-kill slow-mo
     if (useGameStore.getState().paused) return
 
     // Burning flame visual — decays independent of phase/death state
@@ -821,7 +823,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         attackTimerRef.current -= delta
         if (attackTimerRef.current <= 0) {
           attackTimerRef.current = ATTACK_INTERVAL
-          hitPlayer(archetype.playerDamage)
+          hitPlayer(archetype.playerDamage, pos.x, pos.z)
         }
       } else {
         if (modeRef.current === 'attack_player') modeRef.current = 'chase'

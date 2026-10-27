@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
+import { viewState } from '../viewState'
 import { useGameStore } from '../store'
 import Gun from './Gun'
 import Knife from './Knife'
@@ -11,6 +12,10 @@ import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, p
 import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION, BODY_ARMOR_DEFS } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
+
+// Hit-marker kind for one trigger pull (see store.registerHit)
+const markerKind = (killed, head) => (killed ? (head ? 'headkill' : 'kill') : (head ? 'head' : 'hit'))
+const registerHit = (kind) => useGameStore.getState().registerHit(kind)
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -179,7 +184,9 @@ export default function Player() {
   useEffect(() => {
     FlameSpray.zombieRefs = zombieRefs.current
     FlameSpray.onZombieHit = (zid, damage) => {
-      if (useGameStore.getState().hitZombieFlame(zid, damage)) playZombieDie()
+      const flameKill = useGameStore.getState().hitZombieFlame(zid, damage)
+      if (flameKill) playZombieDie()
+      registerHit(flameKill ? 'kill' : 'burn')
       Zombie.ignite(zid)
       netSend('hit_zombie_flame', { id: zid, damage })
     }
@@ -336,6 +343,7 @@ export default function Player() {
       const PELLETS = 12
       const SPREAD = 0.10  // NDC half-width of cone
       const killed = new Set()
+      let anyHit = false, anyHead = false, anyKill = false
       for (let i = 0; i < PELLETS; i++) {
         const angle = Math.random() * Math.PI * 2
         const r = Math.sqrt(Math.random()) * SPREAD  // sqrt for even circular distribution
@@ -359,10 +367,14 @@ export default function Player() {
         if (bestId !== null) {
           if (!bestHead) bestHead = isIronSightsHeadshot(zombieRefs.current[bestId], bestPoint, perksRef.current)
           const died = hitZombie(bestId, bestHead)
-          if (died && !killed.has(bestId)) { killed.add(bestId); playZombieDie() }
+          anyHit = true
+          if (bestHead) anyHead = true
+          if (died && !killed.has(bestId)) { killed.add(bestId); anyKill = true; playZombieDie() }
           netSend('hit_zombie', { id: bestId, isHeadshot: bestHead, source: 'gun' })
         }
       }
+      // One marker per trigger pull, not per pellet
+      if (anyHit) registerHit(markerKind(anyKill, anyHead))
     } else if (weaponRef.current === 'deagle') {
       // Pierce up to 3 enemies, instant kill each
       checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, 50)
@@ -381,10 +393,12 @@ export default function Player() {
       }
       const trailEnd = targets.length > 0 ? targets[targets.length - 1].point : camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
       BulletTrails.add(muzzle, trailEnd)
+      let deagleKill = false
       for (const target of targets) {
-        if (hitZombie(target.id, true)) playZombieDie()
+        if (hitZombie(target.id, true)) { deagleKill = true; playZombieDie() }
         netSend('hit_zombie', { id: target.id, isHeadshot: true, source: 'gun' })
       }
+      if (targets.length > 0) registerHit(markerKind(deagleKill, true))
     } else {
       // Single target
       checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, 50)
@@ -441,7 +455,9 @@ export default function Player() {
           localPos.addScaledVector(hitFaceNormal, 0.012)
           Zombie.addBulletHole(id, localPos, hitFaceNormal)
         }
-        if (hitZombie(id, isHeadshot)) playZombieDie()
+        const singleKill = hitZombie(id, isHeadshot)
+        if (singleKill) playZombieDie()
+        registerHit(markerKind(singleKill, isHeadshot))
         netSend('hit_zombie', { id, isHeadshot, source: 'gun' })
       }
     }
@@ -481,7 +497,9 @@ export default function Player() {
 
     if (closestId !== null) {
       const kid = Number(closestId)
-      if (hitZombie(kid, true, 'knife')) playZombieDie()
+      const knifeKill = hitZombie(kid, true, 'knife')
+      if (knifeKill) playZombieDie()
+      registerHit(markerKind(knifeKill, false))
       netSend('hit_zombie', { id: kid, isHeadshot: true, source: 'knife' })
     }
   }, [camera, hitZombie, setKnifeCooldown])
@@ -776,7 +794,9 @@ export default function Player() {
           }
 
           for (const [zid, remaining] of burning) {
-            if (hitZombieFlame(zid, damage)) playZombieDie()
+            const tickKill = hitZombieFlame(zid, damage)
+            if (tickKill) playZombieDie()
+            registerHit(tickKill ? 'kill' : 'burn')
             Zombie.ignite(zid)
             netSend('hit_zombie_flame', { id: zid, damage })
 
@@ -789,6 +809,10 @@ export default function Player() {
         flameTickTimerRef.current = 0
       }
     }
+
+    viewState.x = camera.position.x
+    viewState.z = camera.position.z
+    viewState.yaw = yaw.current
 
     // Keep AudioContext listener in sync with the camera so 3-D panning is correct
     setListenerPose(

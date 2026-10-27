@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { time } from '../timeScale'
 import * as THREE from 'three'
 
 const TRAIL_LIFETIME = 0.12
@@ -37,7 +38,8 @@ export default function BulletTrails() {
     slot.active = true
   }
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    const delta = rawDelta * time.scale  // last-kill slow-mo
     for (let i = 0; i < POOL_SIZE; i++) {
       const slot = _trailPool[i]
       if (!slot.active) continue

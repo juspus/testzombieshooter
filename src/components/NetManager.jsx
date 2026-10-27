@@ -72,6 +72,14 @@ export default function NetManager() {
     }
   }, [phase, wave, mpConnected, mpRole])
 
+  // ── Host tells the guest when the final zombie dies so both play the slow-mo ──
+  useEffect(() => {
+    if (!mpConnected || mpRole !== 'host') return
+    return useGameStore.subscribe((s, prev) => {
+      if (s.lastKillId !== prev.lastKillId) send('game_event', { event: 'last_kill', data: {} })
+    })
+  }, [mpConnected, mpRole])
+
   // ── Subscribe to incoming messages ────────────────────────────────────
   useEffect(() => {
     if (!mpConnected) return
@@ -190,7 +198,11 @@ function applyRemoteEvent(event, data) {
       })
       break
     case 'wave_clear':
+      store.endLastKillFx()
       useGameStore.setState({ phase: 'wave_clear', lastWaveBonuses: data.bonuses })
+      break
+    case 'last_kill':
+      store.startLastKillFx()
       break
     case 'die':
       store.die()
