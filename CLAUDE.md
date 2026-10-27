@@ -268,6 +268,30 @@ Two-player co-op over WebSocket (`net.js`). One player is **host**, one is **gue
 - Guest receives `wave_start` / `hit_zombie` / `add_plank` events and stays in sync
 - `NetManager.jsx` handles the event bus; `RemotePlayer.jsx` renders the partner
 - Store fields: `mpRole`, `mpConnected`, `remotePlayer`, `roomCode`
+- Transport is PeerJS (WebRTC data channel) via `net.js`, not a WebSocket server.
+- Invite links: `/?join=CODE` (`src/invite.js`, `InviteShare.jsx`).
+- Down, not out: `src/coopDown.js` (pure state machine) + `src/coopRuntime.js`.
+  All player damage must go through `store.hitPlayer` (downed guard); weapon
+  swaps through `switchWeapon`.
+- Each client damages only its own player; the host is authoritative for
+  zombies, drops (`powerups.js`), Mystery Box rolls, doors, modifiers.
+- Money/ammo/XP are per player.
+
+---
+
+## Systems added in the 2026-10 roadmap push (see MEMORY.md for detail)
+
+| Area | Files |
+|---|---|
+| Feel | `FeelFx.jsx` (hit markers, danger, last-kill), `timeScale.js` (multiply frame deltas by `time.scale`), `cameraFeel.js`, `BloodFX.jsx`, `ImpactFX.jsx`, `hitFx.js` |
+| Look | `LofiPass.jsx` (low-res dither post pass; `?lofi=0`), `textures.js`, `zombieVariant.js`, `Storm.jsx`, `LivingLights.jsx` (`?nofx`) |
+| Run | `doors.js` + `DOOR_COSTS`/`ROOM_ANCHORS` in maps, `powerups.js`, `zombieSpecials.js` (exploder/armored/spitter), `modifiers.js`, `weaponRules.js` (box/bench/crossbow, 3-gun carry), `grenades.js` |
+| Progression | `progression.js`, `challenges.js`, `achievements.js`, `gameEvents.js`, `progressTracker.js`, level rewards in `cosmetics.js`, `mapSelect.js` (map picker + loadouts) |
+| Daily | `rng.js` — all gameplay randomness goes through `runRandom`/`waveRandom`/`keyedRandom` (seeded in Daily Run); cosmetic randomness stays on `Math.random` |
+| Tools | `?perf`, `?bench`, `/?models` playground (`src/playground/registry.js`), `/?testlab` soundboard |
+
+`hitZombie(id, isHeadshot, source, weapon, dist, mult)` — weapon/dist feed armour rules, mult feeds upgrades.
+Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombies with `!z.dying`.
 
 ---
 

@@ -46,6 +46,15 @@ start of every session. Keep entries short — a few lines each.
   storm/rain/LivingLights (`?nofx` disables), doors (DOOR_COSTS + ROOM_ANCHORS in
   src/maps/cabin.js, `?doors=open`, windows/spawn clusters carry room/windowId;
   money is per-player in co-op, door opener pays).
+- Rounds 3-5 merged (2026-10-27): power-ups, lo-fi pass, new archetypes,
+  modifiers, Mystery Box/crossbow/Upgrade Bench (bench €750 not 1500 - economy
+  can't reach 1500 before ~wave 30), grenades, Daily Run + weekly/daily boards
+  (MIGRATION PENDING: supabase/migrations/20261027000000_daily_weekly_leaderboards.sql,
+  owner applies in SQL editor), XP/levels/challenges/achievements, map picker
+  (reload-based; diner L5) + loadouts (shotgun L8, fast hands L12, AK L16),
+  co-op invite links + down/revive. Usage limit was hit once at 4 parallel
+  agents -> run max 2 at a time. Tuning flagged for playtest: XP pace (wave-7
+  run ~ level 4), lo-fi exposure (dark), armored tankiness, door prices.
 - New maps: cabin was the only map, now generalized into a src/maps/ schema
   (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
   is dev/preview-only via `?map=diner` (gated same as other debug params) —
