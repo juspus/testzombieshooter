@@ -31,8 +31,12 @@ export function formatCountdown(ms) {
   return `${m}m`
 }
 
-/** A daily is only available in solo; co-op (host or guest) never gets one. */
-export const canStartDaily = ({ mpRole = null, mpConnected = false } = {}) => !mpRole && !mpConnected
+/**
+ * A daily is only available in solo; co-op (host or guest) never gets one. It always runs on
+ * the cabin (the seed's spawns/box rolls are map-specific), so another loaded map blocks it.
+ */
+export const canStartDaily = ({ mpRole = null, mpConnected = false, mapId = 'cabin' } = {}) =>
+  !mpRole && !mpConnected && mapId === 'cabin'
 
 export function getAnonId() {
   try {

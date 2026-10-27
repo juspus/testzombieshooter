@@ -131,6 +131,12 @@ A detailed log cabin with:
 - Ceiling with exposed beams and cobwebs
 - Pitched gable roof (exterior)
 
+### Diner (map, unlocks at level 5)
+A one-room gas-station diner with storefront glass, a counter and booths (no doors; Mystery Box and Upgrade Bench sit behind the counter, the box never relocates). Pick it on the start screen (MAP row; locked until level 5). The choice is saved and the page reloads, since the map is resolved once at load. Daily Run always uses the cabin. In co-op both players must have the same map loaded (host's START GAME waits for a match). Door challenges are tagged "(Cabin)" and can't be completed on the diner.
+
+### Starting loadouts
+START row on the start screen: Pistol (default), Shotgun start (level 8: shotgun, 1 clip + 8 spare), Fast Hands (level 12: pistol + perk), AK-47 start (level 16: 1 clip, no spare). Co-op: each player uses their own. Daily Run ignores loadouts.
+
 ### Forest Skybox
 A cylindrical skybox wrapping a baked 4096×1024 night-forest panorama. Dark pine silhouettes against a starry sky. Single draw call, `meshBasicMaterial` (no lighting cost).
 
@@ -141,7 +147,7 @@ Moonlight directional shadow (512×512 map) + ambient + hemisphere fill + 6 inte
 
 ## Multiplayer (co-op)
 
-Two players can join the same cabin over WebSocket. One player hosts; the other joins with a room code. The host drives all game logic; the guest syncs position and receives events in real time.
+Two players can join the same map over WebSocket. One player hosts; the other joins with a room code. The host drives all game logic; the guest syncs position and receives events in real time.
 
 ---
 

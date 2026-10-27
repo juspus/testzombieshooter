@@ -31,6 +31,7 @@ import { rollModifier, modifiedZombieCount, modifiedZombieHealth, modifierBonus,
 import * as WR from './weaponRules'
 import { emitGameEvent } from './gameEvents'
 import { settleRun } from './progressTracker'
+import { effectiveLoadout, loadoutPatch, readPref, writePref, LOADOUT_PREF_KEY } from './mapSelect'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -383,6 +384,14 @@ export const useGameStore = create((set, get) => ({
     return true
   },
 
+  // ── Starting loadout (mapSelect.js) ──
+  // Persisted pick; startGame applies it if the level reward is unlocked. Per player (co-op:
+  // each side uses its own); Daily Run ignores it.
+  loadoutId: readPref(LOADOUT_PREF_KEY) || 'pistol',
+  setLoadout: (id) => { writePref(LOADOUT_PREF_KEY, id); set({ loadoutId: id }) },
+  partnerMapId: null,   // co-op host: map the connected guest has loaded (null = unknown)
+  setPartnerMapId: (id) => set({ partnerMapId: id }),
+
   startGame: () => {
     // Daily Run (see startDaily): consume the one-shot flag; any other start is a normal run.
     const daily = _pendingDaily
@@ -460,6 +469,13 @@ export const useGameStore = create((set, get) => ({
     emitGameEvent('run_start')   // Wave 4 progression
     get().resetGrenades()
 
+    // Starting loadout layered over the pistol start (no-op for the default / Daily Run).
+    const lo = effectiveLoadout(get().loadoutId, get().stats, !!daily)
+    if (lo.id !== 'pistol') {
+      const cur = get()
+      set(loadoutPatch(lo, { bulletsInClip: cur.bulletsInClip, reserveBullets: cur.reserveBullets, savedClips: cur.savedClips, savedReserves: cur.savedReserves }))
+    }
+
     applyDebugOverrides(set, get)
   },
 
@@ -471,7 +487,7 @@ export const useGameStore = create((set, get) => ({
   dailyRanked: false,
   startDaily: (rankedOverride) => {
     const st = get()
-    if (!canStartDaily({ mpRole: st.mpRole, mpConnected: st.mpConnected })) return false
+    if (!canStartDaily({ mpRole: st.mpRole, mpConnected: st.mpConnected, mapId: st.mapId })) return false
     const date = dailyDate()
     const ranked = rankedOverride ?? !dailyAttemptUsed()
     if (ranked) writeLocalDaily({})   // burn the attempt at run start so quitting doesn't refund it

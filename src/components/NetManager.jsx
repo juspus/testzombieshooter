@@ -42,6 +42,21 @@ export default function NetManager() {
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [mpConnected, mpRole])
 
+  // ── Map handshake (guest -> host) ──────────────────────────────────────
+  // The map is fixed per page load (see mapSelect.js), so the host can't force it on the guest.
+  // The guest reports which map it loaded (repeated until the game starts, in case the host's
+  // listener wasn't up yet) and the host's START GAME stays disabled on a mismatch.
+  useEffect(() => {
+    if (!mpConnected || mpRole !== 'guest' || phase !== 'start') return
+    const hello = () => send('game_event', { event: 'map_hello', data: { map: useGameStore.getState().mapId } })
+    hello()
+    const t = setInterval(hello, 1500)
+    return () => clearInterval(t)
+  }, [mpConnected, mpRole, phase])
+  useEffect(() => {
+    if (!mpConnected) useGameStore.getState().setPartnerMapId(null)
+  }, [mpConnected])
+
   // ── Broadcast phase transitions ────────────────────────────────────────
   useEffect(() => {
     if (!mpConnected) return
@@ -221,6 +236,9 @@ export default function NetManager() {
 function applyRemoteEvent(event, data) {
   const store = useGameStore.getState()
   switch (event) {
+    case 'map_hello':
+      store.setPartnerMapId(typeof data?.map === 'string' ? data.map : null)
+      break
     case 'start_game':
       store.startGame()
       break

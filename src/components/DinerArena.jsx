@@ -10,6 +10,7 @@ import {
   SPAWN_CLUSTERS,
   CHEST_POS,
 } from '../maps/diner'
+import { modFx } from '../modifiers'
 import { texBoxProps, texPlaneProps } from '../textures'
 
 const WT = WALL_T
@@ -518,6 +519,27 @@ function Chest() {
 
 // ─── DinerArena export ──────────────────────────────────────────────────────
 
+// The diner's three interior point lights. Intensity-only animation (never mount/unmount):
+// the Blackout wave modifier eases modFx.lightMul to 0, same as the cabin's LivingLights.
+const BULBS = [
+  { pos: [0, WH - 0.4, 2], color: '#fff3d8', i: 12, d: 16 },
+  { pos: [0, WH - 0.4, -3.5], color: '#fff3d8', i: 10, d: 14 },
+  { pos: [CHEST_POS.x, 1.0, CHEST_POS.z], color: '#ffcc44', i: 5, d: 8 },
+]
+function DinerBulbs() {
+  const refs = useRef([])
+  const last = useRef(1)
+  useFrame(() => {
+    const m = modFx.lightMul
+    if (m === last.current) return
+    last.current = m
+    for (let k = 0; k < BULBS.length; k++) if (refs.current[k]) refs.current[k].intensity = BULBS[k].i * m
+  })
+  return BULBS.map((b, k) => (
+    <pointLight key={k} ref={(o) => { refs.current[k] = o }} position={b.pos} color={b.color} intensity={b.i} distance={b.d} decay={2} />
+  ))
+}
+
 export default function DinerArena() {
   return (
     <group>
@@ -532,9 +554,7 @@ export default function DinerArena() {
         shadow-camera-top={30} shadow-camera-bottom={-30}
       />
       <hemisphereLight skyColor="#3a4858" groundColor="#100c08" intensity={0.45} />
-      <pointLight position={[0, WH - 0.4, 2]} color="#fff3d8" intensity={12} distance={16} decay={2} />
-      <pointLight position={[0, WH - 0.4, -3.5]} color="#fff3d8" intensity={10} distance={14} decay={2} />
-      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
+      <DinerBulbs />
 
       <DinerFloor />
       <Forecourt />

@@ -11,6 +11,7 @@ import { LevelBadge, ChallengeTeaser, ChallengesPanel, AchievementsPanel, DeathX
 import { MODIFIERS, MOD_BONUS } from '../modifiers'
 import { DailyEntry, LeaderboardTabs } from './DailyPanels'
 import { writeLocalDaily } from '../daily'
+import StartPicker from './StartPicker'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -407,6 +408,9 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     if (user && username !== null && view === 'setusername') setView('main')
   }, [user, username])
 
+  const partnerMapId = useGameStore((s) => s.partnerMapId)
+  const ownMapId = useGameStore((s) => s.mapId)
+  const mapMismatch = !!partnerMapId && partnerMapId !== ownMapId   // co-op: host waits for a matching guest
   const setMpRole = useGameStore((s) => s.setMpRole)
   const setMpConnected = useGameStore((s) => s.setMpConnected)
 
@@ -459,9 +463,10 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   }, [joinCode, setMpRole, setMpConnected, onDisconnected])
 
   const handleStartGame = useCallback(() => {
+    if (mapMismatch) return
     startGame()
     if (isConnected()) send('game_event', { event: 'start_game', data: {} })
-  }, [startGame])
+  }, [startGame, mapMismatch])
 
   const handleBack = useCallback(() => {
     disconnect()
@@ -487,6 +492,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
           <LevelBadge onClick={() => setView('achievements')} />
+          <StartPicker />
           <Btn onClick={startGame}>SOLO</Btn>
           <DailyEntry Btn={Btn} />
           <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
@@ -542,7 +548,12 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
           {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
           <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
-          {connected && <Btn onClick={handleStartGame}>START GAME</Btn>}
+          {connected && mapMismatch && (
+            <div style={{ color: '#cc9944', fontSize: 12, letterSpacing: 1, textAlign: 'center', maxWidth: 320 }}>
+              Partner loaded the {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} - both players must pick the same map (it applies on reload).
+            </div>
+          )}
+          {connected && <Btn onClick={handleStartGame} disabled={mapMismatch}>START GAME</Btn>}
           <BackBtn onClick={handleBack} />
         </div>
       )}

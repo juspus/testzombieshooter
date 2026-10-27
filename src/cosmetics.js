@@ -142,11 +142,12 @@ export function newUnlocksBetween(prevStats, nextStats, entitlements = []) {
 }
 
 // ── Level rewards ──────────────────────────────────────────────────────────
-// Named (non-cosmetic) rewards reserved for other work: another agent implements the
-// Diner map gate and the starting loadout; they only need `isLevelRewardUnlocked`.
+// Named (non-cosmetic) rewards: the Diner map gate and the starting loadouts (mapSelect.js).
 export const NAMED_LEVEL_REWARDS = Object.freeze([
   { id: 'diner_map',        level: 5, text: 'Diner map' },
   { id: 'loadout_shotgun',  level: 8, text: 'Starting loadout: Shotgun' },
+  { id: 'loadout_fast_hands', level: 12, text: 'Starting loadout: Fast Hands perk' },
+  { id: 'loadout_ak47',     level: 16, text: 'Starting loadout: AK-47' },
 ])
 
 /** True once the player's level (from stats.xp) has reached the named reward's level. */

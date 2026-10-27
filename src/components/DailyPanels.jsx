@@ -1,3 +1,4 @@
+import { applyMapChoice } from '../mapSelect'
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../store'
 import { fetchLeaderboard, fetchDailyAttemptUsed } from '../supabase'
@@ -20,6 +21,7 @@ export function DailyEntry({ Btn }) {
   useMinuteTick()
   const startDaily = useGameStore((s) => s.startDaily)
   const [used, setUsed] = useState(() => dailyAttemptUsed())
+  const mapId = useGameStore((s) => s.mapId)
 
   // The server may know about an attempt from another device/browser.
   useEffect(() => {
@@ -34,7 +36,10 @@ export function DailyEntry({ Btn }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <Btn onClick={() => startDaily(!used)} style={{ marginTop: 4 }}>DAILY RUN</Btn>
+      {/* The daily is cabin-only (fixed seed): from another map, switch back and reload. */}
+      <Btn onClick={() => { if (mapId === 'cabin') startDaily(!used); else applyMapChoice('cabin') }} style={{ marginTop: 4 }}>
+        {mapId === 'cabin' ? 'DAILY RUN' : 'DAILY RUN (CABIN)'}
+      </Btn>
       <div style={{ color: used ? '#887' : '#cc9944', fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 2, marginTop: 5, fontFamily: 'Courier New, monospace', textAlign: 'center' }}>
         {used ? "Today's daily: attempt used (practice)" : "Today's daily: ranked attempt available"}
         {' · next in '}{formatCountdown(msToNextDaily())}

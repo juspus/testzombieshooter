@@ -103,8 +103,8 @@ export const TEMPLATES = [
   { id: 'specials', gen: (r, wk) => ({ type: pick(r, ['brute', 'armored', 'spitter']), n: W(wk, randInt(r, 3, 6), randInt(r, 25, 40)) }),
     text: (p) => `Kill ${p.n} ${SPECIAL_NAMES[p.type]}`, target: (p) => p.n,
     inc: (e, p) => (e.name === 'kill' && e.type === p.type ? 1 : 0) },
-  { id: 'bedroom_door', gen: (r) => ({ w: randInt(r, 3, 5) }),
-    text: (p) => `Open the bedroom door before wave ${p.w}`, target: () => 1,
+  { id: 'bedroom_door', gen: (r) => ({ w: randInt(r, 3, 5) }), needsDoors: true,
+    text: (p) => `Open the bedroom door before wave ${p.w} (Cabin)`, target: () => 1,
     inc: (e, p) => (e.name === 'door_open' && e.id === 'bedroom' && e.wave < p.w ? 1 : 0) },
   { id: 'survive_mod', gen: (r) => ({ mod: pick(r, ['blackout', 'fog', 'bloodlust', 'horde']) }),
     text: (p) => `Survive a ${MOD_NAMES[p.mod]} wave`, target: () => 1,
@@ -165,6 +165,14 @@ export function dailyChallenges(date = new Date()) {
   }
   return out
 }
+
+/**
+ * Door-dependent challenges (template `needsDoors`) can only be completed on a map with
+ * buyable doors (the cabin; the diner has none). Generation stays map-independent so the
+ * date-seeded list is identical on every device; the text carries a "(Cabin)" tag and the UI
+ * can use this to flag the entry.
+ */
+export const challengeNeedsDoors = (ch) => !!BY_ID[ch.tpl]?.needsDoors
 
 /** The week's single big challenge (Mon-Sun UTC). Deterministic. */
 export function weeklyChallenges(date = new Date()) {
