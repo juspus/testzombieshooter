@@ -3,6 +3,8 @@ import { MODIFIERS } from '../modifiers'
 import { useGameStore, zombieTypesForWave, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
 import { CROSSHAIR_HEX } from '../cosmetics'
 import DoorPrompt from './DoorPrompt'
+import MachinePrompt from './MachinePrompt'
+import { weaponName, clipSize as wrClipSize } from '../weaponRules'
 import { HitMarker, DangerFx, DamageIndicator, LastKillFx } from './FeelFx'
 import PowerUpHud from './PowerUpHud'
 
@@ -129,12 +131,14 @@ export default function HUD() {
   const maxHp = useGameStore((s) => s.maxHp)
   const helmet = useGameStore((s) => s.helmet)
   const knifeCooldownMax = perks.knife_mastery ? KNIFE_MASTERY_COOLDOWN : BASE_KNIFE_COOLDOWN
-  const clipSize = weapon === 'ak47' ? AK_CLIP : weapon === 'deagle' ? DEAGLE_CLIP : weapon === 'shotgun' ? SHOTGUN_CLIP : CLIP_SIZE
+  const weaponUpgraded = useGameStore((s) => !!s.upgradedWeapons[s.weapon])
+  const nearMachine = useGameStore((s) => s.nearMachine)
+  const clipSize = wrClipSize(weapon, weaponUpgraded)
   const nearPlankCount = nearWindowId >= 0 ? (windowPlanks[nearWindowId] ?? 0) : 0
   const nearPlanksAreStrong = nearWindowId >= 0 ? (windowPlankStrong[nearWindowId] ?? false) : false
   const canAddPlank = nearPlankCount < 2
   const canUpgrade = strongPlanksMode && nearPlankCount > 0 && !nearPlanksAreStrong
-  const showBoardPrompt = nearWindowId >= 0 && (canAddPlank || canUpgrade) && !nearChest
+  const showBoardPrompt = nearWindowId >= 0 && (canAddPlank || canUpgrade) && !nearChest && !nearMachine
   const activeCost = strongPlanksMode ? STRONG_PLANK_COST : PLANK_COST
   const upgradeCost = STRONG_PLANK_COST * nearPlankCount
   const canAfford = canUpgrade ? money >= upgradeCost : money >= activeCost
@@ -270,7 +274,7 @@ export default function HUD() {
         </div>
       ) : (
         <div style={ammoBoxStyle}>
-          <div style={weaponLabelStyle}>{weapon === 'ak47' ? 'AK-47' : weapon === 'deagle' ? 'DESERT EAGLE' : weapon === 'shotgun' ? 'SHOTGUN' : 'PISTOL'}</div>
+          <div style={{ ...weaponLabelStyle, ...(weaponUpgraded ? { color: '#58e6ff', textShadow: '0 0 8px #14d8ff' } : {}) }}>{weaponName(weapon, weaponUpgraded).toUpperCase()}</div>
           <div style={styles.caliberLabel}>{CALIBER_LABELS[weapon]}</div>
           {isReloading ? (
             <div style={{ ...styles.reloading, ...(isMobile ? styles.mobileReloading : {}) }}>RELOADING…</div>
@@ -330,6 +334,7 @@ export default function HUD() {
 
       {/* Wave 3: buyable door prompt */}
       <DoorPrompt isMobile={isMobile} />
+      <MachinePrompt isMobile={isMobile} />
 
       {/* Bottom hint */}
       {!isMobile && <div style={styles.hint}>WASD to move · Mouse to aim · Click to shoot</div>}

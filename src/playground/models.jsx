@@ -5,7 +5,8 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { PistolModel, AKModel, DeagleModel, ShotgunModel, FlamethrowerModel } from '../components/Gun'
+import { PistolModel, AKModel, DeagleModel, ShotgunModel, FlamethrowerModel, CrossbowModel } from '../components/Gun'
+import { BoxMesh, BenchMesh } from '../components/Machines'
 import { HuntingKnifeModel } from '../components/Knife'
 import { ZombieBody } from '../components/Zombie'
 import { PickupMesh } from '../components/BulletPickups'
@@ -134,6 +135,7 @@ export function WeaponDisplay({ weapon, ctrl }) {
       {weapon === 'ak47' && <AKModel gunMat={gunMat} />}
       {weapon === 'deagle' && <DeagleModel gunMat={gunMat} />}
       {weapon === 'shotgun' && <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} />}
+      {weapon === 'crossbow' && <CrossbowModel gunMat={gunMat} />}
       {weapon === 'flamethrower' && (
         <>
           <FlamethrowerModel gunMat={gunMat} />
@@ -161,6 +163,35 @@ export function KnifeDisplay({ ctrl }) {
     grp.current.position.x = -arc * 0.1
   })
   return <group ref={grp}><HuntingKnifeModel /></group>
+}
+
+// ─── Wave 3 machines ─────────────────────────────────────────────────────────
+// Mystery Box: Closed / Open (lid up, crossbow floating above) / Teddy. Upgrade Bench: Idle / Working.
+export function MysteryBoxDisplay({ ctrl }) {
+  const lid = useRef(), show = useRef(), teddy = useRef(), api = useRef({}), beam = useRef(), glow = useRef()
+  const a = useRef(0)
+  useFrame(({ clock }, dt) => {
+    const id = ctrl.current.id
+    const open = id === 'open' || id === 'teddy' ? 1 : 0
+    a.current += (open - a.current) * Math.min(1, dt * 8)
+    if (lid.current) lid.current.rotation.x = -a.current * 1.9
+    if (glow.current) glow.current.visible = a.current > 0.3
+    if (api.current.crossbow) api.current.crossbow.visible = id === 'open'
+    if (show.current) { show.current.visible = id === 'open'; show.current.position.y = 1.4; show.current.rotation.y = clock.elapsedTime * 1.6 }
+    if (teddy.current) { teddy.current.visible = id === 'teddy'; teddy.current.position.y = 1.4 }
+  })
+  return <BoxMesh lid={lid} show={show} teddy={teddy} api={api} beam={beam} glow={glow} />
+}
+
+export function UpgradeBenchDisplay({ ctrl }) {
+  const show = useRef(), ring = useRef(), runes = useRef(), api = useRef({})
+  useFrame(({ clock }) => {
+    const busy = ctrl.current.id === 'work'
+    if (api.current.ak47) api.current.ak47.visible = busy
+    if (show.current) { show.current.visible = busy; show.current.position.y = 1.1; show.current.rotation.y = clock.elapsedTime * 7 }
+    if (ring.current) { ring.current.visible = busy; ring.current.material.opacity = 0.08 }
+  })
+  return <BenchMesh show={show} ring={ring} runes={runes} api={api} upg={false} />
 }
 
 // ─── Pickups ─────────────────────────────────────────────────────────────────
