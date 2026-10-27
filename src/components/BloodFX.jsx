@@ -20,7 +20,11 @@ const WALL_H_MAX = 2.3
 const COUNT_SCALE = FX_IS_MOBILE ? 0.6 : 1
 
 const ACTIVE_MAP = getMap(getInitialMapId())
-const WALLS = ACTIVE_MAP.bulletWallSegments()
+// Closed doors (Wave 3) also catch blood decals; rebuilt when a door opens.
+let WALLS = ACTIVE_MAP.bulletWallSegments(useGameStore.getState?.().openDoors ?? {})
+useGameStore.subscribe?.((s, prev) => {
+  if (s.openDoors !== prev.openDoors) WALLS = ACTIVE_MAP.bulletWallSegments(s.openDoors)
+})
 
 const TONES = ['#5a0a0a', '#7a0f0f', '#3d0606', '#650c0c'].map((c) => new THREE.Color(c))
 

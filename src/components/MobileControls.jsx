@@ -40,6 +40,7 @@ export default function MobileControls() {
   const activeItem = useGameStore((s) => s.activeItem)
   const nearChest = useGameStore((s) => s.nearChest)
   const nearWindowId = useGameStore((s) => s.nearWindowId)
+  const nearDoorId = useGameStore((s) => s.nearDoorId)
   const [isMobile, setIsMobile] = useState(getIsMobile)
   const [isPortrait, setIsPortrait] = useState(getIsPortrait)
   const [isStandalone, setIsStandalone] = useState(getIsStandalone)
@@ -74,7 +75,7 @@ export default function MobileControls() {
   const swapBtnRef = useRef(null)
 
   const active = phase === 'playing' || phase === 'intermission'
-  const showInteractHint = nearChest || nearWindowId >= 0
+  const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null
   const showInstallHint = !isStandalone && !installHintDismissed
 
   useEffect(() => {

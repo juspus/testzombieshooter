@@ -165,6 +165,7 @@ All ~99 `boxGeometry`/`cylinderGeometry` calls go through `bg()`/`cg()`. Buffers
 A `pointLight` with `castShadow` renders the scene **6 times per frame** (cube map faces).
 
 **Fix:** Removed `castShadow` from the fireplace point light in `Arena.jsx`. Directional moonlight still casts shadows.
+(Note: this had silently regressed — `castShadow` was back on the fireplace light until 2026-10-27. Grep for `pointLight.*castShadow` when touching lights.)
 
 ### Root cause 5 — oversized directional shadow map
 Shadow map was 1024×1024 covering ±30 units. Reduced to 512×512 covering ±18 (matches actual play area).

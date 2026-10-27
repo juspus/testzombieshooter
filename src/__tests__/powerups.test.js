@@ -279,4 +279,11 @@ describe('kill path drops', () => {
     expect(Math.abs(d.x)).toBeLessThan(9)
     expect(Math.abs(d.z)).toBeLessThan(10)
   })
+
+  it('drops never land in a sealed room (zombie died in the sealed bedroom)', () => {
+    useGameStore.setState({ zombies: [live(1, { x: -6, z: -7 }), live(2)] })
+    S().hitZombie(1, true)
+    const d = pu.slots.find((s) => s.active)
+    expect(d.x).toBeGreaterThanOrEqual(-2)   // main room only
+  })
 })

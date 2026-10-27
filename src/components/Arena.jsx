@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import LivingLights, { lightReg } from './LivingLights'
 import { useGameStore } from '../store'
 import {
   CABIN_HW, CABIN_HD, WALL_H, WALL_T,
@@ -378,8 +379,8 @@ function Fireplace() {
       <MantelClock position={[fx - 0.15, 2.72, fzW + 0.4]} />
 
       {/* Firelight */}
-      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} castShadow />
-      <pointLight position={[fx, 0.3, fzW + 0.2]} color="#ff2200" intensity={8}  distance={6}  decay={2} />
+      <pointLight ref={(o) => { lightReg.fire = o }} position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} />
+      <pointLight ref={(o) => { lightReg.fire2 = o }} position={[fx, 0.3, fzW + 0.2]} color="#ff2200" intensity={8}  distance={6}  decay={2} />
     </group>
   )
 }
@@ -1047,7 +1048,7 @@ export default function Arena() {
   return (
     <group>
       {/* ── Lighting ─────────────────────────────────────────────────────── */}
-      <ambientLight intensity={0.55} color="#c8d8f0" />
+      <ambientLight ref={(o) => { lightReg.amb = o }} intensity={0.55} color="#c8d8f0" />
       {/* Moonlight — shadow map only hits 6 proxy meshes per zombie now */}
       <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} castShadow
         shadow-mapSize-width={1024} shadow-mapSize-height={1024}
@@ -1061,13 +1062,15 @@ export default function Arena() {
            stutter when zombie materials mount.  Per-candle/lantern lights removed;
            these four fills + the two fireplace lights cover all four rooms.      ── */}
       {/* Main room warm fill */}
-      <pointLight position={[3.5, WH - 0.5,  0]}  color="#ffcc88" intensity={14} distance={24} decay={2} />
+      <pointLight ref={(o) => { lightReg.main = o }} position={[3.5, WH - 0.5,  0]}  color="#ffcc88" intensity={14} distance={24} decay={2} />
       {/* West rooms fill (bedroom / hall / kitchen share one broad light) */}
-      <pointLight position={[-5.5, WH - 0.5, -7]}  color="#ffaa66" intensity={12} distance={14} decay={2} />
-      <pointLight position={[-5.5, WH - 0.5,  0.5]} color="#ffaa55" intensity={12} distance={14} decay={2} />
-      <pointLight position={[-5.5, WH - 0.5,  7.5]} color="#ffaa55" intensity={10} distance={12} decay={2} />
+      <pointLight ref={(o) => { lightReg.bed = o }} position={[-5.5, WH - 0.5, -7]}  color="#ffaa66" intensity={12} distance={14} decay={2} />
+      <pointLight ref={(o) => { lightReg.hall = o }} position={[-5.5, WH - 0.5,  0.5]} color="#ffaa55" intensity={12} distance={14} decay={2} />
+      <pointLight ref={(o) => { lightReg.kitchen = o }} position={[-5.5, WH - 0.5,  7.5]} color="#ffaa55" intensity={10} distance={12} decay={2} />
       {/* Chest glow */}
-      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
+      <pointLight ref={(o) => { lightReg.chest = o }} position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
+
+      <LivingLights />
 
       {/* ── Floor ────────────────────────────────────────────────────────── */}
       {/* Plank seams are baked into the wood texture (replaces the old FloorPlanks strip meshes) */}

@@ -62,6 +62,7 @@ export default function NetManager() {
           nextId: s.nextId,
           wave: s.wave,
           waveStartPlanks: s.waveStartPlanks,
+          openDoors: s.openDoors,   // Wave 3: late-join / reconnect door state
         },
       })
     }
@@ -73,6 +74,15 @@ export default function NetManager() {
       })
     }
   }, [phase, wave, mpConnected, mpRole])
+
+  // ── Host pushes door state when a guest (re)connects mid-run ───────────
+  useEffect(() => {
+    if (!mpConnected || mpRole !== 'host') return
+    const s = useGameStore.getState()
+    if (s.phase !== 'start' && Object.keys(s.openDoors).length) {
+      send('game_event', { event: 'door_sync', data: { openDoors: s.openDoors } })
+    }
+  }, [mpConnected, mpRole])
 
   // ── Host tells the guest when the final zombie dies so both play the slow-mo ──
   useEffect(() => {
@@ -220,6 +230,7 @@ function applyRemoteEvent(event, data) {
         wavePlanksLost: 0,
         waveStartPlanks: data.waveStartPlanks ?? 0,
       })
+      if (data.openDoors) store.setOpenDoors(data.openDoors)
       break
     case 'wave_clear':
       store.endLastKillFx()
@@ -248,11 +259,36 @@ function applyRemoteEvent(event, data) {
       const current = windowPlanks[data.windowId] ?? 0
       if (current < 2) {
         const newPlanks = { ...windowPlanks, [data.windowId]: current + 1 }
-        buildGrid(allWallSegments(newPlanks))
+        buildGrid(allWallSegments(newPlanks, useGameStore.getState().openDoors))
         useGameStore.setState({ windowPlanks: newPlanks })
       }
       break
     }
+    // ── Wave 3 buyable doors (host-authoritative) ──────────────────────────
+    // Guest asks; host validates the door is buyable, opens it, then broadcasts
+    // `door_open` with by:'guest' (guest pays on the ack) or by:'sync' (already
+    // open - no charge). Money is per-player, so the opener always pays their own.
+    case 'door_request': {
+      if (useGameStore.getState().mpRole !== 'host') break
+      if (store.openDoors[data.id]) {
+        send('game_event', { event: 'door_open', data: { id: data.id, by: 'sync' } })
+      } else if (store.canOpenDoor(data.id)) {
+        store.applyDoorOpen(data.id)
+        send('game_event', { event: 'door_open', data: { id: data.id, by: 'guest' } })
+      }
+      break
+    }
+    case 'door_open': {
+      if (data.by === 'guest' && useGameStore.getState().mpRole === 'guest') {
+        const def = getMap(getInitialMapId()).DOOR_DEFS?.find((d) => d.id === data.id)
+        if (def && !store.openDoors[data.id]) useGameStore.setState({ money: Math.max(0, store.money - def.cost) })
+      }
+      store.applyDoorOpen(data.id)
+      break
+    }
+    case 'door_sync':
+      store.setOpenDoors(data.openDoors)
+      break
     case 'skip_intermission':
       store.skipIntermission()
       break

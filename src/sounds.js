@@ -1346,3 +1346,129 @@ export function playPowerupPickup(type) {
   osc.start(t + 0.05); osc.stop(t + 0.8)
   if (type === 'nuke') playNoise(ac, noiseBuffer(ac, 1.2), t, 1.2, 0.35, 'lowpass', 500, 0.8, out)
 }
+
+// ─── storm: rain loop + rolling thunder ─────────────────────────────────────
+
+const RAIN_GAIN_OUT = 0.085
+const RAIN_GAIN_IN  = 0.035
+const RAIN_LP_OUT   = 6500
+const RAIN_LP_IN    = 1300
+
+let _rain = null   // { src, filt, gain }
+
+export function startRain() {
+  if (_rain) return
+  const ac = ctx()
+  const t = ac.currentTime
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 4)
+  src.loop = true
+
+  const hp = ac.createBiquadFilter()
+  hp.type = 'highpass'
+  hp.frequency.value = 500
+
+  const filt = ac.createBiquadFilter()
+  filt.type = 'lowpass'
+  filt.frequency.value = RAIN_LP_IN
+
+  const gain = ac.createGain()
+  gain.gain.setValueAtTime(0, t)
+  gain.gain.linearRampToValueAtTime(RAIN_GAIN_IN, t + 4)
+
+  src.connect(hp)
+  hp.connect(filt)
+  filt.connect(gain)
+  gain.connect(ac.destination)
+  src.start(t)
+  _rain = { src, filt, gain }
+}
+
+export function stopRain() {
+  if (!_rain) return
+  const ac = ctx()
+  const t = ac.currentTime
+  const { src, gain } = _rain
+  _rain = null
+  gain.gain.cancelScheduledValues(t)
+  gain.gain.setValueAtTime(gain.gain.value, t)
+  gain.gain.linearRampToValueAtTime(0, t + 2)
+  src.stop(t + 2.1)
+}
+
+// Muffle + quieten the rain when the listener is inside the cabin.
+export function setRainIndoor(indoor) {
+  if (!_rain) return
+  const t = ctx().currentTime
+  _rain.gain.gain.setTargetAtTime(indoor ? RAIN_GAIN_IN : RAIN_GAIN_OUT, t, 0.25)
+  _rain.filt.frequency.setTargetAtTime(indoor ? RAIN_LP_IN : RAIN_LP_OUT, t, 0.25)
+}
+
+// distance 0 (overhead) .. 1 (far away). The rumble arrives after a delay
+// proportional to distance — roughly the speed of sound scaled to feel good.
+export function playThunder(distance = 0.5) {
+  const ac = ctx()
+  const d = Math.max(0, Math.min(1, distance))
+  const t0 = ac.currentTime + 0.12 + d * 4.5
+  const vol = 0.55 * (1 - 0.6 * d)
+
+  // Rumble: low-passed noise with irregular amplitude bumps and a sinking cutoff.
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 6)
+  const lp = ac.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.setValueAtTime(260 - d * 110, t0)
+  lp.frequency.exponentialRampToValueAtTime(55, t0 + 5)
+  const g = ac.createGain()
+  const len = 3.5 + (1 - d) * 1.5 + Math.random()
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.08 + d * 0.4)
+  let tt = t0 + 0.4
+  while (tt < t0 + len - 0.6) {
+    g.gain.linearRampToValueAtTime(vol * (0.35 + Math.random() * 0.6), tt)
+    tt += 0.25 + Math.random() * 0.5
+  }
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + len)
+  src.connect(lp)
+  lp.connect(g)
+  g.connect(ac.destination)
+  src.start(t0)
+  src.stop(t0 + len + 0.1)
+
+  // Close strikes get a sharp crack on top.
+  if (d < 0.4) {
+    playNoise(ac, noiseBuffer(ac, 0.5), t0, 0.35, 0.7 * (1 - d), 'bandpass', 1400, 0.6)
+  }
+}
+
+// ─── Wave 3: buyable doors ────────────────────────────────────────────────────
+// Register ding + barricade boards ripped off + heavy thud as the door clears.
+export function playDoorOpen(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+
+  // Coin "ka-ching" so the purchase reads as a purchase
+  playTone(ac, t, 1320, 1320, 0.09, 0.10, dest)
+  playTone(ac, t + 0.07, 1760, 1760, 0.18, 0.09, dest)
+
+  // Nails squealing out of old wood
+  playNoise(ac, noiseBuffer(ac, 0.35), t + 0.04, 0.3, 0.22, 'bandpass', 2400, 4, dest)
+  playTone(ac, t + 0.04, 520, 260, 0.28, 0.07, dest)
+
+  // Boards clattering down
+  playNoise(ac, noiseBuffer(ac, 0.45), t + 0.12, 0.4, 0.5, 'bandpass', 380, 1.2, dest)
+  playNoise(ac, noiseBuffer(ac, 0.2), t + 0.2, 0.15, 0.4, 'highpass', 1500, 1, dest)
+
+  // Final heavy thud
+  playTone(ac, t + 0.3, 110, 38, 0.3, 0.5, dest)
+}
+
+// Dull "locked" knock for a door you can't afford / can't reach yet.
+export function playDoorDenied() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 180, 120, 0.09, 0.25)
+  playTone(ac, t + 0.1, 150, 90, 0.12, 0.25)
+  playNoise(ac, noiseBuffer(ac, 0.08), t, 0.06, 0.15, 'bandpass', 500, 2)
+}

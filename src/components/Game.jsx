@@ -3,6 +3,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { startEerieMusic, stopEerieMusic, setMusicIntensity } from '../sounds'
 import Arena from './Arena'
+import DoorBarricades from './DoorBarricades'
 import DinerArena from './DinerArena'
 import Player from './Player'
 import Gun from './Gun'
@@ -22,6 +23,7 @@ import RemotePlayer from './RemotePlayer'
 import PowerUps from './PowerUps'
 import NetManager from './NetManager'
 import MobileControls from './MobileControls'
+import Storm from './Storm'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
@@ -128,6 +130,7 @@ export default function Game() {
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         {mapId === 'diner' ? <GasStationSkybox /> : <ForestSkybox />}
         {mapId === 'diner' ? <DinerArena /> : <Arena />}
+        <DoorBarricades />
         <Player />
         <Gun />
         <Knife />
@@ -142,6 +145,7 @@ export default function Game() {
         <NetManager />
         <ForceRenderOnShopOpen />
         {(PERF_ON || BENCH_ON) && <PerfOverlay />}
+        <Storm />
       </Canvas>
 
       {isActive && <HUD />}
