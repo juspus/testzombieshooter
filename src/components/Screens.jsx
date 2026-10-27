@@ -5,7 +5,17 @@ import { CROSSHAIR_COLORS, SUPPORTER_SKU, describeUnlock, isUnlocked, itemsOfKin
 import { hydrateStoreFromLocal, syncProfileWithCloud } from '../profilePersistence'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
+import { consumeInvite, isValidRoomCode } from '../invite'   // W5 one-tap invite
+import InviteShare from './InviteShare'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
+import { getReduceMotion, setReduceMotion } from '../cameraFeel'
+import { LevelBadge, ChallengeTeaser, ChallengesPanel, AchievementsPanel, DeathXpPanel } from './ProgressPanels'
+import { MODIFIERS, MOD_BONUS } from '../modifiers'
+import { DailyEntry, LeaderboardTabs } from './DailyPanels'
+import { writeLocalDaily } from '../daily'
+import StartPicker from './StartPicker'
+import { hintsActive } from '../hints'
+import BrightnessSlider from './BrightnessSlider'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -76,7 +86,7 @@ function useCheckoutReturn() {
           const list = await fetchEntitlements()
           if (list.includes(SUPPORTER_SKU)) {
             useGameStore.getState().setEntitlements(list)
-            setNotice('Thank you — Supporter Pack unlocked')
+            setNotice('Supporter Pack unlocked')
             stripCheckoutParams()
             return
           }
@@ -109,6 +119,7 @@ export default function Screens() {
   const startGame = useGameStore((s) => s.startGame)
   const nextWave = useGameStore((s) => s.nextWave)
   const intermissionLeft = useGameStore((s) => s.intermissionLeft)
+  const waveModifier = useGameStore((s) => s.waveModifier)
   const getZombiesForWave = useGameStore((s) => s.getZombiesForWave)
   const skipProgress = useGameStore((s) => s.skipProgress)
   const lastWaveBonuses = useGameStore((s) => s.lastWaveBonuses)
@@ -152,7 +163,7 @@ export default function Screens() {
 
   if (phase === 'intermission') {
     const nextCount = getZombiesForWave()
-    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} money={money} skipProgress={skipProgress} />
+    return <IntermissionScreen wave={wave} intermissionLeft={intermissionLeft} zombieCount={nextCount} money={money} skipProgress={skipProgress} modifier={waveModifier} />
   }
 
   if (phase === 'dead') {
@@ -173,7 +184,7 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
     if (mpRole === 'guest') return
     const id = setTimeout(() => {
       nextWave()
-      if (isConnected()) send('game_event', { event: 'next_wave', data: {} })
+      if (isConnected()) send('game_event', { event: 'next_wave', data: { modifier: useGameStore.getState().waveModifier } })
     }, 3200)
     return () => clearTimeout(id)
   }, [nextWave, mpRole])
@@ -181,9 +192,7 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
   return (
     <Overlay>
       <Badge style={{ color: '#00ff88' }}>WAVE {wave} CLEARED</Badge>
-      <Title style={{ fontSize: 'clamp(20px, 6vmin, 48px)' }}>NICE SHOT!</Title>
-      <Sub>Kills this wave: {waveKills}</Sub>
-      <Sub style={{ marginTop: 4, color: '#888' }}>Total kills: {kills}</Sub>
+      <Sub>{waveKills} kills · {kills} total</Sub>
       {bonuses && <BonusBreakdown bonuses={bonuses} />}
     </Overlay>
   )
@@ -191,18 +200,18 @@ function WaveClearScreen({ wave, waveKills, kills, bonuses, nextWave }) {
 
 function BonusBreakdown({ bonuses }) {
   const rows = [
-    ['Wave reward', bonuses.base],
-    [`Kill reward (${Math.round(bonuses.kills)} kills)`, bonuses.kills],
-    bonuses.headshots > 0 && [`Headshot kills (${bonuses.headshotsCount})`, bonuses.headshots],
-    bonuses.knifeKills > 0 && [`Knife kills (${bonuses.knifeKillsCount})`, bonuses.knifeKills],
-    bonuses.noPlanksLost > 0 && ['No planks lost', bonuses.noPlanksLost],
-    bonuses.fastClear > 0 && [`Fast clear (${formatSeconds(bonuses.elapsed)} / ${formatSeconds(bonuses.fastClearPar)})`, bonuses.fastClear],
+    ['Wave', bonuses.base],
+    [`Kills ×${Math.round(bonuses.kills)}`, bonuses.kills],
+    bonuses.headshots > 0 && [`Headshots ×${bonuses.headshotsCount}`, bonuses.headshots],
+    bonuses.knifeKills > 0 && [`Knife ×${bonuses.knifeKillsCount}`, bonuses.knifeKills],
+    bonuses.noPlanksLost > 0 && ['Planks intact', bonuses.noPlanksLost],
+    bonuses.modifierBonus > 0 && [MODIFIERS[bonuses.modifier]?.name ?? 'Modifier', bonuses.modifierBonus],
+    bonuses.fastClear > 0 && [`Fast ${formatSeconds(bonuses.elapsed)}`, bonuses.fastClear],
   ].filter(Boolean)
   const payout = bonuses.base + bonuses.kills + bonuses.total
 
   return (
     <div style={styles.bonusPanel}>
-      <div style={styles.bonusTitle}>PERFORMANCE PAYOUT</div>
       {rows.map(([label, value]) => (
         <div key={label} style={styles.bonusRow}>
           <span>{label}</span>
@@ -211,9 +220,28 @@ function BonusBreakdown({ bonuses }) {
       ))}
       <div style={styles.bonusDivider} />
       <div style={{ ...styles.bonusRow, color: '#ffe066', fontWeight: 'bold' }}>
-        <span>Total banked next wave</span>
+        <span>Total</span>
         <span>+€{payout.toFixed(2)}</span>
       </div>
+    </div>
+  )
+}
+
+// Wave 3: announces the next wave's modifier under the intermission countdown.
+function ModifierCard({ mod, compact }) {
+  return (
+    <div data-modifier-card={mod.id} style={{
+      display: 'flex', alignItems: 'center', gap: compact ? 8 : 12, margin: compact ? '4px auto' : '8px auto',
+      padding: compact ? '4px 10px' : '8px 16px', maxWidth: 'min(380px, 92vw)',
+      background: 'rgba(0,0,0,0.5)', border: `1px solid ${mod.color}`, borderRadius: 6,
+      boxShadow: `0 0 14px ${mod.color}55`, fontFamily: 'Courier New, monospace', textAlign: 'left',
+    }}>
+      <span>
+        <div style={{ color: mod.color, fontWeight: 'bold', letterSpacing: 3, fontSize: compact ? 12 : 16 }}>
+          {mod.name} <span style={{ color: '#88cc44', letterSpacing: 1, fontSize: compact ? 10 : 12 }}>+€{MOD_BONUS}</span>
+        </div>
+        <div style={{ color: '#ccc', fontSize: compact ? 10 : 13, letterSpacing: 1 }}>{mod.desc}</div>
+      </span>
     </div>
   )
 }
@@ -260,7 +288,7 @@ const styles = {
   },
 }
 
-function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress }) {
+function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipProgress, modifier }) {
   const [isMobile, setIsMobile] = useState(getIsMobileScreen)
   const seconds = Math.ceil(intermissionLeft)
   const urgent = seconds <= 3
@@ -292,7 +320,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
       border: `1px solid ${urgent ? 'rgba(255,50,0,0.6)' : 'rgba(255,200,0,0.3)'}`,
     }}>
       <div style={titleStyle}>
-        WAVE {wave} INCOMING — {zombieCount} ZOMBIES
+        WAVE {wave} · {zombieCount} ZOMBIES
       </div>
       <div style={{
         ...timerStyle,
@@ -301,18 +329,21 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
       }}>
         {seconds}s
       </div>
+      {modifier && MODIFIERS[modifier] && <ModifierCard mod={MODIFIERS[modifier]} compact={isMobile} />}
       {wave > 1 && (
         <div style={rewardStyle}>
-          +€15.00 WAVE REWARD
+          +€15
         </div>
       )}
-      <div style={hintStyle}>
-        {isMobile ? 'HOLD USE NEAR WINDOWS · €2.50/PLANK' : 'HOLD E NEAR WINDOWS TO BOARD · €2.50 PER PLANK'}
-      </div>
+      {wave <= 1 && hintsActive() && (
+        <div style={hintStyle}>
+          {isMobile ? 'USE: board windows · €2.50' : 'E: board windows · €2.50'}
+        </div>
+      )}
       {!isMobile && (
         <div style={skipStyle}>
           <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>
-            HOLD T TO SKIP
+            T — skip
           </div>
           <div style={{ width: 140, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${skipProgress * 100}%`, background: '#aaa', borderRadius: 2, transition: 'width 0.05s linear' }} />
@@ -366,7 +397,9 @@ function RoomCodeDisplay({ code }) {
 }
 
 function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
-  const [view, setView] = useState(checkoutReturn?.openLocker ? 'locker' : 'main') // 'main' | 'host' | 'join' | 'leaderboard' | 'locker' | 'setusername'
+  // W5: opening `/?join=CODE` lands on a one-tap 'invite' view (the tap also satisfies the audio-unlock gesture)
+  const [invite] = useState(() => (checkoutReturn?.openLocker ? null : consumeInvite()))
+  const [view, setView] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'invite' : 'main') // 'main' | 'host' | 'join' | 'invite' | 'leaderboard' | 'locker' | 'setusername'
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
@@ -379,51 +412,58 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     if (user && username !== null && view === 'setusername') setView('main')
   }, [user, username])
 
+  const partnerMapId = useGameStore((s) => s.partnerMapId)
+  const ownMapId = useGameStore((s) => s.mapId)
+  const mapMismatch = !!partnerMapId && partnerMapId !== ownMapId   // co-op: host waits for a matching guest
   const setMpRole = useGameStore((s) => s.setMpRole)
   const setMpConnected = useGameStore((s) => s.setMpConnected)
 
   const onDisconnected = useCallback(() => {
     setConnected(false)
-    setStatus('Disconnected.')
+    setStatus('')
     setMpConnected(false)
     useGameStore.getState().clearMp()
   }, [setMpConnected])
 
   const handleHost = useCallback(() => {
     setView('host')
-    setStatus('Generating room code…')
+    setStatus('…')
     setMpRoleLocal('host')
     setMpRole('host')
     createRoom(
       (code) => {
         setRoomCode(code)
         navigator.clipboard?.writeText(code).catch(() => {})
-        setStatus('Code copied to clipboard — share with Player 2')
+        setStatus('Code copied')
       },
       () => {
         setConnected(true)
-        setStatus('Player 2 connected!')
+        setStatus('Connected')
         setMpConnected(true)
       },
       onDisconnected,
     )
   }, [setMpRole, setMpConnected, onDisconnected])
 
-  const handleJoin = useCallback(() => {
-    if (!joinCode.trim()) return
-    setStatus('Connecting…')
+  const handleJoin = useCallback((override) => {
+    const code = (typeof override === 'string' ? override : joinCode).trim()
+    if (!code) return
+    setStatus('…')
     setMpRoleLocal('guest')
     setMpRole('guest')
     joinRoom(
-      joinCode.trim(),
+      code,
       () => {
         setConnected(true)
-        setStatus('Connected! Host will start the game.')
+        setStatus('Connected')
         setMpConnected(true)
         // Guests don't call startGame — they wait for the host's start_game event
       },
       (err) => {
-        setStatus(`Failed: ${err?.type ?? 'connection error'}`)
+        setStatus(err?.type === 'peer-unavailable'
+          ? 'Room not found'
+          : `Failed: ${err?.type ?? 'connection error'}`)
+        setMpRoleLocal(null)
         useGameStore.getState().clearMp()
       },
       onDisconnected,
@@ -431,9 +471,10 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   }, [joinCode, setMpRole, setMpConnected, onDisconnected])
 
   const handleStartGame = useCallback(() => {
+    if (mapMismatch) return
     startGame()
     if (isConnected()) send('game_event', { event: 'start_game', data: {} })
-  }, [startGame])
+  }, [startGame, mapMismatch])
 
   const handleBack = useCallback(() => {
     disconnect()
@@ -446,20 +487,24 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     useGameStore.getState().clearMp()
   }, [])
 
+  // Locker / challenge / achievement panels replace the title block so they fit short screens.
+  const compactView = view === 'locker' || view === 'challenges' || view === 'achievements'
+
   return (
-    <Overlay>
-      {view !== 'locker' && <Title>CABIN</Title>}
-      {view !== 'locker' && <Sub>Survive the waves. Kill all zombies to advance.</Sub>}
-      {view !== 'locker' && <Controls>WASD — Move &nbsp;|&nbsp; Mouse — Aim &nbsp;|&nbsp; Click — Shoot</Controls>}
+    <Overlay scroll>
+      {!compactView && <Title>CABIN</Title>}
+      {!compactView && hintsActive() && <Controls>WASD · Mouse · Click</Controls>}
 
       {view === 'main' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
-          <Btn onClick={startGame}>SOLO</Btn>
-          <div style={{ color: '#444', fontSize: 12, letterSpacing: 4 }}>── OR ──</div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Btn onClick={handleHost}>HOST GAME</Btn>
-            <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
+          <LevelBadge onClick={() => setView('achievements')} />
+          <StartPicker />
+          <div style={{ display: 'flex', gap: 'clamp(6px, 1.6vmin, 12px)', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
+            <Btn onClick={startGame}>SOLO</Btn>
+            <DailyEntry Btn={Btn} />
+            <Btn onClick={handleHost}>HOST</Btn>
+            <Btn onClick={() => setView('join')}>JOIN</Btn>
           </div>
           <div style={{ display: 'flex', gap: 'clamp(14px, 4vmin, 28px)', marginTop: 6 }}>
             <button onClick={() => setView('leaderboard')} style={textLinkStyle}>
@@ -468,6 +513,14 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
             <button onClick={() => setView('locker')} style={textLinkStyle}>
               Locker
             </button>
+            <button onClick={() => setView('achievements')} style={textLinkStyle}>
+              Achievements
+            </button>
+          </div>
+          <ChallengeTeaser onClick={() => setView('challenges')} />
+          <div style={{ display: 'flex', gap: 'clamp(10px, 3vmin, 20px)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <ReduceMotionToggle />
+            <BrightnessSlider />
           </div>
         </div>
       )}
@@ -475,6 +528,20 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       {view === 'locker' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
           <LockerPanel user={user} notice={checkoutReturn?.notice} />
+          <BackBtn onClick={() => setView('main')} />
+        </div>
+      )}
+
+      {view === 'challenges' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+          <ChallengesPanel />
+          <BackBtn onClick={() => setView('main')} />
+        </div>
+      )}
+
+      {view === 'achievements' && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+          <AchievementsPanel />
           <BackBtn onClick={() => setView('main')} />
         </div>
       )}
@@ -489,8 +556,33 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       {view === 'host' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
           {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
+          {roomCode && !connected ? <InviteShare code={roomCode} /> : null}
           <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
-          {connected && <Btn onClick={handleStartGame}>START GAME</Btn>}
+          {connected && mapMismatch && (
+            <div style={{ color: '#cc9944', fontSize: 12, letterSpacing: 1, textAlign: 'center', maxWidth: 320 }}>
+              Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
+            </div>
+          )}
+          {connected && <Btn onClick={handleStartGame} disabled={mapMismatch}>START GAME</Btn>}
+          <BackBtn onClick={handleBack} />
+        </div>
+      )}
+
+      {view === 'invite' && invite && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          {!isValidRoomCode(invite.code) ? (
+            <div data-testid="invite-error" style={{ color: '#ff6666', fontSize: 14, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>
+              Invalid invite
+            </div>
+          ) : (
+            <>
+              <div style={{ color: '#888', fontSize: 13, letterSpacing: 3 }}>INVITED</div>
+              {!connected && !status && <Btn onClick={() => handleJoin(invite.code)}>{`JOIN ${invite.code}`}</Btn>}
+              {status && (
+                <div data-testid="invite-status" style={{ color: status.startsWith('Room not') || status.startsWith('Failed') ? '#ff6666' : '#888', fontSize: 13, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>{status}</div>
+              )}
+            </>
+          )}
           <BackBtn onClick={handleBack} />
         </div>
       )}
@@ -526,6 +618,20 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <UsernamePickerView onDone={() => { onUsernameSet?.(); setView('main') }} />
       )}
     </Overlay>
+  )
+}
+
+// Tiny accessibility option: turns off head bob + fire kick (weapon sway stays, subtler).
+function ReduceMotionToggle() {
+  const [on, setOn] = useState(getReduceMotion())
+  return (
+    <button
+      onClick={() => { setReduceMotion(!on); setOn(!on) }}
+      aria-pressed={on}
+      style={{ ...textLinkStyle, marginTop: 2 }}
+    >
+      Reduce motion: {on ? 'on' : 'off'}
+    </button>
   )
 }
 
@@ -621,14 +727,14 @@ function UsernamePickerView({ onDone }) {
       await saveUsername(value)
       onDone()
     } catch (err) {
-      setErrorMsg(err?.message?.includes('unique') ? 'Name taken — try another.' : 'Something went wrong.')
+      setErrorMsg(err?.message?.includes('unique') ? 'Name taken' : 'Error')
       setStatus('error')
     }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
-      <Sub>Choose a username to save your scores:</Sub>
+      <Sub>Pick a username</Sub>
       <input
         value={value}
         onChange={(e) => { setValue(e.target.value.slice(0, 24)); setStatus('idle'); setErrorMsg('') }}
@@ -759,7 +865,22 @@ const intermissionStyles = {
   },
 }
 
-function Overlay({ children, dim = 0.78 }) {
+function Overlay({ children, dim = 0.78, scroll = false }) {
+  const gap = 'clamp(5px, 1.5vmin, 12px)'
+  if (scroll) {
+    // Short landscape phones: content taller than the screen scrolls instead of clipping.
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        background: `rgba(0,0,0,${dim})`, fontFamily: 'Courier New, monospace',
+      }}>
+        <div style={{ margin: 'auto 0', padding: '10px 0', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap }}>
+          {children}
+        </div>
+      </div>
+    )
+  }
   return (
     <div style={{
       position: 'absolute',
@@ -833,6 +954,21 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
   const [playerName, setPlayerName] = useState('')
   const [scoreStatus, setScoreStatus] = useState('idle') // 'idle' | 'submitting' | 'done' | 'error'
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  // Daily Run: only the first run of the UTC day is ranked; the rest are practice (never submitted).
+  const dailyMode = useGameStore((s) => s.runMode === 'daily')
+  const dailyRanked = useGameStore((s) => s.dailyRanked)
+  const dailyDateStr = useGameStore((s) => s.dailyDate)
+  const isPractice = (dailyMode && !dailyRanked) || scoreStatus === 'practice'
+  const sendScore = async (name) => {
+    if (dailyMode && !dailyRanked) { setScoreStatus('practice'); return }
+    try {
+      await submitScore({ name, wave, kills, mode: dailyMode ? 'daily' : 'normal', seedDate: dailyDateStr })
+      if (dailyMode) writeLocalDaily({ wave, kills, name: name.trim().slice(0, 24) })
+      setScoreStatus('done')
+    } catch (e) {
+      setScoreStatus(e?.message === 'daily_already_ranked' ? 'practice' : 'error')
+    }
+  }
 
   const runSummary = useMemo(() => ({
     wave,
@@ -860,20 +996,13 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
   useEffect(() => {
     if (!btnVisible || !username || scoreStatus !== 'idle') return
     setScoreStatus('submitting')
-    submitScore({ name: username, wave, kills })
-      .then(() => setScoreStatus('done'))
-      .catch(() => setScoreStatus('error'))
+    sendScore(username)
   }, [btnVisible, username])
 
   const handleSubmitScore = async () => {
     if (!playerName.trim() || scoreStatus !== 'idle') return
     setScoreStatus('submitting')
-    try {
-      await submitScore({ name: playerName, wave, kills })
-      setScoreStatus('done')
-    } catch {
-      setScoreStatus('error')
-    }
+    await sendScore(playerName)
   }
 
   const handleShare = async () => {
@@ -887,19 +1016,19 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
     try {
       if (navigator.share) {
         await navigator.share(shareData)
-        setShareStatus('Shared run link with preview image!')
+        setShareStatus('Shared')
       } else {
         await copyGameLink(shareUrl)
-        setShareStatus('Share link copied with OG preview image.')
+        setShareStatus('Link copied')
       }
     } catch (error) {
       if (error?.name === 'AbortError') {
-        setShareStatus('Share canceled.')
+        setShareStatus('')
         return
       }
       console.error('Unable to share run', error)
       await copyGameLink(shareUrl)
-      setShareStatus('Share failed. Link copied instead.')
+      setShareStatus('Link copied')
     }
   }
 
@@ -910,12 +1039,14 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      overflowY: 'auto',            // short landscape phones: the breakdown scrolls
+      WebkitOverflowScrolling: 'touch',
       background: `rgba(0,0,0,${0.3 + opacity * 0.55})`,
       gap: 0,
       fontFamily: 'Garamond, Georgia, serif',
       transition: 'background 0.1s',
     }}>
+      <div style={{ margin: 'auto 0', padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
       <h1 style={{
         color: `rgba(180,0,0,${opacity})`,
         fontSize: 'clamp(38px, 11vmin, 120px)',
@@ -954,6 +1085,8 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         <DeathStat label="Perks" value={runSummary.perks.length || 'None'} />
       </div>
 
+      <div style={{ opacity }}><DeathXpPanel /></div>
+
       {lastRunUnlocks?.length > 0 && (
         <div style={{
           opacity,
@@ -966,7 +1099,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
           textAlign: 'center',
           maxWidth: '88vw',
         }}>
-          NEW UNLOCK: {lastRunUnlocks.map(describeUnlock).join(', ')}
+          UNLOCK: {lastRunUnlocks.map(describeUnlock).join(', ')}
         </div>
       )}
 
@@ -980,7 +1113,11 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         gap: 'clamp(6px, 1.5vmin, 12px)',
       }}>
 
-        {username ? (
+        {isPractice ? (
+          <div style={{ color: '#aaa', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4, textAlign: 'center' }}>
+            PRACTICE
+          </div>
+        ) : username ? (
           scoreStatus === 'done' ? (
             <div style={{ color: '#88cc44', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
               SCORE SAVED ✓
@@ -1027,7 +1164,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
                 transition: 'all 0.2s',
               }}
             >
-              {scoreStatus === 'submitting' ? '…' : 'Submit Score'}
+              {scoreStatus === 'submitting' ? '…' : 'Submit'}
             </button>
           </div>
         ) : (
@@ -1037,13 +1174,13 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         )}
         {scoreStatus === 'error' && (
           <div style={{ color: '#ff6644', fontSize: 11, letterSpacing: 2, fontFamily: 'Courier New, monospace' }}>
-            FAILED TO SAVE — TRY AGAIN
+            SAVE FAILED
           </div>
         )}
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
-            Share Run
+            Share
           </DeathButton>
           {mpRole === 'guest' ? (
             <div style={{
@@ -1057,11 +1194,11 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
               textAlign: 'center',
               textTransform: 'uppercase',
             }}>
-              Waiting for host…
+              Waiting…
             </div>
           ) : (
             <DeathButton onClick={onRestart}>
-              Start New Game
+              Retry
             </DeathButton>
           )}
         </div>
@@ -1089,85 +1226,17 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
             textTransform: 'uppercase',
           }}
         >
-          {showLeaderboard ? '▲ Hide Leaderboard' : '▼ View Leaderboard'}
+          {showLeaderboard ? '▲ Leaderboard' : '▼ Leaderboard'}
         </button>
-        {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} />}
+        {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
+      </div>
       </div>
     </div>
   )
 }
 
-function LeaderboardPanel({ highlightWave, highlightKills } = {}) {
-  const [rows, setRows] = useState(null)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    setRows(null)
-    setError(false)
-    fetchLeaderboard().then(setRows).catch(() => setError(true))
-  }, [])
-
-  return (
-    <div style={{
-      width: 'min(420px, 92vw)',
-      background: 'rgba(0,0,0,0.6)',
-      border: '1px solid rgba(255,50,0,0.25)',
-      borderRadius: 6,
-      fontFamily: 'Courier New, monospace',
-      fontSize: 'clamp(9px, 1.9vmin, 13px)',
-      overflow: 'hidden',
-    }}>
-      <div style={{
-        padding: '8px 14px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
-        color: '#ff3300',
-        letterSpacing: 5,
-        fontSize: 'clamp(8px, 1.6vmin, 11px)',
-        fontWeight: 'bold',
-        textAlign: 'center',
-      }}>
-        LEADERBOARD
-      </div>
-      {error && (
-        <div style={{ color: '#ff6644', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Failed to load</div>
-      )}
-      {!error && !rows && (
-        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Loading…</div>
-      )}
-      {rows && rows.length === 0 && (
-        <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>No scores yet</div>
-      )}
-      {rows && rows.length > 0 && (
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 60px 54px', gap: '0 10px', padding: '5px 14px', color: '#555', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <span>#</span><span>NAME</span><span style={{ textAlign: 'right' }}>WAVE</span><span style={{ textAlign: 'right' }}>KILLS</span>
-          </div>
-          {rows.map((row, i) => {
-            const isHighlight = highlightWave != null && row.wave === highlightWave && row.kills === highlightKills
-            return (
-              <div key={row.id} style={{
-                display: 'grid',
-                gridTemplateColumns: '28px 1fr 60px 54px',
-                gap: '0 10px',
-                padding: 'clamp(3px, 0.8vmin, 5px) 14px',
-                color: isHighlight ? '#ffe066' : i === 0 ? '#fff' : '#aaa',
-                background: isHighlight ? 'rgba(255,224,102,0.06)' : 'transparent',
-                borderBottom: '1px solid rgba(255,255,255,0.03)',
-              }}>
-                <span style={{ color: i === 0 ? '#ff3300' : '#555' }}>{i + 1}</span>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {row.is_supporter && <span title="Supporter" aria-label="Supporter" style={{ color: '#ffd166' }}>★ </span>}
-                  {row.name}
-                </span>
-                <span style={{ textAlign: 'right' }}>{row.wave}</span>
-                <span style={{ textAlign: 'right', color: '#888' }}>{row.kills}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
+function LeaderboardPanel({ highlightWave, highlightKills, initialTab = 'all' } = {}) {
+  return <LeaderboardTabs highlightWave={highlightWave} highlightKills={highlightKills} initialTab={initialTab} />
 }
 
 // ── Locker (cosmetics) ──────────────────────────────────────────────────────
@@ -1177,9 +1246,9 @@ function LeaderboardPanel({ highlightWave, highlightKills } = {}) {
 const CROSSHAIR_GLYPHS = { cross: '+', dot: '●', chevron: '⌃', circle: '◎' }
 
 const CHECKOUT_ERRORS = {
-  already_owned: 'You already own the Supporter Pack.',
-  checkout_unavailable: 'Checkout is unavailable right now.',
-  unauthorized: 'Please sign in again.',
+  already_owned: 'Already owned',
+  checkout_unavailable: 'Checkout unavailable',
+  unauthorized: 'Sign in again',
 }
 
 function LockIcon() {
@@ -1232,7 +1301,7 @@ function LockerTile({ kind, item, selected, unlocked, onEquip }) {
             borderRadius: kind === 'crosshairColor' ? '50%' : 3,
             background: swatchColor,
             border: '1px solid rgba(255,255,255,0.35)',
-            boxShadow: kind === 'knifeSkin' && item.id === 'ember' ? '0 0 6px #ff4a1a' : 'none',
+            boxShadow: kind === 'knifeSkin' && (item.id === 'ember' || item.id === 'bloodied') ? `0 0 6px ${item.swatch}` : 'none',
           }} />
         ) : null}
       </span>
@@ -1312,22 +1381,22 @@ function LockerPanel({ user, notice }) {
     } catch (err) {
       const code = err?.message ?? ''
       if (code === 'already_owned') fetchEntitlements().then((l) => useGameStore.getState().setEntitlements(l)).catch(() => {})
-      setError(CHECKOUT_ERRORS[code] ?? (code.includes(' ') ? code : 'Something went wrong — please try again.'))
+      setError(CHECKOUT_ERRORS[code] ?? (code.includes(' ') ? code : 'Try again'))
       setBusy(false)
     }
   }
 
   let button
   if (owned) {
-    button = <Btn disabled style={supporterBtnStyle}>★ Supporter — thank you</Btn>
+    button = <Btn disabled style={supporterBtnStyle}>★ Supporter</Btn>
   } else if (!config) {
     button = <Btn disabled style={supporterBtnStyle}>…</Btn>
   } else if (!config.checkoutEnabled) {
     button = <Btn disabled style={supporterBtnStyle}>Coming soon</Btn>
   } else if (!user) {
-    button = <Btn onClick={() => signInWithGoogle()} style={supporterBtnStyle}>Sign in with Google to support</Btn>
+    button = <Btn onClick={() => signInWithGoogle()} style={supporterBtnStyle}>Sign in to support</Btn>
   } else {
-    button = <Btn onClick={handleSupport} disabled={busy} style={supporterBtnStyle}>{busy ? 'Opening checkout…' : `Support ${priceLabel}`}</Btn>
+    button = <Btn onClick={handleSupport} disabled={busy} style={supporterBtnStyle}>{busy ? '…' : `Support ${priceLabel}`}</Btn>
   }
 
   return (
@@ -1513,8 +1582,8 @@ function Btn({ children, onClick, disabled = false, style }) {
       onClick={onClick}
       disabled={disabled}
       style={{
-        marginTop: 'clamp(8px, 2.5vmin, 24px)',
-        padding: 'clamp(7px, 1.5vmin, 14px) clamp(20px, 5vmin, 48px)',
+        marginTop: 'clamp(4px, 1.5vmin, 24px)',
+        padding: 'clamp(7px, 1.5vmin, 14px) clamp(14px, 4vmin, 48px)',
         background: 'transparent',
         border: '2px solid #ff3300',
         color: '#ff3300',

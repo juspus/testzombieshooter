@@ -80,7 +80,7 @@ export default function VoiceChat() {
           onPointerUp={() => setPTT(false)}
           onPointerCancel={() => setPTT(false)}
         >
-          🎙
+          MIC
         </button>
       )}
     </>

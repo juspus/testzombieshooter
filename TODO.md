@@ -1,6 +1,8 @@
 # TODO.md
 
 Ideas and deferred work to return to. No priority order — discuss before picking one up.
+The prioritised plan lives in the roadmap (`docs/roadmap.html`, link in MEMORY.md);
+this file stays the raw idea stash.
 
 ---
 

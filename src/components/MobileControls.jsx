@@ -40,6 +40,7 @@ export default function MobileControls() {
   const activeItem = useGameStore((s) => s.activeItem)
   const nearChest = useGameStore((s) => s.nearChest)
   const nearWindowId = useGameStore((s) => s.nearWindowId)
+  const nearDoorId = useGameStore((s) => s.nearDoorId)
   const [isMobile, setIsMobile] = useState(getIsMobile)
   const [isPortrait, setIsPortrait] = useState(getIsPortrait)
   const [isStandalone, setIsStandalone] = useState(getIsStandalone)
@@ -72,10 +73,19 @@ export default function MobileControls() {
   const interactBtnRef = useRef(null)
   const reloadBtnRef = useRef(null)
   const swapBtnRef = useRef(null)
+  // Wave 3 grenade button: own pointer (hold = cook, release = throw), never turns into a camera drag
+  const grenBtnRef = useRef(null)
+  const grenPointerRef = useRef(null)
+  const grenades = useGameStore((s) => s.grenades)
+  const cycleBtnRef = useRef(null)
+  const ownedCount = useGameStore((s) => s.ownedWeapons.length)
 
   const active = phase === 'playing' || phase === 'intermission'
-  const showInteractHint = nearChest || nearWindowId >= 0
-  const showInstallHint = !isStandalone && !installHintDismissed
+  const nearMachine = useGameStore((s) => s.nearMachine)
+  const nearDownedPartner = useGameStore((s) => s.coopNearPartner)   // W5: interact = revive
+  const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null || nearMachine !== null || nearDownedPartner
+  // Never during a wave: it covers the top HUD (wave/kills/money)
+  const showInstallHint = !isStandalone && !installHintDismissed && phase !== 'playing'
 
   useEffect(() => {
     const update = () => {
@@ -106,6 +116,7 @@ export default function MobileControls() {
       lookPointerRef.current = null
       shootPointerRef.current = null
       movePointerRef.current = null
+      grenPointerRef.current = null
       lookBtnRef.current = null
       lookDraggedRef.current = false
       holdFiredRef.current = false
@@ -155,8 +166,8 @@ export default function MobileControls() {
     return (
       <div style={styles.rotateOverlay}>
         <div style={styles.rotateIcon}>↻</div>
-        <div style={styles.rotateTitle}>ROTATE DEVICE</div>
-        <div style={styles.rotateText}>Cabin mobile controls require landscape mode.</div>
+        <div style={styles.rotateTitle}>ROTATE</div>
+        <div style={styles.rotateText}>Landscape only</div>
       </div>
     )
   }
@@ -204,6 +215,8 @@ export default function MobileControls() {
       [interactBtnRef, 'interact'],
       [reloadBtnRef, 'reload'],
       [swapBtnRef, 'swap'],
+      [grenBtnRef, 'grenade'],
+      [cycleBtnRef, 'cycle'],
     ]) {
       const el = ref.current
       if (!el) continue
@@ -238,6 +251,13 @@ export default function MobileControls() {
   const onLookStart = (e) => {
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
+
+    // Grenade button: dedicated finger, held = cooking
+    if (grenPointerRef.current === null && hitButton(e.clientX, e.clientY) === 'grenade') {
+      grenPointerRef.current = e.pointerId
+      mobileInput.grenadeHeld = true
+      return
+    }
 
     // Safety: if both slots are stuck from lost pointer events, reset and reclaim primary
     if (lookPointerRef.current !== null && shootPointerRef.current !== null) {
@@ -298,6 +318,7 @@ export default function MobileControls() {
 
   const onLookMove = (e) => {
     e.preventDefault()
+    if (e.pointerId === grenPointerRef.current) return
     if (e.pointerId === lookPointerRef.current) {
       e.preventDefault()
 
@@ -330,6 +351,12 @@ export default function MobileControls() {
   }
 
   const onLookEnd = (e) => {
+    if (e.pointerId === grenPointerRef.current) {
+      e.preventDefault()
+      grenPointerRef.current = null
+      mobileInput.grenadeHeld = false
+      return
+    }
     if (e.pointerId === shootPointerRef.current) {
       // Secondary shoot finger lifted
       e.preventDefault()
@@ -367,6 +394,7 @@ export default function MobileControls() {
       else if (hit === 'interact') mobileInput.interactPressed = true
       else if (hit === 'reload') mobileInput.reloadPressed = true
       else if (hit === 'swap') mobileInput.swapPressed = true
+      else if (hit === 'cycle') mobileInput.cyclePressed = true
     }
 
     lookBtnRef.current = null
@@ -375,6 +403,11 @@ export default function MobileControls() {
   }
 
   const onLookCancel = (e) => {
+    if (e.pointerId === grenPointerRef.current) {
+      grenPointerRef.current = null
+      mobileInput.grenadeHeld = false
+      return
+    }
     if (e.pointerId === shootPointerRef.current) {
       shootPointerRef.current = null
       cancelShootHold()
@@ -393,7 +426,7 @@ export default function MobileControls() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const swapIcon = activeItem === 'gun' ? '🔪' : '🔫'
+  const swapIcon = activeItem === 'gun' ? 'KNIFE' : 'GUN'
 
   return (
     <div style={styles.root} {...touchGuards}>
@@ -401,7 +434,7 @@ export default function MobileControls() {
         <div style={styles.installHint} onClick={dismissInstallHint}>
           <div>
             <div style={styles.installTitle}>FULLSCREEN MODE</div>
-            <div style={styles.installText}>For more playable space in Safari: Share → Add to Home Screen, then launch Cabin from the icon.</div>
+            <div style={styles.installText}>Share → Add to Home Screen for fullscreen</div>
           </div>
           <button
             type="button"
@@ -441,12 +474,16 @@ export default function MobileControls() {
         <div style={styles.actionsRow}>
           <div ref={reloadBtnRef} style={{ ...styles.roundBtn, ...styles.reloadBtn }}>↻</div>
           <div ref={swapBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>{swapIcon}</div>
+          <div ref={grenBtnRef} style={{ ...styles.roundBtn, ...styles.grenBtn, ...(grenades <= 0 ? { opacity: 0.4 } : {}) }}>
+            GREN<span style={styles.grenCount}>{grenades}</span>
+          </div>
+          {ownedCount > 1 && <div ref={cycleBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>⇄</div>}
         </div>
         <div style={styles.actionsRow}>
           <div
             ref={interactBtnRef}
             style={{ ...styles.roundBtn, ...styles.interactBtn, ...(showInteractHint ? styles.interactActive : {}) }}
-          >✋</div>
+          >USE</div>
           <div ref={shootBtnRef} style={{ ...styles.roundBtn, ...styles.shootBtn }}>●</div>
         </div>
       </div>
@@ -553,7 +590,7 @@ const styles = {
   interactBtn: {
     width: 46,
     height: 46,
-    fontSize: 20,
+    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
   },
   interactActive: {
     border: '1px solid rgba(255,200,50,0.7)',
@@ -567,10 +604,31 @@ const styles = {
     color: 'rgba(200,220,240,0.75)',
     background: 'rgba(8,12,22,0.55)',
   },
+  grenBtn: {
+    position: 'relative',
+    width: 36,
+    height: 36,
+    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
+    background: 'rgba(30,40,12,0.62)',
+    border: '1px solid rgba(150,190,70,0.55)',
+  },
+  grenCount: {
+    position: 'absolute',
+    right: -2,
+    bottom: -3,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
+    background: 'rgba(0,0,0,0.8)',
+    color: '#cfe88a',
+    fontSize: 10,
+    lineHeight: '14px',
+    textAlign: 'center',
+  },
   swapBtn: {
     width: 36,
     height: 36,
-    fontSize: 15,
+    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
   },
   installHint: {
     position: 'absolute',

@@ -113,3 +113,16 @@ export const SPAWN_CLUSTERS = [
 
 // Supply chest (shop) position — sheltered behind the counter, near the back door.
 export const CHEST_POS = { x: 0, z: -3.2 }
+
+// ─── Buyable doors ───────────────────────────────────────────────────────────
+// The diner is a single open-plan room: no doors, every window is always active.
+// (Exports exist so map-agnostic code can consume any map the same way.)
+export const DOOR_DEFS = []
+// Machine spots sit behind the counter against the back wall: the east/west walls are lined
+// with booths (x=±6.6), the box never relocates (single room, see pickBoxRoom), and the bench
+// must stay clear of the supply chest (0,-3.2) and the back door (x=0).
+export const ROOM_ANCHORS = {
+  main: { x: 0, z: 2, box: { x: -4.8, z: -4.8 }, bench: { x: 4.8, z: -4.8 } },
+}
+export const isWindowActive = () => true
+export const activeSpawnClusters = () => SPAWN_CLUSTERS

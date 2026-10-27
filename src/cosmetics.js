@@ -9,17 +9,23 @@
 // no new shader programs. All palettes are module-level frozen constants;
 // `applySkin` does a map lookup and never allocates.
 
+import { levelFromXp, legacyXp } from './progression'
+import { sanitizeChallengeState, mergeChallengeState } from './challenges'
+
 // ── Catalog ────────────────────────────────────────────────────────────────
 
 const free = { type: 'free' }
 const supporter = { type: 'supporter' }
 const milestone = (stat, value) => ({ type: 'milestone', stat, value })
+const level = (value) => ({ type: 'level', value })   // Wave 4: earned by player level (progression.js)
 
 export const COSMETICS = Object.freeze([
   // Weapon finishes (apply to every gun)
   { id: 'default',    kind: 'skin', label: 'Factory',    blurb: 'The original finish.',                 unlock: free,                          swatch: '#585858' },
   { id: 'blood_rust', kind: 'skin', label: 'Blood-Rust', blurb: 'Rusted brown-red with dark accents.',  unlock: milestone('bestWave', 10),     swatch: '#5a2a1a' },
-  { id: 'field_worn', kind: 'skin', label: 'Field-Worn', blurb: 'Matte olive-grey, well used.',         unlock: milestone('totalKills', 250),  swatch: '#4f5a4a' },
+  { id: 'field_worn', kind: 'skin', label: 'Field-Worn', blurb: 'Matte olive-grey, well used.',         unlock: level(3),                  swatch: '#4f5a4a' },
+  { id: 'arctic',     kind: 'skin', label: 'Arctic',     blurb: 'Frost-white polymer, cold steel.',     unlock: level(10),                     swatch: '#c9d6df' },
+  { id: 'verdigris',  kind: 'skin', label: 'Verdigris',  blurb: 'Weathered copper-green patina.',       unlock: level(20),                     swatch: '#3f7f6e' },
   { id: 'gold',       kind: 'skin', label: 'Gold',       blurb: 'Polished gold on every gun.',          unlock: supporter,                     swatch: '#c9a227' },
   { id: 'obsidian',   kind: 'skin', label: 'Obsidian',   blurb: 'Glossy black with a faint purple glow.', unlock: supporter,                   swatch: '#0b0b0f' },
 
@@ -31,6 +37,8 @@ export const COSMETICS = Object.freeze([
 
   // Knife
   { id: 'default', kind: 'knifeSkin', label: 'Steel', blurb: 'Plain hunting knife.',           unlock: free,      swatch: '#b8b8b8' },
+  { id: 'bone',    kind: 'knifeSkin', label: 'Bone',  blurb: 'Pale bone-white blade.',         unlock: level(4),  swatch: '#d8d2bc' },
+  { id: 'bloodied', kind: 'knifeSkin', label: 'Bloodied', blurb: 'Dull steel, dark red edge glow.', unlock: level(14), swatch: '#8a1c1c' },
   { id: 'ember',   kind: 'knifeSkin', label: 'Ember', blurb: 'Dark steel with a glowing edge.', unlock: supporter, swatch: '#ff4a1a' },
 
   // Display-only (leaderboard star); not equippable
@@ -41,7 +49,8 @@ export const COSMETICS = Object.freeze([
 export const CROSSHAIR_COLORS = Object.freeze([
   { id: 'white', kind: 'crosshairColor', label: 'White', hex: '#ffffff', unlock: free },
   { id: 'amber', kind: 'crosshairColor', label: 'Amber', hex: '#ffe066', unlock: free },
-  { id: 'green', kind: 'crosshairColor', label: 'Green', hex: '#7CFC00', unlock: milestone('bestWave', 5) },
+  { id: 'green', kind: 'crosshairColor', label: 'Green', hex: '#7CFC00', unlock: level(2) },
+  { id: 'violet', kind: 'crosshairColor', label: 'Violet', hex: '#b388ff', unlock: level(6) },
   { id: 'red',   kind: 'crosshairColor', label: 'Red',   hex: '#ff3b3b', unlock: supporter },
   { id: 'cyan',  kind: 'crosshairColor', label: 'Cyan',  hex: '#3ff0ff', unlock: supporter },
 ])
@@ -64,6 +73,11 @@ export const DEFAULT_STATS = Object.freeze({
   runs: 0,
   totalHeadshots: 0,
   totalKnifeKills: 0,
+  // Wave 4 progression (lives in the same stats object so it persists / syncs with the rest)
+  xp: 0,                 // lifetime XP -> level (progression.js)
+  achievements: Object.freeze({}),   // { [achievementId]: unix-day it was earned }
+  challenges: Object.freeze({}),     // { daily: {key, progress, done}, weekly: {...} } (challenges.js)
+  lastRunDay: '',                    // UTC 'YYYY-MM-DD' of the last finished run (first-run-of-day bonus)
 })
 
 export const SUPPORTER_SKU = 'supporter_pack'
@@ -91,6 +105,7 @@ export function isUnlocked(item, { entitlements = [], stats = DEFAULT_STATS } = 
   if (!u || u.type === 'free') return true
   if (u.type === 'supporter') return Array.isArray(entitlements) && entitlements.includes(SUPPORTER_SKU)
   if (u.type === 'milestone') return (Number(stats?.[u.stat]) || 0) >= u.value
+  if (u.type === 'level') return levelFromXp(stats?.xp).level >= u.value
   return false
 }
 
@@ -99,6 +114,7 @@ export function unlockText(item) {
   const u = item?.unlock
   if (!u || u.type === 'free') return ''
   if (u.type === 'supporter') return 'Supporter'
+  if (u.type === 'level') return `Level ${u.value}`
   if (u.type === 'milestone') {
     return u.stat === 'bestWave' ? `Reach wave ${u.value}` : `${u.value} kills`
   }
@@ -109,6 +125,7 @@ export function unlockText(item) {
 export function describeUnlock(item) {
   if (item.kind === 'skin') return `${item.label} finish`
   if (item.kind === 'crosshairColor') return `${item.label} crosshair`
+  if (item.kind === 'knifeSkin') return `${item.label} knife`
   return item.label
 }
 
@@ -122,6 +139,39 @@ export function newUnlocksBetween(prevStats, nextStats, entitlements = []) {
       !isUnlocked(item, { entitlements, stats: prevStats }) &&
       isUnlocked(item, { entitlements, stats: nextStats })
   )
+}
+
+// ── Level rewards ──────────────────────────────────────────────────────────
+// Named (non-cosmetic) rewards: the Diner map gate and the starting loadouts (mapSelect.js).
+export const NAMED_LEVEL_REWARDS = Object.freeze([
+  { id: 'diner_map',        level: 5, text: 'Diner map' },
+  { id: 'loadout_shotgun',  level: 8, text: 'Starting loadout: Shotgun' },
+  { id: 'loadout_fast_hands', level: 12, text: 'Starting loadout: Fast Hands perk' },
+  { id: 'loadout_ak47',     level: 16, text: 'Starting loadout: AK-47' },
+])
+
+/** True once the player's level (from stats.xp) has reached the named reward's level. */
+export function isLevelRewardUnlocked(rewardId, stats = DEFAULT_STATS) {
+  const r = NAMED_LEVEL_REWARDS.find((x) => x.id === rewardId)
+  return !!r && levelFromXp(stats?.xp).level >= r.level
+}
+
+/** What reaching level `n` gives: { level, text, named: [...], items: [...] } or null when nothing. */
+export function levelReward(n) {
+  const named = NAMED_LEVEL_REWARDS.filter((r) => r.level === n)
+  const items = ALL_ITEMS.filter((i) => i.unlock?.type === 'level' && i.unlock.value === n)
+  if (!named.length && !items.length) return null
+  const text = [...named.map((r) => r.text), ...items.map(describeUnlock)].join(' + ')
+  return { level: n, text, named, items }
+}
+
+/** Soonest reward above `currentLevel`: { level, text } or null. */
+export function nextLevelReward(currentLevel) {
+  for (let n = currentLevel + 1; n <= 100; n++) {
+    const r = levelReward(n)
+    if (r) return { level: n, text: r.text }
+  }
+  return null
 }
 
 // ── Skin palettes ──────────────────────────────────────────────────────────
@@ -170,6 +220,35 @@ export const SKIN_PALETTES = Object.freeze({
     grip:   m('#08080b', 0.2, 0.6),
     accent: m('#5a3a8f', 0.8, 0.2),    // faint purple
   }),
+
+  arctic: Object.freeze({
+    metal:  m('#b9c6cf', 0.35, 0.55),
+    chrome: m('#dfe8ee', 0.5, 0.4),
+    dark:   m('#4a5560', 0.4, 0.6),
+    wood:   m('#8a97a0', 0.1, 0.8),
+    grip:   m('#3a444c', 0.05, 0.9),
+    accent: m('#7fc4e8', 0.5, 0.4),
+  }),
+
+  verdigris: Object.freeze({
+    metal:  m('#3f7f6e', 0.7, 0.55),
+    chrome: m('#5fa08c', 0.75, 0.45),
+    dark:   m('#1b3a32', 0.5, 0.65),
+    wood:   m('#4a3a22', 0.0, 0.9),
+    grip:   m('#16241f', 0.1, 0.9),
+    accent: m('#b87333', 0.8, 0.35),
+  }),
+})
+
+/**
+ * Knife blade palettes. Same material config as the factory knife (emissive is always
+ * carried, black/0 by default) so equipping never compiles a new shader.
+ */
+export const KNIFE_PALETTES = Object.freeze({
+  default:  Object.freeze({ color: '#b8b8b8', metalness: 0.95, roughness: 0.10, emissive: '#000000', emissiveIntensity: 0 }),
+  ember:    Object.freeze({ color: '#3a3a40', metalness: 0.9,  roughness: 0.25, emissive: '#ff4a1a', emissiveIntensity: 0.9 }),
+  bone:     Object.freeze({ color: '#d8d2bc', metalness: 0.2,  roughness: 0.6,  emissive: '#000000', emissiveIntensity: 0 }),
+  bloodied: Object.freeze({ color: '#6a6a70', metalness: 0.85, roughness: 0.35, emissive: '#8a1c1c', emissiveIntensity: 0.5 }),
 })
 
 /**
@@ -192,20 +271,38 @@ function nonNegInt(v) {
 
 export function sanitizeStats(obj) {
   const o = obj && typeof obj === 'object' ? obj : {}
-  return {
+  const base = {
     bestWave: nonNegInt(o.bestWave),
     totalKills: nonNegInt(o.totalKills),
     runs: nonNegInt(o.runs),
     totalHeadshots: nonNegInt(o.totalHeadshots),
     totalKnifeKills: nonNegInt(o.totalKnifeKills),
   }
+  return {
+    ...base,
+    // Pre-Wave-4 profiles have no `xp` key: estimate it once so veterans keep their level-gated unlocks.
+    xp: o.xp === undefined && base.runs > 0 ? Math.floor(legacyXp(base)) : nonNegInt(o.xp),
+    achievements: sanitizeAchievements(o.achievements),
+    challenges: sanitizeChallengeState(o.challenges),
+    lastRunDay: typeof o.lastRunDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.lastRunDay) ? o.lastRunDay : '',
+  }
+}
+
+function sanitizeAchievements(a) {
+  const out = {}
+  if (a && typeof a === 'object') {
+    for (const k of Object.keys(a).slice(0, 200)) {
+      if (k.length <= 40) out[k] = nonNegInt(a[k]) || 1
+    }
+  }
+  return out
 }
 
 /**
  * Combine two *independent* stat blocks (e.g. an anonymous local profile that
  * has never been uploaded + a cloud profile): bestWave is a high-water mark so
- * it takes the MAX; every other field is a lifetime counter of distinct runs,
- * so they SUM.
+ * it takes the MAX; every other counter is a lifetime total of distinct runs,
+ * so they SUM. Achievements union; challenge progress keeps the better of each.
  *
  * Do NOT use this for two views of the same lineage (local copy that was
  * already synced to this account + the cloud copy): summing would double
@@ -220,6 +317,10 @@ export function mergeStats(a, b) {
     runs: x.runs + y.runs,
     totalHeadshots: x.totalHeadshots + y.totalHeadshots,
     totalKnifeKills: x.totalKnifeKills + y.totalKnifeKills,
+    xp: x.xp + y.xp,
+    achievements: { ...y.achievements, ...x.achievements },
+    challenges: mergeChallengeState(x.challenges, y.challenges),
+    lastRunDay: x.lastRunDay > y.lastRunDay ? x.lastRunDay : y.lastRunDay,
   }
 }
 
@@ -233,6 +334,10 @@ export function maxStats(a, b) {
     runs: Math.max(x.runs, y.runs),
     totalHeadshots: Math.max(x.totalHeadshots, y.totalHeadshots),
     totalKnifeKills: Math.max(x.totalKnifeKills, y.totalKnifeKills),
+    xp: Math.max(x.xp, y.xp),
+    achievements: { ...y.achievements, ...x.achievements },
+    challenges: mergeChallengeState(x.challenges, y.challenges),
+    lastRunDay: x.lastRunDay > y.lastRunDay ? x.lastRunDay : y.lastRunDay,
   }
 }
 

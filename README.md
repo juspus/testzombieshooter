@@ -38,6 +38,7 @@ Four weapons, each using a distinct caliber with its own separate ammo pool. Swi
 - **Shotgun** fires 12 pellets per shot in a cone spread; each pellet is independently raycasted.
 - **AK-47** fires continuously at 10 rounds/s while the mouse button is held.
 - **Desert Eagle** delivers an instant kill and pierces through up to 3 enemies in a line.
+- **Crossbow** (Mystery Box only) is a repeating bolt gun: 5-bolt magazine, a shot every 0.45 s, 1.8 s reload (1.2 s with Fast Hands), 30 bolts in reserve (Max Ammo refills to 40). Each bolt pierces up to 6 zombies in a line (stopped by walls and closed doors) and kills anything but brutes, armored and bosses outright; those take heavy damage (armour is ignored, a boss is never one-shot). Bolts that stick in a wall, the floor or a corpse stay put: walk within 1 m to pick one up (+1 reserve, up to the cap). Pick-ups are local to the shooter in co-op. Upgraded (Wraith): 8-bolt magazine, bolts explode on impact (2 m blast) and cannot be picked up.
 - Switching weapons preserves each weapon's clip and reserve separately.
 
 ---
@@ -68,8 +69,11 @@ Each zombie pathfinds toward the player using A*. Zombies can switch to "attack 
 |---:|---|---|
 | 1 | Walker | Standard |
 | 3 | Crawler | Low profile, harder to hit |
+| 4 | Exploder | Glowing bloated zombie; speeds up near you. Bursts ~0.6 s after reaching you or a window (and ~0.5 s after dying): up to 12 damage within 2.5 m, hurts nearby zombies (chains), breaks planks. Shoot it at range |
 | 5 | Brute | High health, slow, hits planks hard |
+| 6 | Armored | Riot gear: pistol/AK body hits deal 25%, shown as sparks + metal ping. Headshots, Desert Eagle, knife, flame and close-range shotgun (<5 m) ignore the armour |
 | 7 | Runner | Fast, low health |
+| 8 | Spitter | Stays at range / at a window and lobs a dodgeable acid glob every 3-4 s (0.75 s wind-up, shoot it to interrupt); leaves a 4 s acid puddle that burns |
 | 9 | Screamer | Buffs nearby zombies' speed |
 | 10 | Boss | Massive health, unique entrance |
 
@@ -128,6 +132,12 @@ A detailed log cabin with:
 - Ceiling with exposed beams and cobwebs
 - Pitched gable roof (exterior)
 
+### Diner (map, unlocks at level 5)
+A one-room gas-station diner with storefront glass, a counter and booths (no doors; Mystery Box and Upgrade Bench sit behind the counter, the box never relocates). Pick it on the start screen (MAP row; locked until level 5). The choice is saved and the page reloads, since the map is resolved once at load. Daily Run always uses the cabin. In co-op both players must have the same map loaded (host's START GAME waits for a match). Door challenges are tagged "(Cabin)" and can't be completed on the diner.
+
+### Starting loadouts
+START row on the start screen: Pistol (default), Shotgun start (level 8: shotgun, 1 clip + 8 spare), Fast Hands (level 12: pistol + perk), AK-47 start (level 16: 1 clip, no spare). Co-op: each player uses their own. Daily Run ignores loadouts.
+
 ### Forest Skybox
 A cylindrical skybox wrapping a baked 4096×1024 night-forest panorama. Dark pine silhouettes against a starry sky. Single draw call, `meshBasicMaterial` (no lighting cost).
 
@@ -138,7 +148,7 @@ Moonlight directional shadow (512×512 map) + ambient + hemisphere fill + 6 inte
 
 ## Multiplayer (co-op)
 
-Two players can join the same cabin over WebSocket. One player hosts; the other joins with a room code. The host drives all game logic; the guest syncs position and receives events in real time.
+Two players can join the same map over WebSocket. One player hosts; the other joins with a room code. The host drives all game logic; the guest syncs position and receives events in real time.
 
 ---
 

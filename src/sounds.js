@@ -1,12 +1,49 @@
 // Procedural sound synthesis via Web Audio API — no audio files required.
+import { modFx } from './modifiers'   // Wave 3: Fog modifier boosts idle groans
 
 let _ctx = null
 
 function ctx() {
-  if (!_ctx) _ctx = new AudioContext()
+  if (!_ctx) { _ctx = new AudioContext(); _installMasterBus(_ctx) }
   // Resume if browser suspended it (autoplay policy)
   if (_ctx.state === 'suspended') _ctx.resume()
   return _ctx
+}
+
+// ─── master bus (low-HP / slow-mo muffle) ────────────────────────────────────
+// Every sound connects to `ac.destination`. We shadow that property on the
+// context instance with a lowpass bus, so all existing sounds (incl. panners and
+// music) are muffled together with no per-sound edits. Heartbeat/stings use
+// _realDest to bypass the filter and stay clear.
+let _realDest = null
+let _masterLP = null
+let _muffleDanger = 0
+let _muffleSlow = 0
+
+function _installMasterBus(ac) {
+  _realDest = ac.destination
+  _masterLP = ac.createBiquadFilter()
+  _masterLP.type = 'lowpass'
+  _masterLP.frequency.value = 22000
+  _masterLP.Q.value = 0.5
+  _masterLP.connect(_realDest)
+  Object.defineProperty(ac, 'destination', { get: () => _masterLP, configurable: true })
+}
+
+function _applyMuffle() {
+  if (!_masterLP) return
+  const amt = Math.max(_muffleDanger, _muffleSlow)
+  // 0 -> fully open, 1 -> ~700 Hz (log scale)
+  const f = 22000 * Math.pow(700 / 22000, amt)
+  const ac = ctx()
+  _masterLP.frequency.setTargetAtTime(f, ac.currentTime, 0.12)
+}
+
+// Low-HP muffle amount 0..1
+export function setDangerMuffle(amount) {
+  if (amount === _muffleDanger) return
+  _muffleDanger = amount
+  _applyMuffle()
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -381,12 +418,14 @@ function _playGenericShot(ac, t, dest = null) {
   playTone(ac, t + 0.02, 80, 30, 0.1, 0.5, dest)
 }
 
-export function playGunshot(weapon = 'pistol') {
+export function playGunshot(weapon = 'pistol', upgraded = false) {
   const ac = ctx()
   const t  = ac.currentTime
-  if (weapon === 'pistol')  return _playPistolShot(ac, t)
-  if (weapon === 'shotgun') return _playShotgunShot(ac, t)
-  _playGenericShot(ac, t)
+  if (weapon === 'crossbow') _playCrossbowShot(ac, t)
+  else if (weapon === 'pistol')  _playPistolShot(ac, t)
+  else if (weapon === 'shotgun') _playShotgunShot(ac, t)
+  else _playGenericShot(ac, t)
+  if (upgraded) _playUpgradedLayer(ac, t)
 }
 
 export function playEmptyClick() {
@@ -430,9 +469,10 @@ export function playReload() {
   mechanicalClick(ac, t + 1.0, 0.6)
 }
 
-export function playZombieDie() {
+export function playZombieDie(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Low guttural groan — descending sawtooth through a throat formant
   const osc = ac.createOscillator()
@@ -452,18 +492,18 @@ export function playZombieDie() {
 
   osc.connect(formant)
   formant.connect(groanGain)
-  groanGain.connect(ac.destination)
+  groanGain.connect(dest ?? ac.destination)
   osc.start(t)
   osc.stop(t + 0.5)
 
   // Body thud as they fall
   const thudBuf = noiseBuffer(ac, 0.18)
-  playNoise(ac, thudBuf, t + 0.1, 0.15, 0.5, 'lowpass', 220, 0.8)
-  playTone(ac, t + 0.1, 90, 30, 0.15, 0.4)
+  playNoise(ac, thudBuf, t + 0.1, 0.15, 0.5, 'lowpass', 220, 0.8, dest)
+  playTone(ac, t + 0.1, 90, 30, 0.15, 0.4, dest)
 
   // Trailing wheeze
   const wheezeBuf = noiseBuffer(ac, 0.3)
-  playNoise(ac, wheezeBuf, t + 0.25, 0.28, 0.25, 'bandpass', 700, 2)
+  playNoise(ac, wheezeBuf, t + 0.25, 0.28, 0.25, 'bandpass', 700, 2, dest)
 }
 
 export function playFootstep(dest = null) {
@@ -487,7 +527,7 @@ const Z_STEP_GAP  = 100    // ms minimum between any two global zombie footstep 
 let _zStepActive  = 0
 let _zStepLastMs  = 0
 
-export function playZombieFootstep() {
+export function playZombieFootstep(x, y, z) {
   const now = performance.now()
   if (_zStepActive >= Z_STEP_MAX || now - _zStepLastMs < Z_STEP_GAP) return
   _zStepActive++
@@ -498,37 +538,40 @@ export function playZombieFootstep() {
 
   if (!_zStepBuf1) _zStepBuf1 = noiseBuffer(ac, 0.18)
   if (!_zStepBuf2) _zStepBuf2 = noiseBuffer(ac, 0.10)
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Heavy dead-weight shuffle — lower and duller than player footstep
-  playNoise(ac, _zStepBuf1, t, 0.13, 0.28, 'lowpass', 120, 0.5)
-  playTone(ac, t, 80, 35, 0.1, 0.18)
+  playNoise(ac, _zStepBuf1, t, 0.13, 0.28, 'lowpass', 120, 0.5, dest)
+  playTone(ac, t, 80, 35, 0.1, 0.18, dest)
 
   // Slight scrape / drag
-  playNoise(ac, _zStepBuf2, t + 0.03, 0.08, 0.07, 'bandpass', 750, 4)
+  playNoise(ac, _zStepBuf2, t + 0.03, 0.08, 0.07, 'bandpass', 750, 4, dest)
 
   setTimeout(() => { _zStepActive-- }, 200)
 }
 
-export function playPlankHit() {
+export function playPlankHit(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Wood thud — heavy impact body
   const thudBuf = noiseBuffer(ac, 0.2)
-  playNoise(ac, thudBuf, t, 0.15, 0.55, 'bandpass', 270, 1.0)
-  playTone(ac, t, 150, 52, 0.12, 0.42)
+  playNoise(ac, thudBuf, t, 0.15, 0.55, 'bandpass', 270, 1.0, dest)
+  playTone(ac, t, 150, 52, 0.12, 0.42, dest)
 
   // Sharp crack transient
   const crackBuf = noiseBuffer(ac, 0.07)
-  playNoise(ac, crackBuf, t + 0.01, 0.05, 0.28, 'highpass', 2800, 1)
+  playNoise(ac, crackBuf, t + 0.01, 0.05, 0.28, 'highpass', 2800, 1, dest)
 
   // Short wood resonance
-  playTone(ac, t + 0.02, 370, 190, 0.08, 0.13)
+  playTone(ac, t + 0.02, 370, 190, 0.08, 0.13, dest)
 }
 
-export function playScreamerScreech() {
+export function playScreamerScreech(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Main piercing scream body
   const osc1 = ac.createOscillator()
@@ -550,60 +593,62 @@ export function playScreamerScreech() {
 
   osc1.connect(bp1)
   bp1.connect(g1)
-  g1.connect(ac.destination)
+  g1.connect(dest ?? ac.destination)
   osc1.start(t)
   osc1.stop(t + 0.72)
 
   // Airy rasp layer
   const raspBuf = noiseBuffer(ac, 0.5)
-  playNoise(ac, raspBuf, t + 0.03, 0.42, 0.13, 'bandpass', 2300, 2.5)
+  playNoise(ac, raspBuf, t + 0.03, 0.42, 0.13, 'bandpass', 2300, 2.5, dest)
 
   // Low menace undertone
-  playTone(ac, t + 0.02, 220, 130, 0.5, 0.08)
+  playTone(ac, t + 0.02, 220, 130, 0.5, 0.08, dest)
 }
 
-export function playPlankBreak() {
+export function playPlankBreak(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Main splintering crack — loud highpass burst
   const crackBuf = noiseBuffer(ac, 0.25)
-  playNoise(ac, crackBuf, t, 0.22, 0.9, 'highpass', 1800, 0.8)
+  playNoise(ac, crackBuf, t, 0.22, 0.9, 'highpass', 1800, 0.8, dest)
 
   // Low wood body breaking — bandpass thud
   const thudBuf = noiseBuffer(ac, 0.3)
-  playNoise(ac, thudBuf, t, 0.25, 0.7, 'bandpass', 220, 1.0)
-  playTone(ac, t, 130, 40, 0.2, 0.55)
+  playNoise(ac, thudBuf, t, 0.25, 0.7, 'bandpass', 220, 1.0, dest)
+  playTone(ac, t, 130, 40, 0.2, 0.55, dest)
 
   // Secondary splinter scatter — short mid crackle
   const splinterBuf = noiseBuffer(ac, 0.15)
-  playNoise(ac, splinterBuf, t + 0.05, 0.12, 0.35, 'bandpass', 900, 2.5)
+  playNoise(ac, splinterBuf, t + 0.05, 0.12, 0.35, 'bandpass', 900, 2.5, dest)
 
   // Resonant wood ring — decaying tone
-  playTone(ac, t + 0.03, 320, 140, 0.18, 0.2)
+  playTone(ac, t + 0.03, 320, 140, 0.18, 0.2, dest)
 }
 
-export function playGlassShatter() {
+export function playGlassShatter(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Sharp initial crack — bright highpass burst
   const crackBuf = noiseBuffer(ac, 0.12)
-  playNoise(ac, crackBuf, t, 0.10, 0.9, 'highpass', 3200, 1.2)
+  playNoise(ac, crackBuf, t, 0.10, 0.9, 'highpass', 3200, 1.2, dest)
 
   // Cascading shard scatter — brighter noise, decays a bit slower than the crack
   const scatterBuf = noiseBuffer(ac, 0.4)
-  playNoise(ac, scatterBuf, t + 0.02, 0.38, 0.5, 'bandpass', 5200, 1.8)
+  playNoise(ac, scatterBuf, t + 0.02, 0.38, 0.5, 'bandpass', 5200, 1.8, dest)
 
   // High glassy ring tones — a few overtones so it doesn't read as generic noise
   const ringFreqs = [2600, 3400, 4200]
   ringFreqs.forEach((f, i) => {
-    playTone(ac, t + 0.01 + i * 0.015, f + Math.random() * 200, f * 0.6, 0.25, 0.12)
+    playTone(ac, t + 0.01 + i * 0.015, f + Math.random() * 200, f * 0.6, 0.25, 0.12, dest)
   })
 
   // Low frame thud as the pane drops out of its housing
   const thudBuf = noiseBuffer(ac, 0.15)
-  playNoise(ac, thudBuf, t + 0.05, 0.14, 0.4, 'bandpass', 180, 1.0)
+  playNoise(ac, thudBuf, t + 0.05, 0.14, 0.4, 'bandpass', 180, 1.0, dest)
 }
 
 export function playPumpAction() {
@@ -793,13 +838,13 @@ export function setListenerPose(x, y, z, forwardX, forwardZ) {
 
 // Create a PannerNode rooted at a world position and connected to ac.destination.
 // All audio routed through this node will be spatially positioned in 3-D.
-function _makeSpatialOutput(ac, x, y, z) {
+function _makeSpatialOutput(ac, x, y, z, rolloff = 1) {
   const panner = ac.createPanner()
   panner.panningModel   = 'equalpower'
   panner.distanceModel  = 'linear'
   panner.refDistance    = 1    // full volume up to 1 unit away
   panner.maxDistance    = 32   // ~= cabin diagonal, inaudible beyond this
-  panner.rolloffFactor  = 1
+  panner.rolloffFactor  = rolloff
   panner.positionX.value = x
   panner.positionY.value = y
   panner.positionZ.value = z
@@ -807,14 +852,90 @@ function _makeSpatialOutput(ac, x, y, z) {
   return panner
 }
 
+// ─── positional zombie / world sounds ────────────────────────────────────────
+
+// Returns a PannerNode at (x,y,z), or null when no position was given (legacy
+// no-arg callers such as TestLab keep playing flat, centred audio).
+// Zombie sounds roll off a little faster than the co-op partner's.
+function _zombieOutput(ac, x, y, z) {
+  if (typeof x !== 'number' || typeof z !== 'number') return null
+  return _makeSpatialOutput(ac, x, typeof y === 'number' ? y : 1, z, 1.3)
+}
+
+// Idle groan. Globally rate-limited so a full wave never becomes a wall of noise:
+// at most Z_GROAN_MAX voices at once, and the more voices are already playing the
+// closer a zombie has to be to get one (nearest zombies win). `dist` is the
+// zombie's distance to the player; `pitch` lets types sound different.
+const Z_GROAN_MAX = 3
+let _zGroanActive = 0
+let _zGroanLastMs = 0
+export function zombieGroanAllowed(dist = 0) {
+  if (_zGroanActive >= Z_GROAN_MAX) return false
+  if (performance.now() - _zGroanLastMs < 300) return false
+  const reach = (_zGroanActive === 0 ? 26 : _zGroanActive === 1 ? 16 : 9) * modFx.groanReach
+  return dist <= reach
+}
+
+export function playZombieGroan(x, y, z, pitch = 1, dist = 0) {
+  if (!zombieGroanAllowed(dist)) return false
+  _zGroanActive++
+  _zGroanLastMs = performance.now()
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const dur = 0.9 + Math.random() * 0.5
+
+  // Throaty drone: detuned sawtooth with a slow wobble, formant-filtered
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  const f0 = (85 + Math.random() * 25) * pitch
+  osc.frequency.setValueAtTime(f0 * 1.25, t)
+  osc.frequency.linearRampToValueAtTime(f0, t + dur * 0.35)
+  osc.frequency.linearRampToValueAtTime(f0 * 0.7, t + dur)
+
+  const lfo = ac.createOscillator()
+  lfo.frequency.value = 5 + Math.random() * 3
+  const lfoGain = ac.createGain()
+  lfoGain.gain.value = 4
+  lfo.connect(lfoGain)
+  lfoGain.connect(osc.frequency)
+
+  const formant = ac.createBiquadFilter()
+  formant.type = 'bandpass'
+  formant.frequency.setValueAtTime(320 * pitch, t)
+  formant.frequency.linearRampToValueAtTime(520 * pitch, t + dur * 0.4)
+  formant.frequency.linearRampToValueAtTime(260 * pitch, t + dur)
+  formant.Q.value = 3
+
+  const gain = ac.createGain()
+  gain.gain.setValueAtTime(0.001, t)
+  gain.gain.exponentialRampToValueAtTime(0.32 * modFx.groanGain, t + 0.12)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+
+  osc.connect(formant)
+  formant.connect(gain)
+  gain.connect(dest ?? ac.destination)
+  osc.start(t); lfo.start(t)
+  osc.stop(t + dur); lfo.stop(t + dur)
+
+  // Wet breath rasp
+  const buf = noiseBuffer(ac, 0.6)
+  playNoise(ac, buf, t + 0.05, dur * 0.8, 0.07, 'bandpass', 900 * pitch, 2, dest)
+
+  setTimeout(() => { _zGroanActive-- }, dur * 1000 + 50)
+  return true
+}
+
 // Play a weapon-specific gunshot coming from the remote player's world position.
-export function playRemoteGunshot(weapon, x, y, z) {
+export function playRemoteGunshot(weapon, x, y, z, upgraded = false) {
   const ac   = ctx()
   const t    = ac.currentTime
   const dest = _makeSpatialOutput(ac, x, y, z)
-  if (weapon === 'pistol')  return _playPistolShot(ac, t, dest)
-  if (weapon === 'shotgun') return _playShotgunShot(ac, t, dest)
-  _playGenericShot(ac, t, dest)   // ak47 / deagle fallback
+  if (weapon === 'crossbow') _playCrossbowShot(ac, t, dest)
+  else if (weapon === 'pistol')  _playPistolShot(ac, t, dest)
+  else if (weapon === 'shotgun') _playShotgunShot(ac, t, dest)
+  else _playGenericShot(ac, t, dest)   // ak47 / deagle fallback
+  if (upgraded) _playUpgradedLayer(ac, t, dest)
 }
 
 // Play a footstep coming from the remote player's world position.
@@ -1105,4 +1226,485 @@ export function setMusicIntensity(level) {
 
     _stopIntenseLayer(2.5)
   }
+}
+
+
+// ─── Wave 1 "Feel": hit feedback, heartbeat, last-kill sting ──────────────────
+// Kept deliberately quiet and short. All go through the master bus except the
+// heartbeat and sting (unfiltered so they cut through the low-HP muffle).
+
+export function playHitTick() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 1900, 1300, 0.035, 0.07)
+  playNoise(ac, noiseBuffer(ac, 0.03), t, 0.02, 0.05, 'highpass', 3500, 1)
+}
+
+// Sharper metallic "tink" for headshots
+export function playHeadshotTink() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 3400, 3000, 0.12, 0.09)
+  playTone(ac, t, 5100, 4600, 0.07, 0.04)
+  playTone(ac, t, 1800, 1500, 0.05, 0.05)
+}
+
+// Low confirming thump + tick on a kill
+export function playKillConfirm(headshot = false) {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 240, 90, 0.11, 0.16)
+  playTone(ac, t + 0.015, headshot ? 3000 : 1500, headshot ? 2600 : 1100, 0.07, 0.06)
+}
+
+// Final-kill sting: sub drop + rising shimmer, bypasses the muffle filter
+export function playLastKillSting() {
+  const ac = ctx()
+  const t = ac.currentTime
+  const out = _realDest ?? ac.destination
+  playTone(ac, t, 130, 38, 0.9, 0.35, out)
+  playTone(ac, t, 520, 1040, 0.5, 0.05, out)
+  playNoise(ac, noiseBuffer(ac, 0.9), t, 0.9, 0.12, 'bandpass', 700, 0.8, out)
+}
+
+// Heartbeat loop ("lub-dub"). intensity 0..1 speeds it up and makes it louder.
+let _hbTimer = null
+let _hbIntensity = 0
+let _hbNext = 0
+
+function _beat(ac, t, vol) {
+  const out = _realDest ?? ac.destination
+  playTone(ac, t, 62, 34, 0.14, vol, out)
+  playTone(ac, t + 0.2, 52, 30, 0.12, vol * 0.7, out)
+}
+
+function _hbRun() {
+  const ac = ctx()
+  const period = 1.05 - 0.4 * _hbIntensity
+  const vol = 0.55 + 0.45 * _hbIntensity
+  if (_hbNext < ac.currentTime) _hbNext = ac.currentTime + 0.05
+  while (_hbNext < ac.currentTime + 0.25) {
+    _beat(ac, _hbNext, vol)
+    _hbNext += period
+  }
+  _hbTimer = setTimeout(_hbRun, 100)
+}
+
+export function startHeartbeat(intensity = 0.5) {
+  _hbIntensity = intensity
+  if (_hbTimer !== null) return
+  _hbNext = 0
+  _hbRun()
+}
+
+export function setHeartbeatIntensity(intensity) { _hbIntensity = intensity }
+
+export function stopHeartbeat() {
+  if (_hbTimer !== null) { clearTimeout(_hbTimer); _hbTimer = null }
+}
+
+// Slow-mo muffle (separate channel from the low-HP one; the louder wins)
+export function setSlowMoMuffle(amount) {
+  _muffleSlow = amount
+  _applyMuffle()
+}
+
+// ─── Wave 3: power-up drops ──────────────────────────────────────────────────
+// Soft shimmer when a drop lands in the world
+export function playPowerupDrop() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 880, 1320, 0.18, 0.05)
+  playTone(ac, t + 0.09, 1320, 1760, 0.22, 0.04)
+}
+
+// Pickup chime + announcer-ish stinger (formant-filtered saw "voice"), one per type
+const _PU_NOTES = {
+  max_ammo:     [523, 659, 784, 1046],     // bright major arpeggio
+  insta_kill:   [392, 311, 233, 196],      // ominous falling line
+  double_money: [988, 1319, 988, 1319],    // coin ka-ching
+  nuke:         [110, 82, 55, 41],         // boom
+  carpenter:    [330, 392, 330, 262],      // hammer-ish
+}
+export function playPowerupPickup(type) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const out = _realDest ?? ac.destination
+  const notes = _PU_NOTES[type] ?? _PU_NOTES.max_ammo
+  notes.forEach((f, i) => playTone(ac, t + i * 0.075, f, f * 1.01, 0.25, 0.09, out))
+  // Announcer: vowel-ish formant sweep on a low saw
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  const base = type === 'nuke' ? 70 : type === 'insta_kill' ? 85 : 100
+  osc.frequency.setValueAtTime(base * 1.25, t + 0.05)
+  osc.frequency.exponentialRampToValueAtTime(base, t + 0.7)
+  const bp = ac.createBiquadFilter()
+  bp.type = 'bandpass'; bp.Q.value = 4
+  bp.frequency.setValueAtTime(500, t + 0.05)
+  bp.frequency.linearRampToValueAtTime(1400, t + 0.25)
+  bp.frequency.linearRampToValueAtTime(700, t + 0.6)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.0001, t + 0.05)
+  g.gain.exponentialRampToValueAtTime(0.32, t + 0.12)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.75)
+  osc.connect(bp); bp.connect(g); g.connect(out)
+  osc.start(t + 0.05); osc.stop(t + 0.8)
+  if (type === 'nuke') playNoise(ac, noiseBuffer(ac, 1.2), t, 1.2, 0.35, 'lowpass', 500, 0.8, out)
+}
+
+// ─── storm: rain loop + rolling thunder ─────────────────────────────────────
+
+const RAIN_GAIN_OUT = 0.085
+const RAIN_GAIN_IN  = 0.035
+const RAIN_LP_OUT   = 6500
+const RAIN_LP_IN    = 1300
+
+let _rain = null   // { src, filt, gain }
+
+export function startRain() {
+  if (_rain) return
+  const ac = ctx()
+  const t = ac.currentTime
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 4)
+  src.loop = true
+
+  const hp = ac.createBiquadFilter()
+  hp.type = 'highpass'
+  hp.frequency.value = 500
+
+  const filt = ac.createBiquadFilter()
+  filt.type = 'lowpass'
+  filt.frequency.value = RAIN_LP_IN
+
+  const gain = ac.createGain()
+  gain.gain.setValueAtTime(0, t)
+  gain.gain.linearRampToValueAtTime(RAIN_GAIN_IN, t + 4)
+
+  src.connect(hp)
+  hp.connect(filt)
+  filt.connect(gain)
+  gain.connect(ac.destination)
+  src.start(t)
+  _rain = { src, filt, gain }
+}
+
+export function stopRain() {
+  if (!_rain) return
+  const ac = ctx()
+  const t = ac.currentTime
+  const { src, gain } = _rain
+  _rain = null
+  gain.gain.cancelScheduledValues(t)
+  gain.gain.setValueAtTime(gain.gain.value, t)
+  gain.gain.linearRampToValueAtTime(0, t + 2)
+  src.stop(t + 2.1)
+}
+
+// Muffle + quieten the rain when the listener is inside the cabin.
+export function setRainIndoor(indoor) {
+  if (!_rain) return
+  const t = ctx().currentTime
+  _rain.gain.gain.setTargetAtTime(indoor ? RAIN_GAIN_IN : RAIN_GAIN_OUT, t, 0.25)
+  _rain.filt.frequency.setTargetAtTime(indoor ? RAIN_LP_IN : RAIN_LP_OUT, t, 0.25)
+}
+
+// distance 0 (overhead) .. 1 (far away). The rumble arrives after a delay
+// proportional to distance — roughly the speed of sound scaled to feel good.
+export function playThunder(distance = 0.5) {
+  const ac = ctx()
+  const d = Math.max(0, Math.min(1, distance))
+  const t0 = ac.currentTime + 0.12 + d * 4.5
+  const vol = 0.55 * (1 - 0.6 * d)
+
+  // Rumble: low-passed noise with irregular amplitude bumps and a sinking cutoff.
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 6)
+  const lp = ac.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.setValueAtTime(260 - d * 110, t0)
+  lp.frequency.exponentialRampToValueAtTime(55, t0 + 5)
+  const g = ac.createGain()
+  const len = 3.5 + (1 - d) * 1.5 + Math.random()
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.08 + d * 0.4)
+  let tt = t0 + 0.4
+  while (tt < t0 + len - 0.6) {
+    g.gain.linearRampToValueAtTime(vol * (0.35 + Math.random() * 0.6), tt)
+    tt += 0.25 + Math.random() * 0.5
+  }
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + len)
+  src.connect(lp)
+  lp.connect(g)
+  g.connect(ac.destination)
+  src.start(t0)
+  src.stop(t0 + len + 0.1)
+
+  // Close strikes get a sharp crack on top.
+  if (d < 0.4) {
+    playNoise(ac, noiseBuffer(ac, 0.5), t0, 0.35, 0.7 * (1 - d), 'bandpass', 1400, 0.6)
+  }
+}
+
+// ─── Wave 3 special zombies ───────────────────────────────────────────────────
+
+// Bullet glancing off armour: bright metallic "tink" with an inharmonic ring.
+// Tone-only (no buffer allocation) and rate-limited so a full-auto spray stays a rattle.
+let _armorPingMs = 0
+export function playArmorPing(x, y, z) {
+  const now = performance.now()
+  if (now - _armorPingMs < 60) return
+  _armorPingMs = now
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const f = 2300 + Math.random() * 500
+  playTone(ac, t, f, f * 0.9, 0.16, 0.2, dest)
+  playTone(ac, t, f * 1.51, f * 1.4, 0.1, 0.1, dest)
+  playTone(ac, t, f * 2.76, f * 2.5, 0.06, 0.05, dest)
+}
+
+// Exploder fuse: rising wet hiss
+export function playExploderHiss(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const g = ac.createGain()
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 0.7)
+  const f = ac.createBiquadFilter()
+  f.type = 'bandpass'
+  f.Q.value = 1.4
+  f.frequency.setValueAtTime(1200, t)
+  f.frequency.exponentialRampToValueAtTime(5200, t + 0.6)
+  g.gain.setValueAtTime(0.001, t)
+  g.gain.exponentialRampToValueAtTime(0.4, t + 0.5)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.62)
+  src.connect(f); f.connect(g); g.connect(dest ?? ac.destination)
+  src.start(t); src.stop(t + 0.65)
+  playTone(ac, t, 90, 190, 0.6, 0.12, dest)
+}
+
+// Exploder burst: low boom + wet splat
+export function playExplosion(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 0.6), t, 0.5, 0.9, 'lowpass', 700, 0.8, dest)
+  playTone(ac, t, 120, 28, 0.55, 0.8, dest)
+  playNoise(ac, noiseBuffer(ac, 0.25), t, 0.18, 0.5, 'bandpass', 2200, 1.2, dest)
+}
+
+// Spitter wind-up: wet rising gurgle
+export function playSpitWindup(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(70, t)
+  osc.frequency.exponentialRampToValueAtTime(240, t + 0.7)
+  const lfo = ac.createOscillator()
+  lfo.frequency.value = 22
+  const lg = ac.createGain()
+  lg.gain.value = 30
+  lfo.connect(lg); lg.connect(osc.frequency)
+  const bp = ac.createBiquadFilter()
+  bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 4
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.001, t)
+  g.gain.exponentialRampToValueAtTime(0.25, t + 0.5)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.78)
+  osc.connect(bp); bp.connect(g); g.connect(dest ?? ac.destination)
+  osc.start(t); lfo.start(t); osc.stop(t + 0.8); lfo.stop(t + 0.8)
+}
+
+// Spitter launch: short wet "thwup"
+export function playSpitLaunch(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 0.2), t, 0.14, 0.45, 'bandpass', 1500, 2, dest)
+  playTone(ac, t, 420, 140, 0.14, 0.25, dest)
+}
+
+// Acid glob landing: sizzling splat
+export function playAcidSplash(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 0.5), t, 0.4, 0.35, 'highpass', 3500, 0.8, dest)
+  playTone(ac, t, 260, 70, 0.16, 0.3, dest)
+}
+
+// ─── Wave 3: buyable doors ────────────────────────────────────────────────────
+// Register ding + barricade boards ripped off + heavy thud as the door clears.
+export function playDoorOpen(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+
+  // Coin "ka-ching" so the purchase reads as a purchase
+  playTone(ac, t, 1320, 1320, 0.09, 0.10, dest)
+  playTone(ac, t + 0.07, 1760, 1760, 0.18, 0.09, dest)
+
+  // Nails squealing out of old wood
+  playNoise(ac, noiseBuffer(ac, 0.35), t + 0.04, 0.3, 0.22, 'bandpass', 2400, 4, dest)
+  playTone(ac, t + 0.04, 520, 260, 0.28, 0.07, dest)
+
+  // Boards clattering down
+  playNoise(ac, noiseBuffer(ac, 0.45), t + 0.12, 0.4, 0.5, 'bandpass', 380, 1.2, dest)
+  playNoise(ac, noiseBuffer(ac, 0.2), t + 0.2, 0.15, 0.4, 'highpass', 1500, 1, dest)
+
+  // Final heavy thud
+  playTone(ac, t + 0.3, 110, 38, 0.3, 0.5, dest)
+}
+
+// Dull "locked" knock for a door you can't afford / can't reach yet.
+export function playDoorDenied() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 180, 120, 0.09, 0.25)
+  playTone(ac, t + 0.1, 150, 90, 0.12, 0.25)
+  playNoise(ac, noiseBuffer(ac, 0.08), t, 0.06, 0.15, 'bandpass', 500, 2)
+}
+
+// ── Wave 3 grenades ──────────────────────────────────────────────────────────
+// Pin pull: metal ping + click
+export function playGrenadePin() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 2400, 1800, 0.07, 0.12)
+  playNoise(ac, noiseBuffer(ac, 0.05), t + 0.02, 0.04, 0.3, 'highpass', 3000, 1)
+}
+
+// Cook tick (urgency 0..1 raises the pitch as the fuse runs down)
+export function playGrenadeTick(urgency = 0) {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 1500 + urgency * 1100, 1300 + urgency * 900, 0.04, 0.16)
+}
+
+// Spoon-off throw whoosh
+export function playGrenadeThrow() {
+  const ac = ctx()
+  const t = ac.currentTime
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 0.22)
+  const f = ac.createBiquadFilter()
+  f.type = 'bandpass'; f.Q.value = 1.2
+  f.frequency.setValueAtTime(300, t)
+  f.frequency.exponentialRampToValueAtTime(1100, t + 0.16)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.22, t)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2)
+  src.connect(f); f.connect(g); g.connect(ac.destination)
+  src.start(t); src.stop(t + 0.22)
+}
+
+// Metallic clunk when the grenade lands / bounces (positional)
+export function playGrenadeBounce(x, y, z, strength = 1) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playTone(ac, t, 900, 420, 0.07, 0.16 * strength, dest)
+  playNoise(ac, noiseBuffer(ac, 0.05), t, 0.04, 0.18 * strength, 'bandpass', 2600, 2, dest)
+}
+
+// Frag detonation: bigger and lower than the exploder burst, with a crack and a rumble tail
+export function playGrenadeBoom(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 1.0), t, 0.9, 1.0, 'lowpass', 520, 0.8, dest)
+  playTone(ac, t, 95, 22, 0.8, 1.0, dest)
+  playNoise(ac, noiseBuffer(ac, 0.3), t, 0.2, 0.7, 'bandpass', 2600, 1.2, dest)
+  playNoise(ac, noiseBuffer(ac, 0.5), t + 0.12, 0.45, 0.35, 'lowpass', 300, 0.7, dest)
+}
+
+// ─── Wave 3: Mystery Box, Upgrade Bench, crossbow ───────────────────────────
+
+// Crossbow: no muzzle blast. A taut string "thwack" (low twang + wooden slap) and a thin whistle.
+function _playCrossbowShot(ac, t, dest = null) {
+  playTone(ac, t, 210, 90, 0.14, 0.3, dest)                                   // string twang
+  playNoise(ac, noiseBuffer(ac, 0.08), t, 0.05, 0.38, 'bandpass', 1400, 1.6, dest)   // limb slap
+  playTone(ac, t + 0.012, 880, 340, 0.07, 0.12, dest)
+  playNoise(ac, noiseBuffer(ac, 0.2), t + 0.02, 0.16, 0.06, 'highpass', 4500, 0.8, dest)   // bolt whistle
+}
+
+// Repeating crossbow reload: a ratchet crank (clicks speed up over the 1.8 s) + a final latch.
+export function playCrossbowReload() {
+  const ac = ctx()
+  const t = ac.currentTime
+  for (let i = 0; i < 9; i++) {
+    const at = t + 0.15 + i * (0.15 - i * 0.006)
+    mechanicalClick(ac, at, 0.35)
+    playTone(ac, at, 260 + i * 25, 200 + i * 25, 0.035, 0.07)
+  }
+  playNoise(ac, noiseBuffer(ac, 0.5), t + 0.1, 1.2, 0.07, 'bandpass', 700, 1.2)   // winding rasp
+  mechanicalClick(ac, t + 1.55, 0.8)
+  playTone(ac, t + 1.55, 140, 70, 0.08, 0.25)
+}
+
+// Collecting a stuck bolt: one small click.
+export function playBoltPickup() {
+  const ac = ctx()
+  const t = ac.currentTime
+  mechanicalClick(ac, t, 0.4)
+  playTone(ac, t + 0.01, 1300, 1700, 0.05, 0.06)
+}
+
+// Upgraded weapons: a bright metallic zing + high shimmer on top of the normal shot,
+// so a Pack-a-Punched gun is recognisable by ear (also played for the co-op partner).
+function _playUpgradedLayer(ac, t, dest = null) {
+  playTone(ac, t, 1500, 3400, 0.16, 0.12, dest)
+  playTone(ac, t + 0.02, 2250, 5100, 0.12, 0.05, dest)
+  playNoise(ac, noiseBuffer(ac, 0.12), t, 0.1, 0.1, 'highpass', 5000, 0.8, dest)
+}
+
+// Box: ticking arpeggio while the weapon models cycle (scheduled in one go, ~3 s).
+export function playBoxCycle(x, y, z, seconds = 3) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const notes = [392, 494, 587, 659, 784, 659, 587, 494]
+  const n = Math.floor(seconds / 0.12)
+  for (let i = 0; i < n; i++) {
+    const f = notes[i % notes.length] * (1 + i / n * 0.6)
+    playTone(ac, t + i * 0.12, f, f, 0.09, 0.07 * (0.5 + i / n), dest)
+  }
+}
+// Box: landed on a weapon — rising major jingle.
+export function playBoxJingle(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  ;[523, 659, 784, 1046].forEach((f, i) => {
+    playTone(ac, t + i * 0.09, f, f, 0.35, 0.12, dest)
+    playTone(ac, t + i * 0.09, f * 2, f * 2, 0.25, 0.04, dest)
+  })
+}
+// Box: teddy bear — sad descending music-box tune.
+export function playBoxTeddy(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  ;[784, 740, 659, 587, 523, 392].forEach((f, i) => playTone(ac, t + i * 0.2, f, f * 0.98, 0.3, 0.1, dest))
+}
+// Bench: machinery whirr while the gun is inside, then a bell when it comes back.
+export function playBenchWork(x, y, z, seconds = 3) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playTone(ac, t, 70, 140, seconds, 0.16, dest)
+  playTone(ac, t, 140, 420, seconds, 0.05, dest)
+  const n = Math.floor(seconds / 0.25)
+  for (let i = 0; i < n; i++) playNoise(ac, noiseBuffer(ac, 0.08), t + i * 0.25, 0.05, 0.14, 'bandpass', 1200 + i * 120, 3, dest)
+}
+export function playBenchDone(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  ;[880, 1320, 1760].forEach((f, i) => playTone(ac, t + i * 0.1, f, f, 0.5, 0.12, dest))
+  playTone(ac, t, 2200, 4400, 0.2, 0.06, dest)
 }

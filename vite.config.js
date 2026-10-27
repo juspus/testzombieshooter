@@ -70,6 +70,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.js'],
+    // .claude/worktrees holds agent checkouts of this repo; don't run their copies
+    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**'],
     globals: true,
   },
 })

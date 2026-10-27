@@ -10,6 +10,8 @@ import {
   SPAWN_CLUSTERS,
   CHEST_POS,
 } from '../maps/diner'
+import { modFx } from '../modifiers'
+import { texBoxProps, texPlaneProps } from '../textures'
 
 const WT = WALL_T
 const WH = WALL_H
@@ -34,7 +36,15 @@ const CANOPY     = '#2a2e34'
 const PUMP       = '#c0342e'
 const PARKING_LINE = '#d8d8c8'
 
+// Lo-fi surface textures (src/textures.js), picked by palette colour. Light touch:
+// walls, counter, booths only. Emissive / transparent boxes stay flat.
+const KIND_BY_COLOR = { [WALL_CLR]: 'plaster', [COUNTER]: 'vinyl', [BOOTH]: 'vinyl' }
+
 function Box({ position, args, color, roughness = 0.9, metalness = 0, castShadow = true, receiveShadow = true, rotation, emissive, emissiveIntensity = 0, transparent = false, opacity = 1 }) {
+  const kind = emissive || transparent ? null : KIND_BY_COLOR[color]
+  if (kind) {
+    return <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow} rotation={rotation} {...texBoxProps(args, kind, color, roughness, metalness)} />
+  }
   return (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow} rotation={rotation}>
       <boxGeometry args={args} />
@@ -47,7 +57,7 @@ function Box({ position, args, color, roughness = 0.9, metalness = 0, castShadow
 
 function makeCheckerTexture() {
   if (typeof document === 'undefined') return null
-  const size = 256
+  const size = 64
   const tiles = 8
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -61,12 +71,25 @@ function makeCheckerTexture() {
       ctx.fillRect(x * cell, y * cell, cell, cell)
     }
   }
+  // Grime speckle + dark grout lines on the 8x8 px cells (fixed pattern, no RNG state)
+  for (let i = 0; i < 90; i += 1) {
+    const px = (i * 37 + (i * i) % 11) % size
+    const py = (i * 53 + (i * i * 3) % 7) % size
+    ctx.fillStyle = 'rgba(20,12,8,0.22)'
+    ctx.fillRect(px, py, 1, 1)
+  }
+  ctx.fillStyle = 'rgba(20,12,8,0.3)'
+  for (let i = 0; i < tiles; i += 1) {
+    ctx.fillRect(i * cell, 0, 1, size)
+    ctx.fillRect(0, i * cell, size, 1)
+  }
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
   texture.repeat.set(HW * 2 / 2, HD * 2 / 2)
   texture.magFilter = THREE.NearestFilter
+  texture.minFilter = THREE.NearestMipmapLinearFilter
   texture.needsUpdate = true
   return texture
 }
@@ -316,15 +339,9 @@ function WindowPlankMesh({ win, count, isStrong }) {
     <>
       {ys.map((y, i) => (
         <group key={i} position={[px, y, pz]}>
-          <mesh castShadow>
-            <boxGeometry args={args} />
-            <meshStandardMaterial color={isStrong ? '#2a2018' : PLANK_CLR} roughness={0.95} />
-          </mesh>
+          <mesh castShadow {...texBoxProps(args, 'wood', isStrong ? '#2a2018' : PLANK_CLR, 0.95)} />
           {isStrong && STRIPE_OFFSETS.map((off, j) => (
-            <mesh key={j} position={isNS ? [off, 0, 0] : [0, 0, off]}>
-              <boxGeometry args={stripeArgs} />
-              <meshStandardMaterial color={STRIPE_CLR} metalness={0.85} roughness={0.2} />
-            </mesh>
+            <mesh key={j} position={isNS ? [off, 0, 0] : [0, 0, off]} {...texBoxProps(stripeArgs, 'metal', STRIPE_CLR, 0.2, 0.85)} />
           ))}
         </group>
       ))}
@@ -400,10 +417,7 @@ function Ceiling() {
   const panelXs = [-5, -1.67, 1.67, 5]
   return (
     <group>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WH, 0]}>
-        <planeGeometry args={[HW * 2, HD * 2]} />
-        <meshStandardMaterial color={CEIL} roughness={1} side={THREE.BackSide} />
-      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WH, 0]} {...texPlaneProps(HW * 2, HD * 2, 'plaster', CEIL, 1, 0, THREE.BackSide)} />
       {panelXs.map((x) => (
         <Box key={x} position={[x, WH - 0.05, 0]} args={[2.6, 0.06, HD * 1.6]} color="#dfe6ea" emissive="#dfe6ea" emissiveIntensity={0.5} castShadow={false} receiveShadow={false} />
       ))}
@@ -457,10 +471,7 @@ function Pump({ position }) {
 function Forecourt() {
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
-        <planeGeometry args={[90, 90]} />
-        <meshStandardMaterial color={FORECOURT} roughness={1} />
-      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow {...texPlaneProps(90, 90, 'asphalt', FORECOURT, 1)} />
       {/* Parking stall lines out front, under the canopy */}
       {[-4, 0, 4].map((x) => (
         <Box key={x} position={[x, 0.01, HD + 6]} args={[0.15, 0.01, 4]} color={PARKING_LINE} castShadow={false} receiveShadow={false} />
@@ -508,6 +519,27 @@ function Chest() {
 
 // ─── DinerArena export ──────────────────────────────────────────────────────
 
+// The diner's three interior point lights. Intensity-only animation (never mount/unmount):
+// the Blackout wave modifier eases modFx.lightMul to 0, same as the cabin's LivingLights.
+const BULBS = [
+  { pos: [0, WH - 0.4, 2], color: '#fff3d8', i: 12, d: 16 },
+  { pos: [0, WH - 0.4, -3.5], color: '#fff3d8', i: 10, d: 14 },
+  { pos: [CHEST_POS.x, 1.0, CHEST_POS.z], color: '#ffcc44', i: 5, d: 8 },
+]
+function DinerBulbs() {
+  const refs = useRef([])
+  const last = useRef(1)
+  useFrame(() => {
+    const m = modFx.lightMul
+    if (m === last.current) return
+    last.current = m
+    for (let k = 0; k < BULBS.length; k++) if (refs.current[k]) refs.current[k].intensity = BULBS[k].i * m
+  })
+  return BULBS.map((b, k) => (
+    <pointLight key={k} ref={(o) => { refs.current[k] = o }} position={b.pos} color={b.color} intensity={b.i} distance={b.d} decay={2} />
+  ))
+}
+
 export default function DinerArena() {
   return (
     <group>
@@ -522,9 +554,7 @@ export default function DinerArena() {
         shadow-camera-top={30} shadow-camera-bottom={-30}
       />
       <hemisphereLight skyColor="#3a4858" groundColor="#100c08" intensity={0.45} />
-      <pointLight position={[0, WH - 0.4, 2]} color="#fff3d8" intensity={12} distance={16} decay={2} />
-      <pointLight position={[0, WH - 0.4, -3.5]} color="#fff3d8" intensity={10} distance={14} decay={2} />
-      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
+      <DinerBulbs />
 
       <DinerFloor />
       <Forecourt />

@@ -1,32 +1,33 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { GRENADE } from '../grenades'
 import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT, FLAME_DPS, BANDAGE_COST, BANDAGE_HEAL, HELMET_DEFS, BODY_ARMOR_DEFS } from '../store'
 
 const ITEMS = [
   {
     id: 'ak47',
     name: 'AK-47',
-    desc: `${CALIBER_LABELS.ak47} · Full-auto · 2 body shots · ${AK_CLIP}-rd mag`,
+    desc: `${CALIBER_LABELS.ak47} · auto · ${AK_CLIP} rds`,
     price: AK_COST,
     oneTime: true,
   },
   {
     id: 'deagle',
     name: 'Desert Eagle',
-    desc: `${CALIBER_LABELS.deagle} · Semi-auto · Instant kill · Pierces 3 · ${DEAGLE_CLIP}-rd mag`,
+    desc: `${CALIBER_LABELS.deagle} · 1-shot kill · ${DEAGLE_CLIP} rds`,
     price: DEAGLE_COST,
     oneTime: true,
   },
   {
     id: 'shotgun',
     name: 'Pump Shotgun',
-    desc: `${CALIBER_LABELS.shotgun} · Pump-action · 12 pellets/shot · ${SHOTGUN_CLIP}-shell mag`,
+    desc: `${CALIBER_LABELS.shotgun} · spread · ${SHOTGUN_CLIP} shells`,
     price: SHOTGUN_COST,
     oneTime: true,
   },
   {
     id: 'flamethrower',
     name: 'Flamethrower',
-    desc: `${CALIBER_LABELS.flamethrower} · Continuous spray · ${FLAME_DPS} dps burn · ${FLAMETHROWER_START_AMMO} fuel`,
+    desc: `${CALIBER_LABELS.flamethrower} · burn · ${FLAMETHROWER_START_AMMO} fuel`,
     price: FLAMETHROWER_COST,
     oneTime: true,
   },
@@ -34,15 +35,22 @@ const ITEMS = [
     id: 'ammo_pack',
     name: 'Ammo Pack',
     desc: (perks, weapon) => weapon === 'flamethrower'
-      ? `${CALIBER_LABELS.flamethrower} · +${FLAMETHROWER_AMMO_PACK_AMOUNT} fuel`
-      : `${CALIBER_LABELS[weapon]} · +${perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT} rounds to reserve`,
+      ? `+${FLAMETHROWER_AMMO_PACK_AMOUNT} fuel`
+      : `${CALIBER_LABELS[weapon]} · +${perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT}`,
     price: (perks, weapon) => weapon === 'flamethrower' ? FLAMETHROWER_AMMO_PACK_COST : AMMO_PACK_COST,
+    oneTime: false,
+  },
+  {
+    id: 'grenade',
+    name: 'Frag Grenade',
+    desc: `G · max ${GRENADE.MAX} · +${GRENADE.RESTOCK} each wave`,
+    price: GRENADE.COST,
     oneTime: false,
   },
   {
     id: 'bandage',
     name: 'Bandage',
-    desc: `Heal ${BANDAGE_HEAL} HP`,
+    desc: `+${BANDAGE_HEAL} HP`,
     price: BANDAGE_COST,
     oneTime: false,
     heal: true,
@@ -52,14 +60,14 @@ const ITEMS = [
 const HELMETS = Object.entries(HELMET_DEFS).map(([id, def]) => ({
   id,
   name: def.label,
-  desc: `+${def.hp} max HP${def.visionLimit ? ' · Narrow visor slits limit vision' : ''}`,
+  desc: `+${def.hp} HP${def.visionLimit ? ' · narrow view' : ''}`,
   price: def.cost,
 }))
 
 const BODY_ARMORS = Object.entries(BODY_ARMOR_DEFS).map(([id, def]) => ({
   id,
   name: def.label,
-  desc: `+${def.hp} max HP${def.speedMultiplier ? ` · Slows movement to ${Math.round(def.speedMultiplier * 100)}%` : ''}`,
+  desc: `+${def.hp} HP${def.speedMultiplier ? ` · ${Math.round(def.speedMultiplier * 100)}% speed` : ''}`,
   price: def.cost,
 }))
 
@@ -75,37 +83,37 @@ const PERKS = [
   {
     id: 'fast_hands',
     name: 'Fast Hands',
-    desc: 'Reload 33% faster',
+    desc: 'Reload −33%',
     price: PERK_COSTS.fast_hands,
   },
   {
     id: 'deep_pockets',
     name: 'Deep Pockets',
-    desc: `Ammo packs give +${DEEP_POCKETS_AMMO_PACK_AMOUNT} rounds`,
+    desc: `Ammo packs +${DEEP_POCKETS_AMMO_PACK_AMOUNT}`,
     price: PERK_COSTS.deep_pockets,
   },
   {
     id: 'iron_sights',
     name: 'Iron Sights',
-    desc: 'Near-head hits count as headshots',
+    desc: 'Easier headshots',
     price: PERK_COSTS.iron_sights,
   },
   {
     id: 'runners_breath',
     name: "Runner's Breath",
-    desc: 'Move 15% faster',
+    desc: 'Speed +15%',
     price: PERK_COSTS.runners_breath,
   },
   {
     id: 'carpenter',
     name: 'Carpenter',
-    desc: 'Board windows 35% faster',
+    desc: 'Boarding −35% time',
     price: PERK_COSTS.carpenter,
   },
   {
     id: 'knife_mastery',
     name: 'Knife Mastery',
-    desc: 'Longer reach and quicker recovery',
+    desc: 'Reach + recovery',
     price: PERK_COSTS.knife_mastery,
   },
 ]
@@ -127,6 +135,7 @@ export default function Shop() {
   const maxHp = useGameStore((s) => s.maxHp)
   const helmet = useGameStore((s) => s.helmet)
   const bodyArmor = useGameStore((s) => s.bodyArmor)
+  const grenades = useGameStore((s) => s.grenades)
   const strongPlanksMode = useGameStore((s) => s.strongPlanksMode)
   const toggleStrongPlanksMode = useGameStore((s) => s.toggleStrongPlanksMode)
 
@@ -185,7 +194,7 @@ export default function Shop() {
           {ITEMS.map((item) => {
             const owned = item.oneTime && ownedWeapons.includes(item.id)
             const isActive = item.oneTime && weapon === item.id
-            const atFullHp = item.heal && hp >= maxHp
+            const atFullHp = (item.heal && hp >= maxHp) || (item.id === 'grenade' && grenades >= GRENADE.MAX)
             const price = typeof item.price === 'function' ? item.price(perks, weapon) : item.price
             const canAfford = money >= price
             const disabled = owned || !canAfford || atFullHp
@@ -310,7 +319,7 @@ export default function Shop() {
             <div style={styles.rowLeft}>
               <span style={{ ...rowNameStyle, color: strongPlanksMode ? '#aaccee' : '#ddd' }}>Strong Planks</span>
               <span style={rowDescStyle}>
-                Metal-reinforced · €{STRONG_PLANK_COST.toFixed(2)}/plank · 20 hits · upgrades existing
+                €{STRONG_PLANK_COST.toFixed(2)}/plank · 20 hits
               </span>
             </div>
             <div style={rowRightStyle}>
@@ -328,7 +337,7 @@ export default function Shop() {
         </div>
 
         <div style={styles.divider} />
-        <div style={styles.hint}>{isMobile ? 'Tap × or outside to close' : 'E / ESC — close'}</div>
+        <div style={styles.hint}>{isMobile ? '' : 'E / ESC'}</div>
       </div>
     </div>
   )

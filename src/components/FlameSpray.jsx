@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { time } from '../timeScale'
 import * as THREE from 'three'
 
 const POOL_SIZE = 40
@@ -46,7 +47,8 @@ export default function FlameSpray() {
     }
   }
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    const delta = rawDelta * time.scale  // last-kill slow-mo
     for (let i = 0; i < POOL_SIZE; i++) {
       const slot = pool[i]
       if (!slot.active) continue

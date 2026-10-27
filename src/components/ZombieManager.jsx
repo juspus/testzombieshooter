@@ -1,6 +1,7 @@
 import { useGameStore } from '../store'
 import { useFrame } from '@react-three/fiber'
 import ZombieComponent from './Zombie'
+import SpecialFX from './SpecialFX'
 
 export default function ZombieManager() {
   const zombies = useGameStore((s) => s.zombies)
@@ -18,6 +19,8 @@ export default function ZombieManager() {
           dereferenced and deleted. Prevents recompile stall on spawn and
           on the final kill (when all live zombies unmount simultaneously). */}
       <ZombieComponent key="warmer" id={-1} startX={0} startZ={0} hidden />
+      {/* Exploder flash, spitter globs + puddles (pooled, always mounted) */}
+      <SpecialFX />
       {zombies.map((z) => (
         <ZombieComponent key={z.id} id={z.id} startX={z.x} startZ={z.z} type={z.type} />
       ))}

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import LivingLights, { lightReg } from './LivingLights'
 import { useGameStore } from '../store'
 import {
   CABIN_HW, CABIN_HD, WALL_H, WALL_T,
@@ -9,6 +10,8 @@ import {
   SPAWN_CLUSTERS,
   CHEST_POS,
 } from '../maps/cabin'
+import { texBoxProps, texPlaneProps } from '../textures'
+import CabinFurniture from './Furniture'
 
 const HW = CABIN_HW
 const HD = CABIN_HD
@@ -47,13 +50,28 @@ const IRON    = '#1a1614'   // Old iron frame
 const COPPER  = '#3a2410'   // Tarnished copper (kettle / pots)
 const RUG1    = '#2a0808'   // Rug dark red
 const RUG2    = '#180808'   // Rug almost black
-const COBWEB  = '#1c1c18'   // Dusty cobweb strands
 const ROOF    = '#1e0e04'   // Dark weathered shingles
 const FOREST_FLOOR = '#020605' // Exterior grass/leaf bed blends into spawn thickets
 
 const PITCH   = 2.8         // Roof height above wall top
 
-function Box({ position, args, color, roughness = 0.95, metalness = 0, castShadow = true, receiveShadow = true, rotation, emissive, emissiveIntensity = 0 }) {
+// Surface texture kind per palette colour (src/textures.js). A Box picks its
+// texture from its colour so the flat palette keeps setting hue/mood; pass
+// tex={false} to force flat, or tex="kind" to override. Emissive boxes stay flat.
+const KIND_BY_COLOR = {
+  [WALL]: 'timber', [WALL2]: 'timber',
+  [BEAM]: 'wood', [WOOD]: 'wood', [WOOD2]: 'wood', [PLANK]: 'wood',
+  [STONE]: 'stone', [STONE2]: 'stone',
+  [RUG1]: 'fabric', [RUG2]: 'fabric', [LINEN]: 'fabric',
+  [IRON]: 'metal', [METAL]: 'metal',
+  [ROOF]: 'shingle',
+}
+
+function Box({ position, args, color, roughness = 0.95, metalness = 0, castShadow = true, receiveShadow = true, rotation, emissive, emissiveIntensity = 0, tex }) {
+  const kind = emissive || tex === false ? null : (tex || KIND_BY_COLOR[color])
+  if (kind) {
+    return <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow} rotation={rotation} {...texBoxProps(args, kind, color, roughness, metalness)} />
+  }
   return (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow} rotation={rotation}>
       <boxGeometry args={args} />
@@ -157,10 +175,7 @@ function BarricadedDoor() {
       <Box position={[x + 0.10, 1.82, cz]} args={[0.05, 0.14, dW - 0.06]} color={WOOD2} />
 
       {/* ── Z-brace diagonal batten ────────────────────────────────── */}
-      <mesh position={[x + 0.10, dH / 2, cz]} rotation={[Math.atan2(dH, dW), 0, 0]} castShadow>
-        <boxGeometry args={[0.05, Math.hypot(dH, dW) - 0.1, 0.07]} />
-        <meshStandardMaterial color={WOOD2} roughness={0.98} />
-      </mesh>
+      <mesh position={[x + 0.10, dH / 2, cz]} rotation={[Math.atan2(dH, dW), 0, 0]} castShadow {...texBoxProps([0.05, Math.hypot(dH, dW) - 0.1, 0.07], 'wood', WOOD2, 0.98)} />
 
       {/* ── Iron strap hinges (left jamb side) ─────────────────────── */}
       <Box position={[x + 0.10, 0.34, cz - hw + 0.26]} args={[0.04, 0.07, 0.52]} color={METAL} metalness={0.4} roughness={0.7} />
@@ -174,23 +189,11 @@ function BarricadedDoor() {
       <Box position={[x + 0.13, dH * 0.46, cz + hw - 0.20]} args={[0.04, 0.08, 0.06]} color={METAL} metalness={0.5} roughness={0.5} />
 
       {/* ── Barricade — diagonal boards nailed over the door ───────── */}
-      <mesh position={[x - 0.01, WH * 0.42, cz]} rotation={[ 0.55, 0, 0]} castShadow>
-        <boxGeometry args={[0.07, hw * 2.8, 0.10]} />
-        <meshStandardMaterial color={PLANK} roughness={0.98} />
-      </mesh>
-      <mesh position={[x - 0.03, WH * 0.42, cz]} rotation={[-0.55, 0, 0]} castShadow>
-        <boxGeometry args={[0.07, hw * 2.8, 0.10]} />
-        <meshStandardMaterial color={PLANK} roughness={0.98} />
-      </mesh>
+      <mesh position={[x - 0.01, WH * 0.42, cz]} rotation={[ 0.55, 0, 0]} castShadow {...texBoxProps([0.07, hw * 2.8, 0.10], 'wood', PLANK, 0.98)} />
+      <mesh position={[x - 0.03, WH * 0.42, cz]} rotation={[-0.55, 0, 0]} castShadow {...texBoxProps([0.07, hw * 2.8, 0.10], 'wood', PLANK, 0.98)} />
       {/* Horizontal braces */}
-      <mesh position={[x - 0.02, WH * 0.28, cz]} castShadow>
-        <boxGeometry args={[0.07, 0.10, hw * 2.2]} />
-        <meshStandardMaterial color={PLANK} roughness={0.98} />
-      </mesh>
-      <mesh position={[x - 0.02, WH * 0.62, cz]} castShadow>
-        <boxGeometry args={[0.07, 0.10, hw * 2.2]} />
-        <meshStandardMaterial color={PLANK} roughness={0.98} />
-      </mesh>
+      <mesh position={[x - 0.02, WH * 0.28, cz]} castShadow {...texBoxProps([0.07, 0.10, hw * 2.2], 'wood', PLANK, 0.98)} />
+      <mesh position={[x - 0.02, WH * 0.62, cz]} castShadow {...texBoxProps([0.07, 0.10, hw * 2.2], 'wood', PLANK, 0.98)} />
 
       {/* ── Chain + padlock ─────────────────────────────────────────── */}
       <mesh position={[x - 0.06, WH * 0.46, cz - 0.3]} rotation={[0.4, 0, 0]}>
@@ -230,15 +233,10 @@ function WindowPlankMesh({ win, count, isStrong }) {
     <>
       {ys.map((y, i) => (
         <group key={i} position={[px, y, pz]}>
-          <mesh castShadow>
-            <boxGeometry args={args} />
-            <meshStandardMaterial color={isStrong ? '#2a1a06' : PLANK_CLR_BOARD} roughness={0.95} />
-          </mesh>
+          {/* Shared geometry + material (wood / metal textures) - nothing allocated per plank */}
+          <mesh castShadow {...texBoxProps(args, 'wood', isStrong ? '#2a1a06' : PLANK_CLR_BOARD, 0.95)} />
           {isStrong && STRIPE_OFFSETS.map((off, j) => (
-            <mesh key={j} position={isNS ? [off, 0, 0] : [0, 0, off]}>
-              <boxGeometry args={stripeArgs} />
-              <meshStandardMaterial color={STRIPE_CLR} metalness={0.85} roughness={0.2} />
-            </mesh>
+            <mesh key={j} position={isNS ? [off, 0, 0] : [0, 0, off]} {...texBoxProps(stripeArgs, 'metal', STRIPE_CLR, 0.2, 0.85)} />
           ))}
         </group>
       ))}
@@ -283,59 +281,6 @@ function CeilingBeams() {
       {/* Kitchen — beams run E-W */}
       {[6.5, 8.5].map((z) => (
         <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
-      ))}
-    </group>
-  )
-}
-
-// ─── Cobwebs ─────────────────────────────────────────────────────────────────
-
-function Cobweb({ x, y, z, rx = 0, ry = 0, rz = 0, sx = 0.6, sy = 0.01, sz = 0.5 }) {
-  return (
-    <mesh position={[x, y, z]} rotation={[rx, ry, rz]} castShadow={false}>
-      <boxGeometry args={[sx, sy, sz]} />
-      <meshStandardMaterial color={COBWEB} roughness={1} transparent opacity={0.55} />
-    </mesh>
-  )
-}
-
-function Cobwebs() {
-  return (
-    <group>
-      {/* Main room corners */}
-      <Cobweb x={-1.8} y={WH - 0.3} z={-9.7} rx={0} ry={Math.PI/4} sz={0.8} sx={0.8} />
-      <Cobweb x={ 8.7} y={WH - 0.3} z={-9.7} rx={0} ry={-Math.PI/4} sz={0.8} sx={0.8} />
-      <Cobweb x={-1.8} y={WH - 0.3} z={ 9.7} rx={0} ry={-Math.PI/4} sz={0.7} sx={0.7} />
-      <Cobweb x={ 8.7} y={WH - 0.3} z={ 9.7} rx={0} ry={Math.PI/4}  sz={0.7} sx={0.7} />
-      {/* Hanging strands from beams */}
-      <Cobweb x={0}   y={WH - 0.55} z={-8} rx={Math.PI/2} sy={0.008} sz={0.5} sx={0.3} />
-      <Cobweb x={6.5} y={WH - 0.55} z={6}  rx={Math.PI/2} sy={0.008} sz={0.4} sx={0.25} />
-      {/* Bedroom corners */}
-      <Cobweb x={-8.7} y={WH - 0.3} z={-9.7} rx={0} ry={Math.PI/4} sz={0.6} sx={0.6} />
-      <Cobweb x={-2.3} y={WH - 0.3} z={-9.7} rx={0} ry={-Math.PI/4} sz={0.6} sx={0.6} />
-      {/* Hall corner */}
-      <Cobweb x={-8.7} y={WH - 0.3} z={-3.7} rx={0} ry={Math.PI/4} sz={0.5} sx={0.5} />
-      {/* Kitchen corner */}
-      <Cobweb x={-8.7} y={WH - 0.3} z={ 9.7} rx={0} ry={Math.PI/4} sz={0.6} sx={0.6} />
-    </group>
-  )
-}
-
-// ─── Floor planks ───────────────────────────────────────────────────────────
-
-function FloorPlanks() {
-  // Thin raised strips to suggest plank seams
-  const strips = []
-  for (let z = -9.5; z <= 9.5; z += 0.65) {
-    strips.push(z)
-  }
-  return (
-    <group>
-      {strips.map((z) => (
-        <mesh key={z} position={[0, 0.003, z]} receiveShadow>
-          <boxGeometry args={[HW * 2, 0.006, 0.03]} />
-          <meshStandardMaterial color="#0e0804" roughness={1} />
-        </mesh>
       ))}
     </group>
   )
@@ -401,15 +346,15 @@ function Fireplace() {
       <MantelClock position={[fx - 0.15, 2.72, fzW + 0.4]} />
 
       {/* Firelight */}
-      <pointLight position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} castShadow />
-      <pointLight position={[fx, 0.3, fzW + 0.2]} color="#ff2200" intensity={8}  distance={6}  decay={2} />
+      <pointLight ref={(o) => { lightReg.fire = o }} position={[fx, 0.8, fzW + 0.4]} color="#ff5500" intensity={30} distance={20} decay={2} />
+      <pointLight ref={(o) => { lightReg.fire2 = o }} position={[fx, 0.3, fzW + 0.2]} color="#ff2200" intensity={8}  distance={6}  decay={2} />
     </group>
   )
 }
 
 // ─── Small props ─────────────────────────────────────────────────────────────
 
-function Candle({ position }) {
+export function Candle({ position }) {
   return (
     <group position={position}>
       <mesh>
@@ -459,7 +404,7 @@ function MantelClock({ position }) {
 
 // ─── Deer head trophy ────────────────────────────────────────────────────────
 
-function DeerHead({ position }) {
+export function DeerHead({ position }) {
   return (
     <group position={position}>
       {/* Mounting plaque */}
@@ -492,7 +437,7 @@ function DeerHead({ position }) {
 
 // ─── Rocking chair ───────────────────────────────────────────────────────────
 
-function RockingChair({ position, rotation }) {
+export function RockingChair({ position, rotation }) {
   return (
     <group position={position} rotation={rotation}>
       {/* Seat */}
@@ -521,7 +466,7 @@ function RockingChair({ position, rotation }) {
 
 // ─── Bookshelf with Necronomicon ─────────────────────────────────────────────
 
-function Bookshelf({ position, rotation }) {
+export function Bookshelf({ position, rotation }) {
   const books = [
     { color: BOOK_R,  w: 0.08, h: 0.26, x: -0.38 },
     { color: BOOK_G,  w: 0.07, h: 0.22, x: -0.29 },
@@ -563,7 +508,7 @@ function Bookshelf({ position, rotation }) {
 
 // ─── Old desk with tape recorder ─────────────────────────────────────────────
 
-function OldDesk({ position, rotation }) {
+export function OldDesk({ position, rotation }) {
   return (
     <group position={position} rotation={rotation}>
       {/* Tabletop */}
@@ -602,7 +547,7 @@ function OldDesk({ position, rotation }) {
 
 // ─── Floor rug ───────────────────────────────────────────────────────────────
 
-function FloorRug({ position, args }) {
+export function FloorRug({ position, args }) {
   return (
     <group position={position}>
       <Box position={[0, 0.008, 0]} args={[args[0], 0.016, args[1]]} color={RUG1} castShadow={false} receiveShadow />
@@ -617,7 +562,7 @@ function FloorRug({ position, args }) {
 
 // ─── Bed ─────────────────────────────────────────────────────────────────────
 
-function Bed({ position }) {
+export function Bed({ position }) {
   return (
     <group position={position}>
       {/* Headboard */}
@@ -647,7 +592,7 @@ function Bed({ position }) {
 
 // ─── Nightstand ──────────────────────────────────────────────────────────────
 
-function Nightstand({ position }) {
+export function Nightstand({ position }) {
   return (
     <group position={position}>
       <Box position={[0, 0.38, 0]} args={[0.42, 0.76, 0.36]} color={WOOD2} />
@@ -662,7 +607,7 @@ function Nightstand({ position }) {
 
 // ─── Cellar door ─────────────────────────────────────────────────────────────
 
-function CellarDoor({ position }) {
+export function CellarDoor({ position }) {
   return (
     <group position={position}>
       {/* Door frame inset in floor */}
@@ -690,15 +635,15 @@ function CellarDoor({ position }) {
 
 // ─── Wood stove ──────────────────────────────────────────────────────────────
 
-function WoodStove({ position }) {
+export function WoodStove({ position, rotation }) {
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* Body */}
-      <Box position={[0, 0.44, 0]} args={[0.52, 0.88, 0.44]} color="#1a1612" roughness={0.8} metalness={0.2} />
+      <Box position={[0, 0.44, 0]} args={[0.52, 0.88, 0.44]} color="#1a1612" roughness={0.8} metalness={0.2} tex="metal" />
       {/* Top plate */}
-      <Box position={[0, 0.90, 0]} args={[0.56, 0.06, 0.48]} color="#131210" roughness={0.7} metalness={0.3} />
+      <Box position={[0, 0.90, 0]} args={[0.56, 0.06, 0.48]} color="#131210" roughness={0.7} metalness={0.3} tex="metal" />
       {/* Firebox door */}
-      <Box position={[0, 0.35, 0.23]} args={[0.28, 0.30, 0.03]} color="#222018" roughness={0.8} metalness={0.2} />
+      <Box position={[0, 0.35, 0.23]} args={[0.28, 0.30, 0.03]} color="#222018" roughness={0.8} metalness={0.2} tex="metal" />
       {/* Door handle */}
       <Box position={[0, 0.35, 0.25]} args={[0.06, 0.06, 0.03]} color={METAL} metalness={0.5} />
       {/* Legs */}
@@ -727,7 +672,7 @@ function WoodStove({ position }) {
 
 // ─── Kitchen table ───────────────────────────────────────────────────────────
 
-function KitchenTable({ position }) {
+export function KitchenTable({ position }) {
   return (
     <group position={position}>
       <Box position={[0, 0.74, 0]} args={[1.1, 0.07, 0.62]} color={WOOD} />
@@ -749,26 +694,13 @@ function KitchenTable({ position }) {
 
 // ─── Chest ───────────────────────────────────────────────────────────────────
 
-function Chest() {
-  const x = CHEST_POS.x, z = CHEST_POS.z
+export function Chest({ position = [CHEST_POS.x, 0, CHEST_POS.z] }) {
   return (
-    <group position={[x, 0, z]}>
-      <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
-        <boxGeometry args={[0.9, 0.44, 0.55]} />
-        <meshStandardMaterial color="#2a1408" roughness={0.95} />
-      </mesh>
-      <mesh position={[0, 0.49, -0.04]} castShadow>
-        <boxGeometry args={[0.9, 0.13, 0.5]} />
-        <meshStandardMaterial color="#361a0a" roughness={0.9} />
-      </mesh>
-      <mesh position={[0, 0.22, 0.278]}>
-        <boxGeometry args={[0.92, 0.44, 0.02]} />
-        <meshStandardMaterial color={METAL} metalness={0.6} roughness={0.5} />
-      </mesh>
-      <mesh position={[0, 0.22, -0.278]}>
-        <boxGeometry args={[0.92, 0.44, 0.02]} />
-        <meshStandardMaterial color={METAL} metalness={0.6} roughness={0.5} />
-      </mesh>
+    <group position={position}>
+      <mesh position={[0, 0.22, 0]} castShadow receiveShadow {...texBoxProps([0.9, 0.44, 0.55], 'wood', '#2a1408', 0.95)} />
+      <mesh position={[0, 0.49, -0.04]} castShadow {...texBoxProps([0.9, 0.13, 0.5], 'wood', '#361a0a', 0.9)} />
+      <mesh position={[0, 0.22, 0.278]} {...texBoxProps([0.92, 0.44, 0.02], 'metal', METAL, 0.5, 0.6)} />
+      <mesh position={[0, 0.22, -0.278]} {...texBoxProps([0.92, 0.44, 0.02], 'metal', METAL, 0.5, 0.6)} />
       <mesh position={[0, 0.3, 0.285]}>
         <boxGeometry args={[0.13, 0.11, 0.04]} />
         <meshStandardMaterial color="#555" metalness={0.8} roughness={0.3} />
@@ -779,7 +711,7 @@ function Chest() {
 
 // ─── Wall lanterns ───────────────────────────────────────────────────────────
 
-function WallLantern({ position, rotation }) {
+export function WallLantern({ position, rotation }) {
   return (
     <group position={position} rotation={rotation}>
       {/* Bracket arm */}
@@ -941,16 +873,10 @@ function Roof() {
   return (
     <group>
       {/* Right slope */}
-      <mesh position={[panelCX, panelCY, 0]} rotation={[0, 0, -angle]}>
-        <boxGeometry args={[panelW, 0.22, panelLen]} />
-        <meshStandardMaterial color={ROOF} roughness={1} />
-      </mesh>
+      <mesh position={[panelCX, panelCY, 0]} rotation={[0, 0, -angle]} {...texBoxProps([panelW, 0.22, panelLen], 'shingle', ROOF, 1)} />
 
       {/* Left slope */}
-      <mesh position={[-panelCX, panelCY, 0]} rotation={[0, 0, angle]}>
-        <boxGeometry args={[panelW, 0.22, panelLen]} />
-        <meshStandardMaterial color={ROOF} roughness={1} />
-      </mesh>
+      <mesh position={[-panelCX, panelCY, 0]} rotation={[0, 0, angle]} {...texBoxProps([panelW, 0.22, panelLen], 'shingle', ROOF, 1)} />
 
       {/* Ridge cap */}
       <mesh position={[0, WH + PITCH + 0.06, 0]}>
@@ -1089,7 +1015,7 @@ export default function Arena() {
   return (
     <group>
       {/* ── Lighting ─────────────────────────────────────────────────────── */}
-      <ambientLight intensity={0.55} color="#c8d8f0" />
+      <ambientLight ref={(o) => { lightReg.amb = o }} intensity={0.55} color="#c8d8f0" />
       {/* Moonlight — shadow map only hits 6 proxy meshes per zombie now */}
       <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} castShadow
         shadow-mapSize-width={1024} shadow-mapSize-height={1024}
@@ -1103,20 +1029,19 @@ export default function Arena() {
            stutter when zombie materials mount.  Per-candle/lantern lights removed;
            these four fills + the two fireplace lights cover all four rooms.      ── */}
       {/* Main room warm fill */}
-      <pointLight position={[3.5, WH - 0.5,  0]}  color="#ffcc88" intensity={14} distance={24} decay={2} />
+      <pointLight ref={(o) => { lightReg.main = o }} position={[3.5, WH - 0.5,  0]}  color="#ffcc88" intensity={14} distance={24} decay={2} />
       {/* West rooms fill (bedroom / hall / kitchen share one broad light) */}
-      <pointLight position={[-5.5, WH - 0.5, -7]}  color="#ffaa66" intensity={12} distance={14} decay={2} />
-      <pointLight position={[-5.5, WH - 0.5,  0.5]} color="#ffaa55" intensity={12} distance={14} decay={2} />
-      <pointLight position={[-5.5, WH - 0.5,  7.5]} color="#ffaa55" intensity={10} distance={12} decay={2} />
+      <pointLight ref={(o) => { lightReg.bed = o }} position={[-5.5, WH - 0.5, -7]}  color="#ffaa66" intensity={12} distance={14} decay={2} />
+      <pointLight ref={(o) => { lightReg.hall = o }} position={[-5.5, WH - 0.5,  0.5]} color="#ffaa55" intensity={12} distance={14} decay={2} />
+      <pointLight ref={(o) => { lightReg.kitchen = o }} position={[-5.5, WH - 0.5,  7.5]} color="#ffaa55" intensity={10} distance={12} decay={2} />
       {/* Chest glow */}
-      <pointLight position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
+      <pointLight ref={(o) => { lightReg.chest = o }} position={[CHEST_POS.x, 1.0, CHEST_POS.z]} color="#ffcc44" intensity={5} distance={8} decay={2} />
+
+      <LivingLights />
 
       {/* ── Floor ────────────────────────────────────────────────────────── */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[HW * 2, HD * 2]} />
-        <meshStandardMaterial color={FLOOR} roughness={0.98} />
-      </mesh>
-      <FloorPlanks />
+      {/* Plank seams are baked into the wood texture (replaces the old FloorPlanks strip meshes) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow {...texPlaneProps(HW * 2, HD * 2, 'wood', FLOOR, 0.98)} />
 
       {/* ── Exterior ground ──────────────────────────────────────────────── */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
@@ -1127,10 +1052,7 @@ export default function Arena() {
       <ForestSpawnThickets />
 
       {/* ── Ceiling ──────────────────────────────────────────────────────── */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WH, 0]}>
-        <planeGeometry args={[HW * 2, HD * 2]} />
-        <meshStandardMaterial color={CEIL} roughness={1} side={THREE.BackSide} />
-      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, WH, 0]} {...texPlaneProps(HW * 2, HD * 2, 'wood', CEIL, 1, 0, THREE.BackSide)} />
       <CeilingBeams />
 
       <Roof />
@@ -1146,7 +1068,7 @@ export default function Arena() {
       <WindowPlanks />
 
       {/* ── Atmosphere ───────────────────────────────────────────────────── */}
-      <Cobwebs />
+      <CabinFurniture />
 
       {/* ── Main room ────────────────────────────────────────────────────── */}
       <Fireplace />
@@ -1180,8 +1102,8 @@ export default function Arena() {
       <WallLantern position={[-HW + WT, 1.8, -2.8]} rotation={[0, Math.PI / 2, 0]} />
 
       {/* ── Kitchen ──────────────────────────────────────────────────────── */}
-      <WoodStove position={[-6.5, 0, -HD + WT + 0.38]} />
-      <KitchenTable position={[-4.5, 0, 7.5]} />
+      <WoodStove position={[-8.3, 0, 7.7]} rotation={[0, Math.PI / 2, 0]} />
+      <KitchenTable position={[-3.4, 0, 6.4]} />
       <WallLantern position={[-HW + WT, 1.8, 7.5]} rotation={[0, Math.PI / 2, 0]} />
       {/* Hanging pots */}
       <mesh position={[-5.5, WH - 0.45, 6.5]} castShadow>

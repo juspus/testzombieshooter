@@ -5,6 +5,66 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- OWNER UI PREFERENCES (2026-10-27): no emoji anywhere in the UI - use short
+  text labels. In-game text must be terse (one short line, hints only in the
+  first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
+  brightness slider (src/brightness.js). Bloodlust speed 1.4x (2x too hard).
+- Cancelled by owner (stopped agents): Barn map, cabin escape quest. Don't restart unasked.
+- Crossbow reworked: repeating (mag 5), pierces 6, retrievable bolts (Bolts.jsx,
+  store.collectBolt), Wraith = exploding bolts (source 'bolt'); CROSSBOW constants in weaponRules.js.
+- Cabin furnished (Evil Dead look): pieces in src/furniturePieces.js, merged per room by
+  src/furnitureParts.js, placed in Furniture.jsx; big pieces need FURNITURE_COLLIDERS
+  entries in maps/cabin.js (furniture.test.js enforces clearance of windows/anchors/doors).
+- Roadmap: https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz (source
+  `docs/roadmap.html`, republish from that file with the URL). The owner
+  marks each item Go / Discuss / Skip (+ notes) on the page; read them at
+  session start with ArtifactData `list` on collection `calls` (doc id =
+  item id, `{call, note}`; decisions `d-art`/`d-doors` use `A`/`B`/`talk`).
+  When work starts/ships, write `progress/<item id>` `{status: 'building'|'shipped'}`.
+  Agreed next step after the roadmap: the model playground (`/?playground`).
+- Owner calls (2026-10-27): art = lo-fi (A), buyable doors = yes (A).
+  Skip: quality tiers, special waves, portals, Halloween. Postponed: weapon
+  mastery, seasons, 3-4 players (needs bigger maps first). 3-4p tech note:
+  game data works over PeerJS star topology (refactor only), but voice chat
+  mesh, NAT failures (needs TURN relay) and host-leaves-ends-game get worse
+  with 4 -> that's the point to decide P2P vs a small authoritative server
+  (monthly cost). Discuss with owner before building.
+  Playground: split Test Lab into /?models (model viewer + registry) and
+  /?testlab (sounds/weapons) - owner approved. Everything
+  else Go. Owner asked for autonomous implementation by Sonnet (medium)
+  subagents in worktrees, merged onto claude/wizardly-pascal-c4k091 (PR #126),
+  continuing across usage-limit resets (send_later safety net), leaving ~10%
+  of the 5h limit. Agent brief: scratchpad AGENT_BRIEF.md (rules: pools, no
+  new shadows, mobile, host-authoritative co-op, Playwright verify).
+  Rounds: R1 = W0 perf+metrics, W1 feel, impacts (running) -> R2 W2 look
+  (lofi+post, storm+lights, textures, variety) -> R3 W3 run (powerups, box+
+  bench, doors, modifiers, archetypes, grenades) -> R4 W4 (xp+challenges+
+  achievements, daily seeded run, diner unlock+loadouts) -> R5 W5 + later
+  (invite, revive, weekly board, quest, new maps).
+- Round 1 merged (2026-10-27): perf overlay `?perf`/`?bench`, retention SQL
+  (supabase/queries, docs/ANALYTICS.md), hit markers + danger FX + last-kill
+  slow-mo (FeelFx.jsx, src/timeScale.js - multiply frame deltas by
+  time.scale), camera feel (src/cameraFeel.js), positional zombie audio +
+  groans, muzzle flash + ImpactFX, zombie flinch/deaths/BloodFX, playground
+  split (/?models + /?testlab). GOTCHA: corpses stay in `zombies` with
+  `corpse: true` (always `dying`) - any count must filter `!z.dying`/`!z.corpse`.
+  sounds.js routes everything through a master lowpass bus (`_installMasterBus`).
+  Dev-only globals: window.__game (store), __dbg, __r3f. Nothing was
+  playtested by ear/hand yet (headless ~4 fps, no audio).
+- Round 2 + doors merged: lo-fi pending; textures (src/textures.js, Box picks
+  texture from palette colour), zombie variants (src/zombieVariant.js, id-seeded),
+  storm/rain/LivingLights (`?nofx` disables), doors (DOOR_COSTS + ROOM_ANCHORS in
+  src/maps/cabin.js, `?doors=open`, windows/spawn clusters carry room/windowId;
+  money is per-player in co-op, door opener pays).
+- Rounds 3-5 merged (2026-10-27): power-ups, lo-fi pass, new archetypes,
+  modifiers, Mystery Box/crossbow/Upgrade Bench (bench €750 not 1500 - economy
+  can't reach 1500 before ~wave 30), grenades, Daily Run + weekly/daily boards
+  (MIGRATION PENDING: supabase/migrations/20261027000000_daily_weekly_leaderboards.sql,
+  owner applies in SQL editor), XP/levels/challenges/achievements, map picker
+  (reload-based; diner L5) + loadouts (shotgun L8, fast hands L12, AK L16),
+  co-op invite links + down/revive. Usage limit was hit once at 4 parallel
+  agents -> run max 2 at a time. Tuning flagged for playtest: XP pace (wave-7
+  run ~ level 4), lo-fi exposure (dark), armored tankiness, door prices.
 - New maps: cabin was the only map, now generalized into a src/maps/ schema
   (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
   is dev/preview-only via `?map=diner` (gated same as other debug params) —
@@ -118,6 +178,16 @@ onboarding summary — see CLAUDE.md for architecture detail.
 - (none yet)
 
 ## Dated log
+
+- 2026-10-26: Built the visual roadmap (artifact above). Diagnosis of the
+  "flash game" feel: flat look (no post, rigid camera), hits don't land (no
+  hit marker/flinch/blood, 0.75 s tip-over death, zombie audio not
+  positional), every run identical (solved buy order, no meta-progression).
+  Order proposed: W0 tools (playground, quality tiers, perf overlay,
+  retention baseline) → W1 feel → W2 look → W3 run variety (power-ups, box,
+  upgrade bench, doors) → W4 progression (XP, mastery, challenges) → W5
+  together. Open owner decisions: art direction (lo-fi recommended),
+  buyable doors on the cabin, Halloween mini-event.
 
 - 2026-10-14: Monetization v1. The Supabase project had been paused
   (free tier idle pause) -> restored. Shipped on branch
