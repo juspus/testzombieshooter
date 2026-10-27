@@ -55,7 +55,9 @@ const zombieEntries = Object.entries(ZOMBIE_ARCHETYPES).map(([type, a]) => {
     label: a.label ?? type,
     Component: ZombieDisplay,
     props: { type },
-    animations: ZOMBIE_ANIMS,
+    animations: type === 'exploder' ? [...ZOMBIE_ANIMS, { id: 'swell', label: 'Swell', loop: true }]
+      : type === 'spitter' ? [...ZOMBIE_ANIMS, { id: 'spit', label: 'Spit', loop: true }]
+      : ZOMBIE_ANIMS,
     defaultCamera: { position: [2.4 * hs, 1.5 * hs, 3.4 * hs], target: [0, 0.9 * hs, 0], fit: 'height' },
     humanScale: true,
     variants: 8,   // Variant chooser: seed 0 = this zombie's look for id `pg0`, etc.

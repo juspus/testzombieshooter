@@ -22,6 +22,7 @@ export function ZombieDisplay({ type, ctrl, variant = 0 }) {
   const outer = useRef()
   const lArm = useRef(), rArm = useRef(), lLeg = useRef(), rLeg = useRef()
   const flames = useRef([])
+  const headRef = useRef(), sacRef = useRef()
   const g = useMemo(() => getZombieVariant(type, `pg${variant}`).gait, [type, variant])
   const st = useRef({ t: 0, walk: 0, death: 0, n: -1 })
   const flameGeo = useMemo(() => new THREE.ConeGeometry(0.13, 0.5, 6), [])
@@ -58,6 +59,14 @@ export function ZombieDisplay({ type, ctrl, variant = 0 }) {
       if (lLeg.current) lLeg.current.rotation.x = ll
       if (rLeg.current) rLeg.current.rotation.x = rl
     }
+    // Exploder swell (fuse look) / spitter wind-up loop
+    if (id === 'swell' && outer.current) {
+      const k = (s.t % 0.9) / 0.9
+      outer.current.scale.setScalar(1 + 0.5 * k * k)
+    } else if (outer.current && outer.current.scale.x !== 1) outer.current.scale.setScalar(1)
+    const wk = id === 'spit' ? (s.t % 1.4) / 1.4 : 0
+    if (headRef.current) headRef.current.rotation.x = -0.75 * wk
+    if (sacRef.current) { const q = 1 + 0.55 * wk; sacRef.current.scale.set(q, q, q) }
     const burning = id === 'burning'
     for (let i = 0; i < flames.current.length; i++) {
       const f = flames.current[i]
@@ -74,7 +83,7 @@ export function ZombieDisplay({ type, ctrl, variant = 0 }) {
   return (
     <group ref={outer}>
       <group position={[0, FEET_OFFSET, 0]}>
-        <ZombieBody type={type} id="playground" seed={`pg${variant}`} leftArmRef={lArm} rightArmRef={rArm} leftLegRef={lLeg} rightLegRef={rLeg} />
+        <ZombieBody type={type} id="playground" seed={`pg${variant}`} leftArmRef={lArm} rightArmRef={rArm} leftLegRef={lLeg} rightLegRef={rLeg} headRef={headRef} sacRef={sacRef} />
         {FLAME_POS.map((p, i) => (
           <mesh key={i} ref={(el) => (flames.current[i] = el)} position={p} visible={false} geometry={flameGeo} material={flameMat} />
         ))}

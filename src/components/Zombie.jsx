@@ -598,7 +598,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
       {isSpitter && (
         <>
           {/* Glowing throat sac (pulses during the spit wind-up) + dorsal spines */}
-          <group ref={sacRef} position={[0, 0.47, 0.085]}>
+          <group ref={sacRef} position={[0, 0.40, 0.085]}>
             <mesh geometry={bg(0.20, 0.20, 0.17)} userData={{ zombieId: id, isHead: false }} material={sm('#8fe02a', 0.45, 0, '#6aff1a', 1.9)} />
           </group>
           {[0.44, 0.30, 0.16].map((y, i) => (
@@ -987,7 +987,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   function spitterPose(k) {
     if (headRef.current && fxRef.current.head <= 0) headRef.current.rotation.x = -0.75 * k
     if (sacRef.current) {
-      const s = 1 + 1.1 * k + Math.sin(performance.now() * 0.03) * 0.12 * k
+      const s = 1 + 0.55 * k + Math.sin(performance.now() * 0.03) * 0.12 * k
       sacRef.current.scale.set(s, s, s)
     }
   }
