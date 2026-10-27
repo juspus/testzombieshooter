@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { registerSkyMaterial } from '../weather'
 
 const SKYBOX_RADIUS = 46
 const SKYBOX_HEIGHT = 70
@@ -216,6 +217,7 @@ export default function ForestSkybox() {
     <mesh position={[0, 22, 0]} frustumCulled={false} renderOrder={-100}>
       <cylinderGeometry args={[SKYBOX_RADIUS, SKYBOX_RADIUS, SKYBOX_HEIGHT, 96, 1, true]} />
       <meshBasicMaterial
+        ref={registerSkyMaterial}
         map={texture}
         side={THREE.BackSide}
         depthWrite={false}

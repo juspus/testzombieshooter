@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { registerSkyMaterial } from '../weather'
 
 // Same cylinder-skybox recipe as ForestSkybox.jsx: 1 draw call, 1 scene node,
 // zero per-frame cost, no shadows. Depicts the empty highway and distant
@@ -164,6 +165,7 @@ export default function GasStationSkybox() {
     <mesh position={[0, 22, 0]} frustumCulled={false} renderOrder={-100}>
       <cylinderGeometry args={[SKYBOX_RADIUS, SKYBOX_RADIUS, SKYBOX_HEIGHT, 96, 1, true]} />
       <meshBasicMaterial
+        ref={registerSkyMaterial}
         map={texture}
         side={THREE.BackSide}
         depthWrite={false}

@@ -1303,3 +1303,97 @@ export function setSlowMoMuffle(amount) {
   _muffleSlow = amount
   _applyMuffle()
 }
+
+// ─── storm: rain loop + rolling thunder ─────────────────────────────────────
+
+const RAIN_GAIN_OUT = 0.085
+const RAIN_GAIN_IN  = 0.035
+const RAIN_LP_OUT   = 6500
+const RAIN_LP_IN    = 1300
+
+let _rain = null   // { src, filt, gain }
+
+export function startRain() {
+  if (_rain) return
+  const ac = ctx()
+  const t = ac.currentTime
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 4)
+  src.loop = true
+
+  const hp = ac.createBiquadFilter()
+  hp.type = 'highpass'
+  hp.frequency.value = 500
+
+  const filt = ac.createBiquadFilter()
+  filt.type = 'lowpass'
+  filt.frequency.value = RAIN_LP_IN
+
+  const gain = ac.createGain()
+  gain.gain.setValueAtTime(0, t)
+  gain.gain.linearRampToValueAtTime(RAIN_GAIN_IN, t + 4)
+
+  src.connect(hp)
+  hp.connect(filt)
+  filt.connect(gain)
+  gain.connect(ac.destination)
+  src.start(t)
+  _rain = { src, filt, gain }
+}
+
+export function stopRain() {
+  if (!_rain) return
+  const ac = ctx()
+  const t = ac.currentTime
+  const { src, gain } = _rain
+  _rain = null
+  gain.gain.cancelScheduledValues(t)
+  gain.gain.setValueAtTime(gain.gain.value, t)
+  gain.gain.linearRampToValueAtTime(0, t + 2)
+  src.stop(t + 2.1)
+}
+
+// Muffle + quieten the rain when the listener is inside the cabin.
+export function setRainIndoor(indoor) {
+  if (!_rain) return
+  const t = ctx().currentTime
+  _rain.gain.gain.setTargetAtTime(indoor ? RAIN_GAIN_IN : RAIN_GAIN_OUT, t, 0.25)
+  _rain.filt.frequency.setTargetAtTime(indoor ? RAIN_LP_IN : RAIN_LP_OUT, t, 0.25)
+}
+
+// distance 0 (overhead) .. 1 (far away). The rumble arrives after a delay
+// proportional to distance — roughly the speed of sound scaled to feel good.
+export function playThunder(distance = 0.5) {
+  const ac = ctx()
+  const d = Math.max(0, Math.min(1, distance))
+  const t0 = ac.currentTime + 0.12 + d * 4.5
+  const vol = 0.55 * (1 - 0.6 * d)
+
+  // Rumble: low-passed noise with irregular amplitude bumps and a sinking cutoff.
+  const src = ac.createBufferSource()
+  src.buffer = noiseBuffer(ac, 6)
+  const lp = ac.createBiquadFilter()
+  lp.type = 'lowpass'
+  lp.frequency.setValueAtTime(260 - d * 110, t0)
+  lp.frequency.exponentialRampToValueAtTime(55, t0 + 5)
+  const g = ac.createGain()
+  const len = 3.5 + (1 - d) * 1.5 + Math.random()
+  g.gain.setValueAtTime(0.0001, t0)
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.08 + d * 0.4)
+  let tt = t0 + 0.4
+  while (tt < t0 + len - 0.6) {
+    g.gain.linearRampToValueAtTime(vol * (0.35 + Math.random() * 0.6), tt)
+    tt += 0.25 + Math.random() * 0.5
+  }
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + len)
+  src.connect(lp)
+  lp.connect(g)
+  g.connect(ac.destination)
+  src.start(t0)
+  src.stop(t0 + len + 0.1)
+
+  // Close strikes get a sharp crack on top.
+  if (d < 0.4) {
+    playNoise(ac, noiseBuffer(ac, 0.5), t0, 0.35, 0.7 * (1 - d), 'bandpass', 1400, 0.6)
+  }
+}

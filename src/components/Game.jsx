@@ -21,6 +21,7 @@ import GasStationSkybox from './GasStationSkybox'
 import RemotePlayer from './RemotePlayer'
 import NetManager from './NetManager'
 import MobileControls from './MobileControls'
+import Storm from './Storm'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
@@ -140,6 +141,7 @@ export default function Game() {
         <NetManager />
         <ForceRenderOnShopOpen />
         {(PERF_ON || BENCH_ON) && <PerfOverlay />}
+        <Storm />
       </Canvas>
 
       {isActive && <HUD />}
