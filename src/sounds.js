@@ -3,10 +3,46 @@
 let _ctx = null
 
 function ctx() {
-  if (!_ctx) _ctx = new AudioContext()
+  if (!_ctx) { _ctx = new AudioContext(); _installMasterBus(_ctx) }
   // Resume if browser suspended it (autoplay policy)
   if (_ctx.state === 'suspended') _ctx.resume()
   return _ctx
+}
+
+// ─── master bus (low-HP / slow-mo muffle) ────────────────────────────────────
+// Every sound connects to `ac.destination`. We shadow that property on the
+// context instance with a lowpass bus, so all existing sounds (incl. panners and
+// music) are muffled together with no per-sound edits. Heartbeat/stings use
+// _realDest to bypass the filter and stay clear.
+let _realDest = null
+let _masterLP = null
+let _muffleDanger = 0
+let _muffleSlow = 0
+
+function _installMasterBus(ac) {
+  _realDest = ac.destination
+  _masterLP = ac.createBiquadFilter()
+  _masterLP.type = 'lowpass'
+  _masterLP.frequency.value = 22000
+  _masterLP.Q.value = 0.5
+  _masterLP.connect(_realDest)
+  Object.defineProperty(ac, 'destination', { get: () => _masterLP, configurable: true })
+}
+
+function _applyMuffle() {
+  if (!_masterLP) return
+  const amt = Math.max(_muffleDanger, _muffleSlow)
+  // 0 -> fully open, 1 -> ~700 Hz (log scale)
+  const f = 22000 * Math.pow(700 / 22000, amt)
+  const ac = ctx()
+  _masterLP.frequency.setTargetAtTime(f, ac.currentTime, 0.12)
+}
+
+// Low-HP muffle amount 0..1
+export function setDangerMuffle(amount) {
+  if (amount === _muffleDanger) return
+  _muffleDanger = amount
+  _applyMuffle()
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -1105,4 +1141,85 @@ export function setMusicIntensity(level) {
 
     _stopIntenseLayer(2.5)
   }
+}
+
+
+// ─── Wave 1 "Feel": hit feedback, heartbeat, last-kill sting ──────────────────
+// Kept deliberately quiet and short. All go through the master bus except the
+// heartbeat and sting (unfiltered so they cut through the low-HP muffle).
+
+export function playHitTick() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 1900, 1300, 0.035, 0.07)
+  playNoise(ac, noiseBuffer(ac, 0.03), t, 0.02, 0.05, 'highpass', 3500, 1)
+}
+
+// Sharper metallic "tink" for headshots
+export function playHeadshotTink() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 3400, 3000, 0.12, 0.09)
+  playTone(ac, t, 5100, 4600, 0.07, 0.04)
+  playTone(ac, t, 1800, 1500, 0.05, 0.05)
+}
+
+// Low confirming thump + tick on a kill
+export function playKillConfirm(headshot = false) {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 240, 90, 0.11, 0.16)
+  playTone(ac, t + 0.015, headshot ? 3000 : 1500, headshot ? 2600 : 1100, 0.07, 0.06)
+}
+
+// Final-kill sting: sub drop + rising shimmer, bypasses the muffle filter
+export function playLastKillSting() {
+  const ac = ctx()
+  const t = ac.currentTime
+  const out = _realDest ?? ac.destination
+  playTone(ac, t, 130, 38, 0.9, 0.35, out)
+  playTone(ac, t, 520, 1040, 0.5, 0.05, out)
+  playNoise(ac, noiseBuffer(ac, 0.9), t, 0.9, 0.12, 'bandpass', 700, 0.8, out)
+}
+
+// Heartbeat loop ("lub-dub"). intensity 0..1 speeds it up and makes it louder.
+let _hbTimer = null
+let _hbIntensity = 0
+let _hbNext = 0
+
+function _beat(ac, t, vol) {
+  const out = _realDest ?? ac.destination
+  playTone(ac, t, 62, 34, 0.14, vol, out)
+  playTone(ac, t + 0.2, 52, 30, 0.12, vol * 0.7, out)
+}
+
+function _hbRun() {
+  const ac = ctx()
+  const period = 1.05 - 0.4 * _hbIntensity
+  const vol = 0.55 + 0.45 * _hbIntensity
+  if (_hbNext < ac.currentTime) _hbNext = ac.currentTime + 0.05
+  while (_hbNext < ac.currentTime + 0.25) {
+    _beat(ac, _hbNext, vol)
+    _hbNext += period
+  }
+  _hbTimer = setTimeout(_hbRun, 100)
+}
+
+export function startHeartbeat(intensity = 0.5) {
+  _hbIntensity = intensity
+  if (_hbTimer !== null) return
+  _hbNext = 0
+  _hbRun()
+}
+
+export function setHeartbeatIntensity(intensity) { _hbIntensity = intensity }
+
+export function stopHeartbeat() {
+  if (_hbTimer !== null) { clearTimeout(_hbTimer); _hbTimer = null }
+}
+
+// Slow-mo muffle (separate channel from the low-HP one; the louder wins)
+export function setSlowMoMuffle(amount) {
+  _muffleSlow = amount
+  _applyMuffle()
 }

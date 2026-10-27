@@ -12,6 +12,7 @@ import {
   sanitizeStats,
 } from './cosmetics'
 import { persistProfile } from './profilePersistence'
+import { time as gameTime } from './timeScale'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -206,6 +207,37 @@ export const useGameStore = create((set, get) => ({
   bodyArmor: null,   // body-slot armor id, see BODY_ARMOR_DEFS
   hitEventId: 0,     // bumped on every hitPlayer() call; HUD watches this to trigger the damage decal
 
+  // ── Wave 1 "Feel": hit markers, damage direction, last-kill slow-mo ──────────
+  hitMarkerId: 0,         // bumped by registerHit(); HitMarker subscribes to this itself
+  hitMarkerKind: 'hit',   // 'hit' | 'head' | 'kill' | 'headkill' | 'burn'
+  lastHitX: 0,            // world pos of the zombie that last hit the player (damage indicator)
+  lastHitZ: 0,
+  lastKillId: 0,          // bumped when the final zombie of a wave dies (slow-mo + sting)
+  lastKillPending: false, // host: wave_clear is held back for LAST_KILL_DELAY_MS
+
+  // One marker per trigger pull — callers aggregate pellets / pierce targets first.
+  // 'burn' (flamethrower ticks) is throttled so it never spams.
+  registerHit: (kind) => {
+    if (kind === 'burn') {
+      const now = performance.now()
+      if (now - _lastBurnMarkerAt < BURN_MARKER_INTERVAL_MS) return
+      _lastBurnMarkerAt = now
+    }
+    set({ hitMarkerKind: kind, hitMarkerId: get().hitMarkerId + 1 })
+  },
+
+  // Slow-mo + sting. Runs on host (from the killing blow) and guest ('last_kill' event).
+  startLastKillFx: () => {
+    cancelLastKillFx()
+    gameTime.scale = LAST_KILL_SCALE
+    _lastKillTimers = [
+      setTimeout(() => { gameTime.scale = 0.65 }, LAST_KILL_DELAY_MS - 250),
+      setTimeout(() => { gameTime.scale = 1 }, LAST_KILL_DELAY_MS),
+    ]
+    set({ lastKillId: get().lastKillId + 1 })
+  },
+  endLastKillFx: () => { cancelLastKillFx() },
+
   startGame: () => {
     // A run that never reached die() (e.g. a co-op guest whose 'die' event was
     // dropped, or a restart from intermission) still counts toward lifetime stats.
@@ -261,7 +293,9 @@ export const useGameStore = create((set, get) => ({
       helmet: null,
       bodyArmor: null,
       hitEventId: 0,
+      lastKillPending: false,
     })
+    cancelLastKillFx()
 
     applyDebugOverrides(set, get)
   },
@@ -291,7 +325,9 @@ export const useGameStore = create((set, get) => ({
       waveKnifeKills: 0,
       wavePlanksLost: 0,
       waveStartPlanks: 0,
+      lastKillPending: false,
     })
+    cancelLastKillFx()
   },
 
   consumeBullet: () => {
@@ -334,7 +370,7 @@ export const useGameStore = create((set, get) => ({
     const newZombies = zombies.filter((z) => z.id !== id)
     const activeCount = newZombies.filter((z) => !z.dying).length
     const isGuest = get().mpRole === 'guest'
-    const waveOver = !isGuest && activeCount === 0 && pendingSpawns.length === 0 && phase === 'playing'
+    const waveOver = !isGuest && activeCount === 0 && pendingSpawns.length === 0 && phase === 'playing' && !get().lastKillPending
     set(waveOver
       ? {
         zombies: newZombies,
@@ -391,7 +427,8 @@ export const useGameStore = create((set, get) => ({
 
   die: () => {
     if (get().phase !== 'playing') return
-    set({ phase: 'dead' })
+    set({ phase: 'dead', lastKillPending: false })
+    cancelLastKillFx()
     // Single choke point for death: covers hitPlayer() and the co-op 'die'
     // net event (NetManager -> store.die()). runRecorded makes it once-only.
     get().recordRunEnd()
@@ -400,11 +437,12 @@ export const useGameStore = create((set, get) => ({
   // Called by Zombie.jsx's attack_player state. Fully client-local: each
   // client already computes its own player's proximity/damage independently,
   // same as the pre-HP instant-kill check did — no net sync needed.
-  hitPlayer: (damage) => {
+  // ax/az: attacker world position, for the directional damage indicator.
+  hitPlayer: (damage, ax = 0, az = 0) => {
     const { phase, hp, hitEventId } = get()
     if (phase !== 'playing') return
     const newHp = Math.max(0, hp - damage)
-    set({ hp: newHp, hitEventId: hitEventId + 1 })
+    set({ hp: newHp, hitEventId: hitEventId + 1, lastHitX: ax, lastHitZ: az })
     if (newHp <= 0) get().die()
   },
 
@@ -707,6 +745,21 @@ function applyBench(set) {
   })
 }
 
+// ── Wave 1 "Feel" module state ───────────────────────────────────────────────
+const LAST_KILL_DELAY_MS = 1100   // real-time slow-mo window before WAVE CLEARED
+const LAST_KILL_SCALE = 0.3
+const BURN_MARKER_INTERVAL_MS = 450
+let _lastBurnMarkerAt = 0
+let _lastKillTimers = []
+let _lastKillToken = 0
+
+function cancelLastKillFx() {
+  _lastKillTimers.forEach(clearTimeout)
+  _lastKillTimers = []
+  _lastKillToken++   // invalidates a pending wave_clear timeout (restart / death)
+  gameTime.scale = 1
+}
+
 // Shared damage application for hitZombie (gun/knife) and hitZombieFlame (burn ticks).
 function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
   const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks } = get()
@@ -740,22 +793,33 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
       runHeadshots: runHeadshots + (source === 'gun' && isHeadshot ? 1 : 0),
       runKnifeKills: runKnifeKills + (source === 'knife' ? 1 : 0),
     }
-    set(waveOver
-      ? {
-        ...statUpdate,
-        phase: 'wave_clear',
-        lastWaveBonuses: buildWaveBonusSummary({
-          wave,
-          waveKills: newWaveKills,
-          waveHeadshots: newWaveHeadshots,
-          waveKnifeKills: newWaveKnifeKills,
-          wavePlanksLost,
-          waveStartPlanks,
-          waveElapsed,
-        }),
-      }
-      : statUpdate
-    )
+    if (waveOver) {
+      // Hold wave_clear back for LAST_KILL_DELAY_MS so the slow-mo plays out. The
+      // host broadcasts wave_clear when phase flips, so the guest transitions
+      // LAST_KILL_DELAY_MS later too (same fixed delay, no extra sync needed).
+      const bonuses = buildWaveBonusSummary({
+        wave,
+        waveKills: newWaveKills,
+        waveHeadshots: newWaveHeadshots,
+        waveKnifeKills: newWaveKnifeKills,
+        wavePlanksLost,
+        waveStartPlanks,
+        waveElapsed,
+      })
+      set({ ...statUpdate, lastKillPending: true })
+      get().startLastKillFx()
+      const token = ++_lastKillToken
+      setTimeout(() => {
+        if (token !== _lastKillToken) return
+        if (get().phase === 'playing' && get().lastKillPending) {
+          set({ phase: 'wave_clear', lastWaveBonuses: bonuses, lastKillPending: false })
+        } else {
+          set({ lastKillPending: false })
+        }
+      }, LAST_KILL_DELAY_MS)
+    } else {
+      set(statUpdate)
+    }
     return true
   } else {
     set({ zombies: zombies.map((z) => z.id === id ? { ...z, health: newHealth } : z) })
@@ -827,4 +891,9 @@ function spawnZombies(wave, startId) {
     })
   }
   return zombies
+}
+
+// Dev/preview only: expose the store for browser-driven verification.
+if (typeof window !== 'undefined' && import.meta.env.VITE_VERCEL_ENV !== 'production') {
+  window.__game = useGameStore
 }
