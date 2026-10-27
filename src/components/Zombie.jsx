@@ -5,6 +5,7 @@ import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
 import { playZombieFootstep, playPlankHit, playScreamerScreech } from '../sounds'
+import { playZombieGroan } from '../sounds'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -538,6 +539,8 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const windowPlanksRef = useRef(windowPlanks)
   const zombieWallsRef  = useRef(ACTIVE_MAP.wallSegments())
   const stepTimerRef    = useRef(Math.random() * 0.6)
+  const groanTimerRef   = useRef(3 + Math.random() * 8)   // idle groan countdown (positional, globally rate-limited in sounds.js)
+  const groanPitchRef   = useRef((type === 'brute' ? 0.75 : type === 'runner' ? 1.15 : type === 'screamer' ? 1.3 : 0.9 + Math.random() * 0.2))
   const isAggressorRef  = useRef(false)
   const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
   const isAttackingRef  = useRef(false)
@@ -578,7 +581,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
   useEffect(() => {
     if (hidden) return
-    if (type === 'screamer') playScreamerScreech()
+    if (type === 'screamer') playScreamerScreech(startX, 1.4, startZ)
     const plankAggroChance = type === 'runner' || type === 'screamer'
       ? 0
       : type === 'brute'
@@ -688,6 +691,16 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     // Local player position (also used for melee-attack detection — always local)
     const lx = camera.position.x, lz = camera.position.z
 
+    // Idle groan: randomized interval; sounds.js caps concurrent voices and
+    // favours nearby zombies, so a rejected groan just retries soon.
+    groanTimerRef.current -= delta
+    if (groanTimerRef.current <= 0) {
+      const gdx = lx - pos.x, gdz = lz - pos.z
+      groanTimerRef.current = playZombieGroan(pos.x, 1.4, pos.z, groanPitchRef.current, Math.sqrt(gdx * gdx + gdz * gdz))
+        ? 6 + Math.random() * 8
+        : 0.8 + Math.random() * 1.2
+    }
+
     // Pick the closest player as the chase/face target
     const rp = getRemotePlayerPos()
     let px, pz
@@ -796,7 +809,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           if (!useGameStore.getState().mpRole || useGameStore.getState().mpRole === 'host') {
             for (let i = 0; i < archetype.plankHits; i++) hitPlank(win.id)
           }
-          playPlankHit()
+          playPlankHit(win.winX, 1.2, win.winZ)
         }
       } else {
         isAttackingRef.current = false
@@ -863,7 +876,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         stepTimerRef.current -= delta
         if (stepTimerRef.current <= 0) {
           stepTimerRef.current = 0.55 + Math.random() * 0.1
-          playZombieFootstep()
+          playZombieFootstep(pos.x, 0.2, pos.z)
         }
       }
     }

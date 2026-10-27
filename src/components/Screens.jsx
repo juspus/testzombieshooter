@@ -6,6 +6,7 @@ import { hydrateStoreFromLocal, syncProfileWithCloud } from '../profilePersisten
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
+import { getReduceMotion, setReduceMotion } from '../cameraFeel'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -469,6 +470,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
               Locker
             </button>
           </div>
+          <ReduceMotionToggle />
         </div>
       )}
 
@@ -526,6 +528,20 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <UsernamePickerView onDone={() => { onUsernameSet?.(); setView('main') }} />
       )}
     </Overlay>
+  )
+}
+
+// Tiny accessibility option: turns off head bob + fire kick (weapon sway stays, subtler).
+function ReduceMotionToggle() {
+  const [on, setOn] = useState(getReduceMotion())
+  return (
+    <button
+      onClick={() => { setReduceMotion(!on); setOn(!on) }}
+      aria-pressed={on}
+      style={{ ...textLinkStyle, marginTop: 2 }}
+    >
+      Reduce camera motion: {on ? 'on' : 'off'}
+    </button>
   )
 }
 

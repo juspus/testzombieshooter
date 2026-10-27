@@ -11,6 +11,9 @@ import { playGunshot, playEmptyClick, playReload, playZombieDie, playFootstep, p
 import { FLAME_DPS, FLAME_TICK_INTERVAL, FLAME_FUEL_PER_SEC, FLAME_RANGE, FLAME_CONE_COS, FLAME_BURN_DURATION, BODY_ARMOR_DEFS } from '../store'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
+import ImpactFX from './ImpactFX'
+import { feel, kick, updateFeel, resetFeel } from '../cameraFeel'
+import { raycastWorld, HIT_FLOOR, HIT_PLANK } from '../worldRay'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -21,6 +24,31 @@ const { WINDOW_DEFS, CHEST_POS, WIN_HALF, WIN_Y0, WIN_Y1 } = ACTIVE_MAP
 // height-blind (flat X/Z test), so any short cover meant to be shot over (e.g.
 // the diner's counter) has to be excluded here even though it blocks movement.
 const BULLET_WALLS = ACTIVE_MAP.bulletWallSegments()
+const MAP_WALL_H = ACTIVE_MAP.WALL_H ?? 3.2
+
+// Visual-only world raycast for bullet impacts (sparks / splinters). Writes the hit
+// point into _worldHit and returns true when a wall/floor/plank is within maxDist.
+// Does not affect gameplay hit detection.
+const _wr = { dist: 0, nx: 0, ny: 0, nz: 0, kind: 0 }
+const _worldHit = new THREE.Vector3()
+const _worldNormal = new THREE.Vector3()
+function worldImpact(ray, maxDist, windowPlanks, spawn = true, intensity = 1) {
+  if (!raycastWorld(ray.origin.x, ray.origin.y, ray.origin.z, ray.direction.x, ray.direction.y, ray.direction.z,
+    maxDist, BULLET_WALLS, MAP_WALL_H, WINDOW_DEFS, windowPlanks, WIN_Y0, WIN_Y1, WIN_HALF, _wr)) return false
+  _worldHit.copy(ray.direction).multiplyScalar(_wr.dist).add(ray.origin)
+  if (spawn) {
+    _worldNormal.set(_wr.nx, _wr.ny, _wr.nz)
+    ImpactFX.spawn(_worldHit, _worldNormal, _wr.kind === HIT_PLANK ? 'plank' : _wr.kind === HIT_FLOOR ? 'floor' : 'wall', intensity)
+  }
+  return true
+}
+
+// Positional zombie death sound (falls back to flat audio if the zombie ref is gone).
+function deathSound(refs, id) {
+  const r = refs[id]
+  if (r) playZombieDie(r.position.x, 1.2, r.position.z)
+  else playZombieDie()
+}
 
 // Shatters a window's glass the first time a bullet passes through its opening.
 // Analytic ray/plane test against each window's wall-plane and opening rect;
@@ -153,6 +181,8 @@ export default function Player() {
   const zombieRefs = useRef({})
   const reloadTimer = useRef(0)
   const stepTimer = useRef(0)
+  const prevYaw = useRef(0)
+  const prevPitch = useRef(0)
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
 
@@ -174,12 +204,18 @@ export default function Player() {
     camera.rotation.order = 'YXZ'
   }, [camera])
 
+  // Dev/preview-only handle for browser tests (same gating as the ?wave= debug params)
+  useEffect(() => {
+    if (import.meta.env.VITE_VERCEL_ENV === 'production') return
+    window.__dbg = { camera, feel, store: useGameStore, yaw, pitch, keys }
+  }, [camera])
+
   // Give FlameSpray access to zombie refs and a damage callback for per-particle hits.
   // zombieRefs.current is the live mutable map so it stays current without re-running.
   useEffect(() => {
     FlameSpray.zombieRefs = zombieRefs.current
     FlameSpray.onZombieHit = (zid, damage) => {
-      if (useGameStore.getState().hitZombieFlame(zid, damage)) playZombieDie()
+      if (useGameStore.getState().hitZombieFlame(zid, damage)) deathSound(zombieRefs.current, zid)
       Zombie.ignite(zid)
       netSend('hit_zombie_flame', { id: zid, damage })
     }
@@ -195,6 +231,7 @@ export default function Player() {
       camera.position.set(0, PLAYER_HEIGHT, 0)
       yaw.current = 0
       pitch.current = 0
+      resetFeel()
     }
   }, [phase, wave, camera])
 
@@ -296,6 +333,7 @@ export default function Player() {
 
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     Gun.fire?.()
+    kick(weaponRef.current)
     playGunshot(weaponRef.current)
     if (weaponRef.current === 'shotgun') navigator.vibrate?.([30, 20, 30])
     else if (weaponRef.current !== 'flamethrower') navigator.vibrate?.(18)
@@ -354,12 +392,16 @@ export default function Player() {
             bestHead = hits[0].object.userData.isHead === true
           }
         }
-        const trailEnd = bestPoint ?? camera.position.clone().addScaledVector(pelletRC.ray.direction, 30)
+        let trailEnd = bestPoint
+        if (!trailEnd) {
+          if (worldImpact(pelletRC.ray, 30, windowPlanksRef.current, true, 0.35)) trailEnd = _worldHit.clone()
+          else trailEnd = camera.position.clone().addScaledVector(pelletRC.ray.direction, 30)
+        }
         BulletTrails.add(muzzle, trailEnd)
         if (bestId !== null) {
           if (!bestHead) bestHead = isIronSightsHeadshot(zombieRefs.current[bestId], bestPoint, perksRef.current)
           const died = hitZombie(bestId, bestHead)
-          if (died && !killed.has(bestId)) { killed.add(bestId); playZombieDie() }
+          if (died && !killed.has(bestId)) { killed.add(bestId); deathSound(zombieRefs.current, bestId) }
           netSend('hit_zombie', { id: bestId, isHeadshot: bestHead, source: 'gun' })
         }
       }
@@ -379,10 +421,15 @@ export default function Player() {
         targets.push(hit)
         if (targets.length >= 3) break
       }
-      const trailEnd = targets.length > 0 ? targets[targets.length - 1].point : camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+      let trailEnd = targets.length > 0 ? targets[targets.length - 1].point : null
+      if (targets.length < 3 && worldImpact(raycaster.ray, 50, windowPlanksRef.current)) {
+        // Round passes through every zombie hit and ends on the world surface behind them
+        if (!trailEnd || _wr.dist > trailEnd.distanceTo(raycaster.ray.origin)) trailEnd = _worldHit.clone()
+      }
+      if (!trailEnd) trailEnd = camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
       BulletTrails.add(muzzle, trailEnd)
       for (const target of targets) {
-        if (hitZombie(target.id, true)) playZombieDie()
+        if (hitZombie(target.id, true)) deathSound(zombieRefs.current, target.id)
         netSend('hit_zombie', { id: target.id, isHeadshot: true, source: 'gun' })
       }
     } else {
@@ -428,7 +475,11 @@ export default function Player() {
         }
       }
 
-      const trailEnd = hitPoint ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+      let trailEnd = hitPoint
+      if (!trailEnd) {
+        if (worldImpact(raycaster.ray, 50, windowPlanksRef.current)) trailEnd = _worldHit.clone()
+        else trailEnd = camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+      }
       BulletTrails.add(muzzle, trailEnd)
       if (closest !== null) {
         const id = Number(closest)
@@ -441,7 +492,7 @@ export default function Player() {
           localPos.addScaledVector(hitFaceNormal, 0.012)
           Zombie.addBulletHole(id, localPos, hitFaceNormal)
         }
-        if (hitZombie(id, isHeadshot)) playZombieDie()
+        if (hitZombie(id, isHeadshot)) deathSound(zombieRefs.current, id)
         netSend('hit_zombie', { id, isHeadshot, source: 'gun' })
       }
     }
@@ -481,7 +532,7 @@ export default function Player() {
 
     if (closestId !== null) {
       const kid = Number(closestId)
-      if (hitZombie(kid, true, 'knife')) playZombieDie()
+      if (hitZombie(kid, true, 'knife')) deathSound(zombieRefs.current, kid)
       netSend('hit_zombie', { id: kid, isHeadshot: true, source: 'knife' })
     }
   }, [camera, hitZombie, setKnifeCooldown])
@@ -734,6 +785,7 @@ export default function Player() {
       if (firing && useGameStore.getState().reserveBullets > 0) {
         consumeFuel(FLAME_FUEL_PER_SEC * delta)
         Gun.setFlameActive?.(true)
+        kick('flamethrower')
         if (!flameSoundActiveRef.current) {
           flameSoundActiveRef.current = true
           startFlamethrowerSound()
@@ -776,7 +828,7 @@ export default function Player() {
           }
 
           for (const [zid, remaining] of burning) {
-            if (hitZombieFlame(zid, damage)) playZombieDie()
+            if (hitZombieFlame(zid, damage)) deathSound(zombieRefs.current, zid)
             Zombie.ignite(zid)
             netSend('hit_zombie_flame', { id: zid, damage })
 
@@ -807,6 +859,7 @@ export default function Player() {
     if (mobileInput.moveY !== 0) dir.addScaledVector(forward, mobileInput.moveY)
     if (mobileInput.moveX !== 0) dir.addScaledVector(right, mobileInput.moveX)
 
+    let movedDist = 0
     if (dir.lengthSq() > 0) {
       dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * delta)
       const R = 0.35
@@ -825,6 +878,7 @@ export default function Player() {
         nz = slideZ ? nz : cz
       }
 
+      movedDist = Math.hypot(nx - cx, nz - cz)
       camera.position.x = nx
       camera.position.z = nz
       camera.position.y = PLAYER_HEIGHT
@@ -844,6 +898,18 @@ export default function Player() {
     } else {
       stepTimer.current = 0
     }
+
+    // Camera weight: head bob + fire kick as offsets layered on top of aim (yaw/pitch
+    // refs stay untouched, so recovery returns exactly to where the player was aiming).
+    // Applied last so shoot()'s raycasts next frame use the on-screen crosshair.
+    updateFeel(delta, delta > 0 ? movedDist / delta : 0, MOVE_SPEED,
+      yaw.current - prevYaw.current, pitch.current - prevPitch.current, weaponRef.current)
+    prevYaw.current = yaw.current
+    prevPitch.current = pitch.current
+    camera.rotation.y = yaw.current + feel.kickYaw
+    camera.rotation.x = pitch.current + feel.kickPitch
+    camera.rotation.z = feel.bobRoll + feel.kickRoll
+    camera.position.y = PLAYER_HEIGHT + feel.bobY
   })
 
   return null
