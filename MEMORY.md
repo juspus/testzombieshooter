@@ -9,6 +9,12 @@ start of every session. Keep entries short — a few lines each.
   text labels. In-game text must be terse (one short line, hints only in the
   first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
   brightness slider (src/brightness.js). Bloodlust speed 1.4x (2x too hard).
+- Cancelled by owner (stopped agents): Barn map, cabin escape quest. Don't restart unasked.
+- Crossbow reworked: repeating (mag 5), pierces 6, retrievable bolts (Bolts.jsx,
+  store.collectBolt), Wraith = exploding bolts (source 'bolt'); CROSSBOW constants in weaponRules.js.
+- Cabin furnished (Evil Dead look): pieces in src/furniturePieces.js, merged per room by
+  src/furnitureParts.js, placed in Furniture.jsx; big pieces need FURNITURE_COLLIDERS
+  entries in maps/cabin.js (furniture.test.js enforces clearance of windows/anchors/doors).
 - Roadmap: https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz (source
   `docs/roadmap.html`, republish from that file with the URL). The owner
   marks each item Go / Discuss / Skip (+ notes) on the page; read them at
