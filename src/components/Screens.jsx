@@ -5,6 +5,8 @@ import { CROSSHAIR_COLORS, SUPPORTER_SKU, describeUnlock, isUnlocked, itemsOfKin
 import { hydrateStoreFromLocal, syncProfileWithCloud } from '../profilePersistence'
 import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
+import { consumeInvite, isValidRoomCode } from '../invite'   // W5 one-tap invite
+import InviteShare from './InviteShare'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
 import { getReduceMotion, setReduceMotion } from '../cameraFeel'
 import { MODIFIERS, MOD_BONUS } from '../modifiers'
@@ -393,7 +395,9 @@ function RoomCodeDisplay({ code }) {
 }
 
 function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
-  const [view, setView] = useState(checkoutReturn?.openLocker ? 'locker' : 'main') // 'main' | 'host' | 'join' | 'leaderboard' | 'locker' | 'setusername'
+  // W5: opening `/?join=CODE` lands on a one-tap 'invite' view (the tap also satisfies the audio-unlock gesture)
+  const [invite] = useState(() => (checkoutReturn?.openLocker ? null : consumeInvite()))
+  const [view, setView] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'invite' : 'main') // 'main' | 'host' | 'join' | 'invite' | 'leaderboard' | 'locker' | 'setusername'
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
@@ -436,13 +440,14 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     )
   }, [setMpRole, setMpConnected, onDisconnected])
 
-  const handleJoin = useCallback(() => {
-    if (!joinCode.trim()) return
+  const handleJoin = useCallback((override) => {
+    const code = (typeof override === 'string' ? override : joinCode).trim()
+    if (!code) return
     setStatus('Connecting…')
     setMpRoleLocal('guest')
     setMpRole('guest')
     joinRoom(
-      joinCode.trim(),
+      code,
       () => {
         setConnected(true)
         setStatus('Connected! Host will start the game.')
@@ -450,7 +455,10 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         // Guests don't call startGame — they wait for the host's start_game event
       },
       (err) => {
-        setStatus(`Failed: ${err?.type ?? 'connection error'}`)
+        setStatus(err?.type === 'peer-unavailable'
+          ? 'Room not found - the code is wrong or the host has left.'
+          : `Failed: ${err?.type ?? 'connection error'}`)
+        setMpRoleLocal(null)
         useGameStore.getState().clearMp()
       },
       onDisconnected,
@@ -518,8 +526,28 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       {view === 'host' && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
           {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
+          {roomCode && !connected ? <InviteShare code={roomCode} /> : null}
           <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
           {connected && <Btn onClick={handleStartGame}>START GAME</Btn>}
+          <BackBtn onClick={handleBack} />
+        </div>
+      )}
+
+      {view === 'invite' && invite && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
+          {!isValidRoomCode(invite.code) ? (
+            <div data-testid="invite-error" style={{ color: '#ff6666', fontSize: 14, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>
+              That invite link is invalid or has expired.
+            </div>
+          ) : (
+            <>
+              <div style={{ color: '#888', fontSize: 13, letterSpacing: 3 }}>YOU'VE BEEN INVITED</div>
+              {!connected && !status && <Btn onClick={() => handleJoin(invite.code)}>{`JOIN ${invite.code}`}</Btn>}
+              {status && (
+                <div data-testid="invite-status" style={{ color: status.startsWith('Room not') || status.startsWith('Failed') ? '#ff6666' : '#888', fontSize: 13, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>{status}</div>
+              )}
+            </>
+          )}
           <BackBtn onClick={handleBack} />
         </div>
       )}

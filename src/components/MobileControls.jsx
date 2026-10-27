@@ -82,7 +82,8 @@ export default function MobileControls() {
 
   const active = phase === 'playing' || phase === 'intermission'
   const nearMachine = useGameStore((s) => s.nearMachine)
-  const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null || nearMachine !== null
+  const nearDownedPartner = useGameStore((s) => s.coopNearPartner)   // W5: interact = revive
+  const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null || nearMachine !== null || nearDownedPartner
   const showInstallHint = !isStandalone && !installHintDismissed
 
   useEffect(() => {

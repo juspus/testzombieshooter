@@ -11,6 +11,7 @@ import { addDrop, takeDrop } from '../powerups'
 import Grenades from './Grenades'
 import { BOX_COST } from '../weaponRules'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
+import { tickCoop, coopWaveEnd, coopDisconnected, handleCoopEvent } from '../coopRuntime'   // W5 down/revive
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const { allWallSegments } = getMap(getInitialMapId())
@@ -72,12 +73,18 @@ export default function NetManager() {
     }
 
     if (phase === 'wave_clear') {
+      coopWaveEnd()   // W5: downed players stand, bled-out players respawn
       send('game_event', {
         event: 'wave_clear',
         data: { bonuses: useGameStore.getState().lastWaveBonuses },
       })
     }
   }, [phase, wave, mpConnected, mpRole])
+
+  // ── W5: partner gone -> nobody left to revive anyone ───────────────────
+  useEffect(() => {
+    if (!mpConnected) coopDisconnected()
+  }, [mpConnected])
 
   // ── Host pushes door state when a guest (re)connects mid-run ───────────
   useEffect(() => {
@@ -172,6 +179,8 @@ export default function NetManager() {
   // ── Per-frame sends ────────────────────────────────────────────────────
   useFrame((state, delta) => {
     if (!mpConnected) return
+
+    tickCoop(delta)   // W5: bleed-out timers (host authoritative, guest display)
 
     posTimer.current += delta
     if (posTimer.current >= POS_INTERVAL) {
@@ -339,6 +348,7 @@ function applyRemoteEvent(event, data) {
       useGameStore.setState({ paused: false })
       break
     default:
+      handleCoopEvent(event, data)   // W5: player_down / revive_progress / player_revived / ...
       break
   }
 }

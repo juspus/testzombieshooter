@@ -92,6 +92,9 @@ import { doorBuyStatus } from '../doors'
 import * as WR from '../weaponRules'
 import { updateMachines } from '../machineInput'
 import Bolts from './Bolts'
+import { getRemotePlayerPos } from './RemotePlayer'
+import { DOWN_SPEED_MULT, DOWN_EYE_HEIGHT, otherRole, inReviveRange, stepRevive } from '../coopDown'   // W5 down/revive
+import { reportRevive } from '../coopRuntime'
 
 function netSend(event, data) {
   if (isConnected()) send('game_event', { event, data })
@@ -179,6 +182,12 @@ export default function Player() {
   useEffect(() => { pausedRef.current = paused }, [paused])
 
   const shopOpenRef = useRef(false)
+  // W5 co-op down/revive
+  const selfStatusRef = useRef('alive')   // 'alive' | 'down' | 'dead' (this client)
+  const reviveNearRef = useRef(false)     // standing next to a downed partner (E = revive, not shop/board)
+  const reviveProgRef = useRef(0)
+  const reviveSentRef = useRef(0)
+  const eyeYRef = useRef(PLAYER_HEIGHT)
   const nearChestRef = useRef(false)
   const mouseHeldRef = useRef(false)
   const akFireTimerRef = useRef(0)
@@ -312,6 +321,7 @@ export default function Player() {
       if (e.code === 'Escape' && shopOpenRef.current) { closeShop(); return }
       if (e.code === 'KeyE') {
         if (shopOpenRef.current) { closeShop(); return }
+        if (selfStatusRef.current !== 'alive' || reviveNearRef.current) return
         if (nearChestRef.current) { openShop(); return }
       }
       if (e.code === 'KeyQ' && !shopOpenRef.current) {
@@ -351,7 +361,7 @@ export default function Player() {
   }, [gl, switchWeapon])
 
   const shoot = useCallback(() => {
-    if (pausedRef.current) return
+    if (pausedRef.current || selfStatusRef.current === 'dead') return
     const raycaster = new THREE.Raycaster()
     raycaster.setFromCamera({ x: 0, y: 0 }, camera)
 
@@ -576,7 +586,7 @@ export default function Player() {
   }, [camera, hitZombie, consumeBullet])
 
   const knifeSwing = useCallback(() => {
-    if (knifeCooldownRef.current > 0) return
+    if (knifeCooldownRef.current > 0 || selfStatusRef.current !== 'alive') return
 
     Knife.swing?.()
     playKnifeSwing()
@@ -657,11 +667,17 @@ export default function Player() {
     const mobilePressed = consumeMobilePressed()
     const mobileLook = consumeMobileLook()
 
+    const gsC = useGameStore.getState()
+    const inCoop = !!gsC.mpRole && gsC.mpConnected
+    const myStatus = inCoop ? gsC.coop[gsC.mpRole].status : 'alive'
+    selfStatusRef.current = myStatus
+    const downed = myStatus !== 'alive'
+
     if (mobilePressed.interact) {
       if (shopOpenRef.current) {
         closeShop()
         shopOpenRef.current = false
-      } else if (nearChestRef.current) {
+      } else if (!downed && !reviveNearRef.current && nearChestRef.current) {
         openShop()
         shopOpenRef.current = true
       }
@@ -802,9 +818,33 @@ export default function Player() {
       }
     }
 
+    // W5: hold E / interact within 1.5 m of a downed partner to revive them (3 s). Releasing, moving
+    // out of range or going down yourself resets the hold. Takes priority over every other E use.
+    {
+      const eRaw = !!(keys.current['KeyE'] || mobileInput.interactHeld)
+      let near = false
+      if (inCoop && !downed && gsC.coop[otherRole(gsC.mpRole)].status === 'down') {
+        const rp = getRemotePlayerPos()
+        near = !!rp && inReviveRange(camera.position.x, camera.position.z, rp.x, rp.z)
+      }
+      if (near !== reviveNearRef.current) {
+        reviveNearRef.current = near
+        gsC.setCoopNear(near)
+      }
+      const prog = stepRevive(reviveProgRef.current, near && eRaw && !shopOpenRef.current, near, delta)
+      if (prog !== reviveProgRef.current) {
+        reviveProgRef.current = prog
+        gsC.setCoopReviveProgress(Math.round(prog * 100) / 100)
+        const q = prog >= 1 ? 1 : Math.floor(prog * 20) / 20   // net: ~7 msgs/s while holding
+        if (q !== reviveSentRef.current) { reviveSentRef.current = q; reportRevive(q) }
+        if (prog >= 1) { reviveProgRef.current = 0; reviveSentRef.current = 0 }
+      }
+    }
+    const interactFree = !downed && !reviveNearRef.current
+
     // Wave 3 Mystery Box / Upgrade Bench: hold-E interaction + bench timer.
     {
-      const eHeldM = keys.current['KeyE'] || mobileInput.interactHeld
+      const eHeldM = interactFree && (keys.current['KeyE'] || mobileInput.interactHeld)
       useGameStore.getState().tickBench(delta)
       updateMachines(delta, camera.position.x, camera.position.z, eHeldM, shopOpenRef.current || nearChestRef.current)
     }
@@ -820,9 +860,10 @@ export default function Player() {
         const dd = dx * dx + dz * dz
         if (dd < bestD) { bestD = dd; doorId = d.id }
       }
+      if (!interactFree) doorId = null   // W5: reviving / downed - no door prompt
       gs.setNearDoorId(doorId)
       if (doorCooldownRef.current > 0) doorCooldownRef.current -= delta
-      const eHeld = keys.current['KeyE'] || mobileInput.interactHeld
+      const eHeld = interactFree && (keys.current['KeyE'] || mobileInput.interactHeld)
       const def = doorId ? DOOR_DEFS.find((d) => d.id === doorId) : null
       const status = def ? doorBuyStatus(def, DOOR_DEFS, gs.openDoors, gs.money) : 'open'
       if (def && eHeld && !shopOpenRef.current && !nearChestRef.current && doorCooldownRef.current <= 0 && (status === 'ok' || status === 'broke')) {
@@ -858,7 +899,7 @@ export default function Player() {
     {
       const BOARD_TIME = boardTimeForPerks(perksRef.current)
       const nearId = prevNearWindowRef.current
-      const eHeld = keys.current['KeyE'] || mobileInput.interactHeld
+      const eHeld = interactFree && (keys.current['KeyE'] || mobileInput.interactHeld)
       const plankCount = windowPlanksRef.current[nearId] ?? 0
       const isStrong = windowPlankStrongRef.current[nearId] ?? false
       const strongMode = strongPlanksModeRef.current
@@ -924,7 +965,7 @@ export default function Player() {
 
     // Flamethrower — continuous spray while held, fuel-limited, cone damage ticks
     {
-      const firing = phase === 'playing' && weaponRef.current === 'flamethrower' && activeItemRef.current === 'gun' &&
+      const firing = phase === 'playing' && myStatus !== 'dead' && weaponRef.current === 'flamethrower' && activeItemRef.current === 'gun' &&
         ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld || mobileInput.autoShootHeld)
 
       if (firing && useGameStore.getState().reserveBullets > 0) {
@@ -1009,10 +1050,11 @@ export default function Player() {
     if (keys.current['KeyD'] || keys.current['ArrowRight']) dir.add(right)
     if (mobileInput.moveY !== 0) dir.addScaledVector(forward, mobileInput.moveY)
     if (mobileInput.moveX !== 0) dir.addScaledVector(right, mobileInput.moveX)
+    if (myStatus === 'dead') dir.set(0, 0, 0)   // W5: bled out - waiting for the wave to end
 
     let movedDist = 0
     if (dir.lengthSq() > 0) {
-      dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * delta)
+      dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * (downed ? DOWN_SPEED_MULT : 1) * delta)
       const R = 0.35
       const ws = wallsRef.current
       const cx = camera.position.x
@@ -1032,7 +1074,7 @@ export default function Player() {
       movedDist = Math.hypot(nx - cx, nz - cz)
       camera.position.x = nx
       camera.position.z = nz
-      camera.position.y = PLAYER_HEIGHT
+      camera.position.y = eyeYRef.current
 
       // Footstep rhythm
       stepTimer.current -= delta
@@ -1060,7 +1102,9 @@ export default function Player() {
     camera.rotation.y = yaw.current + feel.kickYaw + feel.shakeX
     camera.rotation.x = pitch.current + feel.kickPitch + feel.shakeY
     camera.rotation.z = feel.bobRoll + feel.kickRoll + feel.shakeRoll
-    camera.position.y = PLAYER_HEIGHT + feel.bobY
+    // W5: eye height eases down to ~0.5 m while downed / bled out, back up when revived
+    eyeYRef.current += ((downed ? DOWN_EYE_HEIGHT : PLAYER_HEIGHT) - eyeYRef.current) * Math.min(1, delta * 6)
+    camera.position.y = eyeYRef.current + feel.bobY * (downed ? 0.15 : 1)
   })
 
   return null
