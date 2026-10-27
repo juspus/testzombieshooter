@@ -50,4 +50,5 @@ export const modFx = {
   ambMul: 1,         // ambient / hemisphere / moonlight (blackout -> low)
   fireMul: 1,        // fireplace lights (blackout -> flicker on, dimmer)
   flashlight: 0,     // 0..1 flashlight on-ness
+  exposureMul: 1,    // final-pass exposure factor (blackout -> ~0.6 so the dark survives the cabin's 2.4x)
 }
