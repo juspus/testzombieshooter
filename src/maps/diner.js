@@ -113,3 +113,13 @@ export const SPAWN_CLUSTERS = [
 
 // Supply chest (shop) position — sheltered behind the counter, near the back door.
 export const CHEST_POS = { x: 0, z: -3.2 }
+
+// ─── Buyable doors ───────────────────────────────────────────────────────────
+// The diner is a single open-plan room: no doors, every window is always active.
+// (Exports exist so map-agnostic code can consume any map the same way.)
+export const DOOR_DEFS = []
+export const ROOM_ANCHORS = {
+  main: { x: 0, z: 2, box: { x: -7, z: -4 }, bench: { x: 7, z: -4 } },
+}
+export const isWindowActive = () => true
+export const activeSpawnClusters = () => SPAWN_CLUSTERS

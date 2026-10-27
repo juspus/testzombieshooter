@@ -3,6 +3,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { startEerieMusic, stopEerieMusic, setMusicIntensity } from '../sounds'
 import Arena from './Arena'
+import DoorBarricades from './DoorBarricades'
 import DinerArena from './DinerArena'
 import Player from './Player'
 import Gun from './Gun'
@@ -128,6 +129,7 @@ export default function Game() {
         <fog attach="fog" args={['#0a0a0a', 10, 40]} />
         {mapId === 'diner' ? <GasStationSkybox /> : <ForestSkybox />}
         {mapId === 'diner' ? <DinerArena /> : <Arena />}
+        <DoorBarricades />
         <Player />
         <Gun />
         <Knife />
