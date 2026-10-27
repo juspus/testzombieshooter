@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { buildGrid } from './walls'
 import { getMap, getInitialMapId } from './maps'
 import { playPlankBreak, playGlassShatter } from './sounds'
+import { spawnImpact } from './impactParticles'
 import {
   DEFAULT_COSMETICS,
   DEFAULT_STATS,
@@ -16,6 +17,11 @@ import { time as gameTime } from './timeScale'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
+// Debris sprays outward (toward the interior) from a breaking plank.
+function _plankBreakNormal(w) {
+  const ns = w.wall === 'N' || w.wall === 'S'
+  return { x: ns ? 0 : (w.wall === 'W' ? 1 : -1), y: 0.3, z: ns ? (w.wall === 'N' ? 1 : -1) : 0 }
+}
 const { playerCollisionWalls, wallSegments, allWallSegments, SPAWN_CLUSTERS } = ACTIVE_MAP
 //
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
@@ -495,7 +501,8 @@ export const useGameStore = create((set, get) => ({
   breakWindow: (id) => {
     if (get().brokenWindows[id]) return
     set({ brokenWindows: { ...get().brokenWindows, [id]: true } })
-    playGlassShatter()
+    const w = ACTIVE_MAP.WINDOW_DEFS?.[id]
+    playGlassShatter(w?.winX, 1.2, w?.winZ)
   },
 
   upgradePlanks: (id) => {
@@ -519,7 +526,9 @@ export const useGameStore = create((set, get) => ({
         ? { ...windowPlankStrong, [id]: false }
         : windowPlankStrong
       buildGrid(allWallSegments(newPlanks))
-      playPlankBreak()
+      const bw = ACTIVE_MAP.WINDOW_DEFS?.[id]
+      playPlankBreak(bw?.winX, 1.2, bw?.winZ)
+      if (bw) spawnImpact({ x: bw.winX, y: 1.2, z: bw.winZ }, _plankBreakNormal(bw), 'break')
       set({ windowPlanks: newPlanks, windowPlankStrong: newStrong, plankHits: { ...plankHits, [id]: 0 }, wavePlanksLost: wavePlanksLost + 1 })
     } else {
       set({ plankHits: { ...plankHits, [id]: hits } })

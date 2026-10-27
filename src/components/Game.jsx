@@ -9,6 +9,7 @@ import Gun from './Gun'
 import Knife from './Knife'
 import ZombieManager from './ZombieManager'
 import BulletTrails from './BulletTrails'
+import ImpactFX from './ImpactFX'
 import ShellCasings from './ShellCasings'
 import FlameSpray from './FlameSpray'
 import HUD from './HUD'
@@ -130,6 +131,7 @@ export default function Game() {
         <Knife />
         <ZombieManager />
         <BulletTrails />
+        <ImpactFX />
         <ShellCasings />
         <FlameSpray />
         <RemotePlayer />

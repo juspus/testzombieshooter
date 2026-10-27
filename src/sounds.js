@@ -466,9 +466,10 @@ export function playReload() {
   mechanicalClick(ac, t + 1.0, 0.6)
 }
 
-export function playZombieDie() {
+export function playZombieDie(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Low guttural groan — descending sawtooth through a throat formant
   const osc = ac.createOscillator()
@@ -488,18 +489,18 @@ export function playZombieDie() {
 
   osc.connect(formant)
   formant.connect(groanGain)
-  groanGain.connect(ac.destination)
+  groanGain.connect(dest ?? ac.destination)
   osc.start(t)
   osc.stop(t + 0.5)
 
   // Body thud as they fall
   const thudBuf = noiseBuffer(ac, 0.18)
-  playNoise(ac, thudBuf, t + 0.1, 0.15, 0.5, 'lowpass', 220, 0.8)
-  playTone(ac, t + 0.1, 90, 30, 0.15, 0.4)
+  playNoise(ac, thudBuf, t + 0.1, 0.15, 0.5, 'lowpass', 220, 0.8, dest)
+  playTone(ac, t + 0.1, 90, 30, 0.15, 0.4, dest)
 
   // Trailing wheeze
   const wheezeBuf = noiseBuffer(ac, 0.3)
-  playNoise(ac, wheezeBuf, t + 0.25, 0.28, 0.25, 'bandpass', 700, 2)
+  playNoise(ac, wheezeBuf, t + 0.25, 0.28, 0.25, 'bandpass', 700, 2, dest)
 }
 
 export function playFootstep(dest = null) {
@@ -523,7 +524,7 @@ const Z_STEP_GAP  = 100    // ms minimum between any two global zombie footstep 
 let _zStepActive  = 0
 let _zStepLastMs  = 0
 
-export function playZombieFootstep() {
+export function playZombieFootstep(x, y, z) {
   const now = performance.now()
   if (_zStepActive >= Z_STEP_MAX || now - _zStepLastMs < Z_STEP_GAP) return
   _zStepActive++
@@ -534,37 +535,40 @@ export function playZombieFootstep() {
 
   if (!_zStepBuf1) _zStepBuf1 = noiseBuffer(ac, 0.18)
   if (!_zStepBuf2) _zStepBuf2 = noiseBuffer(ac, 0.10)
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Heavy dead-weight shuffle — lower and duller than player footstep
-  playNoise(ac, _zStepBuf1, t, 0.13, 0.28, 'lowpass', 120, 0.5)
-  playTone(ac, t, 80, 35, 0.1, 0.18)
+  playNoise(ac, _zStepBuf1, t, 0.13, 0.28, 'lowpass', 120, 0.5, dest)
+  playTone(ac, t, 80, 35, 0.1, 0.18, dest)
 
   // Slight scrape / drag
-  playNoise(ac, _zStepBuf2, t + 0.03, 0.08, 0.07, 'bandpass', 750, 4)
+  playNoise(ac, _zStepBuf2, t + 0.03, 0.08, 0.07, 'bandpass', 750, 4, dest)
 
   setTimeout(() => { _zStepActive-- }, 200)
 }
 
-export function playPlankHit() {
+export function playPlankHit(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Wood thud — heavy impact body
   const thudBuf = noiseBuffer(ac, 0.2)
-  playNoise(ac, thudBuf, t, 0.15, 0.55, 'bandpass', 270, 1.0)
-  playTone(ac, t, 150, 52, 0.12, 0.42)
+  playNoise(ac, thudBuf, t, 0.15, 0.55, 'bandpass', 270, 1.0, dest)
+  playTone(ac, t, 150, 52, 0.12, 0.42, dest)
 
   // Sharp crack transient
   const crackBuf = noiseBuffer(ac, 0.07)
-  playNoise(ac, crackBuf, t + 0.01, 0.05, 0.28, 'highpass', 2800, 1)
+  playNoise(ac, crackBuf, t + 0.01, 0.05, 0.28, 'highpass', 2800, 1, dest)
 
   // Short wood resonance
-  playTone(ac, t + 0.02, 370, 190, 0.08, 0.13)
+  playTone(ac, t + 0.02, 370, 190, 0.08, 0.13, dest)
 }
 
-export function playScreamerScreech() {
+export function playScreamerScreech(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Main piercing scream body
   const osc1 = ac.createOscillator()
@@ -586,60 +590,62 @@ export function playScreamerScreech() {
 
   osc1.connect(bp1)
   bp1.connect(g1)
-  g1.connect(ac.destination)
+  g1.connect(dest ?? ac.destination)
   osc1.start(t)
   osc1.stop(t + 0.72)
 
   // Airy rasp layer
   const raspBuf = noiseBuffer(ac, 0.5)
-  playNoise(ac, raspBuf, t + 0.03, 0.42, 0.13, 'bandpass', 2300, 2.5)
+  playNoise(ac, raspBuf, t + 0.03, 0.42, 0.13, 'bandpass', 2300, 2.5, dest)
 
   // Low menace undertone
-  playTone(ac, t + 0.02, 220, 130, 0.5, 0.08)
+  playTone(ac, t + 0.02, 220, 130, 0.5, 0.08, dest)
 }
 
-export function playPlankBreak() {
+export function playPlankBreak(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Main splintering crack — loud highpass burst
   const crackBuf = noiseBuffer(ac, 0.25)
-  playNoise(ac, crackBuf, t, 0.22, 0.9, 'highpass', 1800, 0.8)
+  playNoise(ac, crackBuf, t, 0.22, 0.9, 'highpass', 1800, 0.8, dest)
 
   // Low wood body breaking — bandpass thud
   const thudBuf = noiseBuffer(ac, 0.3)
-  playNoise(ac, thudBuf, t, 0.25, 0.7, 'bandpass', 220, 1.0)
-  playTone(ac, t, 130, 40, 0.2, 0.55)
+  playNoise(ac, thudBuf, t, 0.25, 0.7, 'bandpass', 220, 1.0, dest)
+  playTone(ac, t, 130, 40, 0.2, 0.55, dest)
 
   // Secondary splinter scatter — short mid crackle
   const splinterBuf = noiseBuffer(ac, 0.15)
-  playNoise(ac, splinterBuf, t + 0.05, 0.12, 0.35, 'bandpass', 900, 2.5)
+  playNoise(ac, splinterBuf, t + 0.05, 0.12, 0.35, 'bandpass', 900, 2.5, dest)
 
   // Resonant wood ring — decaying tone
-  playTone(ac, t + 0.03, 320, 140, 0.18, 0.2)
+  playTone(ac, t + 0.03, 320, 140, 0.18, 0.2, dest)
 }
 
-export function playGlassShatter() {
+export function playGlassShatter(x, y, z) {
   const ac = ctx()
   const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
 
   // Sharp initial crack — bright highpass burst
   const crackBuf = noiseBuffer(ac, 0.12)
-  playNoise(ac, crackBuf, t, 0.10, 0.9, 'highpass', 3200, 1.2)
+  playNoise(ac, crackBuf, t, 0.10, 0.9, 'highpass', 3200, 1.2, dest)
 
   // Cascading shard scatter — brighter noise, decays a bit slower than the crack
   const scatterBuf = noiseBuffer(ac, 0.4)
-  playNoise(ac, scatterBuf, t + 0.02, 0.38, 0.5, 'bandpass', 5200, 1.8)
+  playNoise(ac, scatterBuf, t + 0.02, 0.38, 0.5, 'bandpass', 5200, 1.8, dest)
 
   // High glassy ring tones — a few overtones so it doesn't read as generic noise
   const ringFreqs = [2600, 3400, 4200]
   ringFreqs.forEach((f, i) => {
-    playTone(ac, t + 0.01 + i * 0.015, f + Math.random() * 200, f * 0.6, 0.25, 0.12)
+    playTone(ac, t + 0.01 + i * 0.015, f + Math.random() * 200, f * 0.6, 0.25, 0.12, dest)
   })
 
   // Low frame thud as the pane drops out of its housing
   const thudBuf = noiseBuffer(ac, 0.15)
-  playNoise(ac, thudBuf, t + 0.05, 0.14, 0.4, 'bandpass', 180, 1.0)
+  playNoise(ac, thudBuf, t + 0.05, 0.14, 0.4, 'bandpass', 180, 1.0, dest)
 }
 
 export function playPumpAction() {
@@ -829,18 +835,92 @@ export function setListenerPose(x, y, z, forwardX, forwardZ) {
 
 // Create a PannerNode rooted at a world position and connected to ac.destination.
 // All audio routed through this node will be spatially positioned in 3-D.
-function _makeSpatialOutput(ac, x, y, z) {
+function _makeSpatialOutput(ac, x, y, z, rolloff = 1) {
   const panner = ac.createPanner()
   panner.panningModel   = 'equalpower'
   panner.distanceModel  = 'linear'
   panner.refDistance    = 1    // full volume up to 1 unit away
   panner.maxDistance    = 32   // ~= cabin diagonal, inaudible beyond this
-  panner.rolloffFactor  = 1
+  panner.rolloffFactor  = rolloff
   panner.positionX.value = x
   panner.positionY.value = y
   panner.positionZ.value = z
   panner.connect(ac.destination)
   return panner
+}
+
+// ─── positional zombie / world sounds ────────────────────────────────────────
+
+// Returns a PannerNode at (x,y,z), or null when no position was given (legacy
+// no-arg callers such as TestLab keep playing flat, centred audio).
+// Zombie sounds roll off a little faster than the co-op partner's.
+function _zombieOutput(ac, x, y, z) {
+  if (typeof x !== 'number' || typeof z !== 'number') return null
+  return _makeSpatialOutput(ac, x, typeof y === 'number' ? y : 1, z, 1.3)
+}
+
+// Idle groan. Globally rate-limited so a full wave never becomes a wall of noise:
+// at most Z_GROAN_MAX voices at once, and the more voices are already playing the
+// closer a zombie has to be to get one (nearest zombies win). `dist` is the
+// zombie's distance to the player; `pitch` lets types sound different.
+const Z_GROAN_MAX = 3
+let _zGroanActive = 0
+let _zGroanLastMs = 0
+export function zombieGroanAllowed(dist = 0) {
+  if (_zGroanActive >= Z_GROAN_MAX) return false
+  if (performance.now() - _zGroanLastMs < 300) return false
+  const reach = _zGroanActive === 0 ? 26 : _zGroanActive === 1 ? 16 : 9
+  return dist <= reach
+}
+
+export function playZombieGroan(x, y, z, pitch = 1, dist = 0) {
+  if (!zombieGroanAllowed(dist)) return false
+  _zGroanActive++
+  _zGroanLastMs = performance.now()
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const dur = 0.9 + Math.random() * 0.5
+
+  // Throaty drone: detuned sawtooth with a slow wobble, formant-filtered
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  const f0 = (85 + Math.random() * 25) * pitch
+  osc.frequency.setValueAtTime(f0 * 1.25, t)
+  osc.frequency.linearRampToValueAtTime(f0, t + dur * 0.35)
+  osc.frequency.linearRampToValueAtTime(f0 * 0.7, t + dur)
+
+  const lfo = ac.createOscillator()
+  lfo.frequency.value = 5 + Math.random() * 3
+  const lfoGain = ac.createGain()
+  lfoGain.gain.value = 4
+  lfo.connect(lfoGain)
+  lfoGain.connect(osc.frequency)
+
+  const formant = ac.createBiquadFilter()
+  formant.type = 'bandpass'
+  formant.frequency.setValueAtTime(320 * pitch, t)
+  formant.frequency.linearRampToValueAtTime(520 * pitch, t + dur * 0.4)
+  formant.frequency.linearRampToValueAtTime(260 * pitch, t + dur)
+  formant.Q.value = 3
+
+  const gain = ac.createGain()
+  gain.gain.setValueAtTime(0.001, t)
+  gain.gain.exponentialRampToValueAtTime(0.32, t + 0.12)
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+
+  osc.connect(formant)
+  formant.connect(gain)
+  gain.connect(dest ?? ac.destination)
+  osc.start(t); lfo.start(t)
+  osc.stop(t + dur); lfo.stop(t + dur)
+
+  // Wet breath rasp
+  const buf = noiseBuffer(ac, 0.6)
+  playNoise(ac, buf, t + 0.05, dur * 0.8, 0.07, 'bandpass', 900 * pitch, 2, dest)
+
+  setTimeout(() => { _zGroanActive-- }, dur * 1000 + 50)
+  return true
 }
 
 // Play a weapon-specific gunshot coming from the remote player's world position.
