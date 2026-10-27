@@ -10,16 +10,16 @@ import { modFx } from '../modifiers'
 // vignette, animated grain, Bayer 4x4 ordered dither and per-channel palette quantization.
 //
 // Tuning constants (all in this block):
-export const LOFI_HEIGHT = 300      // internal render height in px (width follows aspect)
-export const LOFI_LEVELS = 28       // palette levels per channel
-const GRAIN = 0.035                 // film grain amplitude (display space)
+export const LOFI_HEIGHT = 480      // internal render height in px (width follows aspect)
+export const LOFI_LEVELS = 64       // palette levels per channel
+const GRAIN = 0.02                 // film grain amplitude (display space)
 const GRAIN_FPS = 14                // grain refresh rate
-const VIGNETTE = 0.7               // edge brightness floor (1 = no vignette)
+const VIGNETTE = 0.8               // edge brightness floor (1 = no vignette)
 const BLOOM = 0.55                  // bloom strength
 const BLOOM_THRESHOLD = 0.85        // linear luminance where glow starts
 const SATURATION = 0.9
 // Pre-tonemap gain per map (the grade eats shadows; the diner is already bright).
-export const LOFI_EXPOSURE = { cabin: 2.0, diner: 1.0 }
+export const LOFI_EXPOSURE = { cabin: 2.4, diner: 1.1 }
 const SHADOW_LIFT = '0.030, 0.045, 0.068' // cold floor lift (rgb) so dark rooms stay readable
 
 // Dev/preview only: ?lofi=0 disables the pass (comparison screenshots).
