@@ -22,6 +22,7 @@ import MobileControls from './MobileControls'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
+import PerfOverlay, { PERF_ON, BENCH_ON } from './PerfOverlay'
 
 // Blocks iOS address-bar-triggered resize events (small height-only changes < 15%)
 // at the ResizeObserver level so R3F never calls setSize for spurious viewport shifts.
@@ -134,6 +135,7 @@ export default function Game() {
         <RemotePlayer />
         <NetManager />
         <ForceRenderOnShopOpen />
+        {(PERF_ON || BENCH_ON) && <PerfOverlay />}
       </Canvas>
 
       {isActive && <HUD />}

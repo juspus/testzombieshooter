@@ -19,6 +19,10 @@ let authHooked = false
 let inited = false
 let sessionId = null
 let anonId = null
+// Current run (set on game_start). run_id lets SQL join game_start/wave_clear/death
+// without guessing from timestamps; runStartedAt gives death a duration.
+let runId = null
+let runStartedAt = 0
 
 function warnOnce(err) {
   if (warned) return
@@ -134,15 +138,18 @@ export function initAnalytics() {
     useGameStore.subscribe((s) => {
       try {
         if (s.phase !== prev.phase) {
-          if (prev.phase === 'start' && s.phase === 'intermission') {
-            track('game_start', { map: s.mapId, mp: s.mpRole ?? 'solo' })
+          if ((prev.phase === 'start' || prev.phase === 'dead') && s.phase === 'intermission') {
+            runId = rid()
+            runStartedAt = Date.now()
+            track('game_start', { map: s.mapId, mp: s.mpRole ?? 'solo', run_id: runId })
           } else if (s.phase === 'wave_clear') {
-            track('wave_clear', { wave: s.wave, kills: s.kills })
+            track('wave_clear', { wave: s.wave, kills: s.kills, run_id: runId })
           } else if (s.phase === 'dead') {
             const perks = s.perks || {}
             track('death', {
               wave: s.wave, kills: s.kills, money: Math.round(s.money),
               weapon: s.weapon, perks: Object.keys(perks).filter((k) => perks[k]),
+              run_id: runId, secs: runStartedAt ? Math.round((Date.now() - runStartedAt) / 1000) : null,
             })
           }
         }

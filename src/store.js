@@ -644,6 +644,7 @@ function applyDebugOverrides(set, get) {
   if (typeof window === 'undefined') return
 
   const params = new URLSearchParams(window.location.search)
+  if (params.has('bench')) applyBench(set)
   if (!params.has('wave') && !params.has('money') && !params.has('weapon')) return
 
   const updates = {}
@@ -671,6 +672,39 @@ function applyDebugOverrides(set, get) {
   }
 
   set(updates)
+}
+
+// ?bench — fixed stress scene for comparing builds on a real phone: wave 10, 25 live
+// zombies (rest queued), huge HP so the scene stays put. Player placement lives in
+// PerfOverlay.jsx (needs the camera). Combine with ?perf.
+function applyBench(set) {
+  const wave = 10
+  // Seeded RNG so spawn jitter/types are identical on every load and every build.
+  const realRandom = Math.random
+  let seed = 0xC0FFEE
+  Math.random = () => {
+    seed = (seed + 0x6D2B79F5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+  let all
+  try { all = spawnZombies(wave, 0) } finally { Math.random = realRandom }
+  const cap = Math.min(25, all.length)
+  const total = bulletsForWave(wave)
+  const clip = Math.min(CLIP_SIZE, total)
+  set({
+    phase: 'playing',
+    wave,
+    zombies: all.slice(0, cap),
+    pendingSpawns: all.slice(cap),
+    nextId: all.length,
+    waveElapsed: 0,
+    bulletsInClip: clip,
+    reserveBullets: total - clip,
+    hp: 1e6,
+    maxHp: 1e6,
+  })
 }
 
 // Shared damage application for hitZombie (gun/knife) and hitZombieFlame (burn ticks).
