@@ -26,8 +26,8 @@ export default function DoorPrompt({ isMobile }) {
     >
       <span style={{ color: ok ? '#ffd24a' : '#ff6644' }}>
         {ok
-          ? `🚪 ${isMobile ? '' : 'E  '}${cost}`
-          : `🚪 ${cost}`}
+          ? `DOOR ${isMobile ? '' : 'E  '}${cost}`
+          : `DOOR ${cost}`}
       </span>
       {ok && (
         <div style={styles.bar}>

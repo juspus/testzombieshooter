@@ -13,25 +13,25 @@ const FONT = "'Courier New', Courier, monospace"
 // ─── Data ────────────────────────────────────────────────────────────────────
 const GROUPS = [
   { title: 'Weapons', sounds: [
-    { id: 'pistol_shot',  label: 'Pistol Shot',  fn: () => playGunshot('pistol'),  emoji: '🔫', dur: 200 },
-    { id: 'shotgun_shot', label: 'Shotgun Shot', fn: () => playGunshot('shotgun'), emoji: '💥', dur: 500 },
-    { id: 'pump',         label: 'Pump Action',  fn: playPumpAction,   emoji: '🔫', dur: 250 },
-    { id: 'reload',       label: 'Reload',       fn: playReload,       emoji: '🔄', dur: 1100 },
-    { id: 'empty',        label: 'Empty Click',  fn: playEmptyClick,   emoji: '🔔', dur: 100 },
-    { id: 'shell',        label: 'Shell Thonk',  fn: playShellThonk,   emoji: '🪣', dur: 150 },
-    { id: 'knife_swing',  label: 'Knife Swing',  fn: playKnifeSwing,   emoji: '🔪', dur: 280 },
+    { id: 'pistol_shot',  label: 'Pistol Shot',  fn: () => playGunshot('pistol'),  dur: 200 },
+    { id: 'shotgun_shot', label: 'Shotgun Shot', fn: () => playGunshot('shotgun'), dur: 500 },
+    { id: 'pump',         label: 'Pump Action',  fn: playPumpAction,   dur: 250 },
+    { id: 'reload',       label: 'Reload',       fn: playReload,       dur: 1100 },
+    { id: 'empty',        label: 'Empty Click',  fn: playEmptyClick,   dur: 100 },
+    { id: 'shell',        label: 'Shell Thonk',  fn: playShellThonk,   dur: 150 },
+    { id: 'knife_swing',  label: 'Knife Swing',  fn: playKnifeSwing,   dur: 280 },
   ] },
   { title: 'Zombies', sounds: [
-    { id: 'zombie_die',  label: 'Zombie Die',  fn: playZombieDie,       emoji: '💀', dur: 600 },
-    { id: 'zombie_step', label: 'Zombie Step', fn: playZombieFootstep,  emoji: '🧟', dur: 200 },
-    { id: 'screech',     label: 'Screech',     fn: playScreamerScreech, emoji: '😱', dur: 800 },
+    { id: 'zombie_die',  label: 'Zombie Die',  fn: playZombieDie,       dur: 600 },
+    { id: 'zombie_step', label: 'Zombie Step', fn: playZombieFootstep,  dur: 200 },
+    { id: 'screech',     label: 'Screech',     fn: playScreamerScreech, dur: 800 },
   ] },
   { title: 'World', sounds: [
-    { id: 'footstep',    label: 'Footstep',    fn: playFootstep,    emoji: '👣', dur: 150 },
-    { id: 'plank_hit',   label: 'Plank Hit',   fn: playPlankHit,    emoji: '🪵', dur: 200 },
-    { id: 'plank_break', label: 'Plank Break', fn: playPlankBreak,  emoji: '💢', dur: 350 },
-    { id: 'music_on',    label: 'Start Music', fn: startEerieMusic, emoji: '🎵', dur: 600 },
-    { id: 'music_off',   label: 'Stop Music',  fn: stopEerieMusic,  emoji: '🔇', dur: 300 },
+    { id: 'footstep',    label: 'Footstep',    fn: playFootstep,    dur: 150 },
+    { id: 'plank_hit',   label: 'Plank Hit',   fn: playPlankHit,    dur: 200 },
+    { id: 'plank_break', label: 'Plank Break', fn: playPlankBreak,  dur: 350 },
+    { id: 'music_on',    label: 'Start Music', fn: startEerieMusic, dur: 600 },
+    { id: 'music_off',   label: 'Stop Music',  fn: stopEerieMusic,  dur: 300 },
   ] },
 ]
 
@@ -86,7 +86,6 @@ export default function TestLab() {
                     fontFamily: FONT, letterSpacing: 1, fontSize: 11, textTransform: 'uppercase', lineHeight: 1.3,
                     transition: 'all 0.12s', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation',
                   }}>
-                    <span style={{ fontSize: 28, lineHeight: 1 }}>{sound.emoji}</span>
                     <span>{sound.label}</span>
                   </button>
                 )

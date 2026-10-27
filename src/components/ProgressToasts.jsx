@@ -6,7 +6,7 @@ import { onToast } from '../gameEvents'
 const SHOW_MS = 3800
 const MAX = 3
 const COLORS = { challenge: '#88cc44', achievement: '#ffd166', level: '#7fd4ff' }
-const ICONS = { challenge: '✔', achievement: '★', level: '▲' }
+const ICONS = { challenge: '✓', achievement: '★', level: '▲' }
 
 export default function ProgressToasts() {
   const [items, setItems] = useState([])

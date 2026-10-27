@@ -92,7 +92,7 @@ const RevivePrompt = memo(function RevivePrompt() {
       paddingTop: '18vh', fontFamily: 'Courier New, monospace',
     }}>
       <div style={{ color: '#ffe066', fontSize: 'clamp(13px,2vw,20px)', letterSpacing: 3, textShadow: '0 2px 4px #000' }}>
-        {mobile ? '✋ REVIVE' : 'E  REVIVE'}
+        {mobile ? 'REVIVE' : 'E  REVIVE'}
       </div>
       <div style={{ width: 'min(50vw,240px)', height: 10, background: 'rgba(0,0,0,0.65)', border: '1px solid #666', marginTop: 8, borderRadius: 5, overflow: 'hidden' }}>
         <div style={{ width: `${progress * 100}%`, height: '100%', background: '#66dd66' }} />

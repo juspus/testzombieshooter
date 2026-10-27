@@ -230,7 +230,7 @@ export default function HUD() {
           fontFamily: 'Courier New, monospace', fontSize: isMobile ? 10 : 13, letterSpacing: 3, fontWeight: 'bold',
           pointerEvents: 'none', whiteSpace: 'nowrap',
         }}>
-          {MODIFIERS[waveModifier].icon} {MODIFIERS[waveModifier].name}
+          {MODIFIERS[waveModifier].name}
         </div>
       )}
 
@@ -316,10 +316,10 @@ export default function HUD() {
           <span style={{ color: canAfford ? (strongPlanksMode ? '#aaccee' : '#ffe066') : '#ff6644' }}>
             {canUpgrade
               ? canAfford
-                ? `${isMobile ? '' : 'E  '}⚡ €${upgradeCost.toFixed(2)}`
+                ? `${isMobile ? '' : 'E  '}UPGRADE €${upgradeCost.toFixed(2)}`
                 : `€${upgradeCost.toFixed(2)}`
               : canAfford
-                ? `${isMobile ? 'BOARD' : 'E  board'} ${nearPlankCount}/2 · €${activeCost.toFixed(2)}${strongPlanksMode ? ' ⚡' : ''}`
+                ? `${isMobile ? 'BOARD' : 'E  board'} ${nearPlankCount}/2 · €${activeCost.toFixed(2)}${strongPlanksMode ? ' STRONG' : ''}`
                 : `€${activeCost.toFixed(2)}`}
           </span>
           {canAfford && (

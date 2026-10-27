@@ -66,7 +66,7 @@ function ChallengeRow({ c }) {
   return (
     <div data-testid={`challenge-${c.id}`} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: c.done ? '#88cc44' : '#ddd' }}>
-        <span>{c.done ? '✔ ' : ''}{c.text}</span>
+        <span>{c.done ? '✓ ' : ''}{c.text}</span>
         <span style={{ color: GOLD, whiteSpace: 'nowrap' }}>+{c.xp} XP</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
@@ -228,7 +228,7 @@ export function DeathXpPanel() {
       </div>
       {(prog.achievements.length > 0 || prog.challenges.length > 0) && (
         <div style={{ textAlign: 'center', color: '#88cc44', fontSize: 'clamp(8px, 1.5vmin, 11px)', letterSpacing: 1, marginTop: 2 }}>
-          {prog.challenges.length > 0 && `✔ ${prog.challenges.length}`}
+          {prog.challenges.length > 0 && `✓ ${prog.challenges.length}`}
           {prog.challenges.length > 0 && prog.achievements.length > 0 && ' · '}
           {prog.achievements.length > 0 && `★ ${prog.achievements.join(', ')}`}
         </div>

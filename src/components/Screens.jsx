@@ -236,7 +236,6 @@ function ModifierCard({ mod, compact }) {
       background: 'rgba(0,0,0,0.5)', border: `1px solid ${mod.color}`, borderRadius: 6,
       boxShadow: `0 0 14px ${mod.color}55`, fontFamily: 'Courier New, monospace', textAlign: 'left',
     }}>
-      <span style={{ fontSize: compact ? 20 : 30, lineHeight: 1 }}>{mod.icon}</span>
       <span>
         <div style={{ color: mod.color, fontWeight: 'bold', letterSpacing: 3, fontSize: compact ? 12 : 16 }}>
           {mod.name} <span style={{ color: '#88cc44', letterSpacing: 1, fontSize: compact ? 10 : 12 }}>+€{MOD_BONUS}</span>
@@ -321,7 +320,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
       border: `1px solid ${urgent ? 'rgba(255,50,0,0.6)' : 'rgba(255,200,0,0.3)'}`,
     }}>
       <div style={titleStyle}>
-        WAVE {wave} · {zombieCount} 🧟
+        WAVE {wave} · {zombieCount} ZOMBIES
       </div>
       <div style={{
         ...timerStyle,

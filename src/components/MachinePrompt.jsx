@@ -28,7 +28,7 @@ export default function MachinePrompt({ isMobile }) {
   }
   const k = isMobile ? '' : 'E  '
   let text
-  if (act.action === 'buy') text = `${k}🎁 €${act.cost}`
+  if (act.action === 'buy') text = `${k}BOX €${act.cost}`
   else if (act.action === 'take') text = `${k}take ${act.name}`
   else text = `${k}upgrade ${act.name}${act.cost ? ` · €${act.cost}` : ''}`
   if (!act.ok) text = act.cost ? `€${act.cost}` : text

@@ -5,6 +5,10 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- OWNER UI PREFERENCES (2026-10-27): no emoji anywhere in the UI - use short
+  text labels. In-game text must be terse (one short line, hints only in the
+  first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
+  brightness slider (src/brightness.js). Bloodlust speed 1.4x (2x too hard).
 - Roadmap: https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz (source
   `docs/roadmap.html`, republish from that file with the URL). The owner
   marks each item Go / Discuss / Skip (+ notes) on the page; read them at

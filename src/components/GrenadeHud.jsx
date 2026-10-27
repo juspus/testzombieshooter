@@ -54,7 +54,7 @@ export default function GrenadeHud() {
     <>
       {!isMobile && (
         <div data-grenade-hud style={S.box}>
-          <div style={S.row}><span style={S.icon}>💣</span><span style={S.pips}>{pips}</span></div>
+          <div style={S.row}><span style={S.icon}>GREN</span><span style={S.pips}>{pips}</span></div>
           {hintsActive() && <div style={S.hint}>{grenades > 0 ? 'G · hold to cook' : ''}</div>}
         </div>
       )}
@@ -73,7 +73,7 @@ const S = {
     alignItems: 'flex-end', gap: 3, fontFamily: 'Courier New, monospace', pointerEvents: 'none',
   },
   row: { display: 'flex', alignItems: 'center', gap: 6 },
-  icon: { fontSize: 18, filter: 'drop-shadow(0 1px 2px #000)' },
+  icon: { fontSize: 10, letterSpacing: 2, color: '#bbb', fontFamily: 'Courier New, monospace', filter: 'drop-shadow(0 1px 2px #000)' },
   pips: { display: 'flex', gap: 4 },
   pip: { width: 10, height: 14, borderRadius: 3, border: '1px solid', boxSizing: 'border-box' },
   hint: { color: '#8a8a8a', fontSize: 11, letterSpacing: 1 },

@@ -426,7 +426,7 @@ export default function MobileControls() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const swapIcon = activeItem === 'gun' ? '🔪' : '🔫'
+  const swapIcon = activeItem === 'gun' ? 'KNIFE' : 'GUN'
 
   return (
     <div style={styles.root} {...touchGuards}>
@@ -475,7 +475,7 @@ export default function MobileControls() {
           <div ref={reloadBtnRef} style={{ ...styles.roundBtn, ...styles.reloadBtn }}>↻</div>
           <div ref={swapBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>{swapIcon}</div>
           <div ref={grenBtnRef} style={{ ...styles.roundBtn, ...styles.grenBtn, ...(grenades <= 0 ? { opacity: 0.4 } : {}) }}>
-            💣<span style={styles.grenCount}>{grenades}</span>
+            GREN<span style={styles.grenCount}>{grenades}</span>
           </div>
           {ownedCount > 1 && <div ref={cycleBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>⇄</div>}
         </div>
@@ -483,7 +483,7 @@ export default function MobileControls() {
           <div
             ref={interactBtnRef}
             style={{ ...styles.roundBtn, ...styles.interactBtn, ...(showInteractHint ? styles.interactActive : {}) }}
-          >✋</div>
+          >USE</div>
           <div ref={shootBtnRef} style={{ ...styles.roundBtn, ...styles.shootBtn }}>●</div>
         </div>
       </div>
@@ -590,7 +590,7 @@ const styles = {
   interactBtn: {
     width: 46,
     height: 46,
-    fontSize: 20,
+    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
   },
   interactActive: {
     border: '1px solid rgba(255,200,50,0.7)',
@@ -608,7 +608,7 @@ const styles = {
     position: 'relative',
     width: 36,
     height: 36,
-    fontSize: 15,
+    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
     background: 'rgba(30,40,12,0.62)',
     border: '1px solid rgba(150,190,70,0.55)',
   },
@@ -628,7 +628,7 @@ const styles = {
   swapBtn: {
     width: 36,
     height: 36,
-    fontSize: 15,
+    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
   },
   installHint: {
     position: 'absolute',

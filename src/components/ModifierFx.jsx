@@ -38,10 +38,10 @@ const _lens = new THREE.Vector3()
 const _armGeo = new THREE.BoxGeometry(0.075, 0.075, 0.28)
 const _bodyGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.2, 10)
 const _headGeo = new THREE.CylinderGeometry(0.046, 0.034, 0.06, 10)
-const _lensGeo = new THREE.CircleGeometry(0.04, 10)
+const _lensGeo = new THREE.CircleGeometry(0.028, 10)
 const _armMat = new THREE.MeshBasicMaterial({ color: '#3d4d2f', depthTest: false })
 const _bodyMat = new THREE.MeshBasicMaterial({ color: '#6a6a74', depthTest: false })
-const _lensMat = new THREE.MeshBasicMaterial({ color: '#fff3c4', depthTest: false })
+const _lensMat = new THREE.MeshBasicMaterial({ color: '#8f8460', depthTest: false })   // dim: bloom blows a bright lens into a blob
 
 const approach = (cur, target, k) => cur + (target - cur) * k
 
