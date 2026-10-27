@@ -104,7 +104,7 @@ export default function HUD() {
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)
   const waveKills = useGameStore((s) => s.waveKills)
-  const zombieCount = useGameStore((s) => s.zombies.length)
+  const zombieCount = useGameStore((s) => s.zombies.filter((z) => !z.corpse).length)
   const total = useGameStore((s) => s.getZombiesForWave())
   const bulletsInClip = useGameStore((s) => s.bulletsInClip)
   const reserveBullets = useGameStore((s) => s.reserveBullets)

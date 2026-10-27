@@ -5,6 +5,7 @@ import { useGameStore } from '../store'
 import Gun from './Gun'
 import Knife from './Knife'
 import BulletTrails from './BulletTrails'
+import { zombieHitFx, fxNet } from '../hitFx'
 import ShellCasings from './ShellCasings'
 import FlameSpray from './FlameSpray'
 import { Zombie } from './Zombie'
@@ -84,6 +85,8 @@ function netSend(event, data) {
 }
 
 const _flameForward = new THREE.Vector3()
+const _knifePoint = new THREE.Vector3()
+const _knifeDir = new THREE.Vector3()
 const _flameToZombie = new THREE.Vector3()
 const _flameZombiePos = new THREE.Vector3()
 
@@ -412,7 +415,8 @@ export default function Player() {
           anyHit = true
           if (bestHead) anyHead = true
           if (died && !killed.has(bestId)) { killed.add(bestId); anyKill = true; deathSound(zombieRefs.current, bestId) }
-          netSend('hit_zombie', { id: bestId, isHeadshot: bestHead, source: 'gun' })
+          zombieHitFx(bestId, bestPoint, pelletRC.ray.direction, bestHead, 'shotgun', bestDist)
+          netSend('hit_zombie', { id: bestId, isHeadshot: bestHead, source: 'gun', ...fxNet(bestPoint, pelletRC.ray.direction, bestDist, 'shotgun') })
         }
       }
       // One marker per trigger pull, not per pellet
@@ -443,7 +447,8 @@ export default function Player() {
       let deagleKill = false
       for (const target of targets) {
         if (hitZombie(target.id, true)) { deagleKill = true; deathSound(zombieRefs.current, target.id) }
-        netSend('hit_zombie', { id: target.id, isHeadshot: true, source: 'gun' })
+        zombieHitFx(target.id, target.point, raycaster.ray.direction, true, 'deagle', target.dist)
+        netSend('hit_zombie', { id: target.id, isHeadshot: true, source: 'gun', ...fxNet(target.point, raycaster.ray.direction, target.dist, 'deagle') })
       }
       if (targets.length > 0) registerHit(markerKind(deagleKill, true))
     } else {
@@ -509,7 +514,8 @@ export default function Player() {
         const singleKill = hitZombie(id, isHeadshot)
         if (singleKill) deathSound(zombieRefs.current, id)
         registerHit(markerKind(singleKill, isHeadshot))
-        netSend('hit_zombie', { id, isHeadshot, source: 'gun' })
+        if (hitPoint) zombieHitFx(id, hitPoint, raycaster.ray.direction, isHeadshot, weaponRef.current, closestDist)
+        netSend('hit_zombie', { id, isHeadshot, source: 'gun', ...(hitPoint ? fxNet(hitPoint, raycaster.ray.direction, closestDist, weaponRef.current) : {}) })
       }
     }
   }, [camera, hitZombie, consumeBullet])
@@ -551,7 +557,12 @@ export default function Player() {
       const knifeKill = hitZombie(kid, true, 'knife')
       if (knifeKill) deathSound(zombieRefs.current, kid)
       registerHit(markerKind(knifeKill, false))
-      netSend('hit_zombie', { id: kid, isHeadshot: true, source: 'knife' })
+      const kref = zombieRefs.current[closestId]
+      if (kref) {
+        kref.getWorldPosition(_knifePoint)
+        zombieHitFx(kid, _knifePoint, _knifeDir.copy(fwd), true, 'knife', closestDist)
+      }
+      netSend('hit_zombie', { id: kid, isHeadshot: true, source: 'knife', ...(kref ? fxNet(_knifePoint, fwd, closestDist, 'knife') : {}) })
     }
   }, [camera, hitZombie, setKnifeCooldown])
 

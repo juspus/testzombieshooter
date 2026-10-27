@@ -4,6 +4,7 @@ import { useGameStore } from '../store'
 import { send, onMessage, offMessage } from '../net'
 import { getZombiePositions, applyRemoteZombiePositions, Zombie } from './Zombie'
 import { pushRemotePlayerSample } from './RemotePlayer'
+import { zombieHitFxFromNet } from '../hitFx'
 import { buildGrid } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
@@ -209,6 +210,7 @@ function applyRemoteEvent(event, data) {
       break
     case 'hit_zombie':
       store.hitZombie(data.id, data.isHeadshot, data.source ?? 'gun')
+      zombieHitFxFromNet(data)
       break
     case 'hit_zombie_flame':
       store.hitZombieFlame(data.id, data.damage)
