@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { useGameStore } from '../store'
 import { modFx, FOG_DEFAULT, FOG_THICK } from '../modifiers'
 import { LOFI_ON } from './LofiPass'
+import { BLOODLUST_SPEED } from '../modifiers'
 
 // Wave 3 wave-modifier runtime. ONE useFrame eases `modFx` (read by Zombie AI, groan
 // audio, LofiPass tint, LivingLights/Storm light multipliers) toward the active
@@ -56,7 +57,7 @@ export default function ModifierFx() {
     modFx.active = active
     const k = 1 - Math.exp(-EASE * Math.min(rawDelta, 0.1))
 
-    modFx.speedMul = active === 'bloodlust' ? 2 : 1
+    modFx.speedMul = active === 'bloodlust' ? BLOODLUST_SPEED : 1
     modFx.groanGain = approach(modFx.groanGain, active === 'fog' ? 2.6 : 1, k)
     modFx.groanReach = approach(modFx.groanReach, active === 'fog' ? 1.8 : 1, k)
     modFx.tint = approach(modFx.tint, active === 'bloodlust' ? 1 : 0, k)

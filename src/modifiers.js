@@ -9,7 +9,7 @@ export const MOD_BONUS = 10       // € paid on clear for a modifier wave
 
 export const MODIFIERS = {
   fog:       { id: 'fog',       name: 'FOG',       icon: '🌫', color: '#9fb4c8', desc: 'Can’t see far' },
-  bloodlust: { id: 'bloodlust', name: 'BLOODLUST', icon: '🩸', color: '#ff4433', desc: 'Zombies 2× faster' },
+  bloodlust: { id: 'bloodlust', name: 'BLOODLUST', icon: '🩸', color: '#ff4433', desc: 'Zombies faster' },
   blackout:  { id: 'blackout',  name: 'BLACKOUT',  icon: '🔦', color: '#ffd27a', desc: 'Lights out · flashlight' },
   horde:     { id: 'horde',     name: 'HORDE',     icon: '🧟', color: '#9acd32', desc: '2× zombies · half HP' },
 }
@@ -29,6 +29,8 @@ export function rollModifier(wave, prevModifier = null, rng = Math.random) {
 export const modifiedZombieCount = (base, mod) => (mod === 'horde' ? base * 2 : base)
 export const modifiedZombieHealth = (health, mod) => (mod === 'horde' ? Math.ceil(health / 2) : health)
 export const modifierBonus = (mod) => (mod && MODIFIERS[mod] ? MOD_BONUS : 0)
+
+export const BLOODLUST_SPEED = 1.4   // zombie speed multiplier (2x was too hard)
 
 // Dev/preview only: ?mod=fog|bloodlust|blackout|horde forces the first wave's modifier.
 export function debugForcedModifier() {
