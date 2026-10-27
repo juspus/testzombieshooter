@@ -25,7 +25,16 @@ const _flashOuterGeo = _starGeo(7, 0.5, 0.16)
 const _flashCoreGeo = _starGeo(5, 0.3, 0.1)
 const _flashOuterMat = new THREE.MeshBasicMaterial({ color: '#ff9a2a', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, side: THREE.DoubleSide })
 const _flashCoreMat = new THREE.MeshBasicMaterial({ color: '#fff4d0', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, side: THREE.DoubleSide })
-const FLASH_SIZE = { pistol: 0.16, ak47: 0.2, deagle: 0.26, shotgun: 0.32 }
+const FLASH_SIZE = { pistol: 0.16, ak47: 0.2, deagle: 0.26, shotgun: 0.32, crossbow: 0.001 }
+
+// Wave 3 Upgrade Bench: ONE shared emissive material (created at module load) replaces every
+// part material of an upgraded gun. Same material type as the normal gun mats => no new shader program.
+export const UPGRADED_MAT = new THREE.MeshStandardMaterial({ color: '#2f5f70', emissive: '#14d8ff', emissiveIntensity: 0.85, metalness: 0.6, roughness: 0.35 })
+export const upgradedGunMat = () => <primitive object={UPGRADED_MAT} attach="material" />
+// Plain (un-skinned) gunMat for props that show weapons outside the viewmodel (Mystery Box, bench, playground).
+export const plainGunMat = (color, metalness = 0.7, roughness = 0.3) => (
+  <meshStandardMaterial color={color} metalness={metalness} roughness={roughness} />
+)
 
 export function PistolModel({ gunMat }) {
   return (
@@ -380,6 +389,66 @@ export function FlamethrowerModel({ gunMat }) {
   )
 }
 
+// Crossbow (Mystery Box exclusive): wooden stock, steel prod + string, one bolt on the rail.
+// `boltRef` lets the viewmodel hide the bolt while the crossbow is unloaded.
+export function CrossbowModel({ gunMat, boltRef }) {
+  const wood = (c) => gunMat(c, 0.0, 0.9, 'wood')
+  const steel = (c) => gunMat(c, 0.8, 0.3, 'metal')
+  return (
+    <>
+      {/* Stock */}
+      <mesh position={[0, -0.005, 0.12]}>
+        <boxGeometry args={[0.05, 0.065, 0.52]} />
+        {wood('#5a3416')}
+      </mesh>
+      {/* Grip */}
+      <mesh position={[0, -0.095, 0.12]} rotation={[0.2, 0, 0]}>
+        <boxGeometry args={[0.045, 0.12, 0.06]} />
+        {wood('#3e2410')}
+      </mesh>
+      {/* Rail / flight groove */}
+      <mesh position={[0, 0.034, -0.14]}>
+        <boxGeometry args={[0.03, 0.02, 0.5]} />
+        {steel('#555')}
+      </mesh>
+      {/* Prod (limbs), swept forward at the tips */}
+      <mesh position={[-0.1, 0.04, -0.29]} rotation={[0, 0.32, 0]}>
+        <boxGeometry args={[0.2, 0.024, 0.034]} />
+        {steel('#2d2d30')}
+      </mesh>
+      <mesh position={[0.1, 0.04, -0.29]} rotation={[0, -0.32, 0]}>
+        <boxGeometry args={[0.2, 0.024, 0.034]} />
+        {steel('#2d2d30')}
+      </mesh>
+      {/* Stirrup */}
+      <mesh position={[0, 0.0, -0.4]}>
+        <boxGeometry args={[0.06, 0.02, 0.05]} />
+        {steel('#444')}
+      </mesh>
+      {/* String */}
+      <mesh position={[0, 0.04, -0.23]}>
+        <boxGeometry args={[0.34, 0.004, 0.004]} />
+        {gunMat('#d8cfae', 0, 1, 'accent')}
+      </mesh>
+      {/* Bolt */}
+      <group ref={boltRef}>
+        <mesh position={[0, 0.052, -0.17]}>
+          <boxGeometry args={[0.011, 0.011, 0.42]} />
+          {steel('#aaa')}
+        </mesh>
+        <mesh position={[0, 0.052, -0.4]}>
+          <boxGeometry args={[0.022, 0.022, 0.05]} />
+          {steel('#ddd')}
+        </mesh>
+        <mesh position={[0, 0.052, 0.02]}>
+          <boxGeometry args={[0.04, 0.012, 0.05]} />
+          {gunMat('#a33', 0, 0.9, 'accent')}
+        </mesh>
+      </group>
+    </>
+  )
+}
+
 export default function Gun() {
   const { camera } = useThree()
   const weapon = useGameStore((s) => s.weapon)
@@ -389,6 +458,9 @@ export default function Gun() {
   const isDeagle = weapon === 'deagle'
   const isShotgun = weapon === 'shotgun'
   const isFlamethrower = weapon === 'flamethrower'
+  const isCrossbow = weapon === 'crossbow'
+  const upgraded = useGameStore((s) => !!s.upgradedWeapons[s.weapon])  // Upgrade Bench glow
+  const boltRef = useRef()
 
   const weaponScene = useMemo(() => {
     const s = new THREE.Scene()
@@ -438,11 +510,11 @@ export default function Gun() {
         }
       } else {
         flashLife.current = Math.max(0, flashLife.current - delta * 20)
-        flashRef.current.intensity = flashLife.current * 4
+        flashRef.current.intensity = isCrossbow ? 0 : flashLife.current * 4
       }
     }
     // Sprite shows for the first ~2 frames of the flash only
-    if (flashSpriteRef.current) flashSpriteRef.current.visible = !isFlamethrower && flashLife.current > 0.4
+    if (flashSpriteRef.current) flashSpriteRef.current.visible = !isFlamethrower && !isCrossbow && flashLife.current > 0.4
 
     // Pump animation: sine arc so forend slides back then snaps forward
     if (pumpAnim.current > 0) {
@@ -475,6 +547,13 @@ export default function Gun() {
         const jitterY = flameActive.current ? Math.cos(flameTime.current * 17) * 0.005 : 0
         groupRef.current.position.set(0.18 + jitterX, -0.25 + jitterY, -0.28)
         groupRef.current.rotation.set(0, 0, 0)
+      } else if (isCrossbow) {
+        groupRef.current.position.set(0.17, -0.24, -(0.5 - recoil.current * 0.05))
+        groupRef.current.rotation.set(recoil.current * 0.1, 0, 0)
+        if (boltRef.current) {
+          const st = useGameStore.getState()
+          boltRef.current.visible = st.bulletsInClip > 0 && !st.isReloading
+        }
       } else {
         const recoilZ = recoil.current * 0.06
         const recoilAngle = recoil.current * 0.18
@@ -487,6 +566,7 @@ export default function Gun() {
       g.position.y += -feel.lagY * 0.8 + feel.gunBobY
       g.rotation.y -= feel.lagX
       g.rotation.x -= feel.lagY
+      g.visible = !useGameStore.getState().benchBusy   // the gun is inside the Upgrade Bench
       g.updateMatrixWorld()
     }
 
@@ -498,7 +578,9 @@ export default function Gun() {
           ? new THREE.Vector3(0.11, -0.245, -0.75)
           : isFlamethrower
             ? new THREE.Vector3(0.18, -0.22, -0.95)
-            : new THREE.Vector3(0.22, -0.20, -0.69)
+            : isCrossbow
+              ? new THREE.Vector3(0.15, -0.16, -0.7)
+              : new THREE.Vector3(0.22, -0.20, -0.69)
     muzzleLocal.applyMatrix4(camera.matrixWorld)
     _muzzleWorld.copy(muzzleLocal)
 
@@ -516,6 +598,7 @@ export default function Gun() {
   // override color/metalness/roughness. Same material type + props => same shader program.
   // applySkin is a lookup into frozen module-level palettes (no allocation).
   const gunMat = (color, metalness = 0.7, roughness = 0.3, role) => {
+    if (upgraded) return upgradedGunMat()
     const o = role ? applySkin(skin, role) : null
     return (
       <meshStandardMaterial
@@ -526,7 +609,7 @@ export default function Gun() {
     )
   }
 
-  const flashZ = isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : isFlamethrower ? -0.66 : -0.31
+  const flashZ = isCrossbow ? -0.5 : isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : isFlamethrower ? -0.66 : -0.31
 
   return createPortal(
     <group ref={groupRef}>
@@ -534,6 +617,7 @@ export default function Gun() {
         : isDeagle ? <DeagleModel gunMat={gunMat} />
         : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} />
         : isFlamethrower ? <FlamethrowerModel gunMat={gunMat} />
+        : isCrossbow ? <CrossbowModel gunMat={gunMat} boltRef={boltRef} />
         : <PistolModel gunMat={gunMat} />}
       <group ref={flashSpriteRef} position={[0, 0.03, flashZ - 0.02]} scale={FLASH_SIZE[weapon] ?? 0.16} visible={false} renderOrder={10}>
         <mesh geometry={_flashOuterGeo} material={_flashOuterMat} />

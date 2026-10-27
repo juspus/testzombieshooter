@@ -88,6 +88,9 @@ import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } fro
 import * as THREE from 'three'
 import { playDoorDenied } from '../sounds'
 import { doorBuyStatus } from '../doors'
+import * as WR from '../weaponRules'
+import { updateMachines } from '../machineInput'
+import Bolts from './Bolts'
 
 function netSend(event, data) {
   if (isConnected()) send('game_event', { event, data })
@@ -104,7 +107,7 @@ const BASE_KNIFE_COOLDOWN = 0.4
 const BASE_KNIFE_RANGE = 2.2
 const SKIP_TIME = 0.6
 
-const reloadTimeForPerks = (perks) => perks.fast_hands ? 1.0 : 1.5
+const reloadTimeForPerks = (perks, weapon) => (weapon === 'crossbow' ? 2.2 : 1.5) - (perks.fast_hands ? (weapon === 'crossbow' ? 0.7 : 0.5) : 0)
 const boardTimeForPerks = (perks) => perks.carpenter ? 1.3 : 2.0
 const moveSpeedForPerks = (perks, bodyArmor) => MOVE_SPEED * (perks.runners_breath ? 1.15 : 1) * (BODY_ARMOR_DEFS[bodyArmor]?.speedMultiplier ?? 1)
 const knifeCooldownForPerks = (perks) => perks.knife_mastery ? 0.25 : BASE_KNIFE_COOLDOWN
@@ -235,7 +238,8 @@ export default function Player() {
   // zombieRefs.current is the live mutable map so it stays current without re-running.
   useEffect(() => {
     FlameSpray.zombieRefs = zombieRefs.current
-    FlameSpray.onZombieHit = (zid, damage) => {
+    FlameSpray.onZombieHit = (zid, baseDamage) => {
+      const damage = baseDamage * WR.damageMult('flamethrower', !!useGameStore.getState().upgradedWeapons.flamethrower)
       const flameKill = useGameStore.getState().hitZombieFlame(zid, damage)
       if (flameKill) deathSound(zombieRefs.current, zid)
       registerHit(flameKill ? 'kill' : 'burn')
@@ -314,7 +318,7 @@ export default function Player() {
         return
       }
       if (e.code === 'KeyR' && !shopOpenRef.current && activeItemRef.current === 'gun' && beginReload()) {
-        reloadTimer.current = reloadTimeForPerks(perksRef.current)
+        reloadTimer.current = reloadTimeForPerks(perksRef.current, weaponRef.current)
         playReload()
       }
     }
@@ -352,17 +356,23 @@ export default function Player() {
 
     if (weaponRef.current === 'shotgun' && shotgunCooldownRef.current > 0) return
 
+    if (useGameStore.getState().benchBusy) return   // gun is inside the Upgrade Bench
     if (!consumeBullet()) { playEmptyClick(); return }
+
+    const wpn = weaponRef.current
+    const upg = !!useGameStore.getState().upgradedWeapons[wpn]
+    const dmgMult = WR.damageMult(wpn, upg)   // upgraded x2, crossbow bolt one-shots
 
     const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
     Gun.fire?.()
     kick(weaponRef.current)
-    playGunshot(weaponRef.current)
+    playGunshot(weaponRef.current, upg)
     if (weaponRef.current === 'shotgun') navigator.vibrate?.([30, 20, 30])
     else if (weaponRef.current !== 'flamethrower') navigator.vibrate?.(18)
     if (isConnected()) send('remote_sound', {
       sound: 'gunshot',
       weapon: weaponRef.current,
+      up: upg,
       x: camera.position.x,
       y: camera.position.y,
       z: camera.position.z,
@@ -424,16 +434,47 @@ export default function Player() {
         BulletTrails.add(muzzle, trailEnd)
         if (bestId !== null) {
           if (!bestHead) bestHead = isIronSightsHeadshot(zombieRefs.current[bestId], bestPoint, perksRef.current)
-          const died = hitZombie(bestId, bestHead)
+          const died = hitZombie(bestId, bestHead, 'gun', dmgMult)
           anyHit = true
           if (bestHead) anyHead = true
           if (died && !killed.has(bestId)) { killed.add(bestId); anyKill = true; deathSound(zombieRefs.current, bestId) }
           zombieHitFx(bestId, bestPoint, pelletRC.ray.direction, bestHead, 'shotgun', bestDist)
-          netSend('hit_zombie', { id: bestId, isHeadshot: bestHead, source: 'gun', ...fxNet(bestPoint, pelletRC.ray.direction, bestDist, 'shotgun') })
+          netSend('hit_zombie', { id: bestId, isHeadshot: bestHead, source: 'gun', mult: dmgMult, ...fxNet(bestPoint, pelletRC.ray.direction, bestDist, 'shotgun') })
         }
       }
       // One marker per trigger pull, not per pellet
       if (anyHit) registerHit(markerKind(anyKill, anyHead))
+    } else if (weaponRef.current === 'crossbow') {
+      // Silent bolt: instant-kill, pierces 1 (two zombies in line). Damage resolves now;
+      // Bolts.jsx draws the bolt streaking to where it ends.
+      checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, 50)
+      const hits = []
+      for (const [id, ref] of Object.entries(zombieRefs.current)) {
+        if (!ref) continue
+        const intersects = raycaster.intersectObject(ref, true)
+        if (intersects.length > 0) hits.push({ id: Number(id), dist: intersects[0].distance, point: intersects[0].point.clone(), head: intersects[0].object.userData.isHead === true })
+      }
+      hits.sort((a, b) => a.dist - b.dist)
+      const targets = []
+      for (const hit of hits) {
+        if (lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, BULLET_WALLS)) break
+        targets.push(hit)
+        if (targets.length >= 2) break
+      }
+      let boltEnd = targets.length > 0 ? targets[targets.length - 1].point : null
+      if (targets.length < 2 && worldImpact(raycaster.ray, 50, windowPlanksRef.current, true, 0.5)) {
+        if (!boltEnd || _wr.dist > boltEnd.distanceTo(raycaster.ray.origin)) boltEnd = _worldHit.clone()
+      }
+      if (!boltEnd) boltEnd = camera.position.clone().addScaledVector(raycaster.ray.direction, 50)
+      Bolts.fire?.(muzzle, boltEnd)
+      let anyKill = false, anyHead = false
+      for (const t of targets) {
+        if (hitZombie(t.id, t.head, 'gun', dmgMult)) { anyKill = true; deathSound(zombieRefs.current, t.id) }
+        if (t.head) anyHead = true
+        zombieHitFx(t.id, t.point, raycaster.ray.direction, t.head, 'crossbow', t.dist)
+        netSend('hit_zombie', { id: t.id, isHeadshot: t.head, source: 'gun', mult: dmgMult, ...fxNet(t.point, raycaster.ray.direction, t.dist, 'crossbow') })
+      }
+      if (targets.length > 0) registerHit(markerKind(anyKill, anyHead))
     } else if (weaponRef.current === 'deagle') {
       // Pierce up to 3 enemies, instant kill each
       checkWindowShatter(raycaster.ray.origin, raycaster.ray.direction, 50)
@@ -459,9 +500,9 @@ export default function Player() {
       BulletTrails.add(muzzle, trailEnd)
       let deagleKill = false
       for (const target of targets) {
-        if (hitZombie(target.id, true)) { deagleKill = true; deathSound(zombieRefs.current, target.id) }
+        if (hitZombie(target.id, true, 'gun', dmgMult)) { deagleKill = true; deathSound(zombieRefs.current, target.id) }
         zombieHitFx(target.id, target.point, raycaster.ray.direction, true, 'deagle', target.dist)
-        netSend('hit_zombie', { id: target.id, isHeadshot: true, source: 'gun', ...fxNet(target.point, raycaster.ray.direction, target.dist, 'deagle') })
+        netSend('hit_zombie', { id: target.id, isHeadshot: true, source: 'gun', mult: dmgMult, ...fxNet(target.point, raycaster.ray.direction, target.dist, 'deagle') })
       }
       if (targets.length > 0) registerHit(markerKind(deagleKill, true))
     } else {
@@ -524,11 +565,11 @@ export default function Player() {
           localPos.addScaledVector(hitFaceNormal, 0.012)
           Zombie.addBulletHole(id, localPos, hitFaceNormal)
         }
-        const singleKill = hitZombie(id, isHeadshot)
+        const singleKill = hitZombie(id, isHeadshot, 'gun', dmgMult)
         if (singleKill) deathSound(zombieRefs.current, id)
         registerHit(markerKind(singleKill, isHeadshot))
         if (hitPoint) zombieHitFx(id, hitPoint, raycaster.ray.direction, isHeadshot, weaponRef.current, closestDist)
-        netSend('hit_zombie', { id, isHeadshot, source: 'gun', ...(hitPoint ? fxNet(hitPoint, raycaster.ray.direction, closestDist, weaponRef.current) : {}) })
+        netSend('hit_zombie', { id, isHeadshot, source: 'gun', mult: dmgMult, ...(hitPoint ? fxNet(hitPoint, raycaster.ray.direction, closestDist, weaponRef.current) : {}) })
       }
     }
   }, [camera, hitZombie, consumeBullet])
@@ -629,8 +670,17 @@ export default function Player() {
       toggleItem()
     }
 
+    // Mobile has no scroll wheel: the ⇄ button cycles through the carried guns.
+    if (mobilePressed.cycle && !shopOpenRef.current) {
+      const weapons = ownedWeaponsRef.current
+      if (weapons.length > 1) {
+        switchWeapon(weapons[(weapons.indexOf(weaponRef.current) + 1) % weapons.length])
+        if (activeItemRef.current === 'knife') toggleItem()
+      }
+    }
+
     if (mobilePressed.reload && !shopOpenRef.current && activeItemRef.current === 'gun' && beginReload()) {
-      reloadTimer.current = reloadTimeForPerks(perksRef.current)
+      reloadTimer.current = reloadTimeForPerks(perksRef.current, weaponRef.current)
       playReload()
     }
 
@@ -751,6 +801,13 @@ export default function Player() {
       }
     }
 
+    // Wave 3 Mystery Box / Upgrade Bench: hold-E interaction + bench timer.
+    {
+      const eHeldM = keys.current['KeyE'] || mobileInput.interactHeld
+      useGameStore.getState().tickBench(delta)
+      updateMachines(delta, camera.position.x, camera.position.z, eHeldM, shopOpenRef.current || nearChestRef.current)
+    }
+
     // Wave 3 buyable doors: nearest closed door -> HUD prompt, hold E / interact to buy.
     if (DOOR_DEFS.length) {
       const gs = useGameStore.getState()
@@ -806,7 +863,7 @@ export default function Player() {
       const strongMode = strongPlanksModeRef.current
       const canAddPlank = plankCount < 2 && !(isStrong && !strongMode) && !(strongMode && !isStrong && plankCount > 0)
       const canUpgrade = strongMode && plankCount > 0 && !isStrong
-      const canBoard = eHeld && nearId >= 0 && (canAddPlank || canUpgrade) && !nearChestRef.current
+      const canBoard = eHeld && nearId >= 0 && (canAddPlank || canUpgrade) && !nearChestRef.current && !useGameStore.getState().nearMachine
 
       if (canBoard) {
         if (boardingWindowRef.current !== nearId) {
@@ -896,7 +953,7 @@ export default function Player() {
         flameTickTimerRef.current -= delta
         if (flameTickTimerRef.current <= 0) {
           flameTickTimerRef.current = FLAME_TICK_INTERVAL
-          const damage = FLAME_DPS * FLAME_TICK_INTERVAL
+          const damage = FLAME_DPS * FLAME_TICK_INTERVAL * WR.damageMult('flamethrower', !!useGameStore.getState().upgradedWeapons.flamethrower)
           const burning = burningZombiesRef.current
 
           if (firing) {

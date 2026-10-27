@@ -417,12 +417,14 @@ function _playGenericShot(ac, t, dest = null) {
   playTone(ac, t + 0.02, 80, 30, 0.1, 0.5, dest)
 }
 
-export function playGunshot(weapon = 'pistol') {
+export function playGunshot(weapon = 'pistol', upgraded = false) {
   const ac = ctx()
   const t  = ac.currentTime
-  if (weapon === 'pistol')  return _playPistolShot(ac, t)
-  if (weapon === 'shotgun') return _playShotgunShot(ac, t)
-  _playGenericShot(ac, t)
+  if (weapon === 'crossbow') _playCrossbowShot(ac, t)
+  else if (weapon === 'pistol')  _playPistolShot(ac, t)
+  else if (weapon === 'shotgun') _playShotgunShot(ac, t)
+  else _playGenericShot(ac, t)
+  if (upgraded) _playUpgradedLayer(ac, t)
 }
 
 export function playEmptyClick() {
@@ -924,13 +926,15 @@ export function playZombieGroan(x, y, z, pitch = 1, dist = 0) {
 }
 
 // Play a weapon-specific gunshot coming from the remote player's world position.
-export function playRemoteGunshot(weapon, x, y, z) {
+export function playRemoteGunshot(weapon, x, y, z, upgraded = false) {
   const ac   = ctx()
   const t    = ac.currentTime
   const dest = _makeSpatialOutput(ac, x, y, z)
-  if (weapon === 'pistol')  return _playPistolShot(ac, t, dest)
-  if (weapon === 'shotgun') return _playShotgunShot(ac, t, dest)
-  _playGenericShot(ac, t, dest)   // ak47 / deagle fallback
+  if (weapon === 'crossbow') _playCrossbowShot(ac, t, dest)
+  else if (weapon === 'pistol')  _playPistolShot(ac, t, dest)
+  else if (weapon === 'shotgun') _playShotgunShot(ac, t, dest)
+  else _playGenericShot(ac, t, dest)   // ak47 / deagle fallback
+  if (upgraded) _playUpgradedLayer(ac, t, dest)
 }
 
 // Play a footstep coming from the remote player's world position.
@@ -1471,4 +1475,69 @@ export function playDoorDenied() {
   playTone(ac, t, 180, 120, 0.09, 0.25)
   playTone(ac, t + 0.1, 150, 90, 0.12, 0.25)
   playNoise(ac, noiseBuffer(ac, 0.08), t, 0.06, 0.15, 'bandpass', 500, 2)
+}
+
+
+// ─── Wave 3: Mystery Box, Upgrade Bench, crossbow ───────────────────────────
+
+// Crossbow: near-silent. String thwip + a short wooden clack, no muzzle blast.
+function _playCrossbowShot(ac, t, dest = null) {
+  playTone(ac, t, 380, 120, 0.09, 0.18, dest)
+  playNoise(ac, noiseBuffer(ac, 0.1), t, 0.07, 0.12, 'bandpass', 1800, 2, dest)
+  playTone(ac, t + 0.03, 900, 500, 0.05, 0.05, dest)
+}
+
+// Upgraded weapons: a bright metallic zing + high shimmer on top of the normal shot,
+// so a Pack-a-Punched gun is recognisable by ear (also played for the co-op partner).
+function _playUpgradedLayer(ac, t, dest = null) {
+  playTone(ac, t, 1500, 3400, 0.16, 0.12, dest)
+  playTone(ac, t + 0.02, 2250, 5100, 0.12, 0.05, dest)
+  playNoise(ac, noiseBuffer(ac, 0.12), t, 0.1, 0.1, 'highpass', 5000, 0.8, dest)
+}
+
+// Box: ticking arpeggio while the weapon models cycle (scheduled in one go, ~3 s).
+export function playBoxCycle(x, y, z, seconds = 3) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const notes = [392, 494, 587, 659, 784, 659, 587, 494]
+  const n = Math.floor(seconds / 0.12)
+  for (let i = 0; i < n; i++) {
+    const f = notes[i % notes.length] * (1 + i / n * 0.6)
+    playTone(ac, t + i * 0.12, f, f, 0.09, 0.07 * (0.5 + i / n), dest)
+  }
+}
+// Box: landed on a weapon — rising major jingle.
+export function playBoxJingle(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  ;[523, 659, 784, 1046].forEach((f, i) => {
+    playTone(ac, t + i * 0.09, f, f, 0.35, 0.12, dest)
+    playTone(ac, t + i * 0.09, f * 2, f * 2, 0.25, 0.04, dest)
+  })
+}
+// Box: teddy bear — sad descending music-box tune.
+export function playBoxTeddy(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  ;[784, 740, 659, 587, 523, 392].forEach((f, i) => playTone(ac, t + i * 0.2, f, f * 0.98, 0.3, 0.1, dest))
+}
+// Bench: machinery whirr while the gun is inside, then a bell when it comes back.
+export function playBenchWork(x, y, z, seconds = 3) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playTone(ac, t, 70, 140, seconds, 0.16, dest)
+  playTone(ac, t, 140, 420, seconds, 0.05, dest)
+  const n = Math.floor(seconds / 0.25)
+  for (let i = 0; i < n; i++) playNoise(ac, noiseBuffer(ac, 0.08), t + i * 0.25, 0.05, 0.14, 'bandpass', 1200 + i * 120, 3, dest)
+}
+export function playBenchDone(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  ;[880, 1320, 1760].forEach((f, i) => playTone(ac, t + i * 0.1, f, f, 0.5, 0.12, dest))
+  playTone(ac, t, 2200, 4400, 0.2, 0.06, dest)
 }
