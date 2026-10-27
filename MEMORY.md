@@ -12,6 +12,19 @@ start of every session. Keep entries short — a few lines each.
   item id, `{call, note}`; decisions `d-art`/`d-doors` use `A`/`B`/`talk`).
   When work starts/ships, write `progress/<item id>` `{status: 'building'|'shipped'}`.
   Agreed next step after the roadmap: the model playground (`/?playground`).
+- Owner calls (2026-10-27): art = lo-fi (A), buyable doors = yes (A).
+  Skip: quality tiers, special waves, portals, Halloween. Discuss before
+  building: playground, weapon mastery, seasons, 3-4 players. Everything
+  else Go. Owner asked for autonomous implementation by Sonnet (medium)
+  subagents in worktrees, merged onto claude/wizardly-pascal-c4k091 (PR #126),
+  continuing across usage-limit resets (send_later safety net), leaving ~10%
+  of the 5h limit. Agent brief: scratchpad AGENT_BRIEF.md (rules: pools, no
+  new shadows, mobile, host-authoritative co-op, Playwright verify).
+  Rounds: R1 = W0 perf+metrics, W1 feel, impacts (running) -> R2 W2 look
+  (lofi+post, storm+lights, textures, variety) -> R3 W3 run (powerups, box+
+  bench, doors, modifiers, archetypes, grenades) -> R4 W4 (xp+challenges+
+  achievements, daily seeded run, diner unlock+loadouts) -> R5 W5 + later
+  (invite, revive, weekly board, quest, new maps).
 - New maps: cabin was the only map, now generalized into a src/maps/ schema
   (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
   is dev/preview-only via `?map=diner` (gated same as other debug params) —
