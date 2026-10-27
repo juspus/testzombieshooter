@@ -10,6 +10,7 @@ import { playZombieFootstep, playPlankHit, playScreamerScreech } from '../sounds
 const ACTIVE_MAP = getMap(getInitialMapId())
 const { WINDOW_DEFS, HW: CABIN_HW, HD: CABIN_HD, windowBlockSegment } = ACTIVE_MAP
 import { getRemotePlayerPos } from './RemotePlayer'
+import BloodFX from './BloodFX'
 import * as THREE from 'three'
 
 const _geoCache = new Map()
@@ -88,6 +89,68 @@ const _guestPositions = {}
 function Zombie() {}
 Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
 Zombie.ignite = (id) => _igniters[id]?.()
+// Hit-reaction registry (flash / stagger / death style). Returns blood intensity:
+// 0 = regular hit, 1 = kill, 2 = headshot/deagle kill.
+const _hitReactors = {}
+Zombie.hitReact = (id, dx, dy, dz, head, weapon, dist) => _hitReactors[id]?.(dx, dy, dz, head, weapon, dist) ?? 0
+
+// ── Hit reactions ───────────────────────────────────────────────────────────
+// Flash: zombie materials are shared across every zombie (sm() cache), so we can't
+// pulse an emissive. Instead the hittable body meshes (those with userData.zombieId)
+// briefly swap to ONE shared opaque basic material, then swap back. No per-zombie
+// materials; the swap is ~75 property writes on hit and again on restore.
+// It is warmed by the always-mounted hidden warmer zombie (see ZombieComponent).
+const HIT_MAT = new THREE.MeshBasicMaterial({ color: '#ffd8cc' })
+const FLASH_DURATION = 0.09
+const LEAN_DURATION = 0.3
+const HEAD_SNAP_DURATION = 0.26
+const STAGGER_COOLDOWN = 0.55      // min gap between movement pauses (stops AK stun-lock)
+const NECK_Y = 0.535               // head-snap pivot (neck height in head-group space)
+let _flashOn = true
+// Original materials of flashed meshes. A WeakMap, not userData: R3F replaces
+// the userData object on every re-render (health change), which would drop it.
+const _origMat = new WeakMap()
+function _flashVisit(o) {
+  if (!o.isMesh || o.userData.zombieId === undefined) return
+  if (_flashOn) {
+    if (o.material !== HIT_MAT) { _origMat.set(o, o.material); o.material = HIT_MAT }
+  } else if (o.material === HIT_MAT) {
+    // If React swapped the material during the flash (health colour change) the
+    // mesh no longer holds HIT_MAT and is left alone.
+    const m = _origMat.get(o)
+    if (m) o.material = m
+  }
+}
+function setFlash(group, on) { _flashOn = on; group.traverse(_flashVisit) }
+
+// Corpse freeze: bake matrices, drop shadows, hide small decor meshes (teeth,
+// aura discs, holes, fine head detail) to cut draw calls.
+function _freezeVisit(o) {
+  o.updateMatrix()
+  o.matrixAutoUpdate = false
+  if (o.isMesh) {
+    o.castShadow = false
+    if (o.userData.zombieId === undefined) o.visible = false
+    else if (o.userData.isHead) {
+      // the head alone is ~65 tiny meshes (teeth, eye sockets, flesh strips...):
+      // keep only the bulky skull/jaw pieces on a corpse
+      const gp = o.geometry.parameters
+      if (gp && Math.max(gp.width ?? 0, gp.height ?? 0, gp.depth ?? 0) < 0.16) o.visible = false
+    }
+  }
+}
+function freezeCorpse(group) {
+  group.updateMatrixWorld(true)
+  group.traverse(_freezeVisit)
+}
+
+const DEATH_SHOTGUN_DURATION = 0.95
+const DEATH_KNIFE_DURATION = 0.9
+const _hq = new THREE.Quaternion()
+const _hv = new THREE.Vector3()
+const _hd = new THREE.Vector3()
+const _axis = new THREE.Vector3()
+const _smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
 
 // Shared flame materials/geometry — created once, additive-blended so they read as
 // glowing fire without adding lighting cost. Visibility/scale toggled per-zombie.
@@ -203,7 +266,7 @@ function applyMove(pos, vx, vz, walls) {
   pos.z = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + pushZ))
 }
 
-export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef, rightArmRef, leftLegRef, rightLegRef, holes = [] }) {
+export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef, rightArmRef, leftLegRef, rightLegRef, headRef, holes = [] }) {
   const archetype = getZombieArchetype(type)
   const colors = getZombieColors(type, health ?? archetype.health, archetype.health)
   const { skin, skinDark, skinVein, shirt, shirtTear, accent, eye } = colors
@@ -251,7 +314,7 @@ export function ZombieBody({ type = 'walker', id = 'display', health, leftArmRef
       <group position={modelPosition} rotation={modelRotation} scale={[widthScale, visualHeightScale, depthScale]}>
 
       {/* ══ HEAD ══ */}
-      <group position={headPosition}>
+      <group ref={headRef} position={headPosition}>
 
       {/* Main skull dome */}
       <mesh geometry={bg(0.30, 0.38, 0.28)} position={[0, 0.760, 0]} castShadow userData={{ zombieId: id, isHead: true }} material={sm(skullBone, 0.85)} />
@@ -551,6 +614,14 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const deathEndQuatRef    = useRef(null)
   const burnRef            = useRef(0)
   const flameRefs          = useRef([])
+  const bodyRef            = useRef()   // lean wrapper around the whole model
+  const headRef            = useRef()   // head-snap / head-pop
+  const corpseRef          = useRef(false)
+  const fxRef              = useRef({
+    flash: 0, lean: 0, leanA: 0, lx: 0, lz: 0, head: 0, headA: 0, hbY: 0, hbZ: 0,
+    stagger: 0, staggerCd: 0, lastHit: 0, pellets: 0, kill: null,
+    style: 0, dur: DEATH_DURATION, vel: 0, kx: 0, kz: 0, hop: 0,
+  })
 
   useEffect(() => {
     if (hidden) return
@@ -568,7 +639,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       setHoles((prev) => [...prev, { pos: localPos.clone(), quat }])
     }
     _igniters[id] = () => { burnRef.current = BURN_VISUAL_DURATION }
+    _hitReactors[id] = onHit
     return () => {
+      delete _hitReactors[id]
       Player.unregisterZombieRef(id)
       delete _holeAdders[id]
       delete _zombieGroups[id]
@@ -590,6 +663,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   // Keep collision wall list in sync with plank state.
   // Zombies collide with cabin walls (window gaps open) + any boarded window faces.
   useEffect(() => {
+    if (corpseRef.current) return
     windowPlanksRef.current = windowPlanks
     const segs = [...ACTIVE_MAP.wallSegments()]
     for (const [wid, count] of Object.entries(windowPlanks)) {
@@ -597,6 +671,53 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     }
     zombieWallsRef.current = segs
   }, [windowPlanks])
+
+  // Called from hitFx.js on every gun/knife hit (dir = world shot direction).
+  // Mutates refs only — no React state. Returns blood intensity (see Zombie.hitReact).
+  function onHit(dx, dy, dz, head, weapon, dist) {
+    const g = ref.current
+    if (!g || corpseRef.current) return 0
+    const f = fxRef.current
+    const now = performance.now()
+    if (now - f.lastHit > 150) f.pellets = 0
+    f.lastHit = now
+    if (weapon === 'shotgun') f.pellets++
+    if (f.flash <= 0) setFlash(g, true)   // already flashing (e.g. next shotgun pellet): just extend
+    f.flash = FLASH_DURATION
+
+    const st = useGameStore.getState().zombies.find((z) => z.id === id)
+    if (st?.dying) {
+      // The first hit that finds the zombie dying is the killing blow (the death
+      // animation hasn't started yet); later pellets just add to the blast.
+      if (deathStartQuatRef.current) return 0
+      if (f.kill) { f.kill.pellets = f.pellets; return 0 }
+      f.kill = { weapon, head, dx, dz, dist, pellets: f.pellets }
+      return (head || weapon === 'deagle') ? 2 : 1
+    }
+
+    const heavy = type === 'brute' || archetype.boss
+    const big = weapon === 'deagle' || (weapon === 'shotgun' && dist < 5)
+    if (heavy && !big) return 0   // small hits on brutes/bosses only flash
+
+    // Shot direction in the zombie's local frame
+    _hq.copy(g.quaternion).invert()
+    _hv.set(dx, 0, dz).applyQuaternion(_hq)
+    const l = Math.hypot(_hv.x, _hv.z) || 1
+    f.lx = _hv.x / l; f.lz = _hv.z / l
+    f.leanA = (head ? 0.3 : 0.17) * (big ? 1.5 : 1) * (heavy ? 0.6 : 1)
+    f.lean = LEAN_DURATION
+    if (head && headRef.current && f.head <= 0) {
+      f.hbY = headRef.current.position.y
+      f.hbZ = headRef.current.position.z
+      f.headA = heavy ? 0.4 : 0.65
+      f.head = HEAD_SNAP_DURATION
+    }
+    if (f.staggerCd <= 0) {
+      f.stagger = head ? 0.26 : 0.18
+      f.staggerCd = STAGGER_COOLDOWN
+    }
+    return 0
+  }
 
   function followPath(pos, fallbackX, fallbackZ) {
     const path = pathRef.current
@@ -619,7 +740,33 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
   useFrame((_, delta) => {
     if (hidden || !ref.current) return
+    if (corpseRef.current) return   // settled corpse: frozen, no per-frame work
     if (useGameStore.getState().paused) return
+
+    // Hit reactions (flash / lean / head snap) — ref-driven, only while active
+    const fx = fxRef.current
+    if (fx.flash > 0) {
+      fx.flash -= delta
+      if (fx.flash <= 0) setFlash(ref.current, false)
+    }
+    if (fx.staggerCd > 0) fx.staggerCd -= delta
+    if (fx.lean > 0 && bodyRef.current) {
+      fx.lean -= delta
+      const k = fx.lean > 0 ? fx.lean / LEAN_DURATION : 0
+      const e = k > 0.65 ? (1 - k) / 0.35 : k / 0.65
+      bodyRef.current.rotation.set(fx.leanA * fx.lz * e, 0, -fx.leanA * fx.lx * e)
+    }
+    if (fx.head > 0 && headRef.current) {
+      fx.head -= delta
+      const k = fx.head > 0 ? fx.head / HEAD_SNAP_DURATION : 0
+      const e = k > 0.6 ? (1 - k) / 0.4 : k / 0.6
+      const rx = fx.headA * fx.lz * e
+      const h = headRef.current
+      h.rotation.set(rx, 0, -fx.headA * fx.lx * e)
+      // rotate about the neck, not the head-group origin
+      h.position.y = fx.hbY + NECK_Y * (1 - Math.cos(rx))
+      h.position.z = fx.hbZ - NECK_Y * Math.sin(rx)
+    }
 
     // Burning flame visual — decays independent of phase/death state
     if (burnRef.current > 0) {
@@ -639,33 +786,95 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       }
     }
 
-    // Death fall animation — plays regardless of phase
+    // Death animation — plays regardless of phase. Style depends on the killing
+    // blow (fx.kill, recorded by onHit): 0 default fall, 1 blast back along the
+    // shot (shotgun / deagle), 2 knife slump in place.
     if (dying) {
       if (!removedRef.current) {
+        const baseY = (ZOMBIE_HEIGHT * (archetype.heightScale ?? 1)) / 2
         if (!deathStartQuatRef.current) {
           // First dying frame: capture current orientation and build target
           deathStartQuatRef.current = ref.current.quaternion.clone()
-          // Extract the facing (Y) angle from the lookAt quaternion using YXZ order,
-          // which avoids gimbal lock when decomposing a pure-Y rotation
-          const yAngle = _deathTmpEuler.setFromQuaternion(ref.current.quaternion, 'YXZ').y
-          // End pose: same facing direction, tilted 90° forward (positive X rotation = falls toward player)
-          deathEndQuatRef.current = new THREE.Quaternion()
-            .setFromEuler(new THREE.Euler(0, yAngle, 0))
-            .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)))
+          const kill = fx.kill
+          fx.style = kill ? (kill.weapon === 'knife' ? 2 : (kill.weapon === 'shotgun' || kill.weapon === 'deagle') ? 1 : 0) : 0
+          if (fx.style === 1) {
+            // World-axis tilt so the top of the body travels along the shot direction
+            const kl = Math.hypot(kill.dx, kill.dz) || 1
+            fx.kx = kill.dx / kl; fx.kz = kill.dz / kl
+            deathEndQuatRef.current = new THREE.Quaternion()
+              .setFromAxisAngle(_axis.set(fx.kz, 0, -fx.kx), Math.PI / 2)
+              .multiply(deathStartQuatRef.current)
+            fx.dur = DEATH_SHOTGUN_DURATION
+            if (kill.weapon === 'shotgun') {
+              // closer + more pellets = harder blast
+              const closeness = Math.max(0.35, Math.min(1.3, 1.3 - kill.dist / 10))
+              fx.vel = (2.5 + 0.7 * Math.min(kill.pellets, 8)) * closeness
+              fx.hop = 0.18
+            } else {
+              fx.vel = 2.2; fx.hop = 0.08
+            }
+          } else {
+            // Extract the facing (Y) angle from the lookAt quaternion using YXZ order,
+            // which avoids gimbal lock when decomposing a pure-Y rotation
+            const yAngle = _deathTmpEuler.setFromQuaternion(ref.current.quaternion, 'YXZ').y
+            // End pose: same facing direction, tilted 90° forward (positive X rotation = falls toward player)
+            deathEndQuatRef.current = new THREE.Quaternion()
+              .setFromEuler(new THREE.Euler(0, yAngle, 0))
+              .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)))
+            fx.dur = fx.style === 2 ? DEATH_KNIFE_DURATION : DEATH_DURATION
+            fx.vel = 0; fx.hop = 0
+          }
           // Ensure slerp takes the shortest arc
           if (deathStartQuatRef.current.dot(deathEndQuatRef.current) < 0) {
-            deathEndQuatRef.current.negate()
+            deathEndQuatRef.current.set(-deathEndQuatRef.current.x, -deathEndQuatRef.current.y, -deathEndQuatRef.current.z, -deathEndQuatRef.current.w)
+          }
+          // Deagle kill: the head pops
+          if (kill && kill.weapon === 'deagle' && headRef.current) {
+            headRef.current.localToWorld(_hv.set(0, 0.78, 0))
+            BloodFX.spawn?.(_hv, _hd.set(kill.dx, 0.35, kill.dz).normalize(), 2)
+            headRef.current.visible = false
           }
         }
-        dyingTimerRef.current = Math.min(dyingTimerRef.current + delta, DEATH_DURATION)
-        const t = dyingTimerRef.current / DEATH_DURATION
-        const eased = t * t  // ease-in: accelerates like gravity
-        _deathTmpQuat.slerpQuaternions(deathStartQuatRef.current, deathEndQuatRef.current, eased)
+        dyingTimerRef.current = Math.min(dyingTimerRef.current + delta, fx.dur)
+        const t = dyingTimerRef.current / fx.dur
+        let rotT, yT
+        if (fx.style === 2) {
+          // knife: knees buckle and the body folds down in place before toppling
+          yT = 0.55 * _smooth(0, 0.55, t) + 0.45 * _smooth(0.55, 1, t)
+          rotT = 0.3 * _smooth(0, 0.55, t) + 0.7 * _smooth(0.55, 1, t)
+          const buckle = _smooth(0, 0.5, t)
+          if (leftLegRef.current)  leftLegRef.current.rotation.x  = -1.1 * buckle
+          if (rightLegRef.current) rightLegRef.current.rotation.x = -0.8 * buckle
+          if (leftArmRef.current)  leftArmRef.current.rotation.x  = -0.5 * buckle
+          if (rightArmRef.current) rightArmRef.current.rotation.x = -0.35 * buckle
+        } else if (fx.style === 1) {
+          rotT = yT = 1 - (1 - t) * (1 - t)   // ease-out: thrown, then lands
+        } else {
+          rotT = yT = t * t  // ease-in: accelerates like gravity
+        }
+        _deathTmpQuat.slerpQuaternions(deathStartQuatRef.current, deathEndQuatRef.current, rotT)
         ref.current.quaternion.copy(_deathTmpQuat)
-        ref.current.position.y = (ZOMBIE_HEIGHT * (archetype.heightScale ?? 1)) / 2 * (1 - eased * 0.85)
-        if (dyingTimerRef.current >= DEATH_DURATION) {
+        ref.current.position.y = baseY * (1 - yT * 0.85) + (fx.hop > 0 ? Math.sin(Math.min(1, t * 2) * Math.PI) * fx.hop : 0)
+        if (fx.vel > 0.05) {
+          const step = fx.vel * delta
+          applyMove(ref.current.position, fx.kx * step, fx.kz * step, zombieWallsRef.current)
+          fx.vel *= Math.exp(-4.5 * delta)
+        }
+        if (dyingTimerRef.current >= fx.dur) {
+          // Settle into a frozen corpse: out of every registry (not a raycast /
+          // melee / flame target, no AI), baked matrices, no shadows.
           removedRef.current = true
-          removeDyingZombie(id)
+          corpseRef.current = true
+          const g = ref.current
+          if (fx.flash > 0) { fx.flash = 0; setFlash(g, false) }
+          for (let i = 0; i < flameRefs.current.length; i++) { if (flameRefs.current[i]) flameRefs.current[i].visible = false }
+          Player.unregisterZombieRef(id)
+          delete _zombieGroups[id]
+          delete _holeAdders[id]
+          delete _igniters[id]
+          delete _hitReactors[id]
+          freezeCorpse(g)
+          removeDyingZombie(id)   // store keeps it as a corpse (capped), see store.js
         }
       }
       return
@@ -673,6 +882,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 
     if (phase !== 'playing') return
     const pos = ref.current.position
+
+    // Hit stagger: brief movement/attack pause (lean pose is applied above)
+    if (fx.stagger > 0) { fx.stagger -= delta; return }
 
     // First zombie to physically reach a window's opening shatters its glass —
     // covers both boarded (attack_window mode) and unboarded (walked straight
@@ -912,16 +1124,20 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const bodyScale = hidden ? 0.001 : 1
   return (
     <group ref={ref} scale={bodyScale}>
-      <ZombieBody
-        type={type}
-        id={id}
-        health={health}
-        leftArmRef={leftArmRef}
-        rightArmRef={rightArmRef}
-        leftLegRef={leftLegRef}
-        rightLegRef={rightLegRef}
-        holes={holes}
-      />
+      {hidden && <mesh geometry={bg(0.1, 0.1, 0.1)} material={HIT_MAT} frustumCulled={false} />}
+      <group ref={bodyRef}>
+        <ZombieBody
+          type={type}
+          id={id}
+          health={health}
+          leftArmRef={leftArmRef}
+          rightArmRef={rightArmRef}
+          leftLegRef={leftLegRef}
+          rightLegRef={rightLegRef}
+          headRef={headRef}
+          holes={holes}
+        />
+      </group>
       {!hidden && FLAME_OFFSETS.map((off, i) => (
         <mesh
           key={`flame${i}`}

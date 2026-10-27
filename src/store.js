@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { buildGrid } from './walls'
+import { MAX_CORPSES } from './fxConfig'
 import { getMap, getInitialMapId } from './maps'
 import { playPlankBreak, playGlassShatter } from './sounds'
 import {
@@ -331,7 +332,19 @@ export const useGameStore = create((set, get) => ({
 
   removeDyingZombie: (id) => {
     const { zombies, pendingSpawns, phase, wave, waveKills, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks, waveElapsed } = get()
-    const newZombies = zombies.filter((z) => z.id !== id)
+    // ── Corpses ──────────────────────────────────────────────────────────────
+    // A zombie whose death animation finished stays in `zombies` flagged
+    // `corpse` (its component stays mounted, frozen — see Zombie.jsx) until the
+    // wave ends (nextWave/startGame/wave_start reset `zombies`) or until more than
+    // MAX_CORPSES exist, oldest first. Corpses are always `dying`, so every
+    // active-count (`!z.dying`) ignores them.
+    let newZombies = zombies.map((z) => z.id === id ? { ...z, corpse: true, corpseAt: ++_corpseSeq } : z)
+    const corpses = newZombies.filter((z) => z.corpse)
+    if (corpses.length > MAX_CORPSES) {
+      let oldest = corpses[0]
+      for (const c of corpses) if (c.corpseAt < oldest.corpseAt) oldest = c
+      newZombies = newZombies.filter((z) => z.id !== oldest.id)
+    }
     const activeCount = newZombies.filter((z) => !z.dying).length
     const isGuest = get().mpRole === 'guest'
     const waveOver = !isGuest && activeCount === 0 && pendingSpawns.length === 0 && phase === 'playing'
@@ -673,6 +686,8 @@ function applyDebugOverrides(set, get) {
   set(updates)
 }
 
+let _corpseSeq = 0
+
 // Shared damage application for hitZombie (gun/knife) and hitZombieFlame (burn ticks).
 function applyZombieDamage(get, set, id, damage, source, isHeadshot) {
   const { zombies, pendingSpawns, kills, waveKills, wave, waveElapsed, waveHeadshots, waveKnifeKills, wavePlanksLost, waveStartPlanks } = get()
@@ -793,4 +808,9 @@ function spawnZombies(wave, startId) {
     })
   }
   return zombies
+}
+
+// Dev/preview only: expose the store for browser-driven verification.
+if (typeof window !== 'undefined' && import.meta.env.VITE_VERCEL_ENV !== 'production') {
+  window.__game = useGameStore
 }
