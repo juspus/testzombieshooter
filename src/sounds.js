@@ -1304,6 +1304,49 @@ export function setSlowMoMuffle(amount) {
   _applyMuffle()
 }
 
+// ─── Wave 3: power-up drops ──────────────────────────────────────────────────
+// Soft shimmer when a drop lands in the world
+export function playPowerupDrop() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 880, 1320, 0.18, 0.05)
+  playTone(ac, t + 0.09, 1320, 1760, 0.22, 0.04)
+}
+
+// Pickup chime + announcer-ish stinger (formant-filtered saw "voice"), one per type
+const _PU_NOTES = {
+  max_ammo:     [523, 659, 784, 1046],     // bright major arpeggio
+  insta_kill:   [392, 311, 233, 196],      // ominous falling line
+  double_money: [988, 1319, 988, 1319],    // coin ka-ching
+  nuke:         [110, 82, 55, 41],         // boom
+  carpenter:    [330, 392, 330, 262],      // hammer-ish
+}
+export function playPowerupPickup(type) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const out = _realDest ?? ac.destination
+  const notes = _PU_NOTES[type] ?? _PU_NOTES.max_ammo
+  notes.forEach((f, i) => playTone(ac, t + i * 0.075, f, f * 1.01, 0.25, 0.09, out))
+  // Announcer: vowel-ish formant sweep on a low saw
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  const base = type === 'nuke' ? 70 : type === 'insta_kill' ? 85 : 100
+  osc.frequency.setValueAtTime(base * 1.25, t + 0.05)
+  osc.frequency.exponentialRampToValueAtTime(base, t + 0.7)
+  const bp = ac.createBiquadFilter()
+  bp.type = 'bandpass'; bp.Q.value = 4
+  bp.frequency.setValueAtTime(500, t + 0.05)
+  bp.frequency.linearRampToValueAtTime(1400, t + 0.25)
+  bp.frequency.linearRampToValueAtTime(700, t + 0.6)
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.0001, t + 0.05)
+  g.gain.exponentialRampToValueAtTime(0.32, t + 0.12)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.75)
+  osc.connect(bp); bp.connect(g); g.connect(out)
+  osc.start(t + 0.05); osc.stop(t + 0.8)
+  if (type === 'nuke') playNoise(ac, noiseBuffer(ac, 1.2), t, 1.2, 0.35, 'lowpass', 500, 0.8, out)
+}
+
 // ─── storm: rain loop + rolling thunder ─────────────────────────────────────
 
 const RAIN_GAIN_OUT = 0.085
@@ -1487,4 +1530,36 @@ export function playAcidSplash(x, y, z) {
   const dest = _zombieOutput(ac, x, y, z)
   playNoise(ac, noiseBuffer(ac, 0.5), t, 0.4, 0.35, 'highpass', 3500, 0.8, dest)
   playTone(ac, t, 260, 70, 0.16, 0.3, dest)
+}
+
+// ─── Wave 3: buyable doors ────────────────────────────────────────────────────
+// Register ding + barricade boards ripped off + heavy thud as the door clears.
+export function playDoorOpen(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+
+  // Coin "ka-ching" so the purchase reads as a purchase
+  playTone(ac, t, 1320, 1320, 0.09, 0.10, dest)
+  playTone(ac, t + 0.07, 1760, 1760, 0.18, 0.09, dest)
+
+  // Nails squealing out of old wood
+  playNoise(ac, noiseBuffer(ac, 0.35), t + 0.04, 0.3, 0.22, 'bandpass', 2400, 4, dest)
+  playTone(ac, t + 0.04, 520, 260, 0.28, 0.07, dest)
+
+  // Boards clattering down
+  playNoise(ac, noiseBuffer(ac, 0.45), t + 0.12, 0.4, 0.5, 'bandpass', 380, 1.2, dest)
+  playNoise(ac, noiseBuffer(ac, 0.2), t + 0.2, 0.15, 0.4, 'highpass', 1500, 1, dest)
+
+  // Final heavy thud
+  playTone(ac, t + 0.3, 110, 38, 0.3, 0.5, dest)
+}
+
+// Dull "locked" knock for a door you can't afford / can't reach yet.
+export function playDoorDenied() {
+  const ac = ctx()
+  const t = ac.currentTime
+  playTone(ac, t, 180, 120, 0.09, 0.25)
+  playTone(ac, t + 0.1, 150, 90, 0.12, 0.25)
+  playNoise(ac, noiseBuffer(ac, 0.08), t, 0.06, 0.15, 'bandpass', 500, 2)
 }

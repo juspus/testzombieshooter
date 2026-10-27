@@ -41,6 +41,11 @@ start of every session. Keep entries short — a few lines each.
   sounds.js routes everything through a master lowpass bus (`_installMasterBus`).
   Dev-only globals: window.__game (store), __dbg, __r3f. Nothing was
   playtested by ear/hand yet (headless ~4 fps, no audio).
+- Round 2 + doors merged: lo-fi pending; textures (src/textures.js, Box picks
+  texture from palette colour), zombie variants (src/zombieVariant.js, id-seeded),
+  storm/rain/LivingLights (`?nofx` disables), doors (DOOR_COSTS + ROOM_ANCHORS in
+  src/maps/cabin.js, `?doors=open`, windows/spawn clusters carry room/windowId;
+  money is per-player in co-op, door opener pays).
 - New maps: cabin was the only map, now generalized into a src/maps/ schema
   (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
   is dev/preview-only via `?map=diner` (gated same as other debug params) —

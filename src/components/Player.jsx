@@ -29,7 +29,14 @@ const { WINDOW_DEFS, CHEST_POS, WIN_HALF, WIN_Y0, WIN_Y1 } = ACTIVE_MAP
 // Uses bulletWallSegments() rather than wallSegments(): the collision system is
 // height-blind (flat X/Z test), so any short cover meant to be shot over (e.g.
 // the diner's counter) has to be excluded here even though it blocks movement.
-const BULLET_WALLS = ACTIVE_MAP.bulletWallSegments()
+// Wave 3: closed doors also stop bullets, so this list is rebuilt when a door opens.
+let BULLET_WALLS = ACTIVE_MAP.bulletWallSegments(useGameStore.getState?.().openDoors ?? {})
+useGameStore.subscribe?.((s, prev) => {
+  if (s.openDoors !== prev.openDoors) BULLET_WALLS = ACTIVE_MAP.bulletWallSegments(s.openDoors)
+})
+const DOOR_DEFS = ACTIVE_MAP.DOOR_DEFS ?? []
+const DOOR_REACH_SQ = 2.4 * 2.4   // distance to a door's centre at which the buy prompt appears
+const DOOR_HOLD = 0.7             // seconds to hold E / interact so a door is never bought by accident
 const MAP_WALL_H = ACTIVE_MAP.WALL_H ?? 3.2
 
 // Visual-only world raycast for bullet impacts (sparks / splinters). Writes the hit
@@ -79,6 +86,8 @@ function checkWindowShatter(origin, direction, maxDist) {
 import { send, isConnected } from '../net'
 import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
 import * as THREE from 'three'
+import { playDoorDenied } from '../sounds'
+import { doorBuyStatus } from '../doors'
 
 function netSend(event, data) {
   if (isConnected()) send('game_event', { event, data })
@@ -156,6 +165,10 @@ export default function Player() {
   const prevNearWindowRef = useRef(-1)
   const boardTimerRef = useRef(0)
   const boardingWindowRef = useRef(-1)
+  const doorHoldRef = useRef(0)       // Wave 3 doors: hold timer / id / deny latch / request cooldown
+  const doorHoldIdRef = useRef(null)
+  const doorDeniedRef = useRef(false)
+  const doorCooldownRef = useRef(0)
   const skipTimerRef = useRef(0)
   const paused = useGameStore((s) => s.paused)
   const pausedRef = useRef(false)
@@ -735,6 +748,51 @@ export default function Player() {
       if (nearId !== prevNearWindowRef.current) {
         prevNearWindowRef.current = nearId
         setNearWindowId(nearId)
+      }
+    }
+
+    // Wave 3 buyable doors: nearest closed door -> HUD prompt, hold E / interact to buy.
+    if (DOOR_DEFS.length) {
+      const gs = useGameStore.getState()
+      const px = camera.position.x, pz = camera.position.z
+      let doorId = null, bestD = DOOR_REACH_SQ
+      for (const d of DOOR_DEFS) {
+        if (d.link || gs.openDoors[d.id]) continue
+        const dx = px - d.x, dz = pz - d.z
+        const dd = dx * dx + dz * dz
+        if (dd < bestD) { bestD = dd; doorId = d.id }
+      }
+      gs.setNearDoorId(doorId)
+      if (doorCooldownRef.current > 0) doorCooldownRef.current -= delta
+      const eHeld = keys.current['KeyE'] || mobileInput.interactHeld
+      const def = doorId ? DOOR_DEFS.find((d) => d.id === doorId) : null
+      const status = def ? doorBuyStatus(def, DOOR_DEFS, gs.openDoors, gs.money) : 'open'
+      if (def && eHeld && !shopOpenRef.current && !nearChestRef.current && doorCooldownRef.current <= 0 && (status === 'ok' || status === 'broke')) {
+        if (status === 'broke') {
+          if (!doorDeniedRef.current) { doorDeniedRef.current = true; playDoorDenied() }
+        } else {
+          if (doorHoldIdRef.current !== doorId) { doorHoldIdRef.current = doorId; doorHoldRef.current = 0 }
+          doorHoldRef.current += delta
+          gs.setDoorProgress(Math.min(doorHoldRef.current / DOOR_HOLD, 1))
+          if (doorHoldRef.current >= DOOR_HOLD) {
+            doorHoldRef.current = 0
+            gs.setDoorProgress(0)
+            if (gs.mpRole === 'guest' && gs.mpConnected) {
+              // Guest: ask the host (authoritative); we pay when the host's door_open ack arrives.
+              netSend('door_request', { id: doorId })
+              doorCooldownRef.current = 1
+            } else if (gs.buyDoor(doorId)) {
+              netSend('door_open', { id: doorId, by: 'host' })
+            }
+          }
+        }
+      } else {
+        if (!eHeld) doorDeniedRef.current = false
+        if (doorHoldRef.current > 0 || doorHoldIdRef.current !== null) {
+          doorHoldRef.current = 0
+          doorHoldIdRef.current = null
+          gs.setDoorProgress(0)
+        }
       }
     }
 

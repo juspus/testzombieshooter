@@ -5,6 +5,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { CATEGORIES, ENTRIES, getEntry } from './registry'
 import { countScene } from './sceneStats'
+import LofiPass, { LOFI_EXPOSURE } from '../components/LofiPass'
 
 const FONT = "'Courier New', Courier, monospace"
 const ACCENT = '#ff4400'
@@ -129,6 +130,7 @@ export default function ModelPlayground() {
   const [turntable, setTurntable] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
   const [showHuman, setShowHuman] = useState(false)
+  const [lofi, setLofi] = useState(false)
   const [open, setOpen] = useState(true)
   const [stats, setStats] = useState(null)
   const [resetNonce, setResetNonce] = useState(0)
@@ -188,6 +190,7 @@ export default function ModelPlayground() {
           <OrbitControls makeDefault enablePan={false} enableDamping minDistance={0.25} maxDistance={14}
             autoRotate={turntable} autoRotateSpeed={2.2} />
           <CameraRig entry={entry} resetNonce={resetNonce} />
+          {lofi && <LofiPass exposure={LOFI_EXPOSURE.cabin} />}
         </Canvas>
       </div>
 
@@ -245,6 +248,7 @@ export default function ModelPlayground() {
               ))}
               <button data-testid="tog-turntable" style={chip(turntable)} onClick={() => setTurntable(!turntable)}>Turntable</button>
               <button data-testid="tog-grid" style={chip(showGrid)} onClick={() => setShowGrid(!showGrid)}>Grid</button>
+              <button data-testid="tog-lofi" style={chip(lofi)} onClick={() => setLofi(!lofi)}>Lo-fi</button>
               <button data-testid="tog-human" style={chip(showHuman)} onClick={() => setShowHuman(!showHuman)}>1.8 m</button>
               <button style={chip(false)} onClick={() => setResetNonce((n) => n + 1)}>Reset cam</button>
             </div>
