@@ -9,6 +9,7 @@ export const mobileInput = {
   interactPressed: false,
   swapPressed: false,
   reloadPressed: false,
+  cyclePressed: false,   // Wave 3: cycle to the next carried gun (up to 3)
   autoShootHeld: false,
   grenadeHeld: false,   // hold to cook a frag grenade, release to throw
 }
@@ -29,11 +30,13 @@ export function consumeMobilePressed() {
     interact: mobileInput.interactPressed,
     swap: mobileInput.swapPressed,
     reload: mobileInput.reloadPressed,
+    cycle: mobileInput.cyclePressed,
   }
   mobileInput.shootPressed = false
   mobileInput.interactPressed = false
   mobileInput.swapPressed = false
   mobileInput.reloadPressed = false
+  mobileInput.cyclePressed = false
   return pressed
 }
 

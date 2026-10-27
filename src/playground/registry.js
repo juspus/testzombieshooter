@@ -24,6 +24,7 @@
 import { ZOMBIE_ARCHETYPES } from '../store'
 import {
   ZombieDisplay, WeaponDisplay, KnifeDisplay, AmmoCrateDisplay, ArmourDisplay,
+  MysteryBoxDisplay, UpgradeBenchDisplay,
 } from './models'
 import {
   RockingChair, Bookshelf, OldDesk, Bed, Nightstand, KitchenTable, WoodStove,
@@ -93,6 +94,7 @@ export const ENTRIES = [
   weaponEntry('ak47', 'AK-47'),
   weaponEntry('deagle', 'Desert Eagle'),
   weaponEntry('flamethrower', 'Flamethrower', [...FIRE, { id: 'flame', label: 'Flame', loop: true }]),
+  weaponEntry('crossbow', 'Crossbow (box only)'),
   {
     id: 'knife', category: 'knife', label: 'Hunting knife', Component: KnifeDisplay,
     animations: [{ id: 'swing', label: 'Swing' }],
@@ -122,6 +124,16 @@ export const ENTRIES = [
   propEntry('cellar_door', 'Cellar door', CellarDoor, {}, { position: [0.9, 1.5, 1.4], target: [0, 0, 0], fit: 'width' }),
   propEntry('floor_rug', 'Floor rug', FloorRug, { args: [2.5, 1.8] }, { position: [1.6, 2.2, 2.0], target: [0, 0, 0], fit: 'width' }),
   propEntry('chest', 'Loot chest', Chest, {}, PROP_CAM(1.8, 0.4)),
+  {
+    id: 'mystery_box', category: 'props', label: 'Mystery Box', Component: MysteryBoxDisplay,
+    animations: [{ id: 'closed', label: 'Closed', loop: true }, { id: 'open', label: 'Open', loop: true }, { id: 'teddy', label: 'Teddy', loop: true }],
+    defaultCamera: { position: [1.8, 1.8, 2.8], target: [0, 0.9, 0], fit: 'width' },
+  },
+  {
+    id: 'upgrade_bench', category: 'props', label: 'Upgrade Bench', Component: UpgradeBenchDisplay,
+    animations: [{ id: 'idle', label: 'Idle', loop: true }, { id: 'work', label: 'Working', loop: true }],
+    defaultCamera: { position: [2.2, 1.8, 3.2], target: [0, 0.9, 0], fit: 'width' },
+  },
 ]
 
 export const getEntry = (id) => ENTRIES.find((e) => e.id === id) ?? null

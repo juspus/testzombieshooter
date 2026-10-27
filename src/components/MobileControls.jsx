@@ -77,9 +77,12 @@ export default function MobileControls() {
   const grenBtnRef = useRef(null)
   const grenPointerRef = useRef(null)
   const grenades = useGameStore((s) => s.grenades)
+  const cycleBtnRef = useRef(null)
+  const ownedCount = useGameStore((s) => s.ownedWeapons.length)
 
   const active = phase === 'playing' || phase === 'intermission'
-  const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null
+  const nearMachine = useGameStore((s) => s.nearMachine)
+  const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null || nearMachine !== null
   const showInstallHint = !isStandalone && !installHintDismissed
 
   useEffect(() => {
@@ -211,6 +214,7 @@ export default function MobileControls() {
       [reloadBtnRef, 'reload'],
       [swapBtnRef, 'swap'],
       [grenBtnRef, 'grenade'],
+      [cycleBtnRef, 'cycle'],
     ]) {
       const el = ref.current
       if (!el) continue
@@ -388,6 +392,7 @@ export default function MobileControls() {
       else if (hit === 'interact') mobileInput.interactPressed = true
       else if (hit === 'reload') mobileInput.reloadPressed = true
       else if (hit === 'swap') mobileInput.swapPressed = true
+      else if (hit === 'cycle') mobileInput.cyclePressed = true
     }
 
     lookBtnRef.current = null
@@ -470,6 +475,7 @@ export default function MobileControls() {
           <div ref={grenBtnRef} style={{ ...styles.roundBtn, ...styles.grenBtn, ...(grenades <= 0 ? { opacity: 0.4 } : {}) }}>
             💣<span style={styles.grenCount}>{grenades}</span>
           </div>
+          {ownedCount > 1 && <div ref={cycleBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>⇄</div>}
         </div>
         <div style={styles.actionsRow}>
           <div

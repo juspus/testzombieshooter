@@ -26,6 +26,7 @@ export const KICK = {
   deagle:       { pitch: 0.050,  yaw: 0.008,  roll: 0.012, max: 0.08,  decay: 9 },
   shotgun:      { pitch: 0.065,  yaw: 0.010,  roll: 0.014, max: 0.09,  decay: 8 },
   ak47:         { pitch: 0.011,  yaw: 0.006,  roll: 0.004, max: 0.07,  decay: 3.5 },
+  crossbow:     { pitch: 0.012,  yaw: 0.003,  roll: 0.003, max: 0.03,  decay: 10 },
   flamethrower: { pitch: 0.0008, yaw: 0.0008, roll: 0,     max: 0.003, decay: 25 },
 }
 const KICK_FOLLOW = 45

@@ -22,6 +22,7 @@ import ForestSkybox from './ForestSkybox'
 import GasStationSkybox from './GasStationSkybox'
 import RemotePlayer from './RemotePlayer'
 import PowerUps from './PowerUps'
+import Machines from './Machines'
 import NetManager from './NetManager'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
@@ -136,6 +137,7 @@ export default function Game() {
         {mapId === 'diner' ? <GasStationSkybox /> : <ForestSkybox />}
         {mapId === 'diner' ? <DinerArena /> : <Arena />}
         <DoorBarricades />
+        <Machines />
         <Player />
         <ModifierFx />
         <Gun />
