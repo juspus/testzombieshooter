@@ -15,6 +15,7 @@ import { DailyEntry, LeaderboardTabs } from './DailyPanels'
 import { writeLocalDaily } from '../daily'
 import StartPicker from './StartPicker'
 import { hintsActive } from '../hints'
+import BrightnessSlider from './BrightnessSlider'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -500,11 +501,11 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
           <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
           <LevelBadge onClick={() => setView('achievements')} />
           <StartPicker />
-          <Btn onClick={startGame}>SOLO</Btn>
-          <DailyEntry Btn={Btn} />
-                    <div style={{ display: 'flex', gap: 12 }}>
-            <Btn onClick={handleHost}>HOST GAME</Btn>
-            <Btn onClick={() => setView('join')}>JOIN GAME</Btn>
+          <div style={{ display: 'flex', gap: 'clamp(6px, 1.6vmin, 12px)', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
+            <Btn onClick={startGame}>SOLO</Btn>
+            <DailyEntry Btn={Btn} />
+            <Btn onClick={handleHost}>HOST</Btn>
+            <Btn onClick={() => setView('join')}>JOIN</Btn>
           </div>
           <div style={{ display: 'flex', gap: 'clamp(14px, 4vmin, 28px)', marginTop: 6 }}>
             <button onClick={() => setView('leaderboard')} style={textLinkStyle}>
@@ -518,7 +519,10 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
             </button>
           </div>
           <ChallengeTeaser onClick={() => setView('challenges')} />
-          <ReduceMotionToggle />
+          <div style={{ display: 'flex', gap: 'clamp(10px, 3vmin, 20px)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <ReduceMotionToggle />
+            <BrightnessSlider />
+          </div>
         </div>
       )}
 
@@ -1579,8 +1583,8 @@ function Btn({ children, onClick, disabled = false, style }) {
       onClick={onClick}
       disabled={disabled}
       style={{
-        marginTop: 'clamp(8px, 2.5vmin, 24px)',
-        padding: 'clamp(7px, 1.5vmin, 14px) clamp(20px, 5vmin, 48px)',
+        marginTop: 'clamp(4px, 1.5vmin, 24px)',
+        padding: 'clamp(7px, 1.5vmin, 14px) clamp(14px, 4vmin, 48px)',
         background: 'transparent',
         border: '2px solid #ff3300',
         color: '#ff3300',
