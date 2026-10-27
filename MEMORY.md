@@ -31,6 +31,16 @@ start of every session. Keep entries short — a few lines each.
   bench, doors, modifiers, archetypes, grenades) -> R4 W4 (xp+challenges+
   achievements, daily seeded run, diner unlock+loadouts) -> R5 W5 + later
   (invite, revive, weekly board, quest, new maps).
+- Round 1 merged (2026-10-27): perf overlay `?perf`/`?bench`, retention SQL
+  (supabase/queries, docs/ANALYTICS.md), hit markers + danger FX + last-kill
+  slow-mo (FeelFx.jsx, src/timeScale.js - multiply frame deltas by
+  time.scale), camera feel (src/cameraFeel.js), positional zombie audio +
+  groans, muzzle flash + ImpactFX, zombie flinch/deaths/BloodFX, playground
+  split (/?models + /?testlab). GOTCHA: corpses stay in `zombies` with
+  `corpse: true` (always `dying`) - any count must filter `!z.dying`/`!z.corpse`.
+  sounds.js routes everything through a master lowpass bus (`_installMasterBus`).
+  Dev-only globals: window.__game (store), __dbg, __r3f. Nothing was
+  playtested by ear/hand yet (headless ~4 fps, no audio).
 - New maps: cabin was the only map, now generalized into a src/maps/ schema
   (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
   is dev/preview-only via `?map=diner` (gated same as other debug params) —
