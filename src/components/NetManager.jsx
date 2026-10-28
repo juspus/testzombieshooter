@@ -13,6 +13,7 @@ import { BOX_COST } from '../weaponRules'
 import { withRemoteSource } from '../gameEvents'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
 import { usePauseUi } from '../pause'
+import { isVersusMode } from '../versus'
 import { tickCoop, coopWaveEnd, coopDisconnected, handleCoopEvent } from '../coopRuntime'   // W5 down/revive
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
@@ -253,6 +254,12 @@ function applyRemoteEvent(event, data) {
       break
     case 'start_game':
       store.startGame()
+      break
+    case 'versus_mode':   // lobby: the host's mode pick (guest panel only displays it)
+      store.setVersusLobbyMode(isVersusMode(data?.mode) ? data.mode : 'coop')
+      break
+    case 'versus_start':   // host started a versus run: same seed, own world
+      if (isVersusMode(data?.mode) && typeof data?.seed === 'string' && store.phase === 'start') store.startVersusRun(data.mode, data.seed)
       break
     case 'next_wave':
       store.nextWave(data?.modifier ?? null)   // host's modifier roll (announced during intermission)

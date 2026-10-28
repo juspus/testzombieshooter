@@ -24,6 +24,7 @@ import RemotePlayer from './RemotePlayer'
 import PowerUps from './PowerUps'
 import Machines from './Machines'
 import NetManager from './NetManager'
+import VersusNet from './VersusNet'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
 import ModifierFx from './ModifierFx'
@@ -173,6 +174,7 @@ export default function Game() {
       <Screens />
       <ProgressToasts />
       <PauseLayer />
+      <VersusNet />
       <RotateGate />
     </div>
   )
