@@ -17,6 +17,7 @@ import StartPicker, { useLoadoutSummary } from './StartPicker'
 import { hintsActive } from '../hints'
 import BrightnessSlider from './BrightnessSlider'
 import { Button, Panel, Tabs, SectionLabel, LockIcon } from './ui'
+import { SkipHoldButton } from './PauseMenu'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -318,6 +319,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
   return (
     <div style={{
       ...panelStyle,
+      ...(isMobile ? { zIndex: 7 } : null),   // above the touch look zone so the skip button gets taps
       border: `1px solid ${urgent ? 'rgba(255,50,0,0.6)' : 'rgba(255,200,0,0.3)'}`,
     }}>
       <div style={titleStyle}>
@@ -341,6 +343,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
           {isMobile ? 'USE: board windows · €2.50' : 'E: board windows · €2.50'}
         </div>
       )}
+      {isMobile && <SkipHoldButton progress={skipProgress} />}
       {!isMobile && (
         <div style={skipStyle}>
           <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>

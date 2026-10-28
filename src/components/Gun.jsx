@@ -495,7 +495,8 @@ export default function Gun() {
 
   Gun.getMuzzlePosition = () => _muzzleWorld.clone()
 
-  useFrame(({ gl, scene, size }, delta) => {
+  useFrame(({ gl, scene, size }, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.05)
     weaponCamera.aspect = size.width / size.height
     weaponCamera.updateProjectionMatrix()
 

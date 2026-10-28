@@ -74,8 +74,9 @@ export default function BulletPickups() {
     }
   }, [phase])
 
-  useFrame((_, delta) => {
-    if (phase !== 'playing') return
+  useFrame((_, rawDelta) => {
+    if (phase !== 'playing' || useGameStore.getState().paused) return
+    const delta = Math.min(rawDelta, 0.05)
 
     spawnTimer.current -= delta
     if (spawnTimer.current <= 0) {

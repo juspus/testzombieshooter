@@ -1,12 +1,9 @@
-// Small UI stingers for Wave 4 progression. Own lazy AudioContext (sounds.js keeps its
-// context private; this avoids touching that big file). Never throws.
+// Small UI stingers for Wave 4 progression. Uses the shared AudioContext from sounds.js
+// (so master volume, pause suspend and the gesture unlock apply). Never throws.
 
-let ac = null
-function ctx() {
-  if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)()
-  if (ac.state === 'suspended') ac.resume()
-  return ac
-}
+import { getAudioContext } from './sounds'
+
+function ctx() { return getAudioContext() }
 
 function tone(a, t, f, dur, vol, type = 'triangle') {
   const o = a.createOscillator()

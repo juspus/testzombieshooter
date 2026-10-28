@@ -123,7 +123,8 @@ function MysteryBox() {
     else if (b.phase === 'teddy') playBoxTeddy(sp.x, 1.2, sp.z)
   }), [])
 
-  useFrame(({ clock }, dt) => {
+  useFrame(({ clock }, rawDt) => {
+    const dt = Math.min(rawDt, 0.05)
     const b = useGameStore.getState().box
     const now = performance.now()
     const el = now - b.at

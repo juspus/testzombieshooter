@@ -12,6 +12,7 @@ import Grenades from './Grenades'
 import { BOX_COST } from '../weaponRules'
 import { withRemoteSource } from '../gameEvents'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
+import { usePauseUi } from '../pause'
 import { tickCoop, coopWaveEnd, coopDisconnected, handleCoopEvent } from '../coopRuntime'   // W5 down/revive
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
@@ -35,6 +36,7 @@ export default function NetManager() {
 
     const handleVisibility = () => {
       const hidden = document.hidden
+      if (!hidden && usePauseUi.getState().menu) return   // host paused via the menu: stay paused until Resume
       useGameStore.setState({ paused: hidden })
       send('game_event', { event: hidden ? 'pause' : 'resume', data: {} })
     }
@@ -193,8 +195,9 @@ export default function NetManager() {
   }, [mpConnected, mpRole])
 
   // ── Per-frame sends ────────────────────────────────────────────────────
-  useFrame((state, delta) => {
+  useFrame((state, rawDelta) => {
     if (!mpConnected) return
+    const delta = Math.min(rawDelta, 0.05)
 
     tickCoop(delta)   // W5: bleed-out timers (host authoritative, guest display)
 
@@ -360,6 +363,9 @@ function applyRemoteEvent(event, data) {
       break
     case 'skip_intermission':
       store.skipIntermission()
+      break
+    case 'away':   // partner's tab hidden / back (their world is unaffected; display only)
+      usePauseUi.setState({ partnerAway: !!data?.away })
       break
     case 'pause':
       useGameStore.setState({ paused: true })

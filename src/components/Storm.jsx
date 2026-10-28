@@ -115,9 +115,10 @@ export default function Storm() {
     }
   }, [])
 
-  useFrame((state, delta) => {
+  useFrame((state, rawDelta) => {
     if (FX_DEBUG) window.__three = state
     if (FX_OFF) return
+    const delta = Math.min(rawDelta, 0.05)
 
     // Resolve the lights once (and again if the map swapped them out).
     if (!moon.current || !moon.current.parent || !hemi.current || !hemi.current.parent) {

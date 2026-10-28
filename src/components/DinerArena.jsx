@@ -148,8 +148,9 @@ function GlassShards({ win }) {
     }
   }, [isBroken, win])
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
     if (!active.current) return
+    const delta = Math.min(rawDelta, 0.05)
     elapsed.current += delta
     if (elapsed.current > 0.8) {
       active.current = false

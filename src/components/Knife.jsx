@@ -108,7 +108,8 @@ export default function Knife() {
 
   Knife.swing = () => { swingT.current = 1 }
 
-  useFrame(({ gl, scene, size }, delta) => {
+  useFrame(({ gl, scene, size }, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.05)
     weaponCamera.aspect = size.width / size.height
     weaponCamera.updateProjectionMatrix()
 
