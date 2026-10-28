@@ -5,6 +5,14 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- PvP discussion (2026-10-28): owner first floated 5v5 (told them: needs an
+  authoritative server, the MP layer is 1:1 everywhere, bots required at current
+  traffic), then said 2-player versus is the real interest. Ideas page:
+  https://claude.ai/artifact/Phuq1FxnUC887KMhAskVh8 (source `docs/pvp-modes.html`,
+  republish from that file with the URL). Same picks model as the roadmap:
+  ArtifactData `list` on `calls` (doc ids = mode ids: mail, seed, rival, planks,
+  director, crate, horde, hunter, duel; `{call: go|talk|skip, note}`). My pick:
+  Zombie Mail first, Seed Duel as its async twin, Hunter as the later big swing.
 - OWNER UI PREFERENCES (2026-10-27): no emoji anywhere in the UI - use short
   text labels. In-game text must be terse (one short line, hints only in the
   first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
