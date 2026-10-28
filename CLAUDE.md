@@ -311,6 +311,18 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 
 ---
 
+## Versus modes (2026-10-28, `docs/pvp-modes.html`)
+
+| Area | Files / rules |
+|---|---|
+| Seeded start | `store.startSeededGame(mode, seed, opts)`; `runMode` is `'normal' \| 'daily' \| 'versus' \| 'duel'`, `runSeed` the seed. Seeded runs force the default pistol loadout. `rng.newRunSeed()`. `scoreSubmittable(runMode)` (`versus.js`) keeps versus and duel runs off the leaderboard. |
+| Seed Duel (async) | `src/duel.js` (token = URL-safe base64 JSON: seed, map, name, per-wave kills, final), `components/DuelUi.jsx`. `/?duel=TOKEN` picks the map at page load even if locked. Cleared waves always tie on kills (same seed), so the HUD shows the rival's final wave/kills, not per-wave kills. |
+| Zombie Mail (live) | Lobby mode picker in the co-op panel; `versus_start` event. Each player runs a SEPARATE seeded world: `startVersusRun` sets `mpRole` null and `mpConnected` false but keeps the net.js link, so co-op sync, RemotePlayer and revive stay silent. In-run messages go through `sendVersus(kind, data)` / `onVersus(kind, fn)` (`versus.js`), never `game_event`; every payload carries the run `seed` and a mismatch is dropped (stale messages from the last match). `VersusNet.jsx`: 1 Hz status, results, forfeit (10 s link down / 30 s silent, or an instant `leave` on pagehide), rival strip. `versusRematch.js`. No pause while linked. |
+| Mail | `src/mail.js` (items, meter, delivery queue), `src/mailRuntime.js` (send/receive), `components/MailHud.jsx` (keys 1-5, warning line), MAIL button in `MobileControls.jsx`. Delivery lands via `store.mailTick` (from `tick()` while playing); spawn cluster from `keyedRandom` by mail id so seeded wave streams stay identical; mailed zombies add to `mail.waveExtra` (HUD total). Blackout sets `mail.pendingModifier` for the next `nextWave`. |
+| Two-browser tests | `?peer=local` (dev/preview only) signals through a local PeerJS server: `npx peerjs --port 9000 --host 127.0.0.1` (package `peer`). `scripts/twoplayer-smoke.cjs` (co-op), `scripts/versus-smoke.cjs`, `scripts/mail-smoke.cjs`; args: base URL, screenshot dir. Headless runs are slow (frame delta clamp), so waits are long. |
+
+---
+
 ## Known performance notes
 
 - Each unique material config = one WebGL shader program. Avoid adding new `transparent`, `metalness`, or `envMap` combinations to materials that mount/unmount frequently.

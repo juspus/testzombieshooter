@@ -710,13 +710,15 @@ const styles = {
   swapBtn: {
     fontSize: 11, fontWeight: 'bold', letterSpacing: 0,
   },
+  // Solid panel: it opens over the HUD (hint line, ammo box), so nothing may show through.
   mailList: {
     position: 'absolute', display: 'flex', flexDirection: 'column', gap: 4, pointerEvents: 'auto', touchAction: 'none',
+    padding: 6, borderRadius: 14, background: '#0b0d11', border: '1px solid rgba(255,255,255,0.18)', boxShadow: '0 6px 24px rgba(0,0,0,0.6)',
   },
   mailItem: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', boxSizing: 'border-box',
-    borderRadius: 10, background: 'rgba(10,12,16,0.78)', border: '1px solid rgba(255,255,255,0.22)',
+    borderRadius: 10, background: '#15181e', border: '1px solid rgba(255,255,255,0.22)',
     color: '#777', fontSize: 12, fontWeight: 'bold', letterSpacing: 1,
   },
-  mailItemOn: { color: '#ffe9a8', border: '1px solid rgba(255,200,80,0.75)', background: 'rgba(60,44,8,0.85)' },
+  mailItemOn: { color: '#ffe9a8', border: '1px solid rgba(255,200,80,0.75)', background: '#3a2a07' },
 }

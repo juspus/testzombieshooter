@@ -5,6 +5,15 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- Versus build (2026-10-28, PR #134, branch claude/versus-modes): owner picked Go on
+  mail, seed, director, horde, hunter (pvp-modes page `calls`). Cutoff this session:
+  foundation + Seed Duel + Zombie Mail, built by Sonnet agents in worktrees (round 1:
+  foundation || duel, round 2: mail). Next, after the owner playtests Zombie Mail:
+  combat core (player hitboxes, host rewind, versus damage table) -> Horde Duel ->
+  Director -> Hunter. Not playtested by a human yet; balance (mail costs, meter) is a guess.
+  Gotchas: public PeerJS cloud is blocked in the sandbox (use ?peer=local); a container
+  restart kills running agents but their worktree files survive (commit them as WIP,
+  then SendMessage to resume); Playwright context.close() does not fire pagehide.
 - OWNER UI PREFERENCES (2026-10-27): no emoji anywhere in the UI - use short
   text labels. In-game text must be terse (one short line, hints only in the
   first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
