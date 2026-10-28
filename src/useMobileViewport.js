@@ -15,11 +15,15 @@ setViewportVars()
 export default function useMobileViewport() {
   useEffect(() => {
     setViewportVars()
+    // orientationchange alone misses split view, URL-bar collapse and desktop-style resizes
+    const vv = window.visualViewport
     window.addEventListener('orientationchange', setViewportVars)
-    window.addEventListener('resize', setViewportVars)   // upright <-> landscape without orientationchange; iOS stale sizes
+    window.addEventListener('resize', setViewportVars)
+    vv?.addEventListener('resize', setViewportVars)
     return () => {
       window.removeEventListener('orientationchange', setViewportVars)
       window.removeEventListener('resize', setViewportVars)
+      vv?.removeEventListener('resize', setViewportVars)
     }
   }, [])
 }

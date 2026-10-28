@@ -1094,7 +1094,9 @@ export default function Player() {
 
     let movedDist = 0
     if (dir.lengthSq() > 0) {
-      dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * (downed ? DOWN_SPEED_MULT : 1) * delta)
+      // Analog: only clamp to unit length (keys give 1 or 1.41 -> full speed; a light stick push stays slow)
+      if (dir.lengthSq() > 1) dir.normalize()
+      dir.multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * (downed ? DOWN_SPEED_MULT : 1) * delta)
       const R = 0.35
       const ws = wallsRef.current
       const cx = camera.position.x

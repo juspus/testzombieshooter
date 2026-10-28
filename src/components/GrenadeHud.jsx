@@ -59,7 +59,7 @@ export default function GrenadeHud() {
         </div>
       )}
       {cooking && (
-        <div data-grenade-cook style={{ ...S.cook, top: isMobile ? '60%' : '58%' }}>
+        <div data-grenade-cook style={{ ...S.cook, top: isMobile ? 'calc(50% + 50px)' : '58%' }}>
           <div ref={barRef} style={S.cookFill} />
         </div>
       )}
@@ -73,7 +73,7 @@ const S = {
     alignItems: 'flex-end', gap: 3, fontFamily: 'Courier New, monospace', pointerEvents: 'none',
   },
   row: { display: 'flex', alignItems: 'center', gap: 6 },
-  icon: { fontSize: 10, letterSpacing: 2, color: '#bbb', fontFamily: 'Courier New, monospace', filter: 'drop-shadow(0 1px 2px #000)' },
+  icon: { fontSize: 11, letterSpacing: 2, color: '#bbb', fontFamily: 'Courier New, monospace', filter: 'drop-shadow(0 1px 2px #000)' },
   pips: { display: 'flex', gap: 4 },
   pip: { width: 10, height: 14, borderRadius: 3, border: '1px solid', boxSizing: 'border-box' },
   hint: { color: '#8a8a8a', fontSize: 11, letterSpacing: 1 },

@@ -57,3 +57,18 @@ export function resetMobileInput() {
   mobileInput.autoShootHeld = false
   mobileInput.grenadeHeld = false
 }
+
+// Floating stick: ring radius (px of finger travel for full deflection) and dead zone
+// (fraction of the radius). Output magnitude is analog: 0 inside the dead zone, then a linear
+// ramp to 1 at the ring edge, so a light push walks and a full push runs.
+export const STICK_RADIUS = 48
+export const STICK_DEADZONE = 0.1
+export function stickVector(dx, dy) {
+  const len = Math.hypot(dx, dy)
+  if (len === 0) return { x: 0, y: 0, mag: 0, knobX: 0, knobY: 0 }
+  const raw = Math.min(1, len / STICK_RADIUS)
+  const ux = dx / len
+  const uy = dy / len
+  const mag = raw < STICK_DEADZONE ? 0 : (raw - STICK_DEADZONE) / (1 - STICK_DEADZONE)
+  return { x: ux * mag, y: uy * mag, mag, knobX: ux * raw, knobY: uy * raw }
+}

@@ -22,7 +22,7 @@ export default function MachinePrompt({ isMobile }) {
   if (act.action === 'upgraded') {
     return (
       <div data-testid="machine-prompt" style={{ ...styles.prompt, ...(isMobile ? styles.mobilePrompt : {}), borderColor: borderBase }}>
-        <span style={{ color: '#58e6ff' }}>{act.name} ✓</span>
+        <span style={{ color: '#58e6ff' }}>{act.name} OK</span>
       </div>
     )
   }
@@ -64,7 +64,8 @@ const styles = {
     gap: 6,
     minWidth: 220,
   },
-  mobilePrompt: { bottom: 8, fontSize: 9, letterSpacing: 1, padding: '3px 9px 4px', borderRadius: 3, gap: 3, minWidth: 0 },
+  // Mobile: floats just under the crosshair (the ammo box owns the bottom centre)
+  mobilePrompt: { bottom: 'auto', top: 'calc(50% + 18px)', left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', fontSize: 11, letterSpacing: 1, padding: '3px 9px 4px', borderRadius: 3, gap: 3, minWidth: 0 },
   bar: { width: '100%', height: 5, background: 'rgba(255,255,255,0.12)', borderRadius: 3, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 3, transition: 'width 0.05s linear' },
 }

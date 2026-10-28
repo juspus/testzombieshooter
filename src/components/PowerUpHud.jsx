@@ -10,6 +10,12 @@ import { playPowerupPickup } from '../sounds'
 // ammo box and mobile thumb controls on 844x390 landscape.
 
 const TIMED = ['insta_kill', 'double_money']
+// Phone: the DOOR / BENCH / BOX / board prompt floats just under the crosshair, so the chips drop below it.
+const isMobileHud = () => {
+  if (typeof window === 'undefined') return false
+  const coarse = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+  return Boolean(coarse || (navigator.maxTouchPoints > 0 && Math.min(window.innerWidth, window.innerHeight) <= 900))
+}
 const CHIP = {
   insta_kill:   { tag: 'IK', label: 'INSTA-KILL' },
   double_money: { tag: 'x2', label: 'DOUBLE $' },
@@ -77,7 +83,7 @@ export default function PowerUpHud() {
   return (
     <>
       <PowerUpBanner />
-      <div style={styles.row}>
+      <div style={isMobileHud() ? { ...styles.row, top: 'calc(50% + 66px)' } : styles.row}>
         {TIMED.map((t) => (on[t] ? <Chip key={t} type={t} /> : null))}
       </div>
     </>
@@ -117,13 +123,13 @@ const styles = {
     border: '1px solid',
     borderRadius: 4,
     fontFamily: 'Courier New, monospace',
-    fontSize: 'clamp(10px, 2.4vmin, 13px)',
+    fontSize: 'clamp(11px, 2.4vmin, 13px)',
     color: '#fff',
     overflow: 'hidden',
     whiteSpace: 'nowrap',
   },
   tag: { color: '#000', fontWeight: 'bold', padding: '0 4px', borderRadius: 2 },
   chipLabel: { letterSpacing: 1 },
-  secs: { fontWeight: 'bold', minWidth: '1.4em', textAlign: 'right' },
+  secs: { fontWeight: 'bold', fontSize: 14, minWidth: '1.4em', textAlign: 'right' },
   bar: { position: 'absolute', left: 0, bottom: 0, height: 3 },
 }
