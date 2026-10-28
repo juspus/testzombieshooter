@@ -304,13 +304,15 @@ export default function Player() {
 
   // Sync shopOpen ref and manage pointer lock: the shop frees the cursor, and
   // closing it re-locks if we had the lock going in (never true on touch).
-  // Re-locking without a fresh click is allowed because the page itself
-  // released the lock — that also covers closing with Escape.
+  // Not on Escape: it's the browser's own unlock key, and on Windows Chrome
+  // re-handles that same press after we re-lock, leaving the mouse half-locked.
   const relockAfterShopRef = useRef(false)
   useEffect(() => {
     shopOpenRef.current = shopOpen
     if (shopOpen) {
-      relockAfterShopRef.current = locked.current
+      // Only ever set here: this re-runs when requestLock changes (phase), by
+      // which point the lock is already released.
+      if (locked.current) relockAfterShopRef.current = true
       document.exitPointerLock?.()
     } else if (relockAfterShopRef.current) {
       relockAfterShopRef.current = false
@@ -330,7 +332,11 @@ export default function Player() {
     }
     const onKeyDown = (e) => {
       keys.current[e.code] = true
-      if (e.code === 'Escape' && shopOpenRef.current) { closeShop(); return }
+      if (e.code === 'Escape' && shopOpenRef.current) {
+        relockAfterShopRef.current = false
+        closeShop()
+        return
+      }
       if (e.code === 'KeyE') {
         if (shopOpenRef.current) { closeShop(); return }
         if (selfStatusRef.current !== 'alive' || reviveNearRef.current) return
