@@ -6,7 +6,8 @@
 -- events.client is 'mobile' | 'desktop' (set per event by src/analytics.js; NULL on rows
 -- from before the column was filled, shown here as 'unknown').
 --
--- Assumptions (not verified against live data; this file was not executed):
+-- All four queries ran cleanly against the live project on 2026-10-28.
+-- Assumptions:
 --  * A run's client = the client on its game_start event (a run never changes device).
 --  * A player's client for retention = the client of their FIRST event ever. The return
 --    itself counts on ANY client, so a mobile-first player who comes back on desktop

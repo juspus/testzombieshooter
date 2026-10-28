@@ -51,7 +51,9 @@ this file stays the raw idea stash.
 
 Prioritised in the mobile roadmap (`docs/mobile-roadmap.html`, link in MEMORY.md).
 
-- **Onboarding overlay** — first-run tip for pointer lock / touch controls (touch half = `m-onboard` on the mobile roadmap)
+- **Onboarding overlay** — first-run tip for pointer lock / touch controls (touch half = `m-onboard`; owner skipped it on 2026-10-28)
+- **Cloudflare TURN ephemeral credentials** — `api/turn.js` only does static env creds; add CF key/token minting if Cloudflare is the chosen provider
+- **Gyro aim / layout editor** — parked in the mobile roadmap's "Later" list
 
 ## Tech / dev
 
