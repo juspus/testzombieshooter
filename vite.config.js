@@ -18,15 +18,10 @@ export default defineConfig({
       // and index.html already links to it.
       manifest: false,
 
-      // Cache everything the build emits plus the panorama texture
+      // Cache everything the build emits (the skybox is a canvas texture, no file)
       workbox: {
         // Pre-cache all build output (JS chunks, CSS, HTML, images, fonts)
         globPatterns: ['**/*.{js,css,html,png,jpg,jpeg,webp,svg,ico,woff,woff2,wasm}'],
-
-        // Also pre-cache the big panorama texture that lives in /public
-        additionalManifestEntries: [
-          { url: '/forest-panorama.png', revision: null },
-        ],
 
         // Runtime caching for anything not covered by the pre-cache list
         runtimeCaching: [
@@ -67,6 +62,20 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Stable vendor chunks: they only change when the dependency does, so they stay
+        // cached across deploys. peerjs / supabase are dynamic imports, split by Rollup.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react'
+          if (/node_modules\/(three|@react-three|three-stdlib|its-fine|react-reconciler|suspend-react|zustand)\//.test(id)) return 'vendor-three'
+          return undefined
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.js'],

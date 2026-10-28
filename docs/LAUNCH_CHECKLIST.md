@@ -21,6 +21,16 @@ Things only the product owner can do. The code is live-safe without them
 - [ ] `SUPABASE_SERVICE_ROLE_KEY`
 - [ ] Redeploy after adding.
 
+### Co-op on mobile data (TURN relay, optional)
+Carrier NATs often block direct WebRTC, so co-op needs a TURN relay on mobile data. `api/turn.js`
+serves it to the game; with nothing set, co-op works as before (direct/STUN only).
+- [ ] Pick any TURN provider, then set in Vercel: `TURN_URLS` (comma-separated `turn:` / `turns:` URLs,
+  include a `turns:...:443?transport=tcp` one), `TURN_USERNAME`, `TURN_CREDENTIAL`. Redeploy.
+- [ ] Check `/api/turn` returns your server in `iceServers`.
+- [ ] Confirm: host and join from a phone on mobile data, open `chrome://webrtc-internals` on the
+  desktop peer and look for a candidate of type `relay`.
+- Short-lived-credential providers (e.g. Cloudflare Realtime TURN) are not supported yet.
+
 ## 4. Legal (required by Stripe & Google OAuth consent screen)
 - [ ] Fill in the placeholders (your name/entity, contact email, country) in `public/terms.html` and `public/privacy.html`.
 - [ ] Link the privacy URL in the Google Cloud OAuth consent screen.

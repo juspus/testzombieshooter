@@ -474,6 +474,7 @@ export default function Gun() {
   )
 
   const groupRef = useRef()
+  const modelRef = useRef()   // meshes only: the muzzle light stays visible so the weapon scene's light count never changes
   const flashRef = useRef()
   const flashSpriteRef = useRef()
   const pumpRef = useRef()
@@ -495,7 +496,8 @@ export default function Gun() {
 
   Gun.getMuzzlePosition = () => _muzzleWorld.clone()
 
-  useFrame(({ gl, scene, size }, delta) => {
+  useFrame(({ gl, scene, size }, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.05)
     weaponCamera.aspect = size.width / size.height
     weaponCamera.updateProjectionMatrix()
 
@@ -566,7 +568,7 @@ export default function Gun() {
       g.position.y += -feel.lagY * 0.8 + feel.gunBobY
       g.rotation.y -= feel.lagX
       g.rotation.x -= feel.lagY
-      g.visible = !useGameStore.getState().benchBusy   // the gun is inside the Upgrade Bench
+      if (modelRef.current) modelRef.current.visible = !useGameStore.getState().benchBusy   // the gun is inside the Upgrade Bench
       g.updateMatrixWorld()
     }
 
@@ -613,6 +615,7 @@ export default function Gun() {
 
   return createPortal(
     <group ref={groupRef}>
+      <group ref={modelRef}>
       {isAK ? <AKModel gunMat={gunMat} />
         : isDeagle ? <DeagleModel gunMat={gunMat} />
         : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} />
@@ -622,6 +625,7 @@ export default function Gun() {
       <group ref={flashSpriteRef} position={[0, 0.03, flashZ - 0.02]} scale={FLASH_SIZE[weapon] ?? 0.16} visible={false} renderOrder={10}>
         <mesh geometry={_flashOuterGeo} material={_flashOuterMat} />
         <mesh geometry={_flashCoreGeo} material={_flashCoreMat} rotation={[0, 0, 0.5]} scale={0.8} />
+      </group>
       </group>
       <pointLight ref={flashRef} position={[0, 0.03, flashZ]} intensity={0} color={isFlamethrower ? '#ff5500' : '#ff9900'} distance={isFlamethrower ? 6 : 4} />
     </group>,

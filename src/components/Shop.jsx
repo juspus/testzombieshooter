@@ -154,7 +154,9 @@ export default function Shop() {
   }, [])
 
   const openedAtRef = useRef(Infinity)
+  const downAtRef = useRef(0)   // last pointerdown on the panel since it opened (0 = none)
   useLayoutEffect(() => {
+    downAtRef.current = 0
     if (shopOpen) openedAtRef.current = performance.now()
     else openedAtRef.current = Infinity
   }, [shopOpen])
@@ -179,13 +181,26 @@ export default function Shop() {
       style={{ ...overlayStyle, opacity: shopOpen ? 1 : 0, pointerEvents: shopOpen ? 'auto' : 'none' }}
       onClick={(e) => { if (e.target === e.currentTarget && performance.now() - openedAtRef.current > 500) closeShop() }}
     >
-      <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={panelStyle}
+        // The USE tap that opens the shop lifts its finger over the panel: swallow that click
+        // (a quick tap, or a slower one whose pointerdown landed before the shop opened) so it
+        // cannot buy whatever row the USE button happens to sit on.
+        onPointerDownCapture={() => { downAtRef.current = performance.now() }}
+        onClickCapture={(e) => {
+          const since = performance.now() - openedAtRef.current
+          // detail 0 = keyboard / programmatic click: never a finger lifting over the panel
+          const ghost = e.detail !== 0 && (since < 350 || (downAtRef.current === 0 && since < 1500))
+          if (ghost) { e.stopPropagation(); e.preventDefault() }
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
 
         <div style={headerStyle}>
           <span style={titleStyle}>SUPPLY CHEST</span>
-          <span style={hpStyle}>♥ {hp}/{maxHp}</span>
+          <span style={hpStyle}>HP {hp}/{maxHp}</span>
           <span style={moneyStyle}>€{money.toFixed(2)}</span>
-          {isMobile && <button type="button" style={styles.closeBtn} onClick={closeShop}>×</button>}
+          {isMobile && <button type="button" aria-label="Close" style={styles.closeBtn} onClick={closeShop}>×</button>}
         </div>
 
         <div style={styles.divider} />
@@ -434,11 +449,11 @@ const styles = {
   list: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
+    gap: 4,
   },
   sectionLabel: {
-    color: '#775522',
-    fontSize: 10,
+    color: '#99722f',
+    fontSize: 11,
     letterSpacing: 4,
     fontWeight: 'bold',
     margin: '8px 4px 2px',
@@ -452,7 +467,7 @@ const styles = {
     borderBottom: '1px solid #1a1008',
   },
   mobileRow: {
-    padding: '5px 2px',
+    padding: '4px 2px',
     gap: 6,
     background: 'rgba(255,255,255,0.025)',
     borderBottom: '1px solid rgba(200,128,26,0.16)',
@@ -469,17 +484,17 @@ const styles = {
     letterSpacing: 2,
   },
   mobileRowName: {
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: 1,
   },
   rowDesc: {
-    color: '#666',
-    fontSize: 10,
+    color: '#777',
+    fontSize: 11,
     letterSpacing: 1,
   },
   mobileRowDesc: {
-    color: '#9a8a72',
-    fontSize: 8,
+    color: '#b0a088',
+    fontSize: 11,
     letterSpacing: 0.3,
   },
   rowRight: {
@@ -499,8 +514,8 @@ const styles = {
     textAlign: 'right',
   },
   mobileRowPrice: {
-    fontSize: 11,
-    minWidth: 44,
+    fontSize: 12,
+    minWidth: 52,
   },
   btn: {
     padding: '6px 14px',
@@ -514,20 +529,21 @@ const styles = {
     minWidth: 72,
   },
   mobileBtn: {
-    padding: '6px 7px',
-    minWidth: 50,
-    fontSize: 9,
-    letterSpacing: 1.2,
+    padding: '0 8px',
+    minWidth: 68,
+    minHeight: 44,
+    fontSize: 11,
+    letterSpacing: 1,
     touchAction: 'manipulation',
   },
   closeBtn: {
     border: '1px solid rgba(255,224,102,0.35)',
     borderRadius: 999,
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     background: 'rgba(255,255,255,0.12)',
     color: '#ffe8a3',
-    fontSize: 17,
+    fontSize: 24,
     lineHeight: 1,
     flexShrink: 0,
     touchAction: 'manipulation',
@@ -552,7 +568,7 @@ const styles = {
   },
   hint: {
     color: '#6f5a36',
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 3,
     textAlign: 'center',
   },

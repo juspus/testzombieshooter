@@ -15,6 +15,7 @@
   --ui-h-lg: 48px;
   --ui-h-md: 40px;
   --ui-h-sm: 30px;
+  --ui-fs-min: 0px;   /* text floor: 11px on touch screens. Inline sizes: max(var(--ui-fs-min), ...) */
 }
 
 @media (max-height: 480px) {
@@ -23,6 +24,15 @@
     --ui-h-md: 34px;
     --ui-h-sm: 28px;
   }
+}
+
+/* Touch: every control is at least 44px tall (MIN_TAP), whatever the screen height.
+   Only the control sizes change; fonts and spacing keep the kit's look. */
+@media (pointer: coarse) {
+  :root { --ui-h-md: 44px; --ui-h-sm: 44px; --ui-fs-min: 11px; }
+}
+@media (pointer: coarse) and (max-height: 480px) {
+  :root { --ui-h-lg: 44px; }
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
@@ -359,3 +369,48 @@
 @media (max-height: 480px), (max-width: 640px) { .ui-level__xp { display: none; } }
 
 .ui-avatar { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #555; }
+
+/* ── Touch: text floor + short-screen fit ────────────────────────────────── */
+
+/* No menu text under 11px on touch screens. */
+@media (pointer: coarse) {
+  .ui-section-label { font-size: 11px; }
+}
+
+/* 44px rows are taller than the kit's 34px ones: buy the room back from gaps and
+   padding (never from control heights) so PLAY / DAILY RUN / CO-OP stay on screen
+   on 667x375. Phones have no top/bottom notch in landscape, so 8px is safe. */
+@media (pointer: coarse) and (max-height: 480px) {
+  .menu-screen {
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    row-gap: 6px;
+  }
+  .menu-side { gap: 6px; justify-content: safe center; overflow-y: auto; }
+  .menu-title { font-size: 24px; }
+  .menu-nav { gap: 0; }
+  .menu-nav .ui-btn--lg { margin-bottom: 2px; }
+  .menu-sep { margin: 2px 0; }
+}
+
+/* ── iOS "Add to Home Screen" tip (InstallHint) ──────────────────────────── */
+/* Bottom-right, clear of the left menu column (230-300px + gap) on landscape;
+   full width along the bottom on portrait. Hidden while a sub-panel is open. */
+.menu-install {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  width: min(340px, calc(100% - 380px));
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.menu-install > * { pointer-events: auto; }
+.menu-install.is-hidden { display: none; }
+@media (max-width: 640px) {
+  .menu-install { left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); width: auto; justify-content: center; }
+}
+
+@media (pointer: coarse) {
+  .ui-range { height: 44px; margin: 0; touch-action: pan-y; }
+}

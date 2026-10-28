@@ -27,11 +27,16 @@ import NetManager from './NetManager'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
 import ModifierFx from './ModifierFx'
+import FrameGovernor from './FrameGovernor'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
 import { initProgression } from '../progressTracker'
 import ProgressToasts from './ProgressToasts'
+import PauseLayer from './PauseMenu'
+import RotateGate from './RotateGate'
+import { installWakeLock } from '../wakeLock'
+import { handleContextLost, handleContextRestored } from '../pause'
 import PerfOverlay, { PERF_ON, BENCH_ON } from './PerfOverlay'
 import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
 
@@ -90,6 +95,8 @@ export default function Game() {
     }
   }, [isActive])
 
+  useEffect(() => installWakeLock(), [])
+
   useEffect(() => {
     if (inGame) startEerieMusic()
     else stopEerieMusic()
@@ -110,16 +117,14 @@ export default function Game() {
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%' }}
         resize={{ polyfill: FilteredResizeObserver }}
-        onCreated={({ gl }) => {
-          // iOS rarely restores WebGL contexts — reload is better than a permanent black screen.
+        onCreated={({ gl, scene }) => {
+          // Context loss (iOS reclaims memory from background tabs): keep the run. preventDefault lets
+          // three.js rebuild its GPU resources on restore; the game pauses meanwhile (pause.js).
           gl.domElement.addEventListener('webglcontextlost', (e) => {
-            console.error('[WebGL] context LOST — reloading')
             e.preventDefault()
-            setTimeout(() => window.location.reload(), 100)
+            handleContextLost()
           })
-          gl.domElement.addEventListener('webglcontextrestored', () => {
-            console.log('[WebGL] context restored')
-          })
+          gl.domElement.addEventListener('webglcontextrestored', () => handleContextRestored(scene))
 
           // Secondary guard: block setSize() calls that aren't genuine resizes.
           const _setSize = gl.setSize.bind(gl)
@@ -156,6 +161,7 @@ export default function Game() {
         <NetManager />
         <ForceRenderOnShopOpen />
         {LOFI_ON && <LofiPass exposure={LOFI_EXPOSURE[mapId] ?? 1.5} />}
+        <FrameGovernor />
         {(PERF_ON || BENCH_ON) && <PerfOverlay />}
         <Storm />
       </Canvas>
@@ -166,6 +172,8 @@ export default function Game() {
       <Shop />
       <Screens />
       <ProgressToasts />
+      <PauseLayer />
+      <RotateGate />
     </div>
   )
 }

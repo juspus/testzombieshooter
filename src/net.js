@@ -1,4 +1,43 @@
-import Peer from 'peerjs'
+// PeerJS is a dynamic import: it is only fetched when someone hosts or joins.
+// The Peer is created asynchronously, so each call carries a generation token and a stale
+// (torn-down or superseded) creation is discarded.
+const STUN_DEFAULT = { urls: 'stun:stun.l.google.com:19302' }
+const TURN_TIMEOUT_MS = 1500
+
+/**
+ * Pure: merge the /api/turn response into PeerJS peer options.
+ * Returns undefined (use PeerJS defaults, today's behaviour) unless there is at least
+ * one usable entry. STUN stays first so direct paths are still preferred.
+ */
+export function buildPeerOptions(turn) {
+  const list = Array.isArray(turn?.iceServers) ? turn.iceServers : []
+  const extra = list.filter((s) => s && (typeof s.urls === 'string' || (Array.isArray(s.urls) && s.urls.length)))
+  if (!extra.length) return undefined
+  return { config: { iceServers: [STUN_DEFAULT, ...extra] } }
+}
+
+let _optsPromise = null
+/** Fetch /api/turn once per page load; never rejects; silent on failure. */
+export function getPeerOptions() {
+  if (_optsPromise) return _optsPromise
+  _optsPromise = (async () => {
+    let timer
+    try {
+      const ctl = new AbortController()
+      timer = setTimeout(() => ctl.abort(), TURN_TIMEOUT_MS)
+      const res = await fetch('/api/turn', { signal: ctl.signal })
+      if (!res.ok) return undefined
+      return buildPeerOptions(await res.json())
+    } catch { return undefined } finally { clearTimeout(timer) }
+  })()
+  return _optsPromise
+}
+
+let _gen = 0
+async function _makePeer(id) {
+  const [{ default: Peer }, opts] = await Promise.all([import('peerjs'), getPeerOptions()])
+  return opts ? (id ? new Peer(id, opts) : new Peer(opts)) : (id ? new Peer(id) : new Peer())
+}
 
 let _peer = null
 let _conn = null
@@ -30,27 +69,35 @@ export function createRoom(onCode, onConnected, onDisconnected) {
   _teardown()
   _role = 'host'
   const code = _roomCode()
-  _peer = new Peer(code)
-  _peer.on('error', (err) => console.error('[net]', err))
-  _peer.on('open', () => {
-    onCode(code)
-    _peer.on('connection', (conn) => {
-      _conn = conn
-      _setupConn(onConnected, onDisconnected)
+  const gen = _gen
+  _makePeer(code).then((peer) => {
+    if (gen !== _gen) { try { peer.destroy() } catch {} return }
+    _peer = peer
+    peer.on('error', (err) => console.error('[net]', err))
+    peer.on('open', () => {
+      onCode(code)
+      peer.on('connection', (conn) => {
+        _conn = conn
+        _setupConn(onConnected, onDisconnected)
+      })
     })
-  })
+  }, (err) => { if (gen === _gen) console.error('[net]', err) })
 }
 
 export function joinRoom(roomCode, onConnected, onError, onDisconnected) {
   _teardown()
   _role = 'guest'
-  _peer = new Peer()
-  _peer.on('error', onError)
-  _peer.on('open', () => {
-    _conn = _peer.connect(roomCode.trim().toUpperCase())
-    _setupConn(onConnected, onDisconnected)
-    _conn.on('error', onError)
-  })
+  const gen = _gen
+  _makePeer().then((peer) => {
+    if (gen !== _gen) { try { peer.destroy() } catch {} return }
+    _peer = peer
+    peer.on('error', onError)
+    peer.on('open', () => {
+      _conn = peer.connect(roomCode.trim().toUpperCase())
+      _setupConn(onConnected, onDisconnected)
+      _conn.on('error', onError)
+    })
+  }, (err) => { if (gen === _gen) onError?.(err) })
 }
 
 export function disconnect() {
@@ -67,6 +114,7 @@ function _setupConn(onConnected, onDisconnected) {
 }
 
 function _teardown() {
+  _gen++
   try { _conn?.close() } catch {}
   try { _peer?.destroy() } catch {}
   _conn = null

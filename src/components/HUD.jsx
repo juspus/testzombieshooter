@@ -227,7 +227,7 @@ export default function HUD() {
           position: 'absolute', top: isMobile ? 94 : 150, left: '50%', transform: 'translateX(-50%)',
           padding: '2px 10px', borderRadius: 4, background: 'rgba(0,0,0,0.55)',
           border: `1px solid ${MODIFIERS[waveModifier].color}`, color: MODIFIERS[waveModifier].color,
-          fontFamily: 'Courier New, monospace', fontSize: isMobile ? 10 : 13, letterSpacing: 3, fontWeight: 'bold',
+          fontFamily: 'Courier New, monospace', fontSize: isMobile ? 11 : 13, letterSpacing: 3, fontWeight: 'bold',
           pointerEvents: 'none', whiteSpace: 'nowrap',
         }}>
           {MODIFIERS[waveModifier].name}
@@ -305,7 +305,7 @@ export default function HUD() {
 
       {/* Chest prompt */}
       {nearChest && !showBoardPrompt && (
-        <div style={{ ...styles.boardPrompt, ...(isMobile ? styles.mobileBoardPrompt : {}), borderColor: '#5a3a10', bottom: isMobile ? 8 : 90 }}>
+        <div style={{ ...styles.boardPrompt, ...(isMobile ? styles.mobileBoardPrompt : {}), borderColor: '#5a3a10', ...(isMobile ? {} : { bottom: 90 }) }}>
           <span style={{ color: '#c8801a' }}>{isMobile ? 'USE' : 'E'} chest</span>
         </div>
       )}
@@ -364,7 +364,7 @@ export default function HUD() {
           <div style={styles.hpBarOuter}>
             <div style={{ ...styles.hpBarInner, width: `${hpPct * 100}%`, background: hpColor }} />
           </div>
-          <div style={{ ...styles.mobileValue, color: hpColor, fontSize: 12 }}>{Math.ceil(hp)}</div>
+          <div style={{ ...styles.mobileValue, color: hpColor }}>{Math.ceil(hp)}</div>
         </div>
       )}
 
@@ -451,7 +451,7 @@ const styles = {
     fontFamily: 'Courier New, monospace',
   },
   mobileLabel: {
-    fontSize: 7,
+    fontSize: 11,
     letterSpacing: 1.5,
   },
   value: {
@@ -462,7 +462,7 @@ const styles = {
     letterSpacing: 2,
   },
   mobileValue: {
-    fontSize: 13,
+    fontSize: 14,
     letterSpacing: 1,
     lineHeight: 1.05,
   },
@@ -526,12 +526,12 @@ const styles = {
   },
   caliberLabel: {
     color: '#c8801a',
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 3,
     marginBottom: 2,
   },
   mobileWeaponLabel: {
-    fontSize: 7,
+    fontSize: 11,
     letterSpacing: 1.5,
     marginBottom: 0,
   },
@@ -592,8 +592,12 @@ const styles = {
     minWidth: 220,
   },
   mobileBoardPrompt: {
-    bottom: 8,
-    fontSize: 9,
+    bottom: 'auto',
+    top: 'calc(50% + 18px)',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    whiteSpace: 'nowrap',
+    fontSize: 11,
     letterSpacing: 1,
     padding: '3px 9px 4px',
     borderRadius: 3,
@@ -663,14 +667,17 @@ const styles = {
     gap: 4,
     fontFamily: 'Courier New, monospace',
   },
+  // Top-left, right of the 44 px pause button (PauseMenu: left max(12, inset), top max(10, inset)),
+  // vertically centred on it. Keeps the bottom-left free for the floating stick.
   mobileHpBox: {
     position: 'absolute',
-    bottom: 'max(22px, calc(env(safe-area-inset-bottom) + 16px))',
-    left: 10,
+    top: 'max(10px, env(safe-area-inset-top))',
+    left: 'calc(68px + max(0px, env(safe-area-inset-left)))',
+    height: 44,
     display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     fontFamily: 'Courier New, monospace',
   },
   hpBarOuter: {

@@ -40,7 +40,7 @@ export function PickupMesh({ position, onCollect }) {
       {/* Ammo crate body */}
       <mesh castShadow>
         <boxGeometry args={[0.45, 0.32, 0.32]} />
-        <meshStandardMaterial color="#c8a830" roughness={0.6} metalness={0.3} />
+        <meshStandardMaterial color="#c8a830" roughness={0.6} metalness={0.3} emissive="#ffe066" emissiveIntensity={0.45} />
       </mesh>
       {/* Cross stripe */}
       <mesh position={[0, 0, 0.162]}>
@@ -51,8 +51,7 @@ export function PickupMesh({ position, onCollect }) {
         <boxGeometry args={[0.06, 0.31, 0.01]} />
         <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
       </mesh>
-      {/* Glow */}
-      <pointLight color="#ffe066" intensity={1.2} distance={3} />
+      {/* Glow is emissive, not a pointLight: a crate mounting/unmounting must never change the light count (recompiles every lit shader). */}
     </group>
   )
 }
@@ -74,8 +73,9 @@ export default function BulletPickups() {
     }
   }, [phase])
 
-  useFrame((_, delta) => {
-    if (phase !== 'playing') return
+  useFrame((_, rawDelta) => {
+    if (phase !== 'playing' || useGameStore.getState().paused) return
+    const delta = Math.min(rawDelta, 0.05)
 
     spawnTimer.current -= delta
     if (spawnTimer.current <= 0) {

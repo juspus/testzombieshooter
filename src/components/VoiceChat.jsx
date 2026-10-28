@@ -65,7 +65,7 @@ export default function VoiceChat() {
   return (
     <>
       {/* Mic status indicator — top left */}
-      <div style={styles.indicator}>
+      <div style={isMobile ? { ...styles.indicator, top: 'max(26px, calc(env(safe-area-inset-top) + 16px))', left: 'auto', right: 'calc(68px + max(0px, env(safe-area-inset-right)))', fontSize: 11 } : styles.indicator}>
         <div style={{ ...styles.dot, background: micError ? '#ff4444' : talking ? '#00ff88' : 'rgba(255,255,255,0.25)' }} />
         <span style={{ ...styles.label, color: micError ? '#ff4444' : talking ? '#00ff88' : 'rgba(255,255,255,0.35)' }}>
           {micError ? 'MIC ERR' : talking ? 'TALKING' : isMobile ? 'MIC' : 'V — TALK'}
@@ -113,13 +113,17 @@ const styles = {
   },
   pttBtn: {
     position: 'fixed',
-    bottom: 'max(80px, calc(env(safe-area-inset-bottom) + 70px))',
-    left: 16,
-    width: 52,
-    height: 52,
+    // Top-right: the bottom-left is the floating stick zone (or the button cluster when left-handed)
+    top: 'max(10px, env(safe-area-inset-top))',
+    right: 'max(12px, env(safe-area-inset-right))',
+    width: 48,
+    height: 48,
     borderRadius: '50%',
     border: '1px solid',
-    fontSize: 22,
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    color: '#f4efe4',
     cursor: 'pointer',
     zIndex: 10,
     touchAction: 'none',

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGameStore } from '../store'
-import { mobileInput, mobileState, resetMobileInput } from '../mobileInput'
+import { mobileInput, mobileState, resetMobileInput, stickVector, STICK_RADIUS } from '../mobileInput'
+import { useSettings, DEFAULT_BUTTON_OPACITY } from '../settings'
+import { usePauseUi } from '../pause'
 
 function getIsMobile() {
   if (typeof window === 'undefined') return false
@@ -10,26 +12,28 @@ function getIsMobile() {
   return Boolean(coarsePointer || (touchPoints && mobileSized))
 }
 
-function getIsPortrait() {
-  if (typeof window === 'undefined') return false
-  return window.innerHeight > window.innerWidth
+// Layout. All button geometry is in CSS px relative to the FIRE button centre (dx right, dy up),
+// scaled by `k` for the large-buttons setting and mirrored for left-handed play.
+export const HIT_PAD = 8                       // invisible ring around every button's drawn circle
+const FIRE_R = 32
+const USE_R = 26
+const SMALL_R = 24
+const CLUSTER_OFFS = {
+  reload: [-87, -30],
+  swap: [-72, 57],
+  gren: [-11, 91],
+  cycle: [47, 79],
+  use: [-112, 116],
 }
-
-function getIsStandalone() {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true
-}
-
-function getInstallHintDismissed() {
-  if (typeof window === 'undefined') return false
-  return window.localStorage?.getItem('cabinInstallHintDismissed') === '1'
-}
-
-function clampVector(x, y) {
-  const length = Math.hypot(x, y)
-  if (length <= 1) return { x, y }
-  return { x: x / length, y: y / length }
-}
+const ANCHOR_RIGHT = 84                        // FIRE centre to the screen edge (room for CYCLE + margin)
+const ANCHOR_BOTTOM = 70
+// The stick zone and the look zone share one edge: 40% of the screen plus the safe-area inset on
+// the stick's side, so a notch never leaves the look zone under the stick.
+const INSET_L = 'max(0px, env(safe-area-inset-left))'
+const INSET_R = 'max(0px, env(safe-area-inset-right))'
+const INSET_B = 'max(0px, env(safe-area-inset-bottom))'
+export const stickZoneWidth = (leftHanded) => `calc(40% + ${leftHanded ? INSET_R : INSET_L})`
+const STICK_TOP = 110                          // keep clear of the pause button and the HUD top
 
 // How many pixels of movement turns a tap into a drag
 const DRAG_THRESHOLD = 10
@@ -42,12 +46,15 @@ export default function MobileControls() {
   const nearWindowId = useGameStore((s) => s.nearWindowId)
   const nearDoorId = useGameStore((s) => s.nearDoorId)
   const [isMobile, setIsMobile] = useState(getIsMobile)
-  const [isPortrait, setIsPortrait] = useState(getIsPortrait)
-  const [isStandalone, setIsStandalone] = useState(getIsStandalone)
-  const [installHintDismissed, setInstallHintDismissed] = useState(getInstallHintDismissed)
-  const [stick, setStick] = useState({ x: 0, y: 0 })
+  const [stick, setStick] = useState({ on: false, cx: 0, cy: 0, x: 0, y: 0 })
+  const buttonSize = useSettings((s) => s.buttonSize)
+  const buttonOpacity = useSettings((s) => s.buttonOpacity)
+  const leftHanded = useSettings((s) => s.leftHanded)
+  const paused = useGameStore((s) => s.paused)
+  const pauseMenu = usePauseUi((s) => s.menu)
+  const rootRef = useRef(null)
 
-  // Joystick
+  // Joystick (floating: centre is wherever the thumb landed)
   const movePointerRef = useRef(null)
   const stickCenterRef = useRef({ x: 0, y: 0 })
 
@@ -76,6 +83,8 @@ export default function MobileControls() {
   // Wave 3 grenade button: own pointer (hold = cook, release = throw), never turns into a camera drag
   const grenBtnRef = useRef(null)
   const grenPointerRef = useRef(null)
+  // USE button: own pointer too, so holding it (planks, doors, box, bench, revive) never takes the look finger
+  const usePointerRef = useRef(null)
   const grenades = useGameStore((s) => s.grenades)
   const cycleBtnRef = useRef(null)
   const ownedCount = useGameStore((s) => s.ownedWeapons.length)
@@ -84,14 +93,10 @@ export default function MobileControls() {
   const nearMachine = useGameStore((s) => s.nearMachine)
   const nearDownedPartner = useGameStore((s) => s.coopNearPartner)   // W5: interact = revive
   const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null || nearMachine !== null || nearDownedPartner
-  // Never during a wave: it covers the top HUD (wave/kills/money)
-  const showInstallHint = !isStandalone && !installHintDismissed && phase !== 'playing'
 
   useEffect(() => {
     const update = () => {
       setIsMobile(getIsMobile())
-      setIsPortrait(getIsPortrait())
-      setIsStandalone(getIsStandalone())
     }
     const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
     update()
@@ -105,29 +110,45 @@ export default function MobileControls() {
     }
   }, [])
 
-  // When the look zone unmounts (wave_clear, shop open, etc.) the captured
-  // pointer never fires pointerup/pointercancel, leaving lookPointerRef stale.
-  // Use the effect cleanup — it runs exactly when active→false or shopOpen→true,
-  // i.e. right after the look zone div is removed from the DOM.
+  // Drop every tracked pointer. A captured pointer whose zone unmounted, or that was under an
+  // overlay / rotation, never delivers its pointerup, which would leave a ref stale and freeze
+  // look or fire (the 2026-06-15 freeze). Called from effect cleanups below, so it only touches refs.
+  const resetPointers = () => {
+    resetMobileInput()
+    lookPointerRef.current = null
+    shootPointerRef.current = null
+    movePointerRef.current = null
+    grenPointerRef.current = null
+    usePointerRef.current = null
+    lookBtnRef.current = null
+    lookDraggedRef.current = false
+    holdFiredRef.current = false
+    shootDraggedRef.current = false
+    shootHoldFiredRef.current = false
+    clearTimeout(holdTimerRef.current)
+    clearTimeout(shootHoldTimerRef.current)
+    holdTimerRef.current = null
+    shootHoldTimerRef.current = null
+    setStick((st) => (st.on ? { on: false, cx: 0, cy: 0, x: 0, y: 0 } : st))
+  }
+  const resetPointersRef = useRef(resetPointers)
+  resetPointersRef.current = resetPointers
+
+  // Cleanup runs whenever one of these changes: the zones unmount (wave_clear, shop) or an
+  // overlay opens over them (pause, settings, shop). The cleanup runs on every change, so both
+  // opening and closing start from clean pointer state.
+  useEffect(() => () => resetPointersRef.current(), [active, shopOpen, paused, pauseMenu])
+
+  // Rotation and viewport changes (address bar, split view) cancel touches without events.
   useEffect(() => {
-    if (!active || shopOpen) return
+    const drop = () => resetPointersRef.current()
+    window.addEventListener('orientationchange', drop)
+    window.addEventListener('resize', drop)
     return () => {
-      resetMobileInput()
-      lookPointerRef.current = null
-      shootPointerRef.current = null
-      movePointerRef.current = null
-      grenPointerRef.current = null
-      lookBtnRef.current = null
-      lookDraggedRef.current = false
-      holdFiredRef.current = false
-      shootDraggedRef.current = false
-      shootHoldFiredRef.current = false
-      clearTimeout(holdTimerRef.current)
-      clearTimeout(shootHoldTimerRef.current)
-      holdTimerRef.current = null
-      shootHoldTimerRef.current = null
+      window.removeEventListener('orientationchange', drop)
+      window.removeEventListener('resize', drop)
     }
-  }, [active, shopOpen])
+  }, [])
 
   useEffect(() => {
     mobileState.active = isMobile && active && !shopOpen
@@ -140,37 +161,14 @@ export default function MobileControls() {
     clearTimeout(shootHoldTimerRef.current)
   }, [])
 
-  const dismissInstallHint = () => {
-    window.localStorage?.setItem('cabinInstallHintDismissed', '1')
-    setInstallHintDismissed(true)
-  }
-
   const touchGuards = useMemo(() => ({
     onContextMenu: (e) => e.preventDefault(),
     onPointerCancel: () => {
-      movePointerRef.current = null
-      lookPointerRef.current = null
-      shootPointerRef.current = null
-      clearTimeout(holdTimerRef.current)
-      clearTimeout(shootHoldTimerRef.current)
-      holdTimerRef.current = null
-      shootHoldTimerRef.current = null
-      resetMobileInput()
-      setStick({ x: 0, y: 0 })
+      resetPointersRef.current()
     },
   }), [])
 
   if (!isMobile) return null
-
-  if (isPortrait) {
-    return (
-      <div style={styles.rotateOverlay}>
-        <div style={styles.rotateIcon}>↻</div>
-        <div style={styles.rotateTitle}>ROTATE</div>
-        <div style={styles.rotateText}>Landscape only</div>
-      </div>
-    )
-  }
 
   if (!active) return null
   if (shopOpen) return <div style={{ ...styles.root, opacity: 0, pointerEvents: 'none' }} />
@@ -179,23 +177,22 @@ export default function MobileControls() {
 
   const onMoveStart = (e) => {
     e.preventDefault()
+    if (movePointerRef.current !== null) return
     e.currentTarget.setPointerCapture(e.pointerId)
     movePointerRef.current = e.pointerId
-    const rect = e.currentTarget.getBoundingClientRect()
-    stickCenterRef.current = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
-    onMove(e)
+    stickCenterRef.current = { x: e.clientX, y: e.clientY }
+    const r = rootRef.current?.getBoundingClientRect()
+    setStick({ on: true, cx: e.clientX - (r?.left ?? 0), cy: e.clientY - (r?.top ?? 0), x: 0, y: 0 })
   }
 
   const onMove = (e) => {
     if (movePointerRef.current !== e.pointerId) return
     e.preventDefault()
     const center = stickCenterRef.current
-    const rawX = (e.clientX - center.x) / 40
-    const rawY = (e.clientY - center.y) / 40
-    const clamped = clampVector(rawX, rawY)
-    mobileInput.moveX = clamped.x
-    mobileInput.moveY = -clamped.y
-    setStick(clamped)
+    const v = stickVector(e.clientX - center.x, e.clientY - center.y)
+    mobileInput.moveX = v.x
+    mobileInput.moveY = -v.y
+    setStick((st) => ({ ...st, x: v.knobX, y: v.knobY }))
   }
 
   const onMoveEnd = (e) => {
@@ -204,12 +201,15 @@ export default function MobileControls() {
     movePointerRef.current = null
     mobileInput.moveX = 0
     mobileInput.moveY = 0
-    setStick({ x: 0, y: 0 })
+    setStick({ on: false, cx: 0, cy: 0, x: 0, y: 0 })
   }
 
   // ── Hit-test helper ────────────────────────────────────────────────────────
 
+  // Circle hit test with an invisible HIT_PAD ring; the closest edge wins where rings overlap.
   function hitButton(x, y) {
+    let best = null
+    let bestGap = Infinity
     for (const [ref, id] of [
       [shootBtnRef, 'shoot'],
       [interactBtnRef, 'interact'],
@@ -221,9 +221,11 @@ export default function MobileControls() {
       const el = ref.current
       if (!el) continue
       const r = el.getBoundingClientRect()
-      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return id
+      const rad = r.width / 2
+      const gap = Math.hypot(x - (r.left + rad), y - (r.top + r.height / 2)) - rad
+      if (gap <= HIT_PAD && gap < bestGap) { best = id; bestGap = gap }
     }
-    return null
+    return best
   }
 
   // ── Look-zone handlers (cover the whole right half + button area) ──────────
@@ -235,11 +237,13 @@ export default function MobileControls() {
   //     but if it later drags the hold is cancelled and camera takes over
   //   • Touch starts in open space → pure camera look
 
+  // Cancels only what the look finger itself started (held-fire on the FIRE area). The USE finger and
+  // the secondary shoot finger own their own flags and must survive the look finger dragging.
   const cancelHold = () => {
     clearTimeout(holdTimerRef.current)
     holdTimerRef.current = null
-    mobileInput.shootHeld = false
-    mobileInput.interactHeld = false
+    if (holdFiredRef.current && lookBtnRef.current === 'shoot' && shootPointerRef.current === null) mobileInput.shootHeld = false
+    if (holdFiredRef.current && lookBtnRef.current === 'interact' && usePointerRef.current === null) mobileInput.interactHeld = false
   }
 
   const cancelShootHold = () => {
@@ -256,6 +260,14 @@ export default function MobileControls() {
     if (grenPointerRef.current === null && hitButton(e.clientX, e.clientY) === 'grenade') {
       grenPointerRef.current = e.pointerId
       mobileInput.grenadeHeld = true
+      return
+    }
+
+    // USE button: dedicated finger. Held = hold-to-use (boards, doors, box, bench, revive)
+    if (usePointerRef.current === null && hitButton(e.clientX, e.clientY) === 'interact') {
+      usePointerRef.current = e.pointerId
+      mobileInput.interactHeld = true
+      mobileInput.interactPressed = true
       return
     }
 
@@ -318,7 +330,7 @@ export default function MobileControls() {
 
   const onLookMove = (e) => {
     e.preventDefault()
-    if (e.pointerId === grenPointerRef.current) return
+    if (e.pointerId === grenPointerRef.current || e.pointerId === usePointerRef.current) return
     if (e.pointerId === lookPointerRef.current) {
       e.preventDefault()
 
@@ -351,6 +363,12 @@ export default function MobileControls() {
   }
 
   const onLookEnd = (e) => {
+    if (e.pointerId === usePointerRef.current) {
+      e.preventDefault()
+      usePointerRef.current = null
+      mobileInput.interactHeld = false
+      return
+    }
     if (e.pointerId === grenPointerRef.current) {
       e.preventDefault()
       grenPointerRef.current = null
@@ -382,9 +400,9 @@ export default function MobileControls() {
     const dragged = lookDraggedRef.current
     const holdFired = holdFiredRef.current
 
-    // Release held buttons
-    mobileInput.shootHeld = false
-    mobileInput.interactHeld = false
+    // Release only what this finger held (USE and the secondary shoot finger keep their own holds)
+    if (shootPointerRef.current === null) mobileInput.shootHeld = false
+    if (usePointerRef.current === null) mobileInput.interactHeld = false
 
     // Tap: finger up without dragging, and hold timer didn't already activate.
     // A tap on open space (hit === null) or the shoot button fires — any part of
@@ -403,6 +421,11 @@ export default function MobileControls() {
   }
 
   const onLookCancel = (e) => {
+    if (e.pointerId === usePointerRef.current) {
+      usePointerRef.current = null
+      mobileInput.interactHeld = false
+      return
+    }
     if (e.pointerId === grenPointerRef.current) {
       grenPointerRef.current = null
       mobileInput.grenadeHeld = false
@@ -428,64 +451,102 @@ export default function MobileControls() {
 
   const swapIcon = activeItem === 'gun' ? 'KNIFE' : 'GUN'
 
-  return (
-    <div style={styles.root} {...touchGuards}>
-      {showInstallHint && (
-        <div style={styles.installHint} onClick={dismissInstallHint}>
-          <div>
-            <div style={styles.installTitle}>FULLSCREEN MODE</div>
-            <div style={styles.installText}>Share → Add to Home Screen for fullscreen</div>
-          </div>
-          <button
-            type="button"
-            style={styles.installDismiss}
-            onClick={(e) => { e.stopPropagation(); dismissInstallHint() }}
-          >×</button>
-        </div>
-      )}
+  const k = buttonSize === 'large' ? 1.2 : 1
+  const op = buttonOpacity
+  const alpha = (base) => Math.min(1, +(base * op / DEFAULT_BUTTON_OPACITY).toFixed(3))
+  const side = leftHanded ? 'left' : 'right'
+  const sgn = leftHanded ? -1 : 1
+  const insetSide = leftHanded ? INSET_L : INSET_R
+  const zoneW = stickZoneWidth(leftHanded)
+  const glassBg = `rgba(10, 12, 16, ${alpha(0.55)})`
+  // One button of the cluster, centred on (dx, dy) from the FIRE centre (dx right, dy up);
+  // The cluster anchor is a zero-size box at the FIRE centre, so `side`/`bottom` offsets of a child are
+  // measured from that centre. Left-handed mirrors dx by switching `side`.
+  const inward = ([dx, dy], r) => ({
+    position: 'absolute',
+    [side]: (-dx) * k - r * k,
+    bottom: dy * k - r * k,
+    width: 2 * r * k,
+    height: 2 * r * k,
+  })
 
-      {/* Left joystick */}
+  return (
+    <div ref={rootRef} style={styles.root} {...touchGuards}>
+      {/* Floating stick zone: the stick spawns where the thumb lands. Left ~40% of the screen
+          (right in left-handed mode), below the top strip that holds the pause button and HUD. */}
       <div
-        style={styles.moveZone}
+        data-stick-zone
+        style={{ ...styles.moveZone, top: STICK_TOP, width: zoneW, [leftHanded ? 'right' : 'left']: 0 }}
         onPointerDown={onMoveStart}
         onPointerMove={onMove}
         onPointerUp={onMoveEnd}
         onPointerCancel={onMoveEnd}
-      >
-        <div style={styles.stickBase}>
-          <div style={{ ...styles.stickKnob, transform: `translate(${stick.x * 40}px, ${stick.y * 40}px)` }} />
-        </div>
-      </div>
+      />
 
-      {/* Look zone — covers the entire right portion including the button area.
-          All drag events here move the camera; button actions are triggered only
-          by taps (or sustained holds) detected via hit-testing. */}
+      {/* Resting hint: faint ring at the default thumb spot */}
+      {!stick.on && (
+        <div
+          data-stick-hint
+          style={{
+            ...styles.stickHint,
+            [side === 'right' ? 'left' : 'right']: `calc(max(14px, ${leftHanded ? INSET_R : INSET_L}) + 13px)`,
+            bottom: `calc(max(14px, ${INSET_B}) + 13px)`,
+            opacity: Math.min(1, op / DEFAULT_BUTTON_OPACITY) * 0.5,
+          }}
+        />
+      )}
+
+      {/* Live stick */}
+      {stick.on && (
+        <div
+          data-stick-ring
+          style={{ ...styles.stickRing, left: stick.cx - STICK_RADIUS, top: stick.cy - STICK_RADIUS, width: STICK_RADIUS * 2, height: STICK_RADIUS * 2, background: glassBg }}
+        >
+          <div style={{ ...styles.stickKnob, transform: `translate(${stick.x * STICK_RADIUS}px, ${stick.y * STICK_RADIUS}px)`, background: `rgba(220, 230, 240, ${alpha(0.46)})` }} />
+        </div>
+      )}
+
+      {/* Look zone: everything beside the stick zone, button area included. Its inner edge is the
+          stick zone's edge (same expression), so the two never overlap, with or without a notch. */}
       <div
-        style={styles.lookZone}
+        data-look-zone
+        style={{ ...styles.lookZone, [leftHanded ? 'left' : 'right']: 0, [leftHanded ? 'right' : 'left']: zoneW }}
         onPointerDown={onLookStart}
         onPointerMove={onLookMove}
         onPointerUp={onLookEnd}
         onPointerCancel={onLookCancel}
       />
 
-      {/* Visual-only button cluster — pointer-events:none, look zone handles input.
-          Refs are used purely for getBoundingClientRect() hit testing above. */}
-      <div style={styles.actions}>
-        <div style={styles.actionsRow}>
-          <div ref={reloadBtnRef} style={{ ...styles.roundBtn, ...styles.reloadBtn }}>↻</div>
-          <div ref={swapBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>{swapIcon}</div>
-          <div ref={grenBtnRef} style={{ ...styles.roundBtn, ...styles.grenBtn, ...(grenades <= 0 ? { opacity: 0.4 } : {}) }}>
-            GREN<span style={styles.grenCount}>{grenades}</span>
-          </div>
-          {ownedCount > 1 && <div ref={cycleBtnRef} style={{ ...styles.roundBtn, ...styles.swapBtn }}>⇄</div>}
+      {/* Visual-only button cluster: pointer-events none, the look zone does the input. Refs are
+          used for hit testing (drawn circle + HIT_PAD ring). */}
+      <div
+        data-cluster
+        style={{
+          position: 'absolute', width: 0, height: 0, pointerEvents: 'none',
+          [side]: `calc(${insetSide} + ${ANCHOR_RIGHT * k}px)`,
+          bottom: `calc(${INSET_B} + ${ANCHOR_BOTTOM * k}px)`,
+        }}
+      >
+        <div
+          ref={shootBtnRef} data-btn="fire"
+          style={{ ...styles.roundBtn, ...styles.shootBtn, ...inward([0, 0], FIRE_R), background: `rgba(120,20,8,${alpha(0.68)})` }}
+        >●</div>
+        <div
+          ref={interactBtnRef} data-btn="use"
+          style={{
+            ...styles.roundBtn, ...styles.interactBtn, ...inward(CLUSTER_OFFS.use, USE_R), background: glassBg,
+            ...(showInteractHint ? { ...styles.interactActive, background: `rgba(70,46,0,${alpha(0.68)})` } : {}),
+          }}
+        >USE</div>
+        <div ref={reloadBtnRef} data-btn="reload" style={{ ...styles.roundBtn, ...styles.reloadBtn, ...inward(CLUSTER_OFFS.reload, SMALL_R), background: `rgba(8,12,22,${alpha(0.55)})` }}>↻</div>
+        <div ref={swapBtnRef} data-btn="knife" style={{ ...styles.roundBtn, ...styles.swapBtn, ...inward(CLUSTER_OFFS.swap, SMALL_R), background: glassBg }}>{swapIcon}</div>
+        <div
+          ref={grenBtnRef} data-btn="grenade"
+          style={{ ...styles.roundBtn, ...styles.grenBtn, ...inward(CLUSTER_OFFS.gren, SMALL_R), background: `rgba(30,40,12,${alpha(0.62)})`, ...(grenades <= 0 ? { opacity: 0.4 } : {}) }}
+        >
+          GREN<span style={styles.grenCount}>{grenades}</span>
         </div>
-        <div style={styles.actionsRow}>
-          <div
-            ref={interactBtnRef}
-            style={{ ...styles.roundBtn, ...styles.interactBtn, ...(showInteractHint ? styles.interactActive : {}) }}
-          >USE</div>
-          <div ref={shootBtnRef} style={{ ...styles.roundBtn, ...styles.shootBtn }}>●</div>
-        </div>
+        {ownedCount > 1 && <div ref={cycleBtnRef} data-btn="cycle" style={{ ...styles.roundBtn, ...styles.swapBtn, ...inward(CLUSTER_OFFS.cycle, SMALL_R), background: glassBg }}>⇄</div>}
       </div>
     </div>
   )
@@ -508,27 +569,29 @@ const styles = {
     userSelect: 'none',
     WebkitUserSelect: 'none',
   },
+  // Floating stick zone (left ~40% below the top strip; mirrored when left-handed)
   moveZone: {
     position: 'absolute',
-    left: 'max(14px, env(safe-area-inset-left))',
-    bottom: 'max(14px, env(safe-area-inset-bottom))',
-    width: 116,
-    height: 116,
-    borderRadius: 999,
+    bottom: 0,
     pointerEvents: 'auto',
     touchAction: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  stickBase: {
-    ...glass,
+  stickHint: {
+    position: 'absolute',
     width: 90,
     height: 90,
     borderRadius: 999,
+    border: '1px solid rgba(255, 255, 255, 0.28)',
+    pointerEvents: 'none',
+  },
+  stickRing: {
+    position: 'absolute',
+    ...glass,
+    borderRadius: 999,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    pointerEvents: 'none',
   },
   stickKnob: {
     width: 40,
@@ -537,171 +600,65 @@ const styles = {
     background: 'rgba(220, 230, 240, 0.46)',
     border: '1px solid rgba(255,255,255,0.45)',
   },
-  // Look zone covers everything right of the joystick area
+  // Look zone: the rest of the screen. Inner edge is set in render from the stick zone width.
   lookZone: {
     position: 'absolute',
     top: 0,
-    left: 120,
-    right: 0,
     bottom: 0,
     pointerEvents: 'auto',
     touchAction: 'none',
     userSelect: 'none',
     WebkitUserSelect: 'none',
   },
-  // Button cluster — raised up from the bottom, pulled inward from right edge.
-  // pointer-events:none — the look zone handles all input via hit testing.
-  actions: {
-    position: 'absolute',
-    right: 'clamp(12px, 18vw, 170px)',
-    bottom: 'clamp(50px, 15vh, 110px)',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    gap: 7,
-    pointerEvents: 'none',
-  },
-  actionsRow: {
-    display: 'flex',
-    gap: 8,
-    alignItems: 'flex-end',
-  },
-  // Base round button (visual only)
+  // Base round button (visual only; geometry comes from the cluster layout)
   roundBtn: {
     borderRadius: 999,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    boxSizing: 'border-box',
     ...glass,
     color: '#f4efe4',
     fontWeight: 'bold',
+    fontSize: 11,
     textShadow: '0 1px 3px rgba(0,0,0,0.9)',
     userSelect: 'none',
   },
   shootBtn: {
-    width: 58,
-    height: 58,
     fontSize: 24,
-    background: 'rgba(120,20,8,0.68)',
     border: '2px solid rgba(255,100,60,0.6)',
     boxShadow: '0 0 18px rgba(180,40,20,0.45)',
     color: '#ffd6c0',
   },
   interactBtn: {
-    width: 46,
-    height: 46,
-    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
+    fontSize: 12, fontWeight: 'bold', letterSpacing: 1,
   },
   interactActive: {
     border: '1px solid rgba(255,200,50,0.7)',
-    background: 'rgba(70,46,0,0.68)',
     boxShadow: '0 0 14px rgba(210,160,0,0.4)',
   },
   reloadBtn: {
-    width: 36,
-    height: 36,
-    fontSize: 15,
-    color: 'rgba(200,220,240,0.75)',
-    background: 'rgba(8,12,22,0.55)',
+    fontSize: 18,
+    color: 'rgba(200,220,240,0.9)',
   },
   grenBtn: {
-    position: 'relative',
-    width: 36,
-    height: 36,
-    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
-    background: 'rgba(30,40,12,0.62)',
+    fontSize: 11, fontWeight: 'bold', letterSpacing: 0,
     border: '1px solid rgba(150,190,70,0.55)',
   },
   grenCount: {
     position: 'absolute',
     right: -2,
     bottom: -3,
-    minWidth: 14,
-    height: 14,
-    borderRadius: 7,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     background: 'rgba(0,0,0,0.8)',
     color: '#cfe88a',
-    fontSize: 10,
-    lineHeight: '14px',
+    fontSize: 11,
+    lineHeight: '16px',
     textAlign: 'center',
   },
   swapBtn: {
-    width: 36,
-    height: 36,
-    fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
-  },
-  installHint: {
-    position: 'absolute',
-    top: 'max(10px, env(safe-area-inset-top))',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 'min(560px, calc(100vw - 28px))',
-    zIndex: 1,
-    pointerEvents: 'auto',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    padding: '8px 12px',
-    borderRadius: 10,
-    background: 'rgba(0, 0, 0, 0.88)',
-    border: '1px solid rgba(200, 128, 26, 0.55)',
-    boxShadow: '0 0 20px rgba(0,0,0,0.45)',
-    cursor: 'pointer',
-  },
-  installTitle: {
-    color: '#c8801a',
-    fontSize: 9,
-    fontWeight: 'bold',
-    letterSpacing: 3,
-  },
-  installText: {
-    color: '#ddd',
-    fontSize: 10,
-    lineHeight: 1.35,
-  },
-  installDismiss: {
-    width: 28,
-    height: 28,
-    flex: '0 0 auto',
-    borderRadius: 999,
-    border: '1px solid rgba(255,255,255,0.25)',
-    background: 'rgba(255,255,255,0.08)',
-    color: '#f4efe4',
-    fontSize: 18,
-    lineHeight: 1,
-    cursor: 'pointer',
-  },
-  rotateOverlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 100,
-    background: '#020202',
-    color: '#f4efe4',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    textAlign: 'center',
-    fontFamily: 'Courier New, monospace',
-    padding: 28,
-  },
-  rotateIcon: {
-    fontSize: 64,
-    lineHeight: 1,
-    color: '#c8801a',
-  },
-  rotateTitle: {
-    fontSize: 18,
-    letterSpacing: 6,
-    fontWeight: 'bold',
-    color: '#c8801a',
-  },
-  rotateText: {
-    maxWidth: 280,
-    color: '#aaa',
-    fontSize: 13,
-    lineHeight: 1.5,
+    fontSize: 11, fontWeight: 'bold', letterSpacing: 0,
   },
 }

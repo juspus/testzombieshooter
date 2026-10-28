@@ -1,6 +1,6 @@
 // Product analytics: fire-and-forget, batched inserts into public.events.
 // Never throws, never blocks gameplay. No-op in tests / Playwright / when opted out.
-import { supabase } from './supabase'
+import { getSupabase, peekSupabase } from './supabase'
 import { useGameStore } from './store'
 
 const ANON_KEY = 'cabin.anon.v1'
@@ -76,10 +76,13 @@ function hookAuth() {
   if (authHooked) return
   authHooked = true
   try {
-    supabase.auth.getSession()
-      ?.then((r) => { userId = r?.data?.session?.user?.id ?? userId })
-      ?.catch(() => {})
-    supabase.auth.onAuthStateChange((_e, session) => { userId = session?.user?.id ?? null })
+    // The SDK loads lazily; attach once it's there (events before that go out with user_id null).
+    getSupabase().then((supabase) => {
+      supabase.auth.getSession()
+        ?.then((r) => { userId = r?.data?.session?.user?.id ?? userId })
+        ?.catch(() => {})
+      supabase.auth.onAuthStateChange((_e, session) => { userId = session?.user?.id ?? null })
+    }).catch(() => {})
   } catch (e) { warnOnce(e) }
 }
 
@@ -96,10 +99,15 @@ export function flush() {
   if (!queue.length) return
   const rows = queue
   queue = []
-  try {
-    const p = supabase.from('events').insert(rows)
-    if (p && typeof p.then === 'function') p.then((res) => { if (res?.error) warnOnce(res.error) }, warnOnce)
-  } catch (e) { warnOnce(e) }
+  const send = (supabase) => {
+    try {
+      const p = supabase.from('events').insert(rows)
+      if (p && typeof p.then === 'function') p.then((res) => { if (res?.error) warnOnce(res.error) }, warnOnce)
+    } catch (e) { warnOnce(e) }
+  }
+  const loaded = peekSupabase()
+  if (loaded) send(loaded)
+  else getSupabase().then(send, warnOnce)
 }
 
 export function track(name, props = {}) {

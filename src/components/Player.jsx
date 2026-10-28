@@ -87,6 +87,8 @@ function checkWindowShatter(origin, direction, maxDist) {
 }
 import { send, isConnected } from '../net'
 import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
+import { getSettings } from '../settings'
+import { lifecycleInput } from '../pause'
 import * as THREE from 'three'
 import { playDoorDenied } from '../sounds'
 import { doorBuyStatus } from '../doors'
@@ -326,8 +328,8 @@ export default function Player() {
     }
     const onMouseMove = (e) => {
       if (!locked.current || pausedRef.current) return
-      yaw.current -= e.movementX * LOOK_SENSITIVITY
-      pitch.current -= e.movementY * LOOK_SENSITIVITY
+      yaw.current -= e.movementX * LOOK_SENSITIVITY * getSettings().lookSensitivity
+      pitch.current -= e.movementY * LOOK_SENSITIVITY * getSettings().lookSensitivity
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
     }
     const onKeyDown = (e) => {
@@ -570,7 +572,7 @@ export default function Player() {
       }
 
       // Mobile aim assist: if center ray missed, try a small forgiveness cone
-      if (closest === null && mobileState.active) {
+      if (closest === null && mobileState.active && getSettings().aimAssist) {
         const AIM_OFFSETS = [
           { x: 0.04, y: 0 }, { x: -0.04, y: 0 },
           { x: 0, y: 0.04 }, { x: 0, y: -0.04 },
@@ -697,8 +699,9 @@ export default function Player() {
     }
   }, [gl, phase, requestLock, shoot, knifeSwing])
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
     if (phase !== 'playing' && phase !== 'intermission') return
+    const delta = Math.min(rawDelta, 0.05)   // a long frame (notification pull-down) must not teleport anything
 
     const mobilePressed = consumeMobilePressed()
     const mobileLook = consumeMobileLook()
@@ -740,8 +743,9 @@ export default function Player() {
     if (shopOpenRef.current || pausedRef.current) return
 
     if (mobileLook.x !== 0 || mobileLook.y !== 0) {
-      yaw.current -= mobileLook.x * MOBILE_LOOK_SENSITIVITY
-      pitch.current -= mobileLook.y * MOBILE_LOOK_SENSITIVITY
+      const sens = MOBILE_LOOK_SENSITIVITY * getSettings().lookSensitivity
+      yaw.current -= mobileLook.x * sens
+      pitch.current -= mobileLook.y * sens
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
     }
 
@@ -756,7 +760,7 @@ export default function Player() {
     }
 
     // Mobile auto-shoot: fires when a zombie is in the crosshair
-    if (mobileState.active && phase === 'playing' && activeItemRef.current === 'gun') {
+    if (mobileState.active && getSettings().autoShoot && phase === 'playing' && activeItemRef.current === 'gun') {
       autoShootCooldownRef.current -= delta
       const isFlamethrower = weaponRef.current === 'flamethrower'
       const hasAmmo = isFlamethrower
@@ -981,7 +985,7 @@ export default function Player() {
 
     // Hold T to skip intermission (2-second hold)
     if (phase === 'intermission') {
-      if (keys.current['KeyT']) {
+      if (keys.current['KeyT'] || lifecycleInput.skipHeld) {
         skipTimerRef.current += delta
         setSkipProgress(Math.min(skipTimerRef.current / SKIP_TIME, 1))
         if (skipTimerRef.current >= SKIP_TIME) {
@@ -1090,7 +1094,9 @@ export default function Player() {
 
     let movedDist = 0
     if (dir.lengthSq() > 0) {
-      dir.normalize().multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * (downed ? DOWN_SPEED_MULT : 1) * delta)
+      // Analog: only clamp to unit length (keys give 1 or 1.41 -> full speed; a light stick push stays slow)
+      if (dir.lengthSq() > 1) dir.normalize()
+      dir.multiplyScalar(moveSpeedForPerks(perksRef.current, bodyArmorRef.current) * (downed ? DOWN_SPEED_MULT : 1) * delta)
       const R = 0.35
       const ws = wallsRef.current
       const cx = camera.position.x

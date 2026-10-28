@@ -148,8 +148,9 @@ function GlassShards({ win }) {
     }
   }, [isBroken, win])
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
     if (!active.current) return
+    const delta = Math.min(rawDelta, 0.05)
     elapsed.current += delta
     if (elapsed.current > 0.8) {
       active.current = false
@@ -548,10 +549,10 @@ export default function DinerArena() {
            point lights for interior glow. No new shadow casters. ── */}
       <ambientLight intensity={0.6} color="#dce4e8" />
       <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.6} castShadow
-        shadow-mapSize-width={1024} shadow-mapSize-height={1024}
+        shadow-mapSize-width={512} shadow-mapSize-height={512}
         shadow-camera-near={1} shadow-camera-far={80}
-        shadow-camera-left={-30} shadow-camera-right={30}
-        shadow-camera-top={30} shadow-camera-bottom={-30}
+        shadow-camera-left={-14} shadow-camera-right={14}
+        shadow-camera-top={14} shadow-camera-bottom={-14}
       />
       <hemisphereLight skyColor="#3a4858" groundColor="#100c08" intensity={0.45} />
       <DinerBulbs />

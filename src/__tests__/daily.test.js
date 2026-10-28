@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, beforeAll, afterEach, vi } from 'vitest'
 
 vi.mock('../profilePersistence', () => ({ persistProfile: vi.fn() }))
 
@@ -10,7 +10,7 @@ import {
   dailyDate, weekStartUTC, msToWeekReset, msToNextDaily, formatCountdown, canStartDaily,
   readLocalDaily, writeLocalDaily, dailyAttemptUsed,
 } from '../daily'
-import { isMissingSchema, fetchLeaderboard, supabase } from '../supabase'
+import { isMissingSchema, fetchLeaderboard, getSupabase } from '../supabase'
 
 const S = () => useGameStore.getState()
 afterEach(() => { endSeededRun(); vi.restoreAllMocks() })
@@ -140,6 +140,8 @@ describe('week / day maths (UTC)', () => {
 })
 
 describe('graceful degradation', () => {
+  let supabase
+  beforeAll(async () => { supabase = await getSupabase() })
   const fakeFrom = (byView) => vi.spyOn(supabase, 'from').mockImplementation((view) => {
     const res = byView[view]
     const q = { select: () => q, order: () => q, limit: () => q, gte: () => q, then: (ok) => ok(res) }

@@ -42,7 +42,7 @@ export default function ShellCasings() {
   }
 
   useFrame((_, rawDelta) => {
-    const delta = rawDelta * time.scale  // last-kill slow-mo
+    const delta = Math.min(rawDelta, 0.05) * time.scale  // last-kill slow-mo
     for (let i = 0; i < POOL_SIZE; i++) {
       const slot = pool[i]
       if (!slot.active) continue

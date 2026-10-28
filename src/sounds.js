@@ -1,13 +1,56 @@
 // Procedural sound synthesis via Web Audio API — no audio files required.
 import { modFx } from './modifiers'   // Wave 3: Fog modifier boosts idle groans
+import { useSettings } from './settings'
 
 let _ctx = null
+let _audioHold = false   // true while the game is paused: don't auto-resume the context
 
 function ctx() {
-  if (!_ctx) { _ctx = new AudioContext(); _installMasterBus(_ctx) }
-  // Resume if browser suspended it (autoplay policy)
-  if (_ctx.state === 'suspended') _ctx.resume()
+  if (!_ctx) { _ctx = new (window.AudioContext || window.webkitAudioContext)(); _installMasterBus(_ctx) }
+  // Resume if browser suspended it (autoplay policy), but not while paused
+  if (_ctx.state === 'suspended' && !_audioHold) _ctx.resume()
   return _ctx
+}
+
+// Shared AudioContext (progressSounds uses this too). Created lazily.
+export function getAudioContext() { return ctx() }
+
+// Pause / unpause: suspend the context while the game is paused, resume after.
+export function setAudioHold(hold) {
+  _audioHold = hold
+  if (!_ctx) return
+  try {
+    if (hold) _ctx.suspend?.()
+    else _ctx.resume?.()
+  } catch { /* audio unavailable */ }
+}
+
+// Explicit unlock on the first user gesture (iOS needs a resume() inside a gesture).
+// Creates the shared context on that first gesture so later sounds start unlocked.
+let _unlockInstalled = false
+export function installAudioUnlock() {
+  if (_unlockInstalled || typeof document === 'undefined') return
+  _unlockInstalled = true
+  const events = ['pointerdown', 'touchend', 'keydown']
+  const unlock = () => {
+    try {
+      const ac = ctx()
+      if (_audioHold) return
+      const p = ac.resume?.()
+      const done = () => {
+        if (ac.state === 'running') events.forEach((e) => document.removeEventListener(e, unlock, true))
+      }
+      if (p?.then) p.then(done, () => {}); else done()
+    } catch { /* audio unavailable */ }
+  }
+  events.forEach((e) => document.addEventListener(e, unlock, true))
+}
+
+// Master volume (0..1) from the settings store.
+let _volGain = null
+export function applyMasterVolume(v) {
+  if (!_volGain || !_ctx) return
+  _volGain.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), _ctx.currentTime, 0.03)
 }
 
 // ─── master bus (low-HP / slow-mo muffle) ────────────────────────────────────
@@ -21,13 +64,17 @@ let _muffleDanger = 0
 let _muffleSlow = 0
 
 function _installMasterBus(ac) {
-  _realDest = ac.destination
+  _volGain = ac.createGain()
+  _volGain.gain.value = useSettings.getState().volume
+  _volGain.connect(ac.destination)
+  _realDest = _volGain   // everything, filtered or bypassing the filter, goes through master volume
   _masterLP = ac.createBiquadFilter()
   _masterLP.type = 'lowpass'
   _masterLP.frequency.value = 22000
   _masterLP.Q.value = 0.5
   _masterLP.connect(_realDest)
   Object.defineProperty(ac, 'destination', { get: () => _masterLP, configurable: true })
+  useSettings.subscribe((st, prev) => { if (st.volume !== prev.volume) applyMasterVolume(st.volume) })
 }
 
 function _applyMuffle() {

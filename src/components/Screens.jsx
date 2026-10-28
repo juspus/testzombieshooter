@@ -17,6 +17,11 @@ import StartPicker, { useLoadoutSummary } from './StartPicker'
 import { hintsActive } from '../hints'
 import BrightnessSlider from './BrightnessSlider'
 import { Button, Panel, Tabs, SectionLabel, LockIcon } from './ui'
+import { SkipHoldButton, ControlSettings } from './PauseMenu'
+import useMenuEnv from '../menuTouch'
+import InstallHint from './InstallHint'
+import { CheckIcon, StarIcon } from './Icons'
+import { enterRunFullscreen } from '../fullscreen'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -169,6 +174,7 @@ export default function Screens() {
 
   if (phase === 'dead') {
     const handleRestart = () => {
+      enterRunFullscreen()
       startGame()
       if (isConnected()) send('game_event', { event: 'start_game', data: {} })
     }
@@ -239,9 +245,9 @@ function ModifierCard({ mod, compact }) {
     }}>
       <span>
         <div style={{ color: mod.color, fontWeight: 'bold', letterSpacing: 3, fontSize: compact ? 12 : 16 }}>
-          {mod.name} <span style={{ color: '#88cc44', letterSpacing: 1, fontSize: compact ? 10 : 12 }}>+€{MOD_BONUS}</span>
+          {mod.name} <span style={{ color: '#88cc44', letterSpacing: 1, fontSize: compact ? 'max(var(--ui-fs-min), 10px)' : 12 }}>+€{MOD_BONUS}</span>
         </div>
-        <div style={{ color: '#ccc', fontSize: compact ? 10 : 13, letterSpacing: 1 }}>{mod.desc}</div>
+        <div style={{ color: '#ccc', fontSize: compact ? 'max(var(--ui-fs-min), 10px)' : 13, letterSpacing: 1 }}>{mod.desc}</div>
       </span>
     </div>
   )
@@ -261,12 +267,12 @@ const styles = {
     borderRadius: 6,
     color: '#bbb',
     fontFamily: 'Courier New, monospace',
-    fontSize: 'clamp(9px, 2vmin, 13px)',
+    fontSize: 'max(var(--ui-fs-min), clamp(9px, 2vmin, 13px))',
     letterSpacing: 1,
   },
   bonusTitle: {
     color: '#ffe066',
-    fontSize: 'clamp(8px, 1.5vmin, 11px)',
+    fontSize: 'max(var(--ui-fs-min), clamp(8px, 1.5vmin, 11px))',
     letterSpacing: 4,
     fontWeight: 'bold',
     marginBottom: 'clamp(4px, 1vmin, 8px)',
@@ -318,6 +324,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
   return (
     <div style={{
       ...panelStyle,
+      ...(isMobile ? { zIndex: 7 } : null),   // above the touch look zone so the skip button gets taps
       border: `1px solid ${urgent ? 'rgba(255,50,0,0.6)' : 'rgba(255,200,0,0.3)'}`,
     }}>
       <div style={titleStyle}>
@@ -341,6 +348,7 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
           {isMobile ? 'USE: board windows · €2.50' : 'E: board windows · €2.50'}
         </div>
       )}
+      {isMobile && <SkipHoldButton progress={skipProgress} />}
       {!isMobile && (
         <div style={skipStyle}>
           <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>
@@ -465,6 +473,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const handleJoin = useCallback((override) => {
     const code = (typeof override === 'string' ? override : joinCode).trim()
     if (!code) return
+    enterRunFullscreen()   // the guest's run starts without another tap, so this is its gesture
     const from = typeof override === 'string' ? 'invite' : 'idle'
     if (from === 'idle') setCoop('guest')
     setStatus('…')
@@ -490,6 +499,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
 
   const handleStartGame = useCallback(() => {
     if (mapMismatch) return
+    enterRunFullscreen()
     startGame()
     if (isConnected()) send('game_event', { event: 'start_game', data: {} })
   }, [startGame, mapMismatch])
@@ -647,7 +657,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
           {!isMobile && hintsActive() && <div className="menu-hint">WASD · Mouse · Click</div>}
         </div>
         <nav className="menu-nav" aria-label="Main menu">
-          <Button variant="primary" size="lg" block onClick={startGame} disabled={roomOpen} data-testid="menu-play">Play</Button>
+          <Button variant="primary" size="lg" block onClick={() => { enterRunFullscreen(); startGame() }} disabled={roomOpen} data-testid="menu-play">Play</Button>
           <MenuItem label="Daily Run" meta={daily.meta} tone={daily.used ? null : 'warm'} onClick={daily.start} disabled={roomOpen} testid="menu-daily" />
           <MenuItem label="Co-op" meta={coopMeta} active={panel === 'coop'} onClick={() => togglePanel('coop')} testid="menu-coop" />
           <div className="menu-sep" />
@@ -660,6 +670,8 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       </div>
 
       {detail && <div className="menu-detail">{detail}</div>}
+      {/* iOS Safari tip: always mounted (so it is shown once per device), hidden while a panel is open */}
+      <div className={`menu-install${panel ? ' is-hidden' : ''}`}><InstallHint /></div>
     </div>
   )
 }
@@ -674,9 +686,16 @@ function MenuItem({ label, meta, tone, active, onClick, disabled, testid }) {
 }
 
 function SettingsPanel({ user, username, onRename }) {
+  const { touch } = useMenuEnv()
   return (
     <div>
-      <SectionLabel>Display</SectionLabel>
+      {touch && (
+        <>
+          <SectionLabel>Controls</SectionLabel>
+          <ControlSettings brightness={false} />
+        </>
+      )}
+      <SectionLabel style={touch ? { marginTop: 18 } : undefined}>Display</SectionLabel>
       <BrightnessSlider />
       <ReduceMotionToggle />
       <SectionLabel style={{ marginTop: 18 }}>Account</SectionLabel>
@@ -798,7 +817,7 @@ const intermissionStyles = {
     fontWeight: 'bold',
   },
   mobileTitle: {
-    fontSize: 7,
+    fontSize: 11,
     letterSpacing: 1.5,
     whiteSpace: 'nowrap',
   },
@@ -819,7 +838,7 @@ const intermissionStyles = {
     marginTop: 2,
   },
   mobileReward: {
-    fontSize: 8,
+    fontSize: 11,
     letterSpacing: 1,
     marginTop: 0,
   },
@@ -830,7 +849,7 @@ const intermissionStyles = {
     marginTop: 2,
   },
   mobileHint: {
-    fontSize: 7,
+    fontSize: 11,
     letterSpacing: 0.8,
     marginTop: 0,
     whiteSpace: 'nowrap',
@@ -868,7 +887,7 @@ function Overlay({ children, dim = 0.78 }) {
 function Badge({ children, style }) {
   return (
     <div style={{
-      fontSize: 'clamp(9px, 2.2vmin, 14px)',
+      fontSize: 'max(var(--ui-fs-min), clamp(9px, 2.2vmin, 14px))',
       letterSpacing: 'max(2px, 1vmin)',
       fontWeight: 'bold',
       ...style,
@@ -880,7 +899,7 @@ function Sub({ children, style }) {
   return (
     <p style={{
       color: '#aaa',
-      fontSize: 'clamp(10px, 2.2vmin, 16px)',
+      fontSize: 'max(var(--ui-fs-min), clamp(10px, 2.2vmin, 16px))',
       margin: 0,
       letterSpacing: 1,
       ...style,
@@ -981,6 +1000,8 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
+      boxSizing: 'border-box',
+      padding: 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)',
       overflowY: 'auto',            // short landscape phones: the breakdown scrolls
       WebkitOverflowScrolling: 'touch',
       background: `rgba(0,0,0,${0.3 + opacity * 0.55})`,
@@ -1004,7 +1025,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
       <div style={{
         opacity: opacity * 0.6,
         color: '#888',
-        fontSize: 'clamp(10px, 2vmin, 14px)',
+        fontSize: 'max(var(--ui-fs-min), clamp(10px, 2vmin, 14px))',
         letterSpacing: 4,
         marginTop: 'clamp(6px, 1.5vmin, 16px)',
         fontFamily: 'Courier New, monospace',
@@ -1034,7 +1055,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
           opacity,
           marginTop: 'clamp(6px, 1.5vmin, 14px)',
           color: '#ffd166',
-          fontSize: 'clamp(10px, 2vmin, 13px)',
+          fontSize: 'max(var(--ui-fs-min), clamp(10px, 2vmin, 13px))',
           letterSpacing: 3,
           fontFamily: 'Courier New, monospace',
           textTransform: 'uppercase',
@@ -1149,7 +1170,7 @@ function LockerTile({ kind, item, selected, unlocked, onEquip }) {
         borderRadius: 4,
         color: unlocked ? (selected ? '#fff' : '#bbb') : '#555',
         fontFamily: 'Courier New, monospace',
-        fontSize: 'clamp(9px, 1.8vmin, 12px)',
+        fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.8vmin, 12px))',
         letterSpacing: 1,
         textTransform: 'uppercase',
         cursor: unlocked ? 'pointer' : 'not-allowed',
@@ -1169,9 +1190,9 @@ function LockerTile({ kind, item, selected, unlocked, onEquip }) {
           }} />
         ) : null}
       </span>
-      <span>{item.label}{selected ? ' ✓' : ''}</span>
+      <span>{item.label}{selected ? <> <CheckIcon /></> : ''}</span>
       {!unlocked && (
-        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontSize: 'clamp(7px, 1.3vmin, 9px)', color: '#777', letterSpacing: 0, textAlign: 'center', lineHeight: 1.2 }}>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontSize: 'max(var(--ui-fs-min), clamp(7px, 1.3vmin, 9px))', color: '#777', letterSpacing: 0, textAlign: 'center', lineHeight: 1.2 }}>
           <LockIcon /> {unlockText(item)}
         </span>
       )}
@@ -1251,7 +1272,7 @@ function LockerPanel({ user, notice }) {
   const supportBtn = (props) => <Button variant="gold" style={{ marginTop: 'clamp(8px, 1.6vmin, 12px)' }} {...props} />
   let button
   if (owned) {
-    button = supportBtn({ disabled: true, children: '★ Supporter' })
+    button = supportBtn({ disabled: true, children: <><StarIcon /> Supporter</> })
   } else if (!config) {
     button = supportBtn({ disabled: true, children: '…' })
   } else if (!config.checkoutEnabled) {
@@ -1265,7 +1286,7 @@ function LockerPanel({ user, notice }) {
   return (
     <div>
       {notice && (
-        <div style={{ marginBottom: 10, color: '#88cc44', fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 1, textAlign: 'center' }}>
+        <div style={{ marginBottom: 10, color: '#88cc44', fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.9vmin, 13px))', letterSpacing: 1, textAlign: 'center' }}>
           {notice}
         </div>
       )}
@@ -1276,18 +1297,18 @@ function LockerPanel({ user, notice }) {
       <LockerRow title="Knife">{renderTiles('knifeSkin', itemsOfKind('knifeSkin'))}</LockerRow>
 
       <div style={{ padding: 'clamp(8px, 1.8vmin, 14px) 0 0', borderTop: '1px solid var(--ui-line)', textAlign: 'center' }}>
-        <div style={{ color: '#ffd166', fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 3, fontWeight: 'bold' }}>
+        <div style={{ color: '#ffd166', fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.9vmin, 13px))', letterSpacing: 3, fontWeight: 'bold' }}>
           SUPPORT THE DEV — {priceLabel} · one-time
         </div>
-        <div style={{ color: '#888', fontSize: 'clamp(8px, 1.6vmin, 11px)', letterSpacing: 1, lineHeight: 1.6, marginTop: 4 }}>
-          Gold &amp; Obsidian finishes · Dot, Chevron &amp; Circle crosshairs · Red &amp; Cyan colours · Ember knife · ★ leaderboard badge
+        <div style={{ color: '#888', fontSize: 'max(var(--ui-fs-min), clamp(8px, 1.6vmin, 11px))', letterSpacing: 1, lineHeight: 1.6, marginTop: 4 }}>
+          Gold &amp; Obsidian finishes · Dot, Chevron &amp; Circle crosshairs · Red &amp; Cyan colours · Ember knife · leaderboard badge
         </div>
-        <div style={{ color: '#666', fontSize: 'clamp(8px, 1.5vmin, 10px)', letterSpacing: 1, marginTop: 2 }}>
+        <div style={{ color: '#666', fontSize: 'max(var(--ui-fs-min), clamp(8px, 1.5vmin, 10px))', letterSpacing: 1, marginTop: 2 }}>
           Cosmetics only — the whole game stays free.
         </div>
         {button}
         {error && (
-          <div role="alert" style={{ color: '#ff6644', fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 1, marginTop: 6 }}>{error}</div>
+          <div role="alert" style={{ color: '#ff6644', fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.7vmin, 12px))', letterSpacing: 1, marginTop: 6 }}>{error}</div>
         )}
       </div>
     </div>
@@ -1303,7 +1324,7 @@ function DeathStat({ label, value }) {
       textAlign: 'center',
       textTransform: 'uppercase',
     }}>
-      <div style={{ color: '#666', fontSize: 'clamp(8px, 1.4vmin, 10px)', letterSpacing: 2 }}>{label}</div>
+      <div style={{ color: '#666', fontSize: 'max(var(--ui-fs-min), clamp(8px, 1.4vmin, 10px))', letterSpacing: 2 }}>{label}</div>
       <div style={{ color: '#ccc', fontSize: 'clamp(11px, 2.5vmin, 16px)', letterSpacing: 2, marginTop: 'clamp(2px, 0.5vmin, 4px)' }}>{value}</div>
     </div>
   )
@@ -1312,7 +1333,7 @@ function DeathStat({ label, value }) {
 const deathBtnStyle = { minWidth: 'clamp(110px, 22vmin, 170px)' }
 const deathNoteStyle = {
   color: '#aaa',
-  fontSize: 'clamp(10px, 2vmin, 13px)',
+  fontSize: 'max(var(--ui-fs-min), clamp(10px, 2vmin, 13px))',
   letterSpacing: 3,
   fontFamily: 'Courier New, monospace',
   textAlign: 'center',

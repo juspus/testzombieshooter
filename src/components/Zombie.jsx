@@ -1046,7 +1046,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   useFrame((_, rawDelta) => {
     if (hidden || !ref.current) return
     if (corpseRef.current) return   // settled corpse: frozen, no per-frame work
-    const delta = rawDelta * time.scale  // last-kill slow-mo
+    const delta = Math.min(rawDelta, 0.05) * time.scale  // last-kill slow-mo
     if (useGameStore.getState().paused) return
 
     // Hit reactions (flash / lean / head snap) — ref-driven, only while active

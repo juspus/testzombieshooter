@@ -35,7 +35,8 @@ function DoorBarricade({ def }) {
   const postArgs = alongZ ? [BOARD_T + 0.06, 2.3, 0.16] : [0.16, 2.3, BOARD_T + 0.06]
   const postOff = length / 2
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    const delta = Math.min(rawDelta, 0.05)
     const g = groupRef.current
     if (!g) return
     const t0 = tRef.current

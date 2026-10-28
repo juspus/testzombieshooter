@@ -47,6 +47,22 @@ storage = new player). Days are UTC.
 6. **Co-op share**: `game_start` by `mp`. Both co-op players emit a run, so it is a share
    of player-runs, not matches (matches ~ host runs).
 
+## Mobile vs desktop split
+
+`supabase/queries/retention_mobile_split.sql` repeats the headline numbers per `events.client`
+(`mobile` | `desktop`; older rows with no client show as `unknown`). Paste one query at a time:
+
+1. **Wave reached**: median and p75 per run, by client.
+2. **Runs per session**: avg, median and % of sessions with no run, by client.
+3. **D1 / D7 return**: pooled over the last 60 days of cohorts. A player's client is the client
+   of their first event; a return counts on any client. `d1_n` / `d7_n` are the denominators.
+4. **Where people quit**: per client and wave, runs that ended by death vs left alive. There is no
+   phase in the events, so wave plus died/left_alive is the finest view.
+
+Written against the schema but not executed (no local Postgres in the build sandbox): if a
+query errors in the SQL editor, fix it there and tell whoever owns this file. Assumptions are in
+the file header.
+
 ## Perf debug params (not analytics, same gating)
 
 `/?perf` shows an FPS / frame time / draw calls / triangles / geometries / textures /

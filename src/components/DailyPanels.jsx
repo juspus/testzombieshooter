@@ -1,5 +1,7 @@
 import { applyMapChoice } from '../mapSelect'
 import { Tabs } from './ui'
+import { StarIcon } from './Icons'
+import { enterRunFullscreen } from '../fullscreen'
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../store'
 import { fetchLeaderboard, fetchDailyAttemptUsed } from '../supabase'
@@ -40,7 +42,7 @@ export function useDailyEntry() {
     used,
     meta: `${used ? 'Practice' : 'Ranked'} · ${onCabin ? formatCountdown(msToNextDaily()) : 'Cabin'}`,
     // The daily is cabin-only (fixed seed): from another map, switch back and reload.
-    start: () => { if (onCabin) startDaily(!used); else applyMapChoice('cabin') },
+    start: () => { if (onCabin) { enterRunFullscreen(); startDaily(!used) } else applyMapChoice('cabin') },
   }
 }
 
@@ -83,17 +85,17 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
     : tab === 'daily' ? `${dailyDate()} · ${formatCountdown(msToNextDaily())}` : null
 
   return (
-    <div style={bare ? { fontSize: 'clamp(9px, 1.9vmin, 13px)' } : {
+    <div style={bare ? { fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.9vmin, 13px))' } : {
       width: 'min(420px, 92vw)',
       background: 'rgba(0,0,0,0.6)',
       border: '1px solid rgba(255,50,0,0.25)',
       borderRadius: 3,
       fontFamily: 'Courier New, monospace',
-      fontSize: 'clamp(9px, 1.9vmin, 13px)',
+      fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.9vmin, 13px))',
       overflow: 'hidden',
     }}>
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
-      {sub && <div style={{ color: '#666', textAlign: 'center', padding: '5px 8px 0', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2 }}>{sub}</div>}
+      {sub && <div style={{ color: '#666', textAlign: 'center', padding: '5px 8px 0', fontSize: 'max(var(--ui-fs-min), clamp(7px, 1.4vmin, 10px))', letterSpacing: 2 }}>{sub}</div>}
       {state === 'error' && <div style={{ color: '#ff6644', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Failed</div>}
       {state === 'unavailable' && <div style={{ color: '#887', textAlign: 'center', padding: 12, letterSpacing: 2 }}>{COMING_SOON[tab]}</div>}
       {state === 'loading' && <div style={{ color: '#555', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Loading…</div>}
@@ -102,7 +104,7 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
       )}
       {state === 'ok' && rows && rows.length > 0 && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: '0 10px', padding: bare ? '5px 0' : '5px 14px', color: '#555', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: '0 10px', padding: bare ? '5px 0' : '5px 14px', color: '#555', fontSize: 'max(var(--ui-fs-min), clamp(7px, 1.4vmin, 10px))', letterSpacing: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
             <span>#</span><span>NAME</span><span style={{ textAlign: 'right' }}>WAVE</span><span style={{ textAlign: 'right' }}>KILLS</span>
           </div>
           {rows.map((row, i) => {
@@ -119,7 +121,7 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
               }}>
                 <span style={{ color: i === 0 ? '#ff3300' : '#555' }}>{i + 1}</span>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {row.is_supporter && <span title="Supporter" aria-label="Supporter" style={{ color: '#ffd166' }}>★ </span>}
+                  {row.is_supporter && <span title="Supporter" aria-label="Supporter" style={{ color: '#ffd166' }}><StarIcon /> </span>}
                   {row.name}
                 </span>
                 <span style={{ textAlign: 'right' }}>{row.wave}</span>

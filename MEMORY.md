@@ -10,6 +10,39 @@ start of every session. Keep entries short — a few lines each.
   first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
   brightness slider (src/brightness.js). Bloodlust speed 1.4x (2x too hard).
 - Cancelled by owner (stopped agents): Barn map, cabin escape quest. Don't restart unasked.
+- Mobile roadmap (2026-10-27): https://claude.ai/artifact/Y6wqJxYQUme3yGerfDAZJz
+  (source `docs/mobile-roadmap.html`, screenshots inlined as base64; republish
+  from that file with the URL). Same picks model as the main roadmap: ArtifactData
+  `list` on `calls` (ids `m-*`, decision `d-portrait` = A/B/C/talk) and write
+  `progress/<id>` when building/shipped. Waves: M1 Unbreak (pause, shadow diet,
+  touch skip, 48px buttons, notch, offline cache, overlaps, wording, emoji) ->
+  M2 Teach and tune (coach marks, settings panel, text floor, menus, USE finger,
+  floating stick) -> M3 Feels native -> M4 Hold the frame (invisible perf only).
+- Mobile roadmap BUILT (2026-10-28, PR #127, branch claude/mobile-ux-roadmap):
+  every owner-Go item shipped. CLAUDE.md "Mobile layer" has the rules.
+  - Owner Skips: m-haptics, m-onboard, m-wording, m-merge. "WASD · Mouse ·
+    Click" on phones stays on purpose.
+  - Owner-only, still open:
+    - run ?bench on a real phone (m-baseline);
+    - pick a TURN provider and set TURN_URLS/TURN_USERNAME/TURN_CREDENTIAL
+      in Vercel (Cloudflare ephemeral creds not built: docs host was blocked
+      in the sandbox);
+    - check the service worker now installs on production.
+  - Nothing was playtested on a real phone or by ear yet.
+  - The mobile-split SQL ran fine on live data, but there's almost no data:
+    17 desktop runs and 1 mobile run in 60 days.
+  - Rebased onto main on 2026-10-28, after #130 (keep all guns) and #129
+    (UI-kit menu rework). #129's menus won the conflicts, and the phone rules
+    (44 px, 11 px, no emoji, install hint, run-start fullscreen) were re-applied
+    on the kit via ui.css coarse-pointer overrides. The start-menu SETTINGS
+    screen also shows the control settings on touch devices
+    (`ControlSettings` in PauseMenu.jsx).
+  - Gotchas from the build:
+    - Agent worktrees branch from main, not the integration branch, so tell
+      agents to `git merge --ff-only <branch>` first.
+    - `pkill -f "<pattern>"` inside a Bash call can kill that same shell.
+    - Sonnet agents may write their own model name in the Co-Authored-By
+      trailer, so check before merging.
 - Crossbow reworked: repeating (mag 5), pierces 6, retrievable bolts (Bolts.jsx,
   store.collectBolt), Wraith = exploding bolts (source 'bolt'); CROSSBOW constants in weaponRules.js.
 - Cabin furnished (Evil Dead look): pieces in src/furniturePieces.js, merged per room by
@@ -202,6 +235,27 @@ onboarding summary — see CLAUDE.md for architecture detail.
   is Chrome's own unlock key; Windows re-handles the press after we re-lock.
   Linux/headless Chrome can't reproduce that, so pointer-lock changes need an
   owner test on Windows.
+
+- 2026-10-27: Mobile playability/UX audit and roadmap (artifact above).
+  Four Sonnet audit agents (touch controls, screens/HUD at 844x390, 667x375
+  and 390x844, perf/platform, a mobile-shooter benchmark) and one builder
+  agent. Verdict: it runs, but a phone player isn't treated as a real player.
+  - 36 px buttons and 7 px HUD text.
+  - No solo pause.
+  - No touch skip for the intermission.
+  - No touch onboarding: the start screen says "WASD · Mouse · Click" on phones.
+  - Portrait is a rotate wall, even for invite links.
+  The perf audit recommends against quality tiers, matching the owner's skip;
+  the cost is in shadows and static draw calls.
+- 2026-10-28: Owner said Go on 21 mobile items. Built by 6 Sonnet (medium)
+  worktree agents, at most 2 at a time: lifecycle, perf, controls, menus,
+  net and QA. Merged onto PR #127. 392 tests pass.
+  - Cabin wave-1 shadow casters went from 761 to 58 and draws from 1201 to
+    498, with a perfGuards test.
+  - The main JS entry went from 492 to 146 kB gzip (PeerJS and Supabase are
+    lazy now).
+  - The QA pass found a ghost-buy: the USE tap that opens the shop could
+    buy the row under the finger. Fixed in Shop.jsx.
 
 - 2026-10-26: Built the visual roadmap (artifact above). Diagnosis of the
   "flash game" feel: flat look (no post, rigid camera), hits don't land (no
