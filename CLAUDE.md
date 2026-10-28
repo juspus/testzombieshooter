@@ -285,7 +285,7 @@ Two-player co-op over WebSocket (`net.js`). One player is **host**, one is **gue
 |---|---|
 | Feel | `FeelFx.jsx` (hit markers, danger, last-kill), `timeScale.js` (multiply frame deltas by `time.scale`), `cameraFeel.js`, `BloodFX.jsx`, `ImpactFX.jsx`, `hitFx.js` |
 | Look | `LofiPass.jsx` (low-res dither post pass; `?lofi=0`), `textures.js`, `zombieVariant.js`, `Storm.jsx`, `LivingLights.jsx` (`?nofx`) |
-| Run | `doors.js` + `DOOR_COSTS`/`ROOM_ANCHORS` in maps, `powerups.js`, `zombieSpecials.js` (exploder/armored/spitter), `modifiers.js`, `weaponRules.js` (box/bench/crossbow, 3-gun carry), `grenades.js` |
+| Run | `doors.js` + `DOOR_COSTS`/`ROOM_ANCHORS` in maps, `powerups.js`, `zombieSpecials.js` (exploder/armored/spitter), `modifiers.js`, `weaponRules.js` (box/bench/crossbow, no gun carry limit), `grenades.js` |
 | Progression | `progression.js`, `challenges.js`, `achievements.js`, `gameEvents.js`, `progressTracker.js`, level rewards in `cosmetics.js`, `mapSelect.js` (map picker + loadouts) |
 | Daily | `rng.js` — all gameplay randomness goes through `runRandom`/`waveRandom`/`keyedRandom` (seeded in Daily Run); cosmetic randomness stays on `Math.random` |
 | Tools | `?perf`, `?bench`, `/?models` playground (`src/playground/registry.js`), `/?testlab` soundboard |

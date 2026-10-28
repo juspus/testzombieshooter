@@ -4,7 +4,7 @@ vi.mock('../profilePersistence', () => ({ persistProfile: vi.fn() }))
 
 import {
   GRENADE, blastFalloff, grenadeZombieDamage, grenadePlayerDamage, grenadePlankHits,
-  restockGrenades, canBuyGrenade, fuseLeft, cookedOut, tickInterval, throwVelocity, stepBody,
+  canBuyGrenade, fuseLeft, cookedOut, tickInterval, throwVelocity, stepBody,
 } from '../grenades'
 import { useGameStore, ZOMBIE_ARCHETYPES, _maxAmmoState } from '../store'
 import { armorMultiplier } from '../zombieSpecials'
@@ -52,14 +52,7 @@ describe('blast falloff', () => {
   })
 })
 
-describe('carry / restock rules', () => {
-  it('restocks +2 per wave capped at the carry max', () => {
-    expect(restockGrenades(0)).toBe(2)
-    expect(restockGrenades(2)).toBe(4)
-    expect(restockGrenades(3)).toBe(4)
-    expect(restockGrenades(4)).toBe(4)
-  })
-
+describe('carry rules', () => {
   it('buying needs money and room', () => {
     expect(canBuyGrenade(1, GRENADE.COST)).toBe(true)
     expect(canBuyGrenade(1, GRENADE.COST - 1)).toBe(false)
@@ -70,11 +63,12 @@ describe('carry / restock rules', () => {
 describe('grenade inventory in the store', () => {
   beforeEach(() => { useGameStore.getState().startGame() })
 
-  it('starts each run with 2', () => {
-    expect(useGameStore.getState().grenades).toBe(2)
+  it('starts each run with none', () => {
+    expect(useGameStore.getState().grenades).toBe(0)
   })
 
   it('useGrenade spends one and stops at zero', () => {
+    useGameStore.setState({ grenades: 2 })
     const s = useGameStore.getState()
     expect(s.useGrenade()).toBe(true)
     expect(s.useGrenade()).toBe(true)
@@ -82,14 +76,13 @@ describe('grenade inventory in the store', () => {
     expect(useGameStore.getState().grenades).toBe(0)
   })
 
-  it('nextWave restocks +2 up to 4', () => {
+  it('nextWave hands out no free grenades', () => {
+    useGameStore.setState({ grenades: 1 })
     useGameStore.getState().nextWave(null)
-    expect(useGameStore.getState().grenades).toBe(4)
-    useGameStore.getState().nextWave(null)
-    expect(useGameStore.getState().grenades).toBe(4)
+    expect(useGameStore.getState().grenades).toBe(1)
     useGameStore.setState({ grenades: 0 })
     useGameStore.getState().nextWave(null)
-    expect(useGameStore.getState().grenades).toBe(2)
+    expect(useGameStore.getState().grenades).toBe(0)
   })
 
   it('shop purchase charges money, respects the cap', () => {
@@ -101,17 +94,17 @@ describe('grenade inventory in the store', () => {
     expect(useGameStore.getState().money).toBe(100 - GRENADE.COST)
   })
 
-  it('Max Ammo refills grenades to the cap', () => {
-    useGameStore.setState({ grenades: 0 })
+  it('Max Ammo does not give grenades', () => {
+    useGameStore.setState({ grenades: 1 })
     useGameStore.getState().applyPowerup('max_ammo')
-    expect(useGameStore.getState().grenades).toBe(GRENADE.MAX)
-    expect(_maxAmmoState(useGameStore.getState()).grenades).toBe(GRENADE.MAX)
+    expect(useGameStore.getState().grenades).toBe(1)
+    expect(_maxAmmoState(useGameStore.getState()).grenades).toBeUndefined()
   })
 
-  it('startGame resets a depleted stock', () => {
-    useGameStore.setState({ grenades: 0 })
+  it('a new run clears leftover grenades', () => {
+    useGameStore.setState({ grenades: 3 })
     useGameStore.getState().startGame()
-    expect(useGameStore.getState().grenades).toBe(2)
+    expect(useGameStore.getState().grenades).toBe(0)
   })
 })
 

@@ -179,6 +179,12 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-10-28: Owner call: keep every gun picked up in a run (removed the
+  3-gun CoD replace rule, `MAX_GUNS` gone from weaponRules.js) and grenades
+  are shop-only (start 0, no +2 per wave, Max Ammo no longer refills them;
+  carry cap 4, EUR 25 each unchanged). Box still excludes held guns, so it
+  favours guns you don't have yet.
+
 - 2026-10-28: Closing the shop (E / Esc / backdrop click) now re-locks the
   pointer if it was locked when the shop opened (Player.jsx). No fresh click
   needed: browsers allow re-lock after a page-initiated exitPointerLock.

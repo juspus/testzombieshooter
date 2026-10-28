@@ -1,8 +1,6 @@
 // Wave 3 "Mystery Box + Upgrade Bench" — pure rules (no store / three / net imports).
 // store.js applies the patches these return; tests exercise them directly.
 
-export const MAX_GUNS = 3             // carried guns (knife is separate)
-
 // ── Names ────────────────────────────────────────────────────────────────────
 export const WEAPON_NAMES = {
   pistol: 'Pistol', shotgun: 'Shotgun', ak47: 'AK-47', deagle: 'Desert Eagle',
@@ -108,10 +106,10 @@ export function pickBoxRoom(openRooms, current, anchors, rng = Math.random) {
 }
 
 // ── Carrying guns ────────────────────────────────────────────────────────────
-// Patch for taking / buying weapon `w`. Free slot -> added and equipped. Full (MAX_GUNS)
-// -> replaces the weapon in hand (CoD rule). Already carried -> just refilled.
+// Patch for taking / buying weapon `w`. New -> added and equipped (no carry limit: every gun
+// picked up in a run is kept). Already carried -> just refilled.
 // `s` needs: weapon, ownedWeapons, bulletsInClip, reserveBullets, savedClips, savedReserves, upgradedWeapons.
-export function giveWeapon(s, w, { reserve = START_RESERVE[w] ?? 0, maxGuns = MAX_GUNS } = {}) {
+export function giveWeapon(s, w, { reserve = START_RESERVE[w] ?? 0 } = {}) {
   const ups = { ...(s.upgradedWeapons ?? {}) }
   if (s.ownedWeapons.includes(w)) {
     const clip = clipSize(w, !!ups[w])
@@ -125,19 +123,10 @@ export function giveWeapon(s, w, { reserve = START_RESERVE[w] ?? 0, maxGuns = MA
   }
   const savedClips = { ...s.savedClips, [s.weapon]: s.bulletsInClip }
   const savedReserves = { ...s.savedReserves, [s.weapon]: s.reserveBullets }
-  let ownedWeapons
-  if (s.ownedWeapons.length < maxGuns) {
-    ownedWeapons = [...s.ownedWeapons, w]
-  } else {
-    ownedWeapons = s.ownedWeapons.map((x) => (x === s.weapon ? w : x))
-    savedClips[s.weapon] = 0
-    savedReserves[s.weapon] = 0
-    delete ups[s.weapon]
-  }
   ups[w] = false
   return {
     weapon: w,
-    ownedWeapons,
+    ownedWeapons: [...s.ownedWeapons, w],
     upgradedWeapons: ups,
     bulletsInClip: clipSize(w, false),
     reserveBullets: reserve,
