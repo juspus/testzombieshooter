@@ -3,6 +3,7 @@ import { useGameStore } from '../store'
 import { isConnected, disconnect } from '../net'
 import { sendVersus, onVersus, ensureVersusListener, compareResult } from '../versus'
 import { installRematch, resetRematch } from '../versusRematch'
+import { installMail } from '../mailRuntime'
 import { Button } from './ui'
 import { RematchButton, RESULT_TITLES, reasonText } from './VersusResult'
 
@@ -16,7 +17,7 @@ const LIVE_PHASES = new Set(['playing', 'intermission', 'wave_clear'])
 const selfStatus = () => {
   const s = useGameStore.getState()
   // seed tags the run so a late status from the previous match never counts in a rematch
-  return { hp: s.hp, maxHp: s.maxHp, wave: s.wave, kills: s.kills, alive: s.phase !== 'dead', seed: s.versus.seed }
+  return { hp: s.hp, maxHp: s.maxHp, wave: s.wave, kills: s.kills, alive: s.phase !== 'dead', seed: s.versus.seed, mail: s.mail?.meter ?? 0 }
 }
 
 // Mounted once for the whole app (outside the Canvas, no useFrame). While a versus run is
@@ -28,7 +29,12 @@ export default function VersusNet() {
   const startedAt = useRef(0)
 
   // Rematch handshake lives for the whole app.
-  useEffect(() => { ensureVersusListener(); return installRematch() }, [])
+  useEffect(() => {
+    ensureVersusListener()
+    const offRematch = installRematch()
+    const offMail = installMail()
+    return () => { offRematch(); offMail() }
+  }, [])
 
   // A new run (first start or rematch) resets the per-run clocks.
   useEffect(() => { startedAt.current = Date.now(); resetRematch() }, [seed])
@@ -55,7 +61,7 @@ export default function VersusNet() {
       const st = useGameStore.getState()
       if (d.seed !== st.versus.seed) return
       st.setVersusOpponent({
-        hp: +d.hp || 0, maxHp: +d.maxHp || 0, wave: +d.wave || 0, kills: +d.kills || 0, alive: !!d.alive, at: Date.now(),
+        hp: +d.hp || 0, maxHp: +d.maxHp || 0, wave: +d.wave || 0, kills: +d.kills || 0, alive: !!d.alive, mail: +d.mail || 0, at: Date.now(),
       })
       // Rival down while I am still standing.
       if (!d.alive && st.phase !== 'dead' && st.versus.linked) st.finishVersus('win', 'death')
@@ -123,6 +129,7 @@ function RivalStrip() {
       )}
       <span data-testid="rival-wave">W{rival ? rival.wave : '–'}</span>
       <span data-testid="rival-kills">{rival ? rival.kills : '–'}K</span>
+      {!out && <span data-testid="rival-mail" style={{ color: rival && rival.mail >= 6 ? '#ffcc66' : '#aaa' }}>MAIL {rival ? Math.floor(rival.mail) : '–'}</span>}
     </div>
   )
 }
