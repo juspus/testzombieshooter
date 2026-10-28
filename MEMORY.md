@@ -185,6 +185,15 @@ onboarding summary — see CLAUDE.md for architecture detail.
   carry cap 4, EUR 25 each unchanged). Box still excludes held guns, so it
   favours guns you don't have yet.
 
+- 2026-10-28: UI rework (owner: "all over the place, too many buttons on start").
+  Start screen is now a left-side game menu: PLAY / DAILY RUN / CO-OP | LOADOUT /
+  PROGRESS / LOCKER / SETTINGS; sub-screens open as a panel on the right (replace the
+  list below 640px wide). Sign-in + level chip top right. Shared kit in
+  src/components/ui.jsx + ui.css (fixed control heights 48/40/30, 40/34/28 under 480px
+  tall) - use it for new menu UI instead of inline-styled buttons. Death screen buttons
+  unified + new MENU button (solo only, page reload). Lock emoji in the picker replaced
+  by an SVG. In-game HUD/shop/intermission untouched.
+
 - 2026-10-28: Closing the shop with E or a backdrop click re-locks the pointer
   if it was locked when the shop opened (Player.jsx). PR #128 merged the
   first version; the Esc fix followed on its own branch. NOT on Esc:

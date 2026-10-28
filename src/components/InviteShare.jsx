@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { buildInviteLink } from '../invite'
+import { Button } from './ui'
 
 // W5 one-tap invite for the host lobby: shows the link and shares it (Web Share on phones,
 // clipboard everywhere else).
@@ -25,10 +26,6 @@ export default function InviteShare({ code }) {
     }
   }
 
-  const btn = {
-    background: 'rgba(255,224,102,0.12)', border: '1px solid rgba(255,224,102,0.5)', color: '#ffe066',
-    padding: '10px 18px', fontSize: 13, letterSpacing: 3, fontFamily: 'Courier New, monospace', cursor: 'pointer',
-  }
   return (
     <div data-testid="invite-share" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       <div data-testid="invite-link" style={{
@@ -36,8 +33,8 @@ export default function InviteShare({ code }) {
         textAlign: 'center', maxWidth: 'min(88vw, 360px)', userSelect: 'all',
       }}>{link}</div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {canShare && <button data-testid="invite-share-btn" style={btn} onClick={share}>SHARE</button>}
-        <button data-testid="invite-copy-btn" style={btn} onClick={copy}>COPY LINK</button>
+        {canShare && <Button size="sm" variant="gold" data-testid="invite-share-btn" onClick={share}>Share</Button>}
+        <Button size="sm" variant="gold" data-testid="invite-copy-btn" onClick={copy}>Copy link</Button>
       </div>
       <div style={{ color: '#88cc44', fontSize: 11, letterSpacing: 3, minHeight: 14 }}>{note}</div>
     </div>

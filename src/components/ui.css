@@ -1,0 +1,361 @@
+/* Shared menu/overlay UI kit (ui.jsx). Fixed control heights so buttons on the
+   same row always line up; one short-screen step for 390px-tall phones.
+   Hover styles sit behind (hover: hover) so taps don't leave sticky highlights. */
+
+:root {
+  --ui-font: 'Courier New', monospace;
+  --ui-accent: #ff3300;
+  --ui-accent-soft: rgba(255, 51, 0, 0.14);
+  --ui-gold: #ffd166;
+  --ui-text: #d6cec6;
+  --ui-dim: #8a837c;
+  --ui-faint: #5c5650;
+  --ui-line: rgba(255, 255, 255, 0.09);
+  --ui-panel: rgba(10, 7, 6, 0.9);
+  --ui-h-lg: 48px;
+  --ui-h-md: 40px;
+  --ui-h-sm: 30px;
+}
+
+@media (max-height: 480px) {
+  :root {
+    --ui-h-lg: 40px;
+    --ui-h-md: 34px;
+    --ui-h-sm: 28px;
+  }
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--ui-h-md);
+  padding: 0 20px;
+  font-family: var(--ui-font);
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 2px;
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ui-btn--lg { height: var(--ui-h-lg); font-size: 16px; letter-spacing: 6px; padding: 0 28px; }
+.ui-btn--sm { height: var(--ui-h-sm); font-size: 11px; letter-spacing: 2px; padding: 0 12px; }
+.ui-btn--block { display: flex; width: 100%; }
+
+.ui-btn--primary { border: 2px solid var(--ui-accent); color: var(--ui-accent); background: rgba(0, 0, 0, 0.45); }
+.ui-btn--gold { border: 1px solid var(--ui-gold); color: var(--ui-gold); }
+.ui-btn--ghost { border-color: transparent; background: transparent; color: var(--ui-dim); }
+
+@media (hover: hover) {
+  .ui-btn:not(:disabled):hover { border-color: #fff; color: #fff; background: rgba(255, 255, 255, 0.08); }
+  .ui-btn--primary:not(:disabled):hover { background: var(--ui-accent); border-color: var(--ui-accent); color: #000; }
+  .ui-btn--gold:not(:disabled):hover { background: var(--ui-gold); border-color: var(--ui-gold); color: #000; }
+  .ui-btn--ghost:not(:disabled):hover { background: transparent; border-color: transparent; color: #fff; }
+}
+.ui-btn:not(:disabled):active { transform: translateY(1px); }
+.ui-btn:disabled { opacity: 0.4; cursor: default; }
+.ui-btn:focus-visible, .menu-item:focus-visible, .ui-tab:focus-visible, .ui-option:focus-visible {
+  outline: 1px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+
+@media (max-height: 480px) {
+  .ui-btn { font-size: 12px; }
+  .ui-btn--lg { font-size: 14px; letter-spacing: 5px; }
+}
+
+/* ── Text input (same height as .ui-btn) ─────────────────────────────────── */
+
+.ui-input {
+  height: var(--ui-h-md);
+  padding: 0 14px;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 2px;
+  color: #ffe066;
+  font-family: var(--ui-font);
+  font-size: 15px;
+  letter-spacing: 3px;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.ui-input:focus { border-color: var(--ui-accent); }
+.ui-input::placeholder { color: var(--ui-faint); }
+.ui-field { display: flex; gap: 8px; align-items: stretch; width: 100%; }
+.ui-field .ui-input { flex: 1; }
+
+/* ── Panel ───────────────────────────────────────────────────────────────── */
+
+.ui-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: var(--ui-panel);
+  border: 1px solid rgba(255, 51, 0, 0.25);
+  border-radius: 3px;
+  font-family: var(--ui-font);
+  color: var(--ui-text);
+  overflow: hidden;
+}
+.ui-panel__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--ui-h-md);
+  padding: 0 6px 0 16px;
+  border-bottom: 1px solid var(--ui-line);
+}
+.ui-panel__title {
+  color: var(--ui-accent);
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-panel__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  padding: 14px 16px 16px;
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+@media (max-height: 480px) {
+  .ui-panel__body { padding: 10px 12px 12px; font-size: 12px; }
+}
+
+.ui-section-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 6px;
+  color: var(--ui-faint);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.ui-section-label:first-child { margin-top: 0; }
+
+.ui-note { color: var(--ui-dim); font-size: 12px; letter-spacing: 1px; line-height: 1.5; }
+.ui-stack { display: flex; flex-direction: column; gap: 8px; }
+.ui-stack > .ui-section-label { margin: 6px 0 0; }
+.ui-stack > .ui-section-label:first-child { margin-top: 0; }
+.ui-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+
+.ui-tabs { flex: none; display: flex; border-bottom: 1px solid var(--ui-line); }
+.ui-tab {
+  flex: 1;
+  height: var(--ui-h-sm);
+  padding: 0 6px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--ui-dim);
+  font-family: var(--ui-font);
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ui-tab[aria-selected='true'] { color: var(--ui-accent); border-bottom-color: var(--ui-accent); background: var(--ui-accent-soft); }
+@media (hover: hover) { .ui-tab:hover { color: #fff; } }
+
+/* ── Option rows (radio-style pickers) ───────────────────────────────────── */
+
+.ui-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--ui-h-md);
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ui-line);
+  border-left: 2px solid transparent;
+  border-radius: 2px;
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  text-align: left;
+  cursor: pointer;
+}
+.ui-option + .ui-option { margin-top: 4px; }
+.ui-option[aria-checked='true'] { border-color: rgba(255, 51, 0, 0.5); border-left-color: var(--ui-accent); background: var(--ui-accent-soft); color: #fff; }
+.ui-option:disabled { cursor: default; color: var(--ui-faint); }
+@media (hover: hover) { .ui-option:not(:disabled):hover { border-left-color: var(--ui-accent); color: #fff; } }
+
+.ui-option__label, .ui-option__sub { display: block; }
+.ui-option__label { font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+.ui-option__sub { font-size: 11px; letter-spacing: 0.5px; color: var(--ui-dim); margin-top: 2px; }
+.ui-option__side { flex: none; display: flex; align-items: center; gap: 5px; font-size: 11px; letter-spacing: 1px; color: var(--ui-dim); }
+.ui-option[aria-checked='true'] .ui-option__side { color: var(--ui-accent); }
+
+/* ── Start menu layout ───────────────────────────────────────────────────── */
+
+.menu-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: 'side top' 'side detail';
+  column-gap: clamp(20px, 5vw, 72px);
+  row-gap: 12px;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(20px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(20px, calc(env(safe-area-inset-left) + 5vw));
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.75) 38%, rgba(0, 0, 0, 0.4) 100%);
+  font-family: var(--ui-font);
+  color: var(--ui-text);
+  transition: background 0.2s;
+}
+.menu-screen.has-panel { background: linear-gradient(90deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.82) 100%); }
+
+/* Title + menu list: one block, vertically centred on the full height. */
+.menu-side { grid-area: side; display: flex; flex-direction: column; justify-content: center; gap: clamp(14px, 4vh, 40px); min-height: 0; }
+.menu-title {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(30px, 7vmin, 64px);
+  font-weight: bold;
+  letter-spacing: 0.3em;
+  line-height: 1;
+  text-shadow: 0 0 30px rgba(255, 50, 0, 0.8);
+}
+.menu-hint { margin-top: 8px; color: var(--ui-faint); font-size: 11px; letter-spacing: 2px; }
+
+.menu-top { grid-area: top; justify-self: end; align-self: start; display: flex; align-items: center; gap: 8px; }
+
+.menu-nav { display: flex; flex-direction: column; gap: 3px; }
+.menu-nav .ui-btn--lg { margin-bottom: 8px; }
+.menu-sep { height: 1px; background: var(--ui-line); margin: 7px 0; }
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--ui-h-md);
+  width: 100%;
+  padding: 0 14px 0 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+  border-left: 2px solid transparent;
+  color: #bcb4ac;
+  font-family: var(--ui-font);
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.menu-item[aria-current='true'] { background: var(--ui-accent-soft); border-left-color: var(--ui-accent); color: #fff; }
+@media (hover: hover) {
+  .menu-item:not(:disabled):hover { background: var(--ui-accent-soft); border-left-color: var(--ui-accent); color: #fff; }
+}
+.menu-item:disabled { opacity: 0.35; cursor: default; }
+.menu-item__meta { flex: none; font-size: 11px; font-weight: normal; letter-spacing: 1px; color: var(--ui-dim); }
+.menu-item__meta--warm { color: #cc9944; }
+.menu-item__meta--ok { color: #88cc44; }
+
+.menu-detail { grid-area: detail; align-self: center; justify-self: start; display: flex; width: min(560px, 100%); max-height: 100%; min-height: 0; }
+/* Short screens: hang the panel under the profile chip so tall ones get the full height. */
+@media (min-width: 641px) and (max-height: 480px) {
+  .menu-detail { align-self: start; }
+}
+
+@media (max-height: 480px) {
+  .menu-screen { row-gap: 8px; }
+  .menu-side { gap: 10px; }
+  .menu-title { font-size: 28px; }
+  .menu-hint { display: none; }
+  .menu-nav { gap: 2px; }
+  .menu-nav .ui-btn--lg { margin-bottom: 4px; }
+  .menu-sep { margin: 3px 0; }
+  .menu-item { font-size: 12px; letter-spacing: 3px; }
+}
+
+/* Portrait / very narrow: one column; an open panel replaces the menu list. */
+@media (max-width: 640px) {
+  .menu-screen {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'top' 'side';
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
+  .menu-screen.has-panel { grid-template-areas: 'top' 'detail'; }
+  .menu-screen.has-panel .menu-side { display: none; }
+  .menu-detail { justify-self: stretch; width: 100%; }
+  .menu-title { font-size: 28px; }
+}
+
+/* ── Settings rows ───────────────────────────────────────────────────────── */
+
+.ui-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: var(--ui-h-md);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ui-line);
+  color: var(--ui-text);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.ui-setting:last-child { border-bottom: none; }
+.ui-range { width: min(180px, 38vw); accent-color: #b02a1a; }
+
+/* ── Profile chip (top right) ────────────────────────────────────────────── */
+
+.ui-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ui-h-sm);
+  padding: 0 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 209, 102, 0.35);
+  border-radius: 2px;
+  color: var(--ui-gold);
+  font-family: var(--ui-font);
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+@media (hover: hover) { .ui-level:hover { border-color: var(--ui-gold); } }
+.ui-level__bar { width: clamp(50px, 10vmin, 90px); height: 5px; background: rgba(255, 255, 255, 0.12); border-radius: 3px; overflow: hidden; }
+.ui-level__fill { display: block; height: 100%; background: var(--ui-gold); }
+.ui-level__xp { color: var(--ui-dim); font-size: 11px; letter-spacing: 1px; }
+@media (max-height: 480px), (max-width: 640px) { .ui-level__xp { display: none; } }
+
+.ui-avatar { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #555; }
