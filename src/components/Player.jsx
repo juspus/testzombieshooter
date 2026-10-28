@@ -274,12 +274,6 @@ export default function Player() {
     }
   }, [phase, wave, camera])
 
-  // Sync shopOpen ref and manage pointer lock
-  useEffect(() => {
-    shopOpenRef.current = shopOpen
-    if (shopOpen) document.exitPointerLock?.()
-  }, [shopOpen])
-
   // Force-stop the flamethrower spray when the shop opens, the weapon is switched
   // away, or gameplay pauses — the per-frame block above only runs during active play.
   useEffect(() => {
@@ -304,9 +298,25 @@ export default function Player() {
 
   const requestLock = useCallback(() => {
     if ((phase === 'playing' || phase === 'intermission') && !shopOpenRef.current) {
-      gl.domElement.requestPointerLock()
+      gl.domElement.requestPointerLock()?.catch?.(() => {})
     }
   }, [phase, gl])
+
+  // Sync shopOpen ref and manage pointer lock: the shop frees the cursor, and
+  // closing it re-locks if we had the lock going in (never true on touch).
+  // Re-locking without a fresh click is allowed because the page itself
+  // released the lock — that also covers closing with Escape.
+  const relockAfterShopRef = useRef(false)
+  useEffect(() => {
+    shopOpenRef.current = shopOpen
+    if (shopOpen) {
+      relockAfterShopRef.current = locked.current
+      document.exitPointerLock?.()
+    } else if (relockAfterShopRef.current) {
+      relockAfterShopRef.current = false
+      requestLock()
+    }
+  }, [shopOpen, requestLock])
 
   useEffect(() => {
     const onLockChange = () => {

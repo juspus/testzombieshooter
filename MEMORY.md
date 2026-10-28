@@ -179,6 +179,11 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-10-28: Closing the shop (E / Esc / backdrop click) now re-locks the
+  pointer if it was locked when the shop opened (Player.jsx). No fresh click
+  needed: browsers allow re-lock after a page-initiated exitPointerLock.
+  Verified in Playwright Chromium (all three close paths; main fails all three).
+
 - 2026-10-26: Built the visual roadmap (artifact above). Diagnosis of the
   "flash game" feel: flat look (no post, rigid camera), hits don't land (no
   hit marker/flinch/blood, 0.75 s tip-over death, zombie audio not
