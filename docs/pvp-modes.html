@@ -1,0 +1,756 @@
+<title>Cabin Versus Modes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Saira+Stencil+One&display=swap">
+<style>
+/* Layout: summary first (three calls), then the effort/fun map, the comparison
+   table, and one column of mode cards grouped by lane. Same night-cabin look as
+   the roadmap page: ember = firelight accent, moon = links. Lane colors are the
+   validated categorical trio (blue / orange / aqua), stepped per theme. */
+:root {
+  --bg: #0c1011;
+  --surface: #141a1b;
+  --raised: #1b2324;
+  --line: #2a3537;
+  --grid: #1f2829;
+  --fg: #e4e8e3;
+  --muted: #93a09c;
+  --ember: #ff7b33;
+  --ember-ink: #1a0d05;
+  --moon: #9cc4dc;
+  --go: #86c46f;
+  --talk: #e6c35c;
+  --skip: #e0675a;
+  --lane-race: #3987e5;
+  --lane-sabotage: #d95926;
+  --lane-fight: #199e70;
+  --display: 'Saira Stencil One', Impact, 'Arial Narrow', sans-serif;
+  --body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef1ef; --surface: #ffffff; --raised: #f5f7f6; --line: #d2d9d6; --grid: #e6ebe9;
+    --fg: #151b1c; --muted: #56625f; --ember: #b94c0e; --ember-ink: #ffffff;
+    --moon: #2d6a8e; --go: #3b7a2a; --talk: #8a6a00; --skip: #b23a2e;
+    --lane-race: #2a78d6; --lane-sabotage: #eb6834; --lane-fight: #1baf7a;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef1ef; --surface: #ffffff; --raised: #f5f7f6; --line: #d2d9d6; --grid: #e6ebe9;
+  --fg: #151b1c; --muted: #56625f; --ember: #b94c0e; --ember-ink: #ffffff;
+  --moon: #2d6a8e; --go: #3b7a2a; --talk: #8a6a00; --skip: #b23a2e;
+  --lane-race: #2a78d6; --lane-sabotage: #eb6834; --lane-fight: #1baf7a;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 56px;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg);
+}
+.wrap { max-width: 760px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p, ul { margin: 0; }
+a { color: var(--moon); }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.82em; background: var(--raised); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.eyebrow, .label {
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* ── Hero ─────────────────────────────────────────── */
+.hero { display: grid; gap: 14px; padding-block: 40px 24px; }
+.hero h1 {
+  font-family: var(--display); font-weight: 400;
+  font-size: clamp(2.7rem, 12vw, 4.6rem); line-height: 0.95; letter-spacing: 0.01em;
+}
+.hero h1 span { color: var(--ember); }
+.lede { font-size: 1.2rem; max-width: 40ch; }
+.build {
+  font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
+  border-block: 1px solid var(--line); padding-block: 10px;
+}
+.build b { color: var(--fg); font-weight: 600; }
+
+/* ── Calls (summary) ──────────────────────────────── */
+.calls-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 640px) { .calls-row { grid-template-columns: 1fr; } }
+.call-tile {
+  display: grid; gap: 6px; align-content: start; padding: 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  text-decoration: none; color: var(--fg); min-width: 0;
+}
+.call-tile.primary { border-color: var(--ember); background: color-mix(in srgb, var(--ember) 7%, var(--surface)); }
+.call-tile .label { color: var(--ember); }
+.call-tile b { font-family: var(--display); font-weight: 400; font-size: 1.55rem; line-height: 1.05; }
+.call-tile p { color: var(--muted); font-size: 0.9rem; }
+
+/* ── Sections ─────────────────────────────────────── */
+.section { display: grid; gap: 14px; padding-block: 28px; border-top: 1px solid var(--line); margin-top: 28px; }
+.section > h2 { font-size: 1.4rem; }
+.section > p { color: var(--muted); max-width: 62ch; }
+
+/* ── Chart ────────────────────────────────────────── */
+.chart-box { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 10px 4px; }
+.chart-box svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart-box .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart-box .axis { stroke: var(--line); stroke-width: 1; }
+.chart-box .tick { fill: var(--muted); font: 12px var(--mono); }
+.chart-box .axis-title { fill: var(--muted); font: 600 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.chart-box .zone { fill: color-mix(in srgb, var(--ember) 8%, transparent); }
+.chart-box .zone-label { fill: var(--ember); font: 600 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
+.chart-box .dot-label { fill: var(--fg); font: 600 13px var(--body); pointer-events: none; }
+.chart-box .mark { stroke: var(--surface); stroke-width: 2; }
+.chart-box .hit { fill: transparent; cursor: pointer; }
+.chart-box g.pt.dim { opacity: 0.18; }
+.chart-box g.pt:hover .mark, .chart-box g.pt:focus-visible .mark { stroke: var(--fg); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.86rem; color: var(--muted); padding: 4px 4px 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { width: 12px; height: 12px; }
+.tip {
+  position: absolute; z-index: 3; pointer-events: none; max-width: 240px;
+  background: var(--raised); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; font-size: 0.84rem; box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+}
+.tip b { display: block; font-size: 0.95rem; }
+.tip .nums { font: 0.74rem var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.note { font-size: 0.82rem; color: var(--muted); }
+
+/* ── Sticky filter bar ────────────────────────────── */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  padding-block: 10px; display: grid; gap: 8px;
+}
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filters .label { margin-right: 4px; }
+.filters button {
+  font: 600 0.8rem var(--mono); color: var(--muted); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; cursor: pointer; min-height: 32px;
+  font-variant-numeric: tabular-nums;
+}
+.filters button[aria-pressed="true"] { color: var(--ember-ink); background: var(--ember); border-color: var(--ember); }
+.sync { font-size: 0.8rem; color: var(--muted); }
+.sync[data-state="error"] { color: var(--skip); }
+
+/* ── Table ────────────────────────────────────────── */
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.88rem; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+th { font: 600 0.7rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+th button { all: unset; cursor: pointer; }
+th button::after { content: ""; margin-left: 4px; }
+th button[data-dir="asc"]::after { content: "\2191"; }
+th button[data-dir="desc"]::after { content: "\2193"; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td a { color: var(--fg); text-decoration: none; font-weight: 700; }
+td a:hover { color: var(--ember); }
+tr[hidden] { display: none; }
+
+/* ── Lanes + cards ────────────────────────────────── */
+.lane { display: grid; gap: 12px; padding-block: 24px 4px; }
+.lane-head { display: grid; gap: 4px; }
+.lane-head h2 { font-family: var(--display); font-weight: 400; font-size: 1.9rem; line-height: 1.05; display: flex; align-items: center; gap: 10px; }
+.lane-head h2 svg { width: 16px; height: 16px; flex: none; }
+.lane-head p { color: var(--muted); max-width: 62ch; }
+.cards { display: grid; gap: 10px; }
+.empty-note { font-size: 0.88rem; color: var(--muted); font-style: italic; }
+
+.card {
+  display: grid; gap: 10px; padding: 14px 14px 12px; scroll-margin-top: 120px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0;
+}
+.card[data-call="go"] { border-color: color-mix(in srgb, var(--go) 55%, var(--line)); }
+.card[data-call="skip"] { opacity: 0.62; }
+.card.flash { border-color: var(--ember); }
+.card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card h3 { font-size: 1.15rem; line-height: 1.3; }
+.tag { font: 600 0.68rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ember); white-space: nowrap; }
+.pitch { color: var(--fg); }
+.meters { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 0.74rem var(--mono); color: var(--muted); }
+.meter { display: inline-flex; align-items: center; gap: 6px; }
+.meter .segs { display: inline-flex; gap: 3px; }
+.meter i { display: inline-block; width: 7px; height: 12px; border-radius: 1px; background: var(--line); }
+.meter i.on { background: var(--fg); }
+.meter i.half { background: linear-gradient(90deg, var(--fg) 50%, var(--line) 50%); }
+.meter.fun i.on { background: var(--ember); }
+.meter.fun i.half { background: linear-gradient(90deg, var(--ember) 50%, var(--line) 50%); }
+.flags { display: flex; flex-wrap: wrap; gap: 6px; }
+.flag { font: 600 0.7rem var(--mono); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; color: var(--muted); }
+.flag.good { color: var(--go); border-color: color-mix(in srgb, var(--go) 50%, var(--line)); }
+.flag.warn { color: var(--talk); border-color: color-mix(in srgb, var(--talk) 50%, var(--line)); }
+.flag.bad { color: var(--skip); border-color: color-mix(in srgb, var(--skip) 50%, var(--line)); }
+
+details { border-top: 1px dashed var(--line); padding-top: 8px; }
+summary { cursor: pointer; font-size: 0.86rem; color: var(--moon); list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "+ "; font-family: var(--mono); }
+details[open] summary::before { content: "\2212 "; }
+.why { display: grid; gap: 10px; padding-top: 8px; color: var(--muted); font-size: 0.94rem; }
+.why ul { padding-left: 18px; display: grid; gap: 4px; }
+.why .k { font: 600 0.68rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg); display: block; margin-bottom: 2px; }
+.why .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.why label { display: grid; gap: 4px; font-size: 0.8rem; }
+textarea {
+  font: 0.92rem/1.45 var(--body); color: var(--fg); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical; min-height: 60px; width: 100%;
+}
+textarea:disabled { opacity: 0.6; }
+
+.picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.picks button {
+  font: 700 0.86rem var(--body); min-height: 44px; cursor: pointer;
+  color: var(--muted); background: var(--raised); border: 1px solid var(--line); border-radius: 8px;
+}
+.picks button:disabled { cursor: default; opacity: 0.55; }
+.picks button[data-call="go"][aria-pressed="true"] { color: var(--go); border-color: var(--go); background: color-mix(in srgb, var(--go) 14%, var(--raised)); }
+.picks button[data-call="talk"][aria-pressed="true"] { color: var(--talk); border-color: var(--talk); background: color-mix(in srgb, var(--talk) 14%, var(--raised)); }
+.picks button[data-call="skip"][aria-pressed="true"] { color: var(--skip); border-color: var(--skip); background: color-mix(in srgb, var(--skip) 14%, var(--raised)); }
+
+.rules { display: grid; gap: 8px; padding-left: 18px; max-width: 64ch; }
+.rules li { color: var(--muted); }
+.rules li b { color: var(--fg); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .card { transition: border-color 0.4s; }
+}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="eyebrow">testzombieshooter · 2-player versus</span>
+    <h1>Versus <span>Modes</span></h1>
+    <p class="lede">Nine ways to turn the two-player game into a head-to-head mode, from no contact at all to a straight aim duel.</p>
+    <p class="build"><b>9</b> ideas · <b>3</b> lanes · scores are my estimates, not measurements · built on what is in <code>main</code> on 2026-10-28</p>
+  </header>
+
+  <div class="calls-row">
+    <a class="call-tile primary" href="#mode-mail">
+      <span class="label">Build first</span>
+      <b>Zombie Mail</b>
+      <p>Keeps the zombie loop, needs no player-vs-player hit checks, mostly reuses the solo game.</p>
+    </a>
+    <a class="call-tile" href="#mode-rival">
+      <span class="label">Cheapest test</span>
+      <b>Rival Survival</b>
+      <p>Today's co-op with separate scores. A few days of work to learn whether players want versus at all.</p>
+    </a>
+    <a class="call-tile" href="#mode-seed">
+      <span class="label">Fits today's traffic</span>
+      <b>Seed Duel</b>
+      <p>Nobody has to be online at the same time. Same seeded runs as Zombie Mail.</p>
+    </a>
+  </div>
+
+  <section class="section" aria-labelledby="map-h">
+    <h2 id="map-h">Fun vs build size</h2>
+    <p>Top left is the best value. Tap a point to jump to its card.</p>
+    <div class="chart-box" id="chart">
+      <div class="legend" id="legend"></div>
+      <svg id="plot" viewBox="0 0 600 380" role="img" aria-label="Scatter plot of the nine modes: build size on the horizontal axis, fun to replay on the vertical axis"></svg>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+    <p class="note">Build size 1 = a few days on top of what exists, 5 = a new game system (hitboxes, rewind, new map). Fun is my guess at replay value for two friends.</p>
+  </section>
+
+  <div class="bar">
+    <div class="filters" id="lane-filters" aria-label="Filter by lane"></div>
+    <div class="filters" id="pick-filters" aria-label="Filter by your pick"></div>
+    <p class="sync" id="sync">Connecting to saved picks…</p>
+  </div>
+
+  <section class="section" aria-labelledby="table-h">
+    <h2 id="table-h">Side by side</h2>
+    <div class="table-scroll">
+      <table id="table">
+        <thead><tr>
+          <th><button type="button" data-sort="name">Mode</button></th>
+          <th><button type="button" data-sort="lane">Lane</button></th>
+          <th><button type="button" data-sort="fun" data-dir="desc">Fun</button></th>
+          <th><button type="button" data-sort="effort">Build</button></th>
+          <th><button type="button" data-sort="net">Fair-play work</button></th>
+          <th>Both online</th>
+          <th>Phone vs mouse</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div id="lanes"></div>
+
+  <section class="section" aria-labelledby="rules-h">
+    <h2 id="rules-h">Rules for every versus mode</h2>
+    <ul class="rules">
+      <li><b>Same seed for both.</b> Wherever zombies, drops or box rolls are random, both players get the same <code>rng.js</code> stream.</li>
+      <li><b>Cosmetic progression only.</b> No perk, loadout or level unlock carries into versus. The Supporter Pack stays skins only.</li>
+      <li><b>Auto-shoot off when players aim at each other.</b> Aim assist becomes a slowdown near the target. Against zombies only, it can stay on.</li>
+      <li><b>The host has an edge.</b> The host decides drops and hits with zero lag. Fine for friends; say it in the lobby, and fix it only if versus goes public.</li>
+      <li><b>No solo pauses or slow-mo.</b> Last-kill slow-mo is off, and a pause pauses both players or nobody.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+const LANES = {
+  race: { name: 'Race', blurb: 'No contact. You never touch the rival or their world; you beat them on the clock or the score.', shape: 'circle' },
+  sabotage: { name: 'Sabotage', blurb: 'Indirect contact. You hurt the rival through the horde, the planks or the loot, never with a bullet.', shape: 'square' },
+  fight: { name: 'Fight', blurb: 'Direct contact. Players hit each other, so hitboxes, lag and phone vs mouse all matter.', shape: 'diamond' },
+}
+
+// fun / effort / net are 1-5 estimates (halves allowed). net = how much work it takes to make the mode fair online.
+const MODES = [
+  {
+    id: 'mail', lane: 'race', name: 'Zombie Mail', short: 'Zombie Mail', fun: 4.5, effort: 2, net: 1,
+    live: true, phone: 'warn', loop: 'Keeps the zombie loop',
+    pitch: 'Same seeded map, two separate worlds. Kills earn mail; spend it to drop zombies into your rival\'s next wave. Last one standing wins.',
+    how: [
+      'Both run the same seed, so the waves start identical.',
+      'Every kill fills a mail meter. Spend it on a Brute, an Exploder, a Spitter pack, or a Blackout on their next wave.',
+      'Incoming mail shows a 5 s warning and the window it comes through.',
+      'A small rival bar shows their HP, wave and planks.',
+    ],
+    reuses: ['rng.js', 'zombieSpecials.js', 'modifiers.js', 'invite.js', 'net.js', 'solo game loop'],
+    work: 'Send menu, mail meter, incoming warning, rival HUD, versus end screen.',
+    fair: 'Players never shoot each other, so lag never decides a fight. Only a few messages per wave cross the wire.',
+  },
+  {
+    id: 'seed', lane: 'race', name: 'Seed Duel', short: 'Seed Duel', fun: 3, effort: 1.5, net: 1,
+    live: false, phone: 'warn', loop: 'Keeps the zombie loop',
+    pitch: 'Play a run, send the seed as a link. Your friend plays the exact same spawns, drops and box rolls whenever they like. Higher score wins.',
+    how: [
+      'The challenge link carries the seed, the map and your score per wave.',
+      'During their run, a ghost line shows where you were at each wave.',
+      'Rematch sends a fresh seed back.',
+    ],
+    reuses: ['rng.js', 'daily.js', 'shareToken.js', 'invite.js', 'leaderboard'],
+    work: 'Challenge link, per-wave score log, ghost line on the HUD, result screen.',
+    fair: 'Nobody is online at the same time, so there is no netcode. Scores are self-reported: fine between friends, not for prizes.',
+  },
+  {
+    id: 'rival', lane: 'race', name: 'Rival Survival', short: 'Rival Survival', fun: 3.5, effort: 1, net: 1.5,
+    live: true, phone: 'warn', loop: 'Keeps the zombie loop',
+    pitch: 'Today\'s co-op with separate scores. Same cabin, same horde, no friendly fire. Out-score your partner and outlive them.',
+    how: [
+      'Points for kills, headshots, planks held and waves survived.',
+      'No revives: a downed player sits out the rest of the wave and loses their streak.',
+      'Power-up drops go to whoever touches them first.',
+    ],
+    reuses: ['NetManager.jsx', 'coopDown.js', 'powerups.js', 'progression.js'],
+    work: 'Score rules, versus scoreboard, end screen. Revive switched off.',
+    fair: 'The host still decides drops, so the host gets a small edge on who grabs first.',
+  },
+  {
+    id: 'planks', lane: 'sabotage', name: 'Plank Wars', short: 'Plank Wars', fun: 4, effort: 3, net: 2,
+    live: true, phone: 'good', loop: 'Keeps the zombie loop',
+    pitch: 'The cabin is split in half and each player owns their windows. Sneak over to pull your rival\'s planks, or lure the horde their way.',
+    how: [
+      'Zombies split evenly between the two halves.',
+      'Hold E on a rival window to pull a plank: 2 s, and you are exposed while you do it.',
+      'Buy a Lure (EUR 40) that sends the next 5 zombies to their side.',
+      'Last one standing takes the round, best of 3.',
+    ],
+    reuses: ['window planks', 'doors.js', 'spawn clusters', 'co-op sync'],
+    work: 'Window ownership, the Lure item, split spawns, round flow.',
+    fair: 'Planks and doors are already decided by the host. No player-vs-player hit checks.',
+  },
+  {
+    id: 'director', lane: 'sabotage', name: 'The Director', short: 'The Director', fun: 4.5, effort: 3.5, net: 1.5,
+    live: true, phone: 'good', loop: 'Keeps the zombie loop',
+    pitch: 'One player defends the cabin. The other runs the horde from a top-down map: which zombies, which windows, when the lights go out. Swap sides and compare waves survived.',
+    how: [
+      'The Director gets a budget each wave and spends it on spawns, specials and modifiers.',
+      'The defender plays the normal game.',
+      'After 5 waves the roles swap. More waves survived wins.',
+    ],
+    reuses: ['spawn clusters', 'zombieSpecials.js', 'modifiers.js', 'host-run zombies'],
+    work: 'Top-down Director view and controls, spawn budget, a balance pass.',
+    fair: 'No aim duel between players, so phone vs mouse barely matters. Tap-to-spawn suits a phone.',
+  },
+  {
+    id: 'crate', lane: 'sabotage', name: 'Crate Run', short: 'Crate Run', fun: 3.5, effort: 3, net: 3,
+    live: true, phone: 'warn', loop: 'Partly',
+    pitch: 'Supply crates spawn out in the horde. Carry them back to your stash. Shove your rival to make them drop theirs.',
+    how: [
+      'One crate at a time, and it slows you while carried.',
+      'The knife button becomes a shove: it knocks the rival back and drops their crate.',
+      'First to 5 crates wins. Zombies chase whoever is carrying.',
+    ],
+    reuses: ['BulletPickups.jsx', 'Knife.jsx', 'powerups.js'],
+    work: 'Carry and stash rules, the shove, a score HUD.',
+    fair: 'The shove is a short-range hit on a player, so the host needs a light rewind to judge it.',
+  },
+  {
+    id: 'horde', lane: 'fight', name: 'Horde Duel', short: 'Horde Duel', fun: 4, effort: 4, net: 4,
+    live: true, phone: 'bad', loop: 'Keeps the zombie loop',
+    pitch: 'Co-op with friendly fire on. Shoot your rival or let the horde finish them. Last one alive takes the wave, best of 5.',
+    how: [
+      'A separate versus damage table, so a Deagle is not an instant kill.',
+      'The shop stays between waves, but no perks and no Upgrade Bench.',
+      'Zombies go for whoever is closest.',
+    ],
+    reuses: ['whole co-op game', 'Shop.jsx', 'Gun.jsx'],
+    work: 'Player hitboxes, host rewind for hits, versus damage table, round scoring.',
+    fair: 'Needs the full fairness list: hitboxes, rewind, the host\'s edge, auto-shoot off.',
+  },
+  {
+    id: 'hunter', lane: 'fight', name: 'Hunter', short: 'Hunter', fun: 5, effort: 4.5, net: 3,
+    live: true, phone: 'warn', loop: 'Keeps the zombie loop',
+    pitch: 'One player is the boss zombie: fast, breaks a plank in one hit, sees heat outlines through walls. The other survives with guns while the horde fights for the boss. Swap. Longest survival wins.',
+    how: [
+      'The Hunter plays first-person with claws; three hits down the survivor.',
+      'The survivor has the normal shop and planks.',
+      'Rounds are capped at 4 minutes; sides swap after each.',
+    ],
+    reuses: ['Zombie.jsx models', 'boss archetype', 'window planks', 'ZombieManager.jsx'],
+    work: 'Zombie player controls and claw view, heat outlines, round flow, balance.',
+    fair: 'The survivor shoots a big target, so hits are forgiving. Claw hits need host rewind.',
+  },
+  {
+    id: 'duel', lane: 'fight', name: 'Cabin Duel + Gun Game', short: 'Cabin Duel', fun: 3, effort: 4.5, net: 5,
+    live: true, phone: 'bad', loop: 'Drops it',
+    pitch: 'A classic 1v1 on a small mirrored map. Same loadout, first to 10. Gun Game variant: every kill steps your gun forward, first knife kill wins.',
+    how: [
+      'New small map with mirrored spawns and full-height cover.',
+      'No zombies, no shop.',
+      'Gun Game order: pistol, shotgun, AK, crossbow, Deagle, knife.',
+    ],
+    reuses: ['Gun.jsx', 'src/maps format', 'invite.js', 'net.js'],
+    work: 'A new map, hitboxes, host rewind, versus damage table, spawn rules, scoring.',
+    fair: 'Hardest to make fair: a pure aim duel, so lag, the host\'s edge and phone vs mouse all show.',
+  },
+]
+
+const PHONE = { good: ['Fair', 'good'], warn: ['Watch auto-shoot', 'warn'], bad: ['Needs split rules', 'bad'] }
+const PICK_LABEL = { go: 'Go', talk: 'Discuss', skip: 'Skip' }
+const byId = Object.fromEntries(MODES.map((m) => [m.id, m]))
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
+
+function shapeSvg(shape, cx, cy, r, color, cls = '') {
+  const c = `class="${cls}" fill="${color}"`
+  if (shape === 'square') return `<rect ${c} x="${cx - r * 0.88}" y="${cy - r * 0.88}" width="${r * 1.76}" height="${r * 1.76}" rx="2"/>`
+  if (shape === 'diamond') return `<path ${c} d="M${cx} ${cy - r * 1.15}L${cx + r * 1.15} ${cy}L${cx} ${cy + r * 1.15}L${cx - r * 1.15} ${cy}Z"/>`
+  return `<circle ${c} cx="${cx}" cy="${cy}" r="${r}"/>`
+}
+const laneColor = (lane) => `var(--lane-${lane})`
+
+// ── Legend ──────────────────────────────────────────────────────────────
+document.getElementById('legend').innerHTML = Object.entries(LANES).map(([k, l]) =>
+  `<span><svg viewBox="-7 -7 14 14" aria-hidden="true">${shapeSvg(l.shape, 0, 0, 5.5, laneColor(k))}</svg>${l.name}</span>`).join('')
+
+// ── Scatter plot ────────────────────────────────────────────────────────
+const P = { l: 52, r: 18, t: 14, b: 48, w: 600, h: 380 }
+const sx = (v) => P.l + ((v - 0.5) / 5) * (P.w - P.l - P.r)
+const sy = (v) => P.t + (1 - (v - 0.5) / 5) * (P.h - P.t - P.b)
+
+function drawPlot() {
+  let s = ''
+  // best-value zone: build <= 3, fun >= 4
+  s += `<rect class="zone" x="${sx(0.5)}" y="${sy(5.5)}" width="${sx(3.25) - sx(0.5)}" height="${sy(3.75) - sy(5.5)}"/>`
+  s += `<text class="zone-label" x="${sx(0.5) + 8}" y="${sy(5.5) + 16}">Best value</text>`
+  for (let v = 1; v <= 5; v++) {
+    s += `<line class="gridline" x1="${sx(0.5)}" x2="${sx(5.5)}" y1="${sy(v)}" y2="${sy(v)}"/>`
+    s += `<line class="gridline" y1="${sy(0.5)}" y2="${sy(5.5)}" x1="${sx(v)}" x2="${sx(v)}"/>`
+    s += `<text class="tick" x="${sx(v)}" y="${sy(0.5) + 18}" text-anchor="middle">${v}</text>`
+    s += `<text class="tick" x="${sx(0.5) - 10}" y="${sy(v) + 4}" text-anchor="end">${v}</text>`
+  }
+  s += `<line class="axis" x1="${sx(0.5)}" x2="${sx(5.5)}" y1="${sy(0.5)}" y2="${sy(0.5)}"/>`
+  s += `<line class="axis" x1="${sx(0.5)}" x2="${sx(0.5)}" y1="${sy(0.5)}" y2="${sy(5.5)}"/>`
+  s += `<text class="axis-title" x="${sx(3)}" y="${P.h - 6}" text-anchor="middle">Build size: small → large</text>`
+  s += `<text class="axis-title" transform="translate(14 ${sy(3)}) rotate(-90)" text-anchor="middle">Fun to replay</text>`
+  for (const m of MODES) {
+    const x = sx(m.effort), y = sy(m.fun)
+    const right = x < sx(4.4)
+    s += `<g class="pt" data-id="${m.id}" tabindex="0" role="link" aria-label="${esc(m.name)}: fun ${fmt(m.fun)}, build ${fmt(m.effort)}">`
+    s += `<circle class="hit" cx="${x}" cy="${y}" r="16"/>`
+    s += shapeSvg(LANES[m.lane].shape, x, y, 6.5, laneColor(m.lane), 'mark')
+    s += `<text class="dot-label" x="${right ? x + 12 : x - 12}" y="${y + 4.5}" text-anchor="${right ? 'start' : 'end'}">${esc(m.short)}</text>`
+    s += '</g>'
+  }
+  document.getElementById('plot').innerHTML = s
+}
+drawPlot()
+
+const tip = document.getElementById('tip')
+const chart = document.getElementById('chart')
+function showTip(g) {
+  const m = byId[g.dataset.id]
+  tip.innerHTML = `<b>${esc(m.name)}</b>${esc(LANES[m.lane].name)} · ${esc(m.loop)}<div class="nums">fun ${fmt(m.fun)} · build ${fmt(m.effort)} · fair-play work ${fmt(m.net)}</div>`
+  tip.hidden = false
+  const box = chart.getBoundingClientRect(), r = g.querySelector('.mark').getBoundingClientRect()
+  let left = r.left - box.left + r.width / 2 + 14
+  if (left + 240 > box.width) left = Math.max(8, r.left - box.left - 254)
+  tip.style.left = left + 'px'
+  tip.style.top = Math.max(8, r.top - box.top - 10) + 'px'
+}
+for (const g of document.querySelectorAll('#plot g.pt')) {
+  g.addEventListener('mouseenter', () => showTip(g))
+  g.addEventListener('focus', () => showTip(g))
+  g.addEventListener('mouseleave', () => { tip.hidden = true })
+  g.addEventListener('blur', () => { tip.hidden = true })
+  const go = () => jumpTo(g.dataset.id)
+  g.addEventListener('click', go)
+  g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go() } })
+}
+function jumpTo(id) {
+  const card = document.getElementById('mode-' + id)
+  if (!card) return
+  if (card.hidden) { laneFilter = 'all'; pickFilter = 'all'; applyFilter(); renderFilters() }
+  card.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' })
+  card.classList.add('flash')
+  setTimeout(() => card.classList.remove('flash'), 1400)
+}
+
+// ── Table ───────────────────────────────────────────────────────────────
+let sortKey = 'fun', sortDir = 'desc'
+const LANE_ORDER = { race: 0, sabotage: 1, fight: 2 }
+function renderTable() {
+  const rows = [...MODES].sort((a, b) => {
+    let d
+    if (sortKey === 'name') d = a.name.localeCompare(b.name)
+    else if (sortKey === 'lane') d = LANE_ORDER[a.lane] - LANE_ORDER[b.lane]
+    else d = a[sortKey] - b[sortKey]
+    if (d === 0) d = b.fun - a.fun || a.effort - b.effort
+    return sortDir === 'asc' ? d : -d
+  })
+  document.querySelector('#table tbody').innerHTML = rows.map((m) => {
+    const [pl, pc] = PHONE[m.phone]
+    return `<tr data-row="${m.id}">
+      <td><a href="#mode-${m.id}" data-jump="${m.id}">${esc(m.name)}</a></td>
+      <td><span style="display:inline-flex;align-items:center;gap:6px"><svg width="10" height="10" viewBox="-6 -6 12 12" aria-hidden="true">${shapeSvg(LANES[m.lane].shape, 0, 0, 4.6, laneColor(m.lane))}</svg>${LANES[m.lane].name}</span></td>
+      <td class="num">${fmt(m.fun)}</td>
+      <td class="num">${fmt(m.effort)}</td>
+      <td class="num">${fmt(m.net)}</td>
+      <td>${m.live ? 'Yes' : 'No'}</td>
+      <td><span class="flag ${pc}">${pl}</span></td>
+    </tr>`
+  }).join('')
+  for (const b of document.querySelectorAll('th button')) {
+    if (b.dataset.sort === sortKey) b.dataset.dir = sortDir
+    else delete b.dataset.dir
+  }
+}
+document.querySelector('#table thead').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sort]')
+  if (!b) return
+  const k = b.dataset.sort
+  if (k === sortKey) sortDir = sortDir === 'asc' ? 'desc' : 'asc'
+  else { sortKey = k; sortDir = (k === 'name' || k === 'lane' || k === 'effort' || k === 'net') ? 'asc' : 'desc' }
+  renderTable(); applyFilter()
+})
+renderTable()
+
+// ── Cards ───────────────────────────────────────────────────────────────
+function meter(label, v, cls = '') {
+  let segs = ''
+  for (let i = 1; i <= 5; i++) segs += `<i class="${v >= i ? 'on' : v >= i - 0.5 ? 'half' : ''}"></i>`
+  return `<span class="meter ${cls}">${label}<span class="segs" aria-hidden="true">${segs}</span>${fmt(v)}</span>`
+}
+function cardHtml(m) {
+  const [pl, pc] = PHONE[m.phone]
+  return `<article class="card" id="mode-${m.id}" data-lane="${m.lane}">
+    <div class="card-top"><h3>${esc(m.name)}</h3>${m.id === 'mail' ? '<span class="tag">Build first</span>' : ''}</div>
+    <p class="pitch">${esc(m.pitch)}</p>
+    <div class="meters">${meter('Fun', m.fun, 'fun')}${meter('Build', m.effort)}${meter('Fair-play work', m.net)}</div>
+    <div class="flags">
+      <span class="flag ${m.live ? '' : 'good'}">${m.live ? 'Both online' : 'Play any time'}</span>
+      <span class="flag ${pc}">Phone vs mouse: ${pl}</span>
+      <span class="flag ${m.loop === 'Drops it' ? 'bad' : m.loop === 'Partly' ? 'warn' : 'good'}">Zombie loop: ${esc(m.loop.replace('Keeps the zombie loop', 'kept').replace('Drops it', 'dropped').replace('Partly', 'partly'))}</span>
+    </div>
+    <details>
+      <summary>How it plays, what it reuses, your note</summary>
+      <div class="why">
+        <div><span class="k">How it plays</span><ul>${m.how.map((h) => `<li>${esc(h)}</li>`).join('')}</ul></div>
+        <div><span class="k">Reuses</span><div class="chips">${m.reuses.map((r) => `<code>${esc(r)}</code>`).join('')}</div></div>
+        <div><span class="k">New work</span>${esc(m.work)}</div>
+        <div><span class="k">Fairness</span>${esc(m.fair)}</div>
+        <label for="note-${m.id}">Your note (saved with your pick)
+          <textarea id="note-${m.id}" data-note="${m.id}" placeholder="Anything to change before building it?"></textarea>
+        </label>
+      </div>
+    </details>
+    <div class="picks" role="group" aria-label="Your call on ${esc(m.name)}">
+      <button type="button" data-item="${m.id}" data-call="go" aria-pressed="false">Go</button>
+      <button type="button" data-item="${m.id}" data-call="talk" aria-pressed="false">Discuss</button>
+      <button type="button" data-item="${m.id}" data-call="skip" aria-pressed="false">Skip</button>
+    </div>
+  </article>`
+}
+document.getElementById('lanes').innerHTML = Object.entries(LANES).map(([k, l]) => `
+  <section class="lane" data-lane-section="${k}" aria-labelledby="lane-${k}">
+    <div class="lane-head">
+      <h2 id="lane-${k}"><svg viewBox="-7 -7 14 14" aria-hidden="true">${shapeSvg(l.shape, 0, 0, 5.5, laneColor(k))}</svg>${l.name}</h2>
+      <p>${esc(l.blurb)}</p>
+    </div>
+    <div class="cards">${MODES.filter((m) => m.lane === k).map(cardHtml).join('')}</div>
+    <p class="empty-note" hidden>No modes in this lane match the filter.</p>
+  </section>`).join('')
+
+document.addEventListener('click', (e) => {
+  const j = e.target.closest('[data-jump]')
+  if (j) { e.preventDefault(); jumpTo(j.dataset.jump) }
+})
+
+// ── Filters ─────────────────────────────────────────────────────────────
+let laneFilter = 'all', pickFilter = 'all'
+try { laneFilter = localStorage.getItem('cabin-pvp-lane') || 'all'; pickFilter = localStorage.getItem('cabin-pvp-pick') || 'all' } catch (_) {}
+let calls = {}, db = null, writable = false
+const dirty = new Set(), inflight = {}, queued = {}, noteTimers = {}
+
+function renderFilters() {
+  const laneCount = (k) => (k === 'all' ? MODES.length : MODES.filter((m) => m.lane === k).length)
+  document.getElementById('lane-filters').innerHTML = '<span class="label">Lane</span>' +
+    [['all', 'All'], ...Object.entries(LANES).map(([k, l]) => [k, l.name])].map(([k, n]) =>
+      `<button type="button" data-lane-filter="${k}" aria-pressed="${laneFilter === k}">${n} ${laneCount(k)}</button>`).join('')
+  const pickCount = (k) => MODES.filter((m) => (k === 'all' ? true : k === 'none' ? !calls[m.id]?.call : calls[m.id]?.call === k)).length
+  document.getElementById('pick-filters').innerHTML = '<span class="label">Your pick</span>' +
+    [['all', 'All'], ['go', 'Go'], ['talk', 'Discuss'], ['skip', 'Skip'], ['none', 'Not picked']].map(([k, n]) =>
+      `<button type="button" data-pick-filter="${k}" aria-pressed="${pickFilter === k}">${n} ${pickCount(k)}</button>`).join('')
+}
+function visible(m) {
+  const call = calls[m.id]?.call
+  const laneOk = laneFilter === 'all' || m.lane === laneFilter
+  const pickOk = pickFilter === 'all' || (pickFilter === 'none' ? !call : call === pickFilter)
+  return laneOk && pickOk
+}
+function applyFilter() {
+  for (const m of MODES) {
+    const v = visible(m)
+    document.getElementById('mode-' + m.id).hidden = !v
+    const row = document.querySelector(`tr[data-row="${m.id}"]`)
+    if (row) row.hidden = !v
+    document.querySelector(`#plot g.pt[data-id="${m.id}"]`)?.classList.toggle('dim', !v)
+  }
+  for (const s of document.querySelectorAll('[data-lane-section]')) {
+    const inLane = laneFilter === 'all' || laneFilter === s.dataset.laneSection
+    s.hidden = !inLane
+    s.querySelector('.empty-note').hidden = [...s.querySelectorAll('.card')].some((c) => !c.hidden)
+  }
+}
+document.addEventListener('click', (e) => {
+  const lf = e.target.closest('[data-lane-filter]')
+  const pf = e.target.closest('[data-pick-filter]')
+  if (!lf && !pf) return
+  if (lf) laneFilter = lf.dataset.laneFilter
+  if (pf) pickFilter = pf.dataset.pickFilter
+  try { localStorage.setItem('cabin-pvp-lane', laneFilter); localStorage.setItem('cabin-pvp-pick', pickFilter) } catch (_) {}
+  applyFilter(); renderFilters()
+})
+
+// ── Picks ───────────────────────────────────────────────────────────────
+function renderState() {
+  for (const el of document.querySelectorAll('[data-item]')) {
+    el.setAttribute('aria-pressed', String(calls[el.dataset.item]?.call === el.dataset.call))
+    el.disabled = !writable
+  }
+  for (const ta of document.querySelectorAll('[data-note]')) {
+    ta.disabled = !writable
+    if (document.activeElement !== ta && !dirty.has(ta.dataset.note)) ta.value = calls[ta.dataset.note]?.note || ''
+  }
+  for (const m of MODES) {
+    const card = document.getElementById('mode-' + m.id)
+    const call = calls[m.id]?.call
+    if (call) card.dataset.call = call
+    else delete card.dataset.call
+  }
+  applyFilter()
+  renderFilters()
+}
+function setSync(text, state) {
+  const el = document.getElementById('sync')
+  el.textContent = text
+  el.dataset.state = state || ''
+}
+async function writeCall(id) {
+  const body = { call: calls[id]?.call ?? null, note: calls[id]?.note ?? '', at: Date.now() }
+  const ref = db.collection('calls').doc(id)
+  try {
+    await ref.set(body)
+  } catch (e) {
+    if (e?.code !== 'unavailable') throw e
+    await new Promise((r) => setTimeout(r, 500 + Math.random() * 700))
+    await ref.set(body)
+  }
+}
+async function save(id) {
+  if (!db || !writable) return
+  if (inflight[id]) { queued[id] = true; return }
+  inflight[id] = true
+  try {
+    await writeCall(id)
+    setSync('Saved. Claude reads your picks at the start of the next session.', 'ok')
+  } catch (e) {
+    if (e?.code === 'invalid_argument' || e?.code === 'permission_denied') {
+      writable = false
+      setSync('This view is read-only, so picks are not saved.', 'error')
+      renderState()
+    } else {
+      setSync("Couldn't save that change. Try again in a moment.", 'error')
+    }
+  }
+  inflight[id] = false
+  if (queued[id]) { queued[id] = false; save(id) }
+  else dirty.delete(id)
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-item][data-call]')
+  if (!b || !writable) return
+  const id = b.dataset.item
+  const next = calls[id]?.call === b.dataset.call ? null : b.dataset.call
+  calls = { ...calls, [id]: { ...(calls[id] || {}), call: next } }
+  dirty.add(id)
+  renderState()
+  save(id)
+})
+document.addEventListener('input', (e) => {
+  const ta = e.target.closest('[data-note]')
+  if (!ta || !writable) return
+  const id = ta.dataset.note
+  calls = { ...calls, [id]: { ...(calls[id] || {}), note: ta.value } }
+  dirty.add(id)
+  clearTimeout(noteTimers[id])
+  noteTimers[id] = setTimeout(() => save(id), 900)
+})
+document.addEventListener('focusout', (e) => {
+  const ta = e.target.closest?.('[data-note]')
+  if (!ta || !noteTimers[ta.dataset.note]) return
+  clearTimeout(noteTimers[ta.dataset.note])
+  noteTimers[ta.dataset.note] = null
+  save(ta.dataset.note)
+})
+
+renderState()
+
+;(async () => {
+  if (!window.claude?.use) { setSync('Open this page on claude.ai to save picks.', 'error'); return }
+  const [store, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')])
+  if (!store) { setSync("Picks can't be saved in this view. Open it on claude.ai while signed in.", 'error'); return }
+  db = store
+  const can = user ? await user.can('data.write') : null
+  writable = can !== false
+  setSync(writable ? 'Picks save automatically. Claude reads them at the start of the next session.' : 'You can read this page, but only the owner can make calls.', writable ? 'ok' : '')
+  db.collection('calls').onSnapshot((snap) => {
+    const next = {}
+    for (const d of snap.docs) next[d.id] = d.data()
+    for (const id of dirty) if (calls[id]) next[id] = calls[id]
+    calls = next
+    renderState()
+  }, () => setSync('Lost the connection to saved picks. Reload to try again.', 'error'))
+  renderState()
+})()
+</script>
