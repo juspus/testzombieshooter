@@ -471,6 +471,7 @@ export const useGameStore = create((set, get) => ({
       lastKillPending: false,
       coop: createCoop(),   // W5: everyone starts standing
       runMode: pending ? pending.mode : 'normal',
+      duel: { rival: pending?.mode === 'duel' ? pending.rival ?? null : null, waveLog: [], final: null },
       runSeed: pending ? pending.seed : null,
       dailyDate: daily ? daily.date : null,
       dailyRanked: daily ? daily.ranked : false,
@@ -495,6 +496,7 @@ export const useGameStore = create((set, get) => ({
   // Same spawns/drops/box rolls for everyone that UTC day. Solo only. The first daily of a
   // UTC day is "ranked" (score submitted); later ones are practice. Returns false if blocked.
   runMode: 'normal',     // 'normal' | 'daily' | 'versus' (Zombie Mail) | 'duel' (Seed Duel)
+  duel: { rival: null, waveLog: [], final: null },   // Seed Duel (src/duel.js): rival token, cumulative kills per cleared wave, final result
   runSeed: null,         // seed string of a seeded run (rng.js), null for a normal run
   dailyDate: null,       // 'YYYY-MM-DD' of the active daily
   dailyRanked: false,
@@ -511,8 +513,8 @@ export const useGameStore = create((set, get) => ({
 
   // Versus runs (src/versus.js): same seed on both sides, default loadout, no leaderboard.
   // mode: 'versus' | 'duel'. Callers handle their own checks (lobby, duel link).
-  startSeededGame: (mode, seed) => {
-    _pendingRun = { mode, seed: String(seed) }
+  startSeededGame: (mode, seed, opts) => {
+    _pendingRun = { mode, seed: String(seed), rival: opts?.rival ?? null }
     get().startGame()
   },
 
@@ -520,6 +522,12 @@ export const useGameStore = create((set, get) => ({
   nextWave: (forcedMod) => {
     const { wave: prevWave, windowPlanks, openDoors, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
     const wave = prevWave + 1
+    if (get().runMode === 'duel') {   // Seed Duel: cumulative kills at the end of the wave just cleared
+      const d = get().duel
+      const log = d.waveLog.slice(0, prevWave - 1)
+      log[prevWave - 1] = get().kills
+      set({ duel: { ...d, waveLog: log } })
+    }
     const waveModifier = forcedMod !== undefined ? forcedMod
       : get().mpRole === 'guest' ? null : rollModifier(wave, get().waveModifier, waveRandom('mod', wave))
     buildGrid(allWallSegments(windowPlanks, openDoors))
@@ -685,6 +693,10 @@ export const useGameStore = create((set, get) => ({
   die: () => {
     if (get().phase !== 'playing') return
     set({ phase: 'dead', lastKillPending: false })
+    if (get().runMode === 'duel') {
+      const { wave, kills, duel } = get()
+      set({ duel: { ...duel, final: { wave, kills } } })
+    }
     cancelLastKillFx()
     // Single choke point for death: covers hitPlayer() and the co-op 'die'
     // net event (NetManager -> store.die()). runRecorded makes it once-only.

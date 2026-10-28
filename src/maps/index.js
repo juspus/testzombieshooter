@@ -1,5 +1,6 @@
 import * as cabin from './cabin'
 import * as diner from './diner'
+import { peekDuel } from '../duel'
 import { resolveMapId, readPref, readLocalStats, MAP_PREF_KEY } from '../mapSelect'
 
 export const MAPS = { cabin, diner }
@@ -14,6 +15,10 @@ export function getMap(id) {
 // (same convention as the ?wave=/?money=/?weapon= params in store.js).
 export function getInitialMapId() {
   if (typeof window === 'undefined') return DEFAULT_MAP_ID
+  // A ?duel= challenge decides the map even if it is locked for this player and in production
+  // builds: the invite is the unlock for this one page load (nothing is persisted).
+  const duel = peekDuel()
+  if (duel && MAPS[duel.map]) return duel.map
   return resolveMapId({
     knownIds: Object.keys(MAPS),
     debugParam: new URLSearchParams(window.location.search).get('map'),
