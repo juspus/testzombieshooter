@@ -33,9 +33,18 @@ export function getPeerOptions() {
   return _optsPromise
 }
 
+// Dev/preview only: ?peer=local signals through a PeerJS server on 127.0.0.1:9000
+// (`npx peerjs --port 9000 --host 127.0.0.1`), for two-browser tests where the public PeerJS cloud is unreachable.
+function localPeerOptions() {
+  if (typeof window === 'undefined' || import.meta.env.VITE_VERCEL_ENV === 'production') return null
+  if (new URLSearchParams(window.location.search).get('peer') !== 'local') return null
+  return { host: '127.0.0.1', port: 9000, path: '/', secure: false, config: { iceServers: [] } }
+}
+
 let _gen = 0
 async function _makePeer(id) {
-  const [{ default: Peer }, opts] = await Promise.all([import('peerjs'), getPeerOptions()])
+  const [{ default: Peer }, turnOpts] = await Promise.all([import('peerjs'), getPeerOptions()])
+  const opts = localPeerOptions() ?? turnOpts
   return opts ? (id ? new Peer(id, opts) : new Peer(opts)) : (id ? new Peer(id) : new Peer())
 }
 
