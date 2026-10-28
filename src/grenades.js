@@ -3,9 +3,8 @@
 // pooled in-flight sim + explosion, Player.jsx the cook/throw input.
 
 export const GRENADE = {
-  START: 2,             // carried at the start of each run
+  START: 0,             // none for free: grenades only come from the Shop
   MAX: 4,               // carry cap
-  RESTOCK: 2,           // handed out at the start of each wave (CoD-style)
   COST: 25,             // € per grenade in the Shop
   FUSE: 2.5,            // s from pin-pull to boom (cooking eats into it)
   // ── throw / flight ──
@@ -40,7 +39,6 @@ export const grenadePlankHits = (d) => (d <= GRENADE.PLANK_RADIUS ? GRENADE.PLAN
 export const grenadeShake = (d) => GRENADE.SHAKE * Math.max(0, 1 - d / (GRENADE.RADIUS * 2.2))
 
 // ── Inventory rules ──────────────────────────────────────────────────────────
-export const restockGrenades = (n) => Math.min(GRENADE.MAX, n + GRENADE.RESTOCK)
 export const canBuyGrenade = (n, money) => n < GRENADE.MAX && money >= GRENADE.COST
 
 // ── Cooking ──────────────────────────────────────────────────────────────────
