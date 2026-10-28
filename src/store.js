@@ -34,6 +34,9 @@ import { settleRun } from './progressTracker'
 import { effectiveLoadout, loadoutPatch, readPref, writePref, LOADOUT_PREF_KEY } from './mapSelect'
 import { createCoop } from './coopDown'
 
+// Versus slice (src/versus.js). opponent: rival's last status { hp, maxHp, wave, kills, alive, at }.
+const createVersus = () => ({ active: false, mode: null, seed: null, linked: false, opponent: null, result: null, reason: null })
+
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
 // Debris sprays outward (toward the interior) from a breaking plank.
@@ -405,6 +408,8 @@ export const useGameStore = create((set, get) => ({
     const pending = _pendingRun
     _pendingRun = null
     const daily = pending?.mode === 'daily' ? pending : null
+    // Any start that is not a versus run leaves the versus slice clean (solo after a match).
+    if (pending?.mode !== 'versus') set({ versus: createVersus() })
     if (pending) startSeededRun(pending.seed)
     else endSeededRun()
     // A run that never reached die() (e.g. a co-op guest whose 'die' event was
@@ -517,6 +522,28 @@ export const useGameStore = create((set, get) => ({
     _pendingRun = { mode, seed: String(seed), rival: opts?.rival ?? null }
     get().startGame()
   },
+
+  // ── Versus (src/versus.js): both players run their own world with one seed ──
+  versus: createVersus(),
+  versusLobbyMode: 'coop',   // lobby choice shared host -> guest: 'coop' | a VERSUS_MODES id
+  setVersusLobbyMode: (m) => set({ versusLobbyMode: m }),
+  // Starts a versus run: sets the slice, DETACHES from the co-op world (the net.js link stays
+  // open, only mpRole / mpConnected drop so every co-op branch goes quiet), then seeds the run.
+  startVersusRun: (mode, seed) => {
+    set({
+      versus: { ...createVersus(), active: true, mode, seed: String(seed), linked: true },
+      mpRole: null, mpConnected: false, remotePlayer: null, partnerMapId: null, coop: createCoop(),
+    })
+    get().startSeededGame('versus', seed)
+  },
+  setVersusOpponent: (opponent) => set((s) => ({ versus: { ...s.versus, opponent } })),
+  // First result wins; it also ends the competition (linked false), so pause etc. return to normal.
+  finishVersus: (result, reason = null) => {
+    if (get().versus.result) return false
+    set((s) => ({ versus: { ...s.versus, result, reason, linked: false } }))
+    return true
+  },
+  clearVersus: () => set({ versus: createVersus() }),
 
   // forcedMod: co-op guest passes the host's roll (null = none); undefined = roll here.
   nextWave: (forcedMod) => {

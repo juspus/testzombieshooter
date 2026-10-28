@@ -18,7 +18,10 @@ import { writeLocalDaily } from '../daily'
 import StartPicker, { useLoadoutSummary } from './StartPicker'
 import { hintsActive } from '../hints'
 import BrightnessSlider from './BrightnessSlider'
-import { Button, Panel, Tabs, SectionLabel, LockIcon } from './ui'
+import { Button, Panel, Tabs, Option, SectionLabel, LockIcon } from './ui'
+import { VERSUS_MODES, scoreSubmittable } from '../versus'
+import { newRunSeed } from '../rng'
+import VersusResult from './VersusResult'
 import { SkipHoldButton, ControlSettings } from './PauseMenu'
 import useMenuEnv from '../menuTouch'
 import InstallHint from './InstallHint'
@@ -176,9 +179,10 @@ export default function Screens() {
 
   if (phase === 'dead') {
     const handleRestart = () => {
+      const wasVersus = useGameStore.getState().runMode === 'versus'
       enterRunFullscreen()
       startGame()
-      if (isConnected()) send('game_event', { event: 'start_game', data: {} })
+      if (isConnected() && !wasVersus) send('game_event', { event: 'start_game', data: {} })
     }
     return <YouDied onRestart={handleRestart} mpRole={mpRole} wave={wave} kills={kills} money={money} weapon={weapon} perks={perks} username={username} />
   }
@@ -501,12 +505,31 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     )
   }, [joinCode, setMpRole, setMpConnected, onDisconnected])
 
+  // Lobby mode (host picks, guest mirrors): 'coop' or a VERSUS_MODES id.
+  const lobbyMode = useGameStore((s) => s.versusLobbyMode)
+  const setLobbyMode = useGameStore((s) => s.setVersusLobbyMode)
+  // Host: tell the guest the mode on every change and, repeatedly, while it may not be listening yet.
+  useEffect(() => {
+    if (coop !== 'host' || !connected) return undefined
+    const tell = () => send('game_event', { event: 'versus_mode', data: { mode: lobbyMode } })
+    tell()
+    const t = setInterval(tell, 1500)
+    return () => clearInterval(t)
+  }, [coop, connected, lobbyMode])
+
   const handleStartGame = useCallback(() => {
     if (mapMismatch) return
     enterRunFullscreen()
+    if (lobbyMode !== 'coop' && VERSUS_MODES[lobbyMode] && isConnected()) {
+      // Versus: same seed on both sides, each in their own world (the store detaches from co-op).
+      const seed = newRunSeed()
+      send('game_event', { event: 'versus_start', data: { mode: lobbyMode, seed } })
+      useGameStore.getState().startVersusRun(lobbyMode, seed)
+      return
+    }
     startGame()
     if (isConnected()) send('game_event', { event: 'start_game', data: {} })
-  }, [startGame, mapMismatch])
+  }, [startGame, mapMismatch, lobbyMode])
 
   const handleLeave = useCallback(() => {
     disconnect()
@@ -516,7 +539,8 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     setStatus('')
     setConnected(false)
     useGameStore.getState().clearMp()
-  }, [])
+    setLobbyMode('coop')
+  }, [setLobbyMode])
 
   const togglePanel = (id) => setPanel((p) => (p === id ? null : id))
   const openProgress = (tab) => { if (roomOpen) return; setProgressTab(tab); setPanel('progress') }
@@ -577,6 +601,15 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
                 Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
               </div>
             )}
+            {connected && (
+              <div className="ui-stack" style={{ alignSelf: 'stretch' }}>
+                <SectionLabel>Mode</SectionLabel>
+                <Option label="Co-op" sub="One shared world" checked={lobbyMode === 'coop'} onClick={() => setLobbyMode('coop')} testid="mode-coop" />
+                {Object.entries(VERSUS_MODES).map(([id, m]) => (
+                  <Option key={id} label={m.label} sub="Versus, own world each" checked={lobbyMode === id} onClick={() => setLobbyMode(id)} testid={`mode-${id}`} />
+                ))}
+              </div>
+            )}
             {connected && <Button variant="primary" size="lg" block onClick={handleStartGame} disabled={mapMismatch}>Start game</Button>}
           </div>
         )}
@@ -584,6 +617,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         {coop === 'guest' && (
           <div className="ui-stack" style={{ alignItems: 'center' }}>
             <div className="ui-note">{connected ? 'Connected — waiting for host to start' : status === '…' ? 'Connecting…' : 'Disconnected'}</div>
+            {connected && <div className="ui-note" data-testid="lobby-mode">Mode: {VERSUS_MODES[lobbyMode]?.label ?? 'Co-op'}</div>}
           </div>
         )}
 
@@ -928,8 +962,10 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
   const dailyRanked = useGameStore((s) => s.dailyRanked)
   const dailyDateStr = useGameStore((s) => s.dailyDate)
   const isPractice = (dailyMode && !dailyRanked) || scoreStatus === 'practice'
+  const submittable = useGameStore((s) => scoreSubmittable(s.runMode))   // versus / duel runs never reach the leaderboard
+  const versusRun = useGameStore((s) => s.runMode === 'versus')
   const sendScore = async (name) => {
-    if (duelMode) return
+    if (!scoreSubmittable(useGameStore.getState().runMode)) return
     if (dailyMode && !dailyRanked) { setScoreStatus('practice'); return }
     try {
       await submitScore({ name, wave, kills, mode: dailyMode ? 'daily' : 'normal', seedDate: dailyDateStr })
@@ -964,7 +1000,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
 
   // Auto-submit for logged-in users with a username
   useEffect(() => {
-    if (duelMode || !btnVisible || !username || scoreStatus !== 'idle') return
+    if (!submittable || !btnVisible || !username || scoreStatus !== 'idle') return
     setScoreStatus('submitting')
     sendScore(username)
   }, [btnVisible, username])
@@ -1057,6 +1093,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         <DeathStat label="Perks" value={runSummary.perks.length || 'None'} />
       </div>
 
+      {versusRun && <div style={{ opacity }}><VersusResult /></div>}
       <div style={{ opacity }}><DeathXpPanel /></div>
 
       {lastRunUnlocks?.length > 0 && (
@@ -1087,7 +1124,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
 
         {duelMode ? (
           <DuelDeath wave={wave} kills={kills} username={username} />
-        ) : isPractice ? (
+        ) : !submittable ? null : isPractice ? (
           <div style={deathNoteStyle}>PRACTICE</div>
         ) : username ? (
           scoreStatus === 'done' ? (
@@ -1134,12 +1171,10 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
           {shareStatus}
         </div>
 
-        {!duelMode && (
-          <Button variant="ghost" size="sm" onClick={() => setShowLeaderboard((v) => !v)}>
-            {showLeaderboard ? 'Hide leaderboard' : 'Leaderboard'}
-          </Button>
-        )}
-        {showLeaderboard && !duelMode && <LeaderboardTabs highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
+        {submittable && <Button variant="ghost" size="sm" onClick={() => setShowLeaderboard((v) => !v)}>
+          {showLeaderboard ? 'Hide leaderboard' : 'Leaderboard'}
+        </Button>}
+        {submittable && showLeaderboard && <LeaderboardTabs highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
       </div>
       </div>
     </div>
