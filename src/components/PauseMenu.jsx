@@ -238,7 +238,7 @@ const S = {
     background: 'rgba(30,30,30,0.9)', border: '1px solid #555', borderRadius: 6,
     color: '#888', fontFamily: FONT, fontSize: 12, letterSpacing: 2, cursor: 'pointer',
   },
-  toggleOn: { color: '#ffe066', borderColor: '#8a6a20', background: 'rgba(60,44,10,0.9)' },
+  toggleOn: { color: '#ffe066', border: '1px solid #8a6a20', background: 'rgba(60,44,10,0.9)' },
   skip: {
     position: 'relative', overflow: 'hidden', pointerEvents: 'auto',
     minHeight: MIN_TAP, width: 170, marginTop: 4, padding: '0 14px',
