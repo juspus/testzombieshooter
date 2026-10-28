@@ -10,21 +10,6 @@ function getIsMobile() {
   return Boolean(coarsePointer || (touchPoints && mobileSized))
 }
 
-function getIsPortrait() {
-  if (typeof window === 'undefined') return false
-  return window.innerHeight > window.innerWidth
-}
-
-function getIsStandalone() {
-  if (typeof window === 'undefined') return false
-  return window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true
-}
-
-function getInstallHintDismissed() {
-  if (typeof window === 'undefined') return false
-  return window.localStorage?.getItem('cabinInstallHintDismissed') === '1'
-}
-
 function clampVector(x, y) {
   const length = Math.hypot(x, y)
   if (length <= 1) return { x, y }
@@ -42,9 +27,6 @@ export default function MobileControls() {
   const nearWindowId = useGameStore((s) => s.nearWindowId)
   const nearDoorId = useGameStore((s) => s.nearDoorId)
   const [isMobile, setIsMobile] = useState(getIsMobile)
-  const [isPortrait, setIsPortrait] = useState(getIsPortrait)
-  const [isStandalone, setIsStandalone] = useState(getIsStandalone)
-  const [installHintDismissed, setInstallHintDismissed] = useState(getInstallHintDismissed)
   const [stick, setStick] = useState({ x: 0, y: 0 })
 
   // Joystick
@@ -84,14 +66,10 @@ export default function MobileControls() {
   const nearMachine = useGameStore((s) => s.nearMachine)
   const nearDownedPartner = useGameStore((s) => s.coopNearPartner)   // W5: interact = revive
   const showInteractHint = nearChest || nearWindowId >= 0 || nearDoorId !== null || nearMachine !== null || nearDownedPartner
-  // Never during a wave: it covers the top HUD (wave/kills/money)
-  const showInstallHint = !isStandalone && !installHintDismissed && phase !== 'playing'
 
   useEffect(() => {
     const update = () => {
       setIsMobile(getIsMobile())
-      setIsPortrait(getIsPortrait())
-      setIsStandalone(getIsStandalone())
     }
     const media = window.matchMedia?.('(hover: none) and (pointer: coarse)')
     update()
@@ -140,11 +118,6 @@ export default function MobileControls() {
     clearTimeout(shootHoldTimerRef.current)
   }, [])
 
-  const dismissInstallHint = () => {
-    window.localStorage?.setItem('cabinInstallHintDismissed', '1')
-    setInstallHintDismissed(true)
-  }
-
   const touchGuards = useMemo(() => ({
     onContextMenu: (e) => e.preventDefault(),
     onPointerCancel: () => {
@@ -161,16 +134,6 @@ export default function MobileControls() {
   }), [])
 
   if (!isMobile) return null
-
-  if (isPortrait) {
-    return (
-      <div style={styles.rotateOverlay}>
-        <div style={styles.rotateIcon}>↻</div>
-        <div style={styles.rotateTitle}>ROTATE</div>
-        <div style={styles.rotateText}>Landscape only</div>
-      </div>
-    )
-  }
 
   if (!active) return null
   if (shopOpen) return <div style={{ ...styles.root, opacity: 0, pointerEvents: 'none' }} />
@@ -430,20 +393,6 @@ export default function MobileControls() {
 
   return (
     <div style={styles.root} {...touchGuards}>
-      {showInstallHint && (
-        <div style={styles.installHint} onClick={dismissInstallHint}>
-          <div>
-            <div style={styles.installTitle}>FULLSCREEN MODE</div>
-            <div style={styles.installText}>Share → Add to Home Screen for fullscreen</div>
-          </div>
-          <button
-            type="button"
-            style={styles.installDismiss}
-            onClick={(e) => { e.stopPropagation(); dismissInstallHint() }}
-          >×</button>
-        </div>
-      )}
-
       {/* Left joystick */}
       <div
         style={styles.moveZone}
@@ -629,79 +578,5 @@ const styles = {
     width: 36,
     height: 36,
     fontSize: 10, fontWeight: 'bold', letterSpacing: 1,
-  },
-  installHint: {
-    position: 'absolute',
-    top: 'max(10px, env(safe-area-inset-top))',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: 'min(560px, calc(100vw - 28px))',
-    zIndex: 1,
-    pointerEvents: 'auto',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    padding: '8px 12px',
-    borderRadius: 10,
-    background: 'rgba(0, 0, 0, 0.88)',
-    border: '1px solid rgba(200, 128, 26, 0.55)',
-    boxShadow: '0 0 20px rgba(0,0,0,0.45)',
-    cursor: 'pointer',
-  },
-  installTitle: {
-    color: '#c8801a',
-    fontSize: 9,
-    fontWeight: 'bold',
-    letterSpacing: 3,
-  },
-  installText: {
-    color: '#ddd',
-    fontSize: 10,
-    lineHeight: 1.35,
-  },
-  installDismiss: {
-    width: 28,
-    height: 28,
-    flex: '0 0 auto',
-    borderRadius: 999,
-    border: '1px solid rgba(255,255,255,0.25)',
-    background: 'rgba(255,255,255,0.08)',
-    color: '#f4efe4',
-    fontSize: 18,
-    lineHeight: 1,
-    cursor: 'pointer',
-  },
-  rotateOverlay: {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 100,
-    background: '#020202',
-    color: '#f4efe4',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    textAlign: 'center',
-    fontFamily: 'Courier New, monospace',
-    padding: 28,
-  },
-  rotateIcon: {
-    fontSize: 64,
-    lineHeight: 1,
-    color: '#c8801a',
-  },
-  rotateTitle: {
-    fontSize: 18,
-    letterSpacing: 6,
-    fontWeight: 'bold',
-    color: '#c8801a',
-  },
-  rotateText: {
-    maxWidth: 280,
-    color: '#aaa',
-    fontSize: 13,
-    lineHeight: 1.5,
   },
 }

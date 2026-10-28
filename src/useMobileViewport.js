@@ -16,8 +16,10 @@ export default function useMobileViewport() {
   useEffect(() => {
     setViewportVars()
     window.addEventListener('orientationchange', setViewportVars)
+    window.addEventListener('resize', setViewportVars)   // upright <-> landscape without orientationchange; iOS stale sizes
     return () => {
       window.removeEventListener('orientationchange', setViewportVars)
+      window.removeEventListener('resize', setViewportVars)
     }
   }, [])
 }

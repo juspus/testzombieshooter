@@ -34,6 +34,8 @@ import { initAnalytics } from '../analytics'
 import { initProgression } from '../progressTracker'
 import ProgressToasts from './ProgressToasts'
 import PauseLayer from './PauseMenu'
+import RotateGate from './RotateGate'
+import { installWakeLock } from '../wakeLock'
 import { handleContextLost, handleContextRestored } from '../pause'
 import PerfOverlay, { PERF_ON, BENCH_ON } from './PerfOverlay'
 import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
@@ -92,6 +94,8 @@ export default function Game() {
       document.exitPointerLock?.()
     }
   }, [isActive])
+
+  useEffect(() => installWakeLock(), [])
 
   useEffect(() => {
     if (inGame) startEerieMusic()
@@ -169,6 +173,7 @@ export default function Game() {
       <Screens />
       <ProgressToasts />
       <PauseLayer />
+      <RotateGate />
     </div>
   )
 }
