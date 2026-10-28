@@ -179,6 +179,12 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-10-28: Owner call: keep every gun picked up in a run (removed the
+  3-gun CoD replace rule, `MAX_GUNS` gone from weaponRules.js) and grenades
+  are shop-only (start 0, no +2 per wave, Max Ammo no longer refills them;
+  carry cap 4, EUR 25 each unchanged). Box still excludes held guns, so it
+  favours guns you don't have yet.
+
 - 2026-10-28: UI rework (owner: "all over the place, too many buttons on start").
   Start screen is now a left-side game menu: PLAY / DAILY RUN / CO-OP | LOADOUT /
   PROGRESS / LOCKER / SETTINGS; sub-screens open as a panel on the right (replace the

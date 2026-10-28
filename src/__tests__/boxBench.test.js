@@ -37,7 +37,7 @@ describe('box weighting', () => {
   })
 })
 
-describe('carrying slots (max 3 guns, CoD replace rule)', () => {
+describe('carrying guns (no limit: every gun is kept for the run)', () => {
   const base = () => ({
     weapon: 'pistol', ownedWeapons: ['pistol'], bulletsInClip: 4, reserveBullets: 9,
     savedClips: { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0, crossbow: 0 },
@@ -53,15 +53,15 @@ describe('carrying slots (max 3 guns, CoD replace rule)', () => {
     expect(p.savedClips.pistol).toBe(4)
     expect(p.savedReserves.pistol).toBe(9)
   })
-  it('replaces the weapon in hand when 3 are carried', () => {
+  it('keeps every carried gun (and its upgrade / ammo) when a new one is added', () => {
     const s = { ...base(), weapon: 'shotgun', ownedWeapons: ['pistol', 'shotgun', 'ak47'], bulletsInClip: 2, reserveBullets: 5, upgradedWeapons: { shotgun: true } }
     const p = WR.giveWeapon(s, 'deagle')
-    expect(p.ownedWeapons).toEqual(['pistol', 'deagle', 'ak47'])
-    expect(p.ownedWeapons).toHaveLength(WR.MAX_GUNS)
-    expect(p.upgradedWeapons.shotgun).toBeUndefined()   // upgrade is lost with the gun
+    expect(p.ownedWeapons).toEqual(['pistol', 'shotgun', 'ak47', 'deagle'])
+    expect(p.upgradedWeapons.shotgun).toBe(true)
     expect(p.upgradedWeapons.deagle).toBe(false)
-    expect(p.savedClips.shotgun).toBe(0)
-    expect(p.savedReserves.shotgun).toBe(0)
+    expect(p.savedClips.shotgun).toBe(2)
+    expect(p.savedReserves.shotgun).toBe(5)
+    expect(p.weapon).toBe('deagle')
     expect(p.bulletsInClip).toBe(7)
   })
   it('a weapon already carried is only refilled', () => {
@@ -142,10 +142,12 @@ describe('store integration: ammo pools', () => {
     expect(S().takeBox('host')).toBeNull()
   })
 
-  it('4th gun replaces the one in hand; the shop follows the same rule', () => {
+  it('a 4th gun from the shop is added, nothing is dropped', () => {
     useGameStore.setState({ ownedWeapons: ['pistol', 'shotgun', 'ak47'], weapon: 'ak47', bulletsInClip: 30, reserveBullets: 90 })
     S().buyItem('deagle')
-    expect(S().ownedWeapons).toEqual(['pistol', 'shotgun', 'deagle'])
+    expect(S().ownedWeapons).toEqual(['pistol', 'shotgun', 'ak47', 'deagle'])
+    expect(S().savedClips.ak47).toBe(30)
+    expect(S().savedReserves.ak47).toBe(90)
     expect(S().weapon).toBe('deagle')
   })
 

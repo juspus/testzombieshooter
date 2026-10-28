@@ -24,7 +24,7 @@ import {
 } from './powerups'
 import { withLinksOpened, doorBuyStatus, allDoorsOpen, openRoomSet } from './doors'
 import { playDoorOpen } from './sounds'
-import { GRENADE, restockGrenades, canBuyGrenade } from './grenades'
+import { GRENADE, canBuyGrenade } from './grenades'
 import { runRandom, waveRandom, keyedRandom, startSeededRun, endSeededRun } from './rng'
 import { dailyDate, dailyAttemptUsed, writeLocalDaily, canStartDaily } from './daily'
 import { rollModifier, modifiedZombieCount, modifiedZombieHealth, modifierBonus, debugForcedModifier } from './modifiers'
@@ -371,9 +371,8 @@ export const useGameStore = create((set, get) => ({
   },
 
   // ── Wave 3 "Grenades" ────────────────────────────────────────────────────────
-  // Inventory only (carry/restock rules live in grenades.js); the throw sim and blast are
-  // in components/Grenades.jsx. Per-client state like ammo: +2 each wave (nextWave, which
-  // guests also run), refilled by Max Ammo (_maxAmmoState), buyable in the Shop.
+  // Inventory only (carry rules live in grenades.js); the throw sim and blast are in
+  // components/Grenades.jsx. Per-client state like money: the Shop is the only source.
   grenades: GRENADE.START,
   grenadeCooking: false,   // true while G / the mobile button is held (HUD cook bar)
   resetGrenades: () => set({ grenades: GRENADE.START, grenadeCooking: false }),
@@ -522,7 +521,6 @@ export const useGameStore = create((set, get) => ({
       waveModifier,
       plankHits: {},
       waveKills: 0,
-      grenades: restockGrenades(get().grenades),   // Wave 3 grenades: +2 per wave, max 4
       intermissionLeft: intermissionForWave(wave),
       zombies: [],
       pendingSpawns: [],
@@ -808,7 +806,7 @@ export const useGameStore = create((set, get) => ({
   buyItem: (itemId) => {
     const { money, weapon, bulletsInClip, reserveBullets, perks, ownedWeapons, savedClips, savedReserves } = get()
     // Helper: save current weapon state then equip a newly bought weapon
-    // (Wave 3: shares giveWeapon with the Mystery Box — a full inventory replaces the weapon in hand.)
+    // (Shares giveWeapon with the Mystery Box; guns are never dropped during a run.)
     const buyWeapon = (id, cost, clip, startReserve = 0) => {
       if (ownedWeapons.includes(id) || money < cost) return false
       set({ money: money - cost, ...WR.giveWeapon(get(), id, { reserve: startReserve }) })
@@ -1273,7 +1271,6 @@ export function _maxAmmoState(st) {
     reserveBullets: Math.max(st.reserveBullets, full(st.weapon)),
     savedClips,
     savedReserves,
-    grenades: GRENADE.MAX,   // Max Ammo also refills grenades
   }
 }
 

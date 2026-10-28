@@ -43,7 +43,7 @@ const ITEMS = [
   {
     id: 'grenade',
     name: 'Frag Grenade',
-    desc: `G · max ${GRENADE.MAX} · +${GRENADE.RESTOCK} each wave`,
+    desc: `G · throw · max ${GRENADE.MAX}`,
     price: GRENADE.COST,
     oneTime: false,
   },
