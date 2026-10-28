@@ -45,7 +45,8 @@ src/
     ├── BulletPickups.jsx      # Ammo crates that spawn during waves
     ├── HUD.jsx
     ├── Shop.jsx
-    ├── Screens.jsx            # Start / Wave Cleared / Intermission / YOU DIED
+    ├── Screens.jsx            # Start menu / Wave Cleared / Intermission / YOU DIED
+    ├── ui.jsx + ui.css        # Shared menu UI kit: Button, Panel, Tabs, Option (use for any new menu UI)
     ├── Walls.jsx              # Visible wall geometry
     ├── NetManager.jsx         # Multiplayer event bus
     └── RemotePlayer.jsx       # Ghost mesh for the co-op partner

@@ -1,4 +1,5 @@
 import { applyMapChoice } from '../mapSelect'
+import { Tabs } from './ui'
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../store'
 import { fetchLeaderboard, fetchDailyAttemptUsed } from '../supabase'
@@ -16,8 +17,8 @@ function useMinuteTick() {
   }, [])
 }
 
-/** Start-screen entry: "DAILY RUN" button + attempt status + time to the next daily. Solo only. */
-export function DailyEntry({ Btn }) {
+/** Start-menu DAILY RUN row: attempt status, time to the next daily, and the click action. Solo only. */
+export function useDailyEntry() {
   useMinuteTick()
   const startDaily = useGameStore((s) => s.startDaily)
   const [used, setUsed] = useState(() => dailyAttemptUsed())
@@ -34,18 +35,13 @@ export function DailyEntry({ Btn }) {
     return () => { alive = false }
   }, [])
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* The daily is cabin-only (fixed seed): from another map, switch back and reload. */}
-      <Btn onClick={() => { if (mapId === 'cabin') startDaily(!used); else applyMapChoice('cabin') }} style={{ marginTop: 4 }}>
-        {mapId === 'cabin' ? 'DAILY' : 'DAILY (CABIN)'}
-      </Btn>
-      <div style={{ color: used ? '#887' : '#cc9944', fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 2, marginTop: 5, fontFamily: 'Courier New, monospace', textAlign: 'center' }}>
-        {used ? 'Practice' : 'Ranked'}
-        {' · '}{formatCountdown(msToNextDaily())}
-      </div>
-    </div>
-  )
+  const onCabin = mapId === 'cabin'
+  return {
+    used,
+    meta: `${used ? 'Practice' : 'Ranked'} · ${onCabin ? formatCountdown(msToNextDaily()) : 'Cabin'}`,
+    // The daily is cabin-only (fixed seed): from another map, switch back and reload.
+    start: () => { if (onCabin) startDaily(!used); else applyMapChoice('cabin') },
+  }
 }
 
 const TABS = [
@@ -61,7 +57,8 @@ const COMING_SOON = {
 
 const GRID = '28px 1fr 60px 54px'
 
-export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'all' }) {
+/** `bare`: no outer frame (the start menu's PROGRESS panel provides one). */
+export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'all', bare = false }) {
   useMinuteTick()
   const [tab, setTab] = useState(initialTab)
   const [rows, setRows] = useState(null)
@@ -86,40 +83,16 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
     : tab === 'daily' ? `${dailyDate()} · ${formatCountdown(msToNextDaily())}` : null
 
   return (
-    <div style={{
+    <div style={bare ? { fontSize: 'clamp(9px, 1.9vmin, 13px)' } : {
       width: 'min(420px, 92vw)',
       background: 'rgba(0,0,0,0.6)',
       border: '1px solid rgba(255,50,0,0.25)',
-      borderRadius: 6,
+      borderRadius: 3,
       fontFamily: 'Courier New, monospace',
       fontSize: 'clamp(9px, 1.9vmin, 13px)',
       overflow: 'hidden',
     }}>
-      <div role="tablist" style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={tab === t.id}
-            onClick={() => setTab(t.id)}
-            style={{
-              flex: 1,
-              padding: '8px 4px',
-              background: tab === t.id ? 'rgba(255,50,0,0.12)' : 'transparent',
-              border: 'none',
-              borderBottom: tab === t.id ? '2px solid #ff3300' : '2px solid transparent',
-              color: tab === t.id ? '#ff3300' : '#777',
-              letterSpacing: 3,
-              fontFamily: 'inherit',
-              fontWeight: 'bold',
-              fontSize: 'clamp(8px, 1.6vmin, 11px)',
-              cursor: 'pointer',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={TABS} value={tab} onChange={setTab} />
       {sub && <div style={{ color: '#666', textAlign: 'center', padding: '5px 8px 0', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2 }}>{sub}</div>}
       {state === 'error' && <div style={{ color: '#ff6644', textAlign: 'center', padding: 12, letterSpacing: 2 }}>Failed</div>}
       {state === 'unavailable' && <div style={{ color: '#887', textAlign: 'center', padding: 12, letterSpacing: 2 }}>{COMING_SOON[tab]}</div>}
@@ -129,7 +102,7 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
       )}
       {state === 'ok' && rows && rows.length > 0 && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: '0 10px', padding: '5px 14px', color: '#555', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: '0 10px', padding: bare ? '5px 0' : '5px 14px', color: '#555', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 2, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
             <span>#</span><span>NAME</span><span style={{ textAlign: 'right' }}>WAVE</span><span style={{ textAlign: 'right' }}>KILLS</span>
           </div>
           {rows.map((row, i) => {
@@ -139,7 +112,7 @@ export function LeaderboardTabs({ highlightWave, highlightKills, initialTab = 'a
                 display: 'grid',
                 gridTemplateColumns: GRID,
                 gap: '0 10px',
-                padding: 'clamp(3px, 0.8vmin, 5px) 14px',
+                padding: bare ? 'clamp(3px, 0.8vmin, 5px) 0' : 'clamp(3px, 0.8vmin, 5px) 14px',
                 color: isHighlight ? '#ffe066' : i === 0 ? '#fff' : '#aaa',
                 background: isHighlight ? 'rgba(255,224,102,0.06)' : 'transparent',
                 borderBottom: '1px solid rgba(255,255,255,0.03)',

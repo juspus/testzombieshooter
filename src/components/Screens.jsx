@@ -9,13 +9,14 @@ import { consumeInvite, isValidRoomCode } from '../invite'   // W5 one-tap invit
 import InviteShare from './InviteShare'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
 import { getReduceMotion, setReduceMotion } from '../cameraFeel'
-import { LevelBadge, ChallengeTeaser, ChallengesPanel, AchievementsPanel, DeathXpPanel } from './ProgressPanels'
+import { LevelBadge, useChallengeSummary, ChallengesPanel, AchievementsPanel, DeathXpPanel } from './ProgressPanels'
 import { MODIFIERS, MOD_BONUS } from '../modifiers'
-import { DailyEntry, LeaderboardTabs } from './DailyPanels'
+import { useDailyEntry, LeaderboardTabs } from './DailyPanels'
 import { writeLocalDaily } from '../daily'
-import StartPicker from './StartPicker'
+import StartPicker, { useLoadoutSummary } from './StartPicker'
 import { hintsActive } from '../hints'
 import BrightnessSlider from './BrightnessSlider'
+import { Button, Panel, Tabs, SectionLabel, LockIcon } from './ui'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -367,13 +368,14 @@ function RoomCodeDisplay({ code }) {
 
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ color: '#666', fontSize: 11, letterSpacing: 4, marginBottom: 6 }}>ROOM CODE</div>
+      <div className="ui-section-label" style={{ justifyContent: 'center' }}>Room code</div>
       <div
         onClick={handleCopy}
         title="Click to copy"
         style={{
+          display: 'inline-block',
           color: copied ? '#88cc44' : '#ffe066',
-          fontSize: 36,
+          fontSize: 'clamp(24px, 6vmin, 36px)',
           fontFamily: 'Courier New, monospace',
           letterSpacing: 10,
           textShadow: copied
@@ -381,35 +383,47 @@ function RoomCodeDisplay({ code }) {
             : '0 0 20px rgba(255,224,102,0.5)',
           cursor: 'pointer',
           userSelect: 'all',
-          padding: '6px 14px',
+          padding: '4px 4px 4px 14px',
           border: `1px solid ${copied ? 'rgba(136,204,68,0.4)' : 'rgba(255,224,102,0.2)'}`,
-          borderRadius: 4,
+          borderRadius: 2,
           transition: 'color 0.2s, text-shadow 0.2s, border-color 0.2s',
         }}
       >
         {code}
       </div>
       <div style={{ color: copied ? '#88cc44' : '#555', fontSize: 11, letterSpacing: 3, marginTop: 6, transition: 'color 0.2s' }}>
-        {copied ? 'COPIED!' : 'CLICK TO COPY'}
+        {copied ? 'COPIED' : 'CLICK TO COPY'}
       </div>
     </div>
   )
 }
 
+const ROOM_CODE_CHARS = /[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]/g
+const statusIsError = (s) => s.startsWith('Room not') || s.startsWith('Failed')
+
+// Start menu: one primary action (PLAY), two more ways to start (Daily, Co-op), then the
+// meta screens. Everything else opens as a panel beside the list (replaces it on narrow
+// portrait screens), so the first screen stays short.
 function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
-  // W5: opening `/?join=CODE` lands on a one-tap 'invite' view (the tap also satisfies the audio-unlock gesture)
+  // W5: opening `/?join=CODE` lands on the CO-OP panel with a one-tap join (the tap also satisfies the audio-unlock gesture)
   const [invite] = useState(() => (checkoutReturn?.openLocker ? null : consumeInvite()))
-  const [view, setView] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'invite' : 'main') // 'main' | 'host' | 'join' | 'invite' | 'leaderboard' | 'locker' | 'setusername'
+  const [panel, setPanel] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'coop' : null) // null | 'coop' | 'loadout' | 'progress' | 'locker' | 'settings' | 'username'
+  const [coop, setCoop] = useState(invite ? 'invite' : 'idle') // 'idle' | 'host' | 'guest' | 'invite'
+  const [progressTab, setProgressTab] = useState('challenges')
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [status, setStatus] = useState('')
   const [connected, setConnected] = useState(false)
-  const [mpRole, setMpRoleLocal] = useState(null)
+  const [isMobile] = useState(getIsMobileScreen)
+
+  const daily = useDailyEntry()
+  const challenges = useChallengeSummary()
+  const loadoutSummary = useLoadoutSummary()
 
   // Auto-prompt username picker after first Google login
   useEffect(() => {
-    if (user && username === null && view === 'main') setView('setusername')
-    if (user && username !== null && view === 'setusername') setView('main')
+    if (user && username === null && panel === null) setPanel('username')
+    if (user && username !== null && panel === 'username') setPanel(null)
   }, [user, username])
 
   const partnerMapId = useGameStore((s) => s.partnerMapId)
@@ -417,6 +431,10 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const mapMismatch = !!partnerMapId && partnerMapId !== ownMapId   // co-op: host waits for a matching guest
   const setMpRole = useGameStore((s) => s.setMpRole)
   const setMpConnected = useGameStore((s) => s.setMpConnected)
+
+  // A room is open (hosting, joining or invited): only the CO-OP panel stays usable,
+  // since solo starts and map reloads would drop the connection.
+  const roomOpen = coop !== 'idle'
 
   const onDisconnected = useCallback(() => {
     setConnected(false)
@@ -426,9 +444,8 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   }, [setMpConnected])
 
   const handleHost = useCallback(() => {
-    setView('host')
+    setCoop('host')
     setStatus('…')
-    setMpRoleLocal('host')
     setMpRole('host')
     createRoom(
       (code) => {
@@ -448,8 +465,9 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const handleJoin = useCallback((override) => {
     const code = (typeof override === 'string' ? override : joinCode).trim()
     if (!code) return
+    const from = typeof override === 'string' ? 'invite' : 'idle'
+    if (from === 'idle') setCoop('guest')
     setStatus('…')
-    setMpRoleLocal('guest')
     setMpRole('guest')
     joinRoom(
       code,
@@ -463,7 +481,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         setStatus(err?.type === 'peer-unavailable'
           ? 'Room not found'
           : `Failed: ${err?.type ?? 'connection error'}`)
-        setMpRoleLocal(null)
+        setCoop(from)
         useGameStore.getState().clearMp()
       },
       onDisconnected,
@@ -476,148 +494,210 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     if (isConnected()) send('game_event', { event: 'start_game', data: {} })
   }, [startGame, mapMismatch])
 
-  const handleBack = useCallback(() => {
+  const handleLeave = useCallback(() => {
     disconnect()
-    setView('main')
+    setCoop('idle')
     setRoomCode('')
     setJoinCode('')
     setStatus('')
     setConnected(false)
-    setMpRoleLocal(null)
     useGameStore.getState().clearMp()
   }, [])
 
-  // Locker / challenge / achievement panels replace the title block so they fit short screens.
-  const compactView = view === 'locker' || view === 'challenges' || view === 'achievements'
+  const togglePanel = (id) => setPanel((p) => (p === id ? null : id))
+  const openProgress = (tab) => { if (roomOpen) return; setProgressTab(tab); setPanel('progress') }
+  const closePanel = useCallback(() => setPanel(null), [])
+
+  // Esc closes the open panel (not while a room is open: that needs an explicit LEAVE).
+  useEffect(() => {
+    if (!panel || roomOpen) return undefined
+    const onKey = (e) => { if (e.key === 'Escape' && document.activeElement?.tagName !== 'INPUT') closePanel() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [panel, roomOpen, closePanel])
+
+  const coopMeta = coop === 'host' ? (connected ? 'Partner in' : roomCode || '…')
+    : coop === 'guest' ? (connected ? 'Joined' : '…')
+    : coop === 'invite' ? 'Invited' : null
+
+  const backAction = roomOpen && panel === 'coop'
+    ? <Button variant="ghost" size="sm" onClick={handleLeave}>Leave</Button>
+    : <Button variant="ghost" size="sm" onClick={closePanel}>Back</Button>
+
+  let detail = null
+  if (panel === 'coop') {
+    detail = (
+      <Panel title="Co-op" action={backAction} testid="coop-panel">
+        {coop === 'idle' && (
+          <div className="ui-stack">
+            <SectionLabel>Host</SectionLabel>
+            <Button block onClick={handleHost}>Host game</Button>
+            <div className="ui-note">You get a code and an invite link to send.</div>
+            <SectionLabel>Join</SectionLabel>
+            <div className="ui-field">
+              <input
+                className="ui-input"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(ROOM_CODE_CHARS, '').slice(0, 5))}
+                onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+                placeholder="CODE"
+                maxLength={5}
+                aria-label="Room code"
+                style={{ textAlign: 'center', letterSpacing: 6 }}
+              />
+              <Button onClick={handleJoin} disabled={!joinCode.trim()}>Join</Button>
+            </div>
+            {status && <div className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined }}>{status}</div>}
+          </div>
+        )}
+
+        {coop === 'host' && (
+          <div className="ui-stack" style={{ alignItems: 'center' }}>
+            {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
+            {roomCode && !connected ? <InviteShare code={roomCode} /> : null}
+            <div className="ui-note">{connected ? 'Partner connected' : roomCode ? 'Waiting for partner…' : status}</div>
+            {connected && mapMismatch && (
+              <div className="ui-note" style={{ color: '#cc9944', textAlign: 'center' }}>
+                Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
+              </div>
+            )}
+            {connected && <Button variant="primary" size="lg" block onClick={handleStartGame} disabled={mapMismatch}>Start game</Button>}
+          </div>
+        )}
+
+        {coop === 'guest' && (
+          <div className="ui-stack" style={{ alignItems: 'center' }}>
+            <div className="ui-note">{connected ? 'Connected — waiting for host to start' : status === '…' ? 'Connecting…' : 'Disconnected'}</div>
+          </div>
+        )}
+
+        {coop === 'invite' && invite && (
+          <div className="ui-stack" style={{ alignItems: 'center' }}>
+            {!isValidRoomCode(invite.code) ? (
+              <div data-testid="invite-error" className="ui-note" style={{ color: '#ff6666' }}>Invalid invite</div>
+            ) : (
+              <>
+                <div className="ui-section-label" style={{ justifyContent: 'center' }}>Invited</div>
+                {!connected && status !== '…' && (
+                  <Button variant="primary" size="lg" block onClick={() => handleJoin(invite.code)}>{`Join ${invite.code}`}</Button>
+                )}
+                {status && (
+                  <div data-testid="invite-status" className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined, textAlign: 'center' }}>
+                    {status === 'Connected' ? 'Connected — waiting for host to start' : status}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </Panel>
+    )
+  } else if (panel === 'loadout') {
+    detail = <Panel title="Loadout" action={backAction}><StartPicker /></Panel>
+  } else if (panel === 'progress') {
+    detail = (
+      <Panel
+        title="Progress"
+        action={backAction}
+        tabs={<Tabs value={progressTab} onChange={setProgressTab} tabs={[
+          { id: 'challenges', label: 'Challenges' },
+          { id: 'achievements', label: 'Achievements' },
+          { id: 'leaderboard', label: 'Leaderboard' },
+        ]} />}
+        bodyStyle={progressTab === 'leaderboard' ? { paddingTop: 0 } : undefined}
+      >
+        {progressTab === 'challenges' && <ChallengesPanel />}
+        {progressTab === 'achievements' && <AchievementsPanel />}
+        {progressTab === 'leaderboard' && <LeaderboardTabs bare />}
+      </Panel>
+    )
+  } else if (panel === 'locker') {
+    detail = <Panel title="Locker" action={backAction} testid="locker-panel"><LockerPanel user={user} notice={checkoutReturn?.notice} /></Panel>
+  } else if (panel === 'settings') {
+    detail = (
+      <Panel title="Settings" action={backAction}>
+        <SettingsPanel user={user} username={username} onRename={() => setPanel('username')} />
+      </Panel>
+    )
+  } else if (panel === 'username') {
+    detail = (
+      <Panel title="Username" action={backAction}>
+        <UsernamePickerView onDone={() => { onUsernameSet?.(); setPanel(null) }} />
+      </Panel>
+    )
+  }
 
   return (
-    <Overlay scroll>
-      {!compactView && <Title>CABIN</Title>}
-      {!compactView && hintsActive() && <Controls>WASD · Mouse · Click</Controls>}
+    <div className={`menu-screen${panel ? ' has-panel' : ''}`}>
+      <div className="menu-top">
+        <LevelBadge onClick={() => openProgress('achievements')} />
+        {user ? (
+          <Button size="sm" onClick={() => !roomOpen && setPanel('settings')} title="Account settings" style={{ color: '#ffe066', letterSpacing: 1, textTransform: 'none' }}>
+            {user.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="" className="ui-avatar" />}
+            {username ?? '…'}
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => signInWithGoogle()}><GoogleIcon /> Sign in</Button>
+        )}
+      </div>
 
-      {view === 'main' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 8 }}>
-          <AuthPanel user={user} username={username} onRename={() => setView('setusername')} />
-          <LevelBadge onClick={() => setView('achievements')} />
-          <StartPicker />
-          <div style={{ display: 'flex', gap: 'clamp(6px, 1.6vmin, 12px)', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'flex-start' }}>
-            <Btn onClick={startGame}>SOLO</Btn>
-            <DailyEntry Btn={Btn} />
-            <Btn onClick={handleHost}>HOST</Btn>
-            <Btn onClick={() => setView('join')}>JOIN</Btn>
-          </div>
-          <div style={{ display: 'flex', gap: 'clamp(14px, 4vmin, 28px)', marginTop: 6 }}>
-            <button onClick={() => setView('leaderboard')} style={textLinkStyle}>
-              Leaderboard
-            </button>
-            <button onClick={() => setView('locker')} style={textLinkStyle}>
-              Locker
-            </button>
-            <button onClick={() => setView('achievements')} style={textLinkStyle}>
-              Achievements
-            </button>
-          </div>
-          <ChallengeTeaser onClick={() => setView('challenges')} />
-          <div style={{ display: 'flex', gap: 'clamp(10px, 3vmin, 20px)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <ReduceMotionToggle />
-            <BrightnessSlider />
-          </div>
+      <div className="menu-side">
+        <div>
+          <h1 className="menu-title">CABIN</h1>
+          {!isMobile && hintsActive() && <div className="menu-hint">WASD · Mouse · Click</div>}
+        </div>
+        <nav className="menu-nav" aria-label="Main menu">
+          <Button variant="primary" size="lg" block onClick={startGame} disabled={roomOpen} data-testid="menu-play">Play</Button>
+          <MenuItem label="Daily Run" meta={daily.meta} tone={daily.used ? null : 'warm'} onClick={daily.start} disabled={roomOpen} testid="menu-daily" />
+          <MenuItem label="Co-op" meta={coopMeta} active={panel === 'coop'} onClick={() => togglePanel('coop')} testid="menu-coop" />
+          <div className="menu-sep" />
+          <MenuItem label="Loadout" meta={loadoutSummary} active={panel === 'loadout'} onClick={() => togglePanel('loadout')} disabled={roomOpen} testid="menu-loadout" />
+          <MenuItem label="Progress" meta={`${challenges.done}/${challenges.total}`} tone={challenges.done === challenges.total ? 'ok' : null}
+            active={panel === 'progress'} onClick={() => (panel === 'progress' ? closePanel() : openProgress('challenges'))} disabled={roomOpen} testid="menu-progress" />
+          <MenuItem label="Locker" active={panel === 'locker'} onClick={() => togglePanel('locker')} disabled={roomOpen} testid="menu-locker" />
+          <MenuItem label="Settings" active={panel === 'settings' || panel === 'username'} onClick={() => togglePanel('settings')} disabled={roomOpen} testid="menu-settings" />
+        </nav>
+      </div>
+
+      {detail && <div className="menu-detail">{detail}</div>}
+    </div>
+  )
+}
+
+function MenuItem({ label, meta, tone, active, onClick, disabled, testid }) {
+  return (
+    <button type="button" className="menu-item" aria-current={active ? 'true' : undefined} onClick={onClick} disabled={disabled} data-testid={testid}>
+      <span>{label}</span>
+      {meta && <span className={`menu-item__meta${tone ? ` menu-item__meta--${tone}` : ''}`}>{meta}</span>}
+    </button>
+  )
+}
+
+function SettingsPanel({ user, username, onRename }) {
+  return (
+    <div>
+      <SectionLabel>Display</SectionLabel>
+      <BrightnessSlider />
+      <ReduceMotionToggle />
+      <SectionLabel style={{ marginTop: 18 }}>Account</SectionLabel>
+      {user ? (
+        <div className="ui-setting">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ffe066', textTransform: 'none', letterSpacing: 1, minWidth: 0 }}>
+            {user.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="" className="ui-avatar" />}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{username ?? '…'}</span>
+          </span>
+          <span className="ui-row" style={{ flexWrap: 'nowrap' }}>
+            {username && <Button size="sm" onClick={onRename}>Rename</Button>}
+            <Button size="sm" onClick={() => signOut()}>Sign out</Button>
+          </span>
+        </div>
+      ) : (
+        <div className="ui-stack">
+          <Button block onClick={() => signInWithGoogle()}><GoogleIcon /> Sign in with Google</Button>
+          <div className="ui-note">Keeps your progress across devices and your name on the leaderboard.</div>
         </div>
       )}
-
-      {view === 'locker' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-          <LockerPanel user={user} notice={checkoutReturn?.notice} />
-          <BackBtn onClick={() => setView('main')} />
-        </div>
-      )}
-
-      {view === 'challenges' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-          <ChallengesPanel />
-          <BackBtn onClick={() => setView('main')} />
-        </div>
-      )}
-
-      {view === 'achievements' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-          <AchievementsPanel />
-          <BackBtn onClick={() => setView('main')} />
-        </div>
-      )}
-
-      {view === 'leaderboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-          <LeaderboardPanel />
-          <BackBtn onClick={() => setView('main')} />
-        </div>
-      )}
-
-      {view === 'host' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
-          {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
-          {roomCode && !connected ? <InviteShare code={roomCode} /> : null}
-          <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>
-          {connected && mapMismatch && (
-            <div style={{ color: '#cc9944', fontSize: 12, letterSpacing: 1, textAlign: 'center', maxWidth: 320 }}>
-              Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
-            </div>
-          )}
-          {connected && <Btn onClick={handleStartGame} disabled={mapMismatch}>START GAME</Btn>}
-          <BackBtn onClick={handleBack} />
-        </div>
-      )}
-
-      {view === 'invite' && invite && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
-          {!isValidRoomCode(invite.code) ? (
-            <div data-testid="invite-error" style={{ color: '#ff6666', fontSize: 14, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>
-              Invalid invite
-            </div>
-          ) : (
-            <>
-              <div style={{ color: '#888', fontSize: 13, letterSpacing: 3 }}>INVITED</div>
-              {!connected && !status && <Btn onClick={() => handleJoin(invite.code)}>{`JOIN ${invite.code}`}</Btn>}
-              {status && (
-                <div data-testid="invite-status" style={{ color: status.startsWith('Room not') || status.startsWith('Failed') ? '#ff6666' : '#888', fontSize: 13, letterSpacing: 2, textAlign: 'center', maxWidth: 320 }}>{status}</div>
-              )}
-            </>
-          )}
-          <BackBtn onClick={handleBack} />
-        </div>
-      )}
-
-      {view === 'join' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]/g, '').slice(0, 5))}
-            onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-            placeholder="XXXXX"
-            maxLength={5}
-            style={{
-              background: 'rgba(0,0,0,0.6)',
-              border: '1px solid #555',
-              color: '#ffe066',
-              padding: '10px 16px',
-              fontSize: 20,
-              letterSpacing: 6,
-              fontFamily: 'Courier New, monospace',
-              textAlign: 'center',
-              outline: 'none',
-              width: 280,
-            }}
-          />
-          {status && <div style={{ color: '#888', fontSize: 13, letterSpacing: 2 }}>{status}</div>}
-          {!connected && <Btn onClick={handleJoin}>CONNECT</Btn>}
-          <BackBtn onClick={handleBack} />
-        </div>
-      )}
-
-      {view === 'setusername' && (
-        <UsernamePickerView onDone={() => { onUsernameSet?.(); setView('main') }} />
-      )}
-    </Overlay>
+    </div>
   )
 }
 
@@ -625,87 +705,18 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
 function ReduceMotionToggle() {
   const [on, setOn] = useState(getReduceMotion())
   return (
-    <button
-      onClick={() => { setReduceMotion(!on); setOn(!on) }}
-      aria-pressed={on}
-      style={{ ...textLinkStyle, marginTop: 2 }}
-    >
-      Reduce motion: {on ? 'on' : 'off'}
-    </button>
-  )
-}
-
-const textLinkStyle = {
-  background: 'transparent',
-  border: 'none',
-  color: '#555',
-  fontSize: 'clamp(9px, 1.8vmin, 12px)',
-  letterSpacing: 3,
-  fontFamily: 'Courier New, monospace',
-  cursor: 'pointer',
-  textTransform: 'uppercase',
-}
-
-const smallBtnStyle = {
-  background: 'transparent',
-  border: '1px solid #444',
-  color: '#666',
-  fontSize: 10,
-  fontFamily: 'Courier New, monospace',
-  letterSpacing: 2,
-  padding: '3px 8px',
-  cursor: 'pointer',
-  textTransform: 'uppercase',
-}
-
-function AuthPanel({ user, username, onRename }) {
-  if (user) {
-    const avatar = user.user_metadata?.avatar_url
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        {avatar && (
-          <img
-            src={avatar}
-            alt=""
-            style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid #555' }}
-          />
-        )}
-        <span style={{ color: '#ffe066', fontSize: 12, fontFamily: 'Courier New, monospace', letterSpacing: 1 }}>
-          {username ?? '…'}
-        </span>
-        {username && <button onClick={onRename} style={smallBtnStyle}>Rename</button>}
-        <button onClick={() => signOut()} style={smallBtnStyle}>Sign out</button>
-      </div>
-    )
-  }
-  return (
-    <button
-      onClick={() => signInWithGoogle()}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        background: 'rgba(255,255,255,0.06)',
-        border: '1px solid #444',
-        color: '#ccc',
-        fontSize: 12,
-        fontFamily: 'Courier New, monospace',
-        letterSpacing: 2,
-        padding: '8px 16px',
-        cursor: 'pointer',
-        textTransform: 'uppercase',
-        marginBottom: 6,
-      }}
-    >
-      <GoogleIcon />
-      Sign in with Google
-    </button>
+    <div className="ui-setting">
+      Reduce motion
+      <Button size="sm" aria-pressed={on} onClick={() => { setReduceMotion(!on); setOn(!on) }} style={{ minWidth: 64 }}>
+        {on ? 'On' : 'Off'}
+      </Button>
+    </div>
   )
 }
 
 function GoogleIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
+    <svg width="14" height="14" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
       <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
       <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
       <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
@@ -733,53 +744,24 @@ function UsernamePickerView({ onDone }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 8 }}>
-      <Sub>Pick a username</Sub>
-      <input
-        value={value}
-        onChange={(e) => { setValue(e.target.value.slice(0, 24)); setStatus('idle'); setErrorMsg('') }}
-        onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-        placeholder="YourName"
-        maxLength={24}
-        autoFocus
-        style={{
-          background: 'rgba(0,0,0,0.6)',
-          border: '1px solid #555',
-          color: '#ffe066',
-          padding: '10px 16px',
-          fontSize: 16,
-          letterSpacing: 3,
-          fontFamily: 'Courier New, monospace',
-          textAlign: 'center',
-          outline: 'none',
-          width: 280,
-        }}
-      />
-      {errorMsg && <div style={{ color: '#cc4444', fontSize: 12, fontFamily: 'Courier New, monospace', letterSpacing: 1 }}>{errorMsg}</div>}
-      <Btn onClick={handleSave} disabled={value.trim().length < 2 || status === 'saving'}>
-        {status === 'saving' ? '…' : 'SAVE'}
-      </Btn>
+    <div className="ui-stack">
+      <div className="ui-note">Shown on the leaderboard.</div>
+      <div className="ui-field">
+        <input
+          className="ui-input"
+          value={value}
+          onChange={(e) => { setValue(e.target.value.slice(0, 24)); setStatus('idle'); setErrorMsg('') }}
+          onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          placeholder="YourName"
+          maxLength={24}
+          autoFocus
+        />
+        <Button variant="primary" onClick={handleSave} disabled={value.trim().length < 2 || status === 'saving'}>
+          {status === 'saving' ? '…' : 'Save'}
+        </Button>
+      </div>
+      {errorMsg && <div className="ui-note" style={{ color: '#cc4444' }}>{errorMsg}</div>}
     </div>
-  )
-}
-
-function BackBtn({ onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: 'transparent',
-        border: 'none',
-        color: '#555',
-        fontSize: 'clamp(9px, 1.8vmin, 12px)',
-        letterSpacing: 3,
-        fontFamily: 'Courier New, monospace',
-        cursor: 'pointer',
-        marginTop: 'clamp(2px, 0.8vmin, 4px)',
-      }}
-    >
-      ← BACK
-    </button>
   )
 }
 
@@ -865,22 +847,7 @@ const intermissionStyles = {
   },
 }
 
-function Overlay({ children, dim = 0.78, scroll = false }) {
-  const gap = 'clamp(5px, 1.5vmin, 12px)'
-  if (scroll) {
-    // Short landscape phones: content taller than the screen scrolls instead of clipping.
-    return (
-      <div style={{
-        position: 'absolute', inset: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        background: `rgba(0,0,0,${dim})`, fontFamily: 'Courier New, monospace',
-      }}>
-        <div style={{ margin: 'auto 0', padding: '10px 0', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap }}>
-          {children}
-        </div>
-      </div>
-    )
-  }
+function Overlay({ children, dim = 0.78 }) {
   return (
     <div style={{
       position: 'absolute',
@@ -895,20 +862,6 @@ function Overlay({ children, dim = 0.78, scroll = false }) {
     }}>
       {children}
     </div>
-  )
-}
-
-function Title({ children, style }) {
-  return (
-    <h1 style={{
-      color: '#fff',
-      fontSize: 'clamp(26px, 8vmin, 64px)',
-      fontWeight: 'bold',
-      letterSpacing: 'max(3px, 1.5vmin)',
-      textShadow: '0 0 30px rgba(255,50,0,0.8)',
-      margin: 0,
-      ...style,
-    }}>{children}</h1>
   )
 }
 
@@ -931,17 +884,6 @@ function Sub({ children, style }) {
       margin: 0,
       letterSpacing: 1,
       ...style,
-    }}>{children}</p>
-  )
-}
-
-function Controls({ children }) {
-  return (
-    <p style={{
-      color: '#666',
-      fontSize: 'clamp(8px, 1.7vmin, 13px)',
-      margin: 'clamp(4px, 1vmin, 8px) 0',
-      letterSpacing: 1,
     }}>{children}</p>
   )
 }
@@ -1114,129 +1056,60 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
       }}>
 
         {isPractice ? (
-          <div style={{ color: '#aaa', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4, textAlign: 'center' }}>
-            PRACTICE
-          </div>
+          <div style={deathNoteStyle}>PRACTICE</div>
         ) : username ? (
           scoreStatus === 'done' ? (
-            <div style={{ color: '#88cc44', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
-              SCORE SAVED ✓
-            </div>
+            <div style={{ ...deathNoteStyle, color: '#88cc44' }}>SCORE SAVED</div>
           ) : scoreStatus === 'submitting' ? (
-            <div style={{ color: '#888', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
-              saving…
-            </div>
+            <div style={{ ...deathNoteStyle, color: '#888' }}>saving…</div>
           ) : null
         ) : scoreStatus !== 'done' ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+          <div className="ui-field" style={{ width: 'min(360px, 88vw)' }}>
             <input
+              className="ui-input"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value.slice(0, 24))}
               onKeyDown={(e) => e.key === 'Enter' && handleSubmitScore()}
-              placeholder="Enter name…"
+              placeholder="Name for leaderboard"
               maxLength={24}
               disabled={scoreStatus === 'submitting'}
-              style={{
-                background: 'rgba(0,0,0,0.55)',
-                border: '1px solid rgba(180,0,0,0.5)',
-                color: '#ddd',
-                padding: 'clamp(5px, 1.2vmin, 10px) clamp(8px, 2vmin, 14px)',
-                fontSize: 'clamp(11px, 2vmin, 14px)',
-                letterSpacing: 2,
-                fontFamily: 'Courier New, monospace',
-                outline: 'none',
-                width: 'clamp(140px, 30vmin, 200px)',
-              }}
+              style={{ color: '#ddd', letterSpacing: 2, fontSize: 13 }}
             />
-            <button
-              onClick={handleSubmitScore}
-              disabled={!playerName.trim() || scoreStatus === 'submitting'}
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(180,0,0,0.6)',
-                color: playerName.trim() ? 'rgba(200,200,200,0.9)' : '#555',
-                padding: 'clamp(5px, 1.2vmin, 10px) clamp(10px, 2.5vmin, 18px)',
-                fontSize: 'clamp(9px, 1.8vmin, 12px)',
-                letterSpacing: 3,
-                fontFamily: 'Courier New, monospace',
-                cursor: playerName.trim() ? 'pointer' : 'default',
-                textTransform: 'uppercase',
-                transition: 'all 0.2s',
-              }}
-            >
+            <Button onClick={handleSubmitScore} disabled={!playerName.trim() || scoreStatus === 'submitting'}>
               {scoreStatus === 'submitting' ? '…' : 'Submit'}
-            </button>
+            </Button>
           </div>
         ) : (
-          <div style={{ color: '#88cc44', fontSize: 'clamp(10px, 2vmin, 13px)', letterSpacing: 3, fontFamily: 'Courier New, monospace', marginBottom: 4 }}>
-            SCORE SAVED ✓
-          </div>
+          <div style={{ ...deathNoteStyle, color: '#88cc44' }}>SCORE SAVED</div>
         )}
         {scoreStatus === 'error' && (
-          <div style={{ color: '#ff6644', fontSize: 11, letterSpacing: 2, fontFamily: 'Courier New, monospace' }}>
-            SAVE FAILED
-          </div>
+          <div style={{ ...deathNoteStyle, color: '#ff6644' }}>SAVE FAILED</div>
         )}
 
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <DeathButton onClick={handleShare} accent="rgba(220,220,220,0.78)">
-            Share
-          </DeathButton>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 'clamp(4px, 1vmin, 8px)' }}>
           {mpRole === 'guest' ? (
-            <div style={{
-              padding: 'clamp(7px, 1.5vmin, 14px) clamp(16px, 4vmin, 36px)',
-              minWidth: 'clamp(120px, 25vmin, 210px)',
-              border: '1px solid rgba(180,0,0,0.3)',
-              color: 'rgba(150,150,150,0.6)',
-              fontSize: 'clamp(10px, 2vmin, 13px)',
-              letterSpacing: 3,
-              fontFamily: 'Courier New, monospace',
-              textAlign: 'center',
-              textTransform: 'uppercase',
-            }}>
-              Waiting…
-            </div>
+            <Button size="lg" disabled style={deathBtnStyle}>Waiting…</Button>
           ) : (
-            <DeathButton onClick={onRestart}>
-              Retry
-            </DeathButton>
+            <Button variant="primary" size="lg" onClick={onRestart} style={deathBtnStyle}>Retry</Button>
+          )}
+          <Button size="lg" onClick={handleShare} style={deathBtnStyle}>Share</Button>
+          {/* Solo only: in co-op a reload would drop the partner. The reload resets every system for the menu. */}
+          {!mpRole && (
+            <Button size="lg" onClick={() => window.location.reload()} disabled={scoreStatus === 'submitting'} style={deathBtnStyle}>Menu</Button>
           )}
         </div>
-        <div style={{
-          minHeight: 18,
-          color: '#777',
-          fontSize: 12,
-          letterSpacing: 2,
-          fontFamily: 'Courier New, monospace',
-          textTransform: 'uppercase',
-        }}>
+        <div style={{ ...deathNoteStyle, minHeight: 16, color: '#777', fontSize: 12 }}>
           {shareStatus}
         </div>
 
-        <button
-          onClick={() => setShowLeaderboard((v) => !v)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#555',
-            fontSize: 'clamp(9px, 1.8vmin, 12px)',
-            letterSpacing: 3,
-            fontFamily: 'Courier New, monospace',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-          }}
-        >
-          {showLeaderboard ? '▲ Leaderboard' : '▼ Leaderboard'}
-        </button>
-        {showLeaderboard && <LeaderboardPanel highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
+        <Button variant="ghost" size="sm" onClick={() => setShowLeaderboard((v) => !v)}>
+          {showLeaderboard ? 'Hide leaderboard' : 'Leaderboard'}
+        </Button>
+        {showLeaderboard && <LeaderboardTabs highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
       </div>
       </div>
     </div>
   )
-}
-
-function LeaderboardPanel({ highlightWave, highlightKills, initialTab = 'all' } = {}) {
-  return <LeaderboardTabs highlightWave={highlightWave} highlightKills={highlightKills} initialTab={initialTab} />
 }
 
 // ── Locker (cosmetics) ──────────────────────────────────────────────────────
@@ -1249,15 +1122,6 @@ const CHECKOUT_ERRORS = {
   already_owned: 'Already owned',
   checkout_unavailable: 'Checkout unavailable',
   unauthorized: 'Sign in again',
-}
-
-function LockIcon() {
-  return (
-    <svg width="10" height="12" viewBox="0 0 10 12" aria-label="Locked" style={{ flexShrink: 0 }}>
-      <rect x="0.5" y="5" width="9" height="6.5" rx="1" fill="none" stroke="currentColor" />
-      <path d="M2.5 5V3.5a2.5 2.5 0 0 1 5 0V5" fill="none" stroke="currentColor" />
-    </svg>
-  )
 }
 
 function LockerTile({ kind, item, selected, unlocked, onEquip }) {
@@ -1317,11 +1181,9 @@ function LockerTile({ kind, item, selected, unlocked, onEquip }) {
 
 function LockerRow({ title, children }) {
   return (
-    <div style={{ padding: 'clamp(6px, 1.4vmin, 10px) clamp(10px, 2vmin, 16px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-      <div style={{ color: '#666', fontSize: 'clamp(7px, 1.4vmin, 10px)', letterSpacing: 3, marginBottom: 'clamp(4px, 1vmin, 7px)', textTransform: 'uppercase' }}>
-        {title}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(4px, 1vmin, 8px)', justifyContent: 'center' }}>
+    <div style={{ marginBottom: 'clamp(8px, 1.8vmin, 14px)' }}>
+      <SectionLabel>{title}</SectionLabel>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(4px, 1vmin, 8px)' }}>
         {children}
       </div>
     </div>
@@ -1386,42 +1248,24 @@ function LockerPanel({ user, notice }) {
     }
   }
 
+  const supportBtn = (props) => <Button variant="gold" style={{ marginTop: 'clamp(8px, 1.6vmin, 12px)' }} {...props} />
   let button
   if (owned) {
-    button = <Btn disabled style={supporterBtnStyle}>★ Supporter</Btn>
+    button = supportBtn({ disabled: true, children: '★ Supporter' })
   } else if (!config) {
-    button = <Btn disabled style={supporterBtnStyle}>…</Btn>
+    button = supportBtn({ disabled: true, children: '…' })
   } else if (!config.checkoutEnabled) {
-    button = <Btn disabled style={supporterBtnStyle}>Coming soon</Btn>
+    button = supportBtn({ disabled: true, children: 'Coming soon' })
   } else if (!user) {
-    button = <Btn onClick={() => signInWithGoogle()} style={supporterBtnStyle}>Sign in to support</Btn>
+    button = supportBtn({ onClick: () => signInWithGoogle(), children: 'Sign in to support' })
   } else {
-    button = <Btn onClick={handleSupport} disabled={busy} style={supporterBtnStyle}>{busy ? '…' : `Support ${priceLabel}`}</Btn>
+    button = supportBtn({ onClick: handleSupport, disabled: busy, children: busy ? '…' : `Support ${priceLabel}` })
   }
 
   return (
-    <div data-testid="locker-panel" style={{
-      width: 'min(560px, 94vw)',
-      maxHeight: '80vh',
-      overflowY: 'auto',
-      background: 'rgba(0,0,0,0.6)',
-      border: '1px solid rgba(255,50,0,0.25)',
-      borderRadius: 6,
-      fontFamily: 'Courier New, monospace',
-    }}>
-      <div style={{
-        padding: '8px 14px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
-        color: '#ff3300',
-        letterSpacing: 5,
-        fontSize: 'clamp(8px, 1.6vmin, 11px)',
-        fontWeight: 'bold',
-        textAlign: 'center',
-      }}>
-        LOCKER
-      </div>
+    <div>
       {notice && (
-        <div style={{ padding: '8px 14px', color: '#88cc44', fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 1, textAlign: 'center' }}>
+        <div style={{ marginBottom: 10, color: '#88cc44', fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 1, textAlign: 'center' }}>
           {notice}
         </div>
       )}
@@ -1431,7 +1275,7 @@ function LockerPanel({ user, notice }) {
       <LockerRow title="Crosshair colour">{renderTiles('crosshairColor', CROSSHAIR_COLORS)}</LockerRow>
       <LockerRow title="Knife">{renderTiles('knifeSkin', itemsOfKind('knifeSkin'))}</LockerRow>
 
-      <div style={{ padding: 'clamp(8px, 1.8vmin, 14px) clamp(10px, 2vmin, 16px)', textAlign: 'center' }}>
+      <div style={{ padding: 'clamp(8px, 1.8vmin, 14px) 0 0', borderTop: '1px solid var(--ui-line)', textAlign: 'center' }}>
         <div style={{ color: '#ffd166', fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 3, fontWeight: 'bold' }}>
           SUPPORT THE DEV — {priceLabel} · one-time
         </div>
@@ -1450,15 +1294,6 @@ function LockerPanel({ user, notice }) {
   )
 }
 
-const supporterBtnStyle = {
-  marginTop: 'clamp(6px, 1.5vmin, 12px)',
-  padding: 'clamp(6px, 1.2vmin, 10px) clamp(14px, 3vmin, 28px)',
-  fontSize: 'clamp(10px, 2vmin, 14px)',
-  letterSpacing: 2,
-  color: '#ffd166',
-  border: '2px solid #ffd166',
-}
-
 function DeathStat({ label, value }) {
   return (
     <div style={{
@@ -1474,37 +1309,14 @@ function DeathStat({ label, value }) {
   )
 }
 
-function DeathButton({ children, onClick, accent = 'rgba(180,0,0,0.7)' }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: 'clamp(7px, 1.5vmin, 14px) clamp(16px, 4vmin, 36px)',
-        minWidth: 'clamp(120px, 25vmin, 210px)',
-        background: 'transparent',
-        border: `1px solid ${accent}`,
-        color: 'rgba(200,200,200,0.9)',
-        fontSize: 'clamp(10px, 2vmin, 15px)',
-        letterSpacing: 'clamp(2px, 0.8vmin, 5px)',
-        fontFamily: 'Courier New, monospace',
-        cursor: 'pointer',
-        textTransform: 'uppercase',
-        transition: 'all 0.3s',
-      }}
-      onMouseEnter={(e) => {
-        e.target.style.background = accent === 'rgba(180,0,0,0.7)' ? 'rgba(140,0,0,0.4)' : 'rgba(255,255,255,0.12)'
-        e.target.style.borderColor = accent === 'rgba(180,0,0,0.7)' ? 'rgba(200,0,0,1)' : '#fff'
-        e.target.style.color = '#fff'
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.background = 'transparent'
-        e.target.style.borderColor = accent
-        e.target.style.color = 'rgba(200,200,200,0.9)'
-      }}
-    >
-      {children}
-    </button>
-  )
+const deathBtnStyle = { minWidth: 'clamp(110px, 22vmin, 170px)' }
+const deathNoteStyle = {
+  color: '#aaa',
+  fontSize: 'clamp(10px, 2vmin, 13px)',
+  letterSpacing: 3,
+  fontFamily: 'Courier New, monospace',
+  textAlign: 'center',
+  textTransform: 'uppercase',
 }
 
 function getGameUrl() {
@@ -1573,39 +1385,5 @@ function PausedOverlay() {
         HOST SWITCHED TABS
       </div>
     </div>
-  )
-}
-
-function Btn({ children, onClick, disabled = false, style }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        marginTop: 'clamp(4px, 1.5vmin, 24px)',
-        padding: 'clamp(7px, 1.5vmin, 14px) clamp(14px, 4vmin, 48px)',
-        background: 'transparent',
-        border: '2px solid #ff3300',
-        color: '#ff3300',
-        fontSize: 'clamp(11px, 2.5vmin, 18px)',
-        letterSpacing: 4,
-        fontFamily: 'Courier New, monospace',
-        cursor: disabled ? 'default' : 'pointer',
-        transition: 'all 0.2s',
-        ...(disabled ? { opacity: 0.45 } : null),
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (disabled) return
-        e.target.style.background = style?.color ?? '#ff3300'
-        e.target.style.color = '#000'
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.background = 'transparent'
-        e.target.style.color = style?.color ?? '#ff3300'
-      }}
-    >
-      {children}
-    </button>
   )
 }
