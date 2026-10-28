@@ -817,7 +817,7 @@ const intermissionStyles = {
     fontWeight: 'bold',
   },
   mobileTitle: {
-    fontSize: 7,
+    fontSize: 11,
     letterSpacing: 1.5,
     whiteSpace: 'nowrap',
   },
@@ -838,7 +838,7 @@ const intermissionStyles = {
     marginTop: 2,
   },
   mobileReward: {
-    fontSize: 8,
+    fontSize: 11,
     letterSpacing: 1,
     marginTop: 0,
   },
@@ -849,7 +849,7 @@ const intermissionStyles = {
     marginTop: 2,
   },
   mobileHint: {
-    fontSize: 7,
+    fontSize: 11,
     letterSpacing: 0.8,
     marginTop: 0,
     whiteSpace: 'nowrap',

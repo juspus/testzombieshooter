@@ -31,6 +31,12 @@ start of every session. Keep entries short — a few lines each.
   - Nothing was playtested on a real phone or by ear yet.
   - The mobile-split SQL ran fine on live data, but there's almost no data:
     17 desktop runs and 1 mobile run in 60 days.
+  - Rebased onto main on 2026-10-28, after #130 (keep all guns) and #129
+    (UI-kit menu rework). #129's menus won the conflicts, and the phone rules
+    (44 px, 11 px, no emoji, install hint, run-start fullscreen) were re-applied
+    on the kit via ui.css coarse-pointer overrides. The start-menu SETTINGS
+    screen also shows the control settings on touch devices
+    (`ControlSettings` in PauseMenu.jsx).
   - Gotchas from the build:
     - Agent worktrees branch from main, not the integration branch, so tell
       agents to `git merge --ff-only <branch>` first.
