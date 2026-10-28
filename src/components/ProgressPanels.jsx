@@ -6,6 +6,7 @@ import { xpToReach } from '../progressTracker'
 import { dailyChallenges, weeklyChallenges, dayKey, weekKey, sliceFor, msUntilDailyReset, msUntilWeeklyReset, formatCountdown } from '../challenges'
 import { achievementRows } from '../achievements'
 import { playLevelUp } from '../progressSounds'
+import { SectionLabel } from './ui'
 
 // Wave 4 progression UI: death-screen XP breakdown, start-screen level badge,
 // challenge list and achievement list. Sizes use clamp() like the rest of the
@@ -14,21 +15,15 @@ import { playLevelUp } from '../progressSounds'
 const mono = 'Courier New, monospace'
 const GOLD = '#ffd166'
 
-// ── Level badge (start screen) ──────────────────────────────────────────────
+// ── Level badge (start menu, top right) ─────────────────────────────────────
 export function LevelBadge({ onClick }) {
   const xp = useGameStore((s) => s.stats.xp)
   const lv = levelFromXp(xp)
   return (
-    <button type="button" data-testid="level-badge" onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(0,0,0,0.45)',
-      border: '1px solid rgba(255,209,102,0.35)', borderRadius: 4, padding: '4px 10px',
-      color: GOLD, fontFamily: mono, fontSize: 'clamp(9px, 1.9vmin, 13px)', letterSpacing: 2, cursor: onClick ? 'pointer' : 'default',
-    }}>
+    <button type="button" data-testid="level-badge" className="ui-level" onClick={onClick}>
       <span style={{ fontWeight: 'bold' }}>LV {lv.level}</span>
-      <span style={{ width: 'clamp(60px, 14vmin, 110px)', height: 6, background: 'rgba(255,255,255,0.12)', borderRadius: 3, overflow: 'hidden' }}>
-        <span style={{ display: 'block', height: '100%', width: `${lv.pct * 100}%`, background: GOLD }} />
-      </span>
-      <span style={{ color: '#999', fontSize: '0.85em' }}>{lv.level >= MAX_LEVEL ? 'MAX' : `${lv.into}/${lv.need} XP`}</span>
+      <span className="ui-level__bar"><span className="ui-level__fill" style={{ width: `${lv.pct * 100}%` }} /></span>
+      <span className="ui-level__xp">{lv.level >= MAX_LEVEL ? 'MAX' : `${lv.into}/${lv.need} XP`}</span>
     </button>
   )
 }
@@ -52,14 +47,11 @@ function useChallengeRows() {
   }, [stats.challenges])
 }
 
-export function ChallengeTeaser({ onClick }) {
-  const { daily, dailyMs } = useChallengeRows()
+/** Daily challenge count for the start menu's PROGRESS row. */
+export function useChallengeSummary() {
+  const { daily } = useChallengeRows()
   const done = daily.filter((c) => c.done).length
-  return (
-    <button type="button" data-testid="challenge-teaser" onClick={onClick} style={{ ...linkBtn, color: done === daily.length ? '#88cc44' : '#bbb' }}>
-      CHALLENGES {done}/{daily.length} · {formatCountdown(dailyMs)} ›
-    </button>
-  )
+  return { done, total: daily.length }
 }
 
 function ChallengeRow({ c }) {
@@ -82,14 +74,11 @@ function ChallengeRow({ c }) {
 export function ChallengesPanel() {
   const { daily, weekly, dailyMs, weeklyMs } = useChallengeRows()
   return (
-    <div data-testid="challenges-panel" style={panelStyle}>
-      <PanelHead>CHALLENGES</PanelHead>
-      <div style={{ padding: 'clamp(6px, 1.4vmin, 12px) clamp(10px, 2vmin, 16px)', fontSize: 'clamp(9px, 1.8vmin, 13px)', letterSpacing: 1 }}>
-        <SectionLabel right={formatCountdown(dailyMs)}>Daily</SectionLabel>
-        {daily.map((c) => <ChallengeRow key={c.id} c={c} />)}
-        <SectionLabel right={formatCountdown(weeklyMs)} style={{ marginTop: 10 }}>Weekly</SectionLabel>
-        {weekly.map((c) => <ChallengeRow key={c.id} c={c} />)}
-      </div>
+    <div data-testid="challenges-panel">
+      <SectionLabel right={formatCountdown(dailyMs)}>Daily</SectionLabel>
+      {daily.map((c) => <ChallengeRow key={c.id} c={c} />)}
+      <SectionLabel right={formatCountdown(weeklyMs)}>Weekly</SectionLabel>
+      {weekly.map((c) => <ChallengeRow key={c.id} c={c} />)}
     </div>
   )
 }
@@ -100,9 +89,9 @@ export function AchievementsPanel() {
   const rows = achievementRows(earned)
   const got = rows.filter((r) => r.got).length
   return (
-    <div data-testid="achievements-panel" style={panelStyle}>
-      <PanelHead>ACHIEVEMENTS · {got}/{rows.length}</PanelHead>
-      <div style={{ padding: 'clamp(4px, 1vmin, 10px) clamp(10px, 2vmin, 16px)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', columnGap: 16 }}>
+    <div data-testid="achievements-panel">
+      <SectionLabel right={`${got}/${rows.length}`}>Unlocked</SectionLabel>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', columnGap: 16 }}>
         {rows.map((r) => (
           <div key={r.id} data-testid={`ach-${r.id}`} style={{ padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: r.got ? 1 : 0.55, fontSize: 'clamp(9px, 1.7vmin, 12px)' }}>
             <div style={{ color: r.got ? GOLD : '#999', fontWeight: 'bold', letterSpacing: 1 }}>{r.got ? '★ ' : '☆ '}{r.name}</div>
@@ -235,35 +224,4 @@ export function DeathXpPanel() {
       )}
     </div>
   )
-}
-
-// ── bits ────────────────────────────────────────────────────────────────────
-function PanelHead({ children }) {
-  return (
-    <div style={{ padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)', color: '#ff3300', letterSpacing: 5, fontSize: 'clamp(8px, 1.6vmin, 11px)', fontWeight: 'bold', textAlign: 'center', position: 'sticky', top: 0, background: 'rgba(10,6,6,0.95)' }}>
-      {children}
-    </div>
-  )
-}
-function SectionLabel({ children, right, style }) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666', letterSpacing: 3, textTransform: 'uppercase', fontSize: '0.85em', ...style }}>
-      <span>{children}</span><span>{right}</span>
-    </div>
-  )
-}
-
-const panelStyle = {
-  width: 'min(560px, 94vw)',
-  maxHeight: '78vh',
-  overflowY: 'auto',
-  background: 'rgba(0,0,0,0.6)',
-  border: '1px solid rgba(255,50,0,0.25)',
-  borderRadius: 6,
-  fontFamily: mono,
-  WebkitOverflowScrolling: 'touch',
-}
-const linkBtn = {
-  background: 'transparent', border: 'none', fontFamily: mono, cursor: 'pointer',
-  fontSize: 'clamp(9px, 1.8vmin, 12px)', letterSpacing: 2, padding: 2,
 }
