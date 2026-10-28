@@ -62,6 +62,20 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Stable vendor chunks: they only change when the dependency does, so they stay
+        // cached across deploys. peerjs / supabase are dynamic imports, split by Rollup.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react'
+          if (/node_modules\/(three|@react-three|three-stdlib|its-fine|react-reconciler|suspend-react|zustand)\//.test(id)) return 'vendor-three'
+          return undefined
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.js'],

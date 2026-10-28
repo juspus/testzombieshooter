@@ -1,14 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const inserts = []
-vi.mock('../supabase', () => ({
-  supabase: {
-    from: vi.fn(() => ({ insert: (rows) => { inserts.push(rows); return Promise.resolve({ error: null }) } })),
+const { inserts, mockClient } = vi.hoisted(() => {
+  const inserts = []
+  const mockClient = {
+    from: () => ({ insert: (rows) => { inserts.push(rows); return Promise.resolve({ error: null }) } }),
     auth: {
-      getSession: vi.fn(() => Promise.resolve({ data: { session: null } })),
-      onAuthStateChange: vi.fn(),
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      onAuthStateChange: () => {},
     },
-  },
+  }
+  return { inserts, mockClient }
+})
+vi.mock('../supabase', () => ({
+  getSupabase: () => Promise.resolve(mockClient),
+  peekSupabase: () => mockClient,
 }))
 
 import { track, initAnalytics, __setEnabledForTests } from '../analytics'

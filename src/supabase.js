@@ -1,36 +1,63 @@
-import { createClient } from '@supabase/supabase-js'
 import { getAnonId, weekStartUTC } from './daily'
 
-// Anon key is intentionally public — safe for client-side use
-export const supabase = createClient(
-  'https://clhonzagmvgpsaawjwsf.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsaG9uemFnbXZncHNhYXdqd3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MTk3OTQsImV4cCI6MjA5NzI5NTc5NH0.ALWlS-ih1U8JPuOrubo2gK6ZupxzUUayuHDxLwsSpe0',
-)
+// @supabase/supabase-js is loaded lazily (own chunk). Every helper below awaits getSupabase().
+let _client = null
+let _loading = null
 
-export function signInWithGoogle() {
+/** Resolves the shared client, importing the SDK chunk on first call. */
+export function getSupabase() {
+  if (_client) return Promise.resolve(_client)
+  if (!_loading) {
+    _loading = import('./supabaseClient').then((m) => (_client = m.supabase), (e) => { _loading = null; throw e })
+  }
+  return _loading
+}
+
+/** The client if already loaded, else null (never triggers the import). */
+export function peekSupabase() { return _client }
+
+/** Start loading when the browser is idle, after first paint. Safe to call repeatedly. */
+export function preloadSupabase() {
+  const go = () => { getSupabase().catch(() => {}) }
+  try {
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 3000 })
+    else setTimeout(go, 1200)
+  } catch { /* ignore */ }
+}
+
+export async function signInWithGoogle() {
+  const supabase = await getSupabase()
   return supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin },
   })
 }
 
-export function signOut() {
-  return supabase.auth.signOut()
+export async function signOut() {
+  return (await getSupabase()).auth.signOut()
 }
 
+/** Returns an unsubscribe function synchronously; the subscription attaches once the SDK loads. */
 export function onAuthStateChange(callback) {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session?.user ?? null)
-  })
-  return () => subscription.unsubscribe()
+  let sub = null
+  let cancelled = false
+  getSupabase().then((supabase) => {
+    if (cancelled) return
+    sub = supabase.auth.onAuthStateChange((_event, session) => {
+      callback(session?.user ?? null)
+    }).data.subscription
+  }).catch(() => {})
+  return () => { cancelled = true; try { sub?.unsubscribe() } catch { /* ignore */ } }
 }
 
 export async function getUser() {
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   return user
 }
 
 export async function getProfile() {
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data } = await supabase.from('profiles').select('username').eq('id', user.id).single()
@@ -38,6 +65,7 @@ export async function getProfile() {
 }
 
 export async function setUsername(username) {
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not logged in')
   const { error } = await supabase
@@ -54,6 +82,7 @@ export async function setUsername(username) {
  * Throws Error('daily_already_ranked') when the unique index says today's attempt was used.
  */
 export async function submitScore({ name, wave, kills, mode = 'normal', seedDate = null }) {
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   const row = { name: name.trim().slice(0, 24), wave, kills, user_id: user?.id ?? null }
   if (mode === 'daily') {
@@ -87,6 +116,7 @@ const lbOrder = (q) => q.order('wave', { ascending: false }).order('kills', { as
  * 'daily' doesn't exist yet; 'week' falls back to filtering the all-time view by date.
  */
 export async function fetchLeaderboard({ limit = 20, period = 'all' } = {}) {
+  const supabase = await getSupabase()
   const view = period === 'week' ? 'leaderboard_week' : period === 'daily' ? 'leaderboard_daily' : 'leaderboard'
   let { data, error } = await lbOrder(supabase.from(view).select(LB_COLS)).limit(limit)
   if (error && period === 'week' && isMissingSchema(error)) {
@@ -107,6 +137,7 @@ export async function fetchLeaderboard({ limit = 20, period = 'all' } = {}) {
  */
 export async function fetchDailyAttemptUsed(seedDate) {
   try {
+    const supabase = await getSupabase()
     const { data: { user } } = await supabase.auth.getUser()
     const anon = getAnonId()
     let q = supabase.from('scores').select('id').eq('mode', 'daily').eq('seed_date', seedDate).limit(1)
@@ -122,6 +153,7 @@ export async function fetchDailyAttemptUsed(seedDate) {
 
 /** sku list the signed-in user owns (RLS: owner can SELECT). [] when logged out. */
 export async function fetchEntitlements() {
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
   const { data, error } = await supabase.from('entitlements').select('sku').eq('user_id', user.id)
@@ -131,6 +163,7 @@ export async function fetchEntitlements() {
 
 /** { stats, cosmetics } from the signed-in user's profile row, or null. */
 export async function loadProfileExtras() {
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const { data, error } = await supabase.from('profiles').select('stats, cosmetics').eq('id', user.id).maybeSingle()
@@ -143,6 +176,7 @@ export async function loadProfileExtras() {
  * profiles.username is NOT NULL, so an insert without it would fail.
  */
 export async function saveProfileExtras({ stats, cosmetics }) {
+  const supabase = await getSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
   const { error } = await supabase.from('profiles').update({ stats, cosmetics }).eq('id', user.id)
@@ -167,6 +201,7 @@ export async function fetchStoreConfig() {
 
 /** Creates a Stripe Checkout session and redirects. Throws Error(server message) on failure. */
 export async function startCheckout() {
+  const supabase = await getSupabase()
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token
   if (!token) throw new Error('Please sign in first.')
