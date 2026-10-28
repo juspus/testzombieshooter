@@ -25,6 +25,7 @@ import PowerUps from './PowerUps'
 import Machines from './Machines'
 import NetManager from './NetManager'
 import VersusNet from './VersusNet'
+import MailHud from './MailHud'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
 import ModifierFx from './ModifierFx'
@@ -174,6 +175,7 @@ export default function Game() {
       <Screens />
       <ProgressToasts />
       <PauseLayer />
+      <MailHud />
       <VersusNet />
       <RotateGate />
     </div>

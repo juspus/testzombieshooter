@@ -3,6 +3,8 @@ import { useGameStore } from '../store'
 import { mobileInput, mobileState, resetMobileInput, stickVector, STICK_RADIUS } from '../mobileInput'
 import { useSettings, DEFAULT_BUTTON_OPACITY } from '../settings'
 import { usePauseUi } from '../pause'
+import { MAIL_ITEMS } from '../mail'
+import { sendMail } from '../mailRuntime'
 
 function getIsMobile() {
   if (typeof window === 'undefined') return false
@@ -24,6 +26,7 @@ const CLUSTER_OFFS = {
   gren: [-11, 91],
   cycle: [47, 79],
   use: [-112, 116],
+  mail: [-150, 10],      // Zombie Mail (versus only): left of RELOAD, clear of every other button
 }
 const ANCHOR_RIGHT = 84                        // FIRE centre to the screen edge (room for CYCLE + margin)
 const ANCHOR_BOTTOM = 70
@@ -86,6 +89,12 @@ export default function MobileControls() {
   // USE button: own pointer too, so holding it (planks, doors, box, bench, revive) never takes the look finger
   const usePointerRef = useRef(null)
   const grenades = useGameStore((s) => s.grenades)
+  // Zombie Mail (versus): MAIL button tracks its own pointer; its list is real DOM buttons above the look zone
+  const mailBtnRef = useRef(null)
+  const mailPointerRef = useRef(null)
+  const [mailOpen, setMailOpen] = useState(false)
+  const mailOn = useGameStore((s) => s.runMode === 'versus' && s.versus.active && s.versus.linked && !s.versus.result)
+  const mailMeter = useGameStore((s) => s.mail?.meter ?? 0)
   const cycleBtnRef = useRef(null)
   const ownedCount = useGameStore((s) => s.ownedWeapons.length)
 
@@ -120,6 +129,8 @@ export default function MobileControls() {
     movePointerRef.current = null
     grenPointerRef.current = null
     usePointerRef.current = null
+    mailPointerRef.current = null
+    setMailOpen(false)
     lookBtnRef.current = null
     lookDraggedRef.current = false
     holdFiredRef.current = false
@@ -217,6 +228,7 @@ export default function MobileControls() {
       [swapBtnRef, 'swap'],
       [grenBtnRef, 'grenade'],
       [cycleBtnRef, 'cycle'],
+      [mailBtnRef, 'mail'],
     ]) {
       const el = ref.current
       if (!el) continue
@@ -260,6 +272,12 @@ export default function MobileControls() {
     if (grenPointerRef.current === null && hitButton(e.clientX, e.clientY) === 'grenade') {
       grenPointerRef.current = e.pointerId
       mobileInput.grenadeHeld = true
+      return
+    }
+
+    // MAIL button: dedicated finger too (toggles the list on release)
+    if (mailPointerRef.current === null && hitButton(e.clientX, e.clientY) === 'mail') {
+      mailPointerRef.current = e.pointerId
       return
     }
 
@@ -330,7 +348,7 @@ export default function MobileControls() {
 
   const onLookMove = (e) => {
     e.preventDefault()
-    if (e.pointerId === grenPointerRef.current || e.pointerId === usePointerRef.current) return
+    if (e.pointerId === grenPointerRef.current || e.pointerId === usePointerRef.current || e.pointerId === mailPointerRef.current) return
     if (e.pointerId === lookPointerRef.current) {
       e.preventDefault()
 
@@ -363,6 +381,12 @@ export default function MobileControls() {
   }
 
   const onLookEnd = (e) => {
+    if (e.pointerId === mailPointerRef.current) {
+      e.preventDefault()
+      mailPointerRef.current = null
+      setMailOpen((o) => !o)
+      return
+    }
     if (e.pointerId === usePointerRef.current) {
       e.preventDefault()
       usePointerRef.current = null
@@ -421,6 +445,10 @@ export default function MobileControls() {
   }
 
   const onLookCancel = (e) => {
+    if (e.pointerId === mailPointerRef.current) {
+      mailPointerRef.current = null
+      return
+    }
     if (e.pointerId === usePointerRef.current) {
       usePointerRef.current = null
       mobileInput.interactHeld = false
@@ -546,6 +574,27 @@ export default function MobileControls() {
         >
           GREN<span style={styles.grenCount}>{grenades}</span>
         </div>
+        {mailOn && (
+          <div
+            ref={mailBtnRef} data-btn="mail"
+            style={{ ...styles.roundBtn, ...styles.swapBtn, ...inward(CLUSTER_OFFS.mail, SMALL_R), background: `rgba(40,30,6,${alpha(0.62)})`, border: '1px solid rgba(255,200,80,0.6)', color: mailOpen ? '#ffe9a8' : '#f4efe4' }}
+          >
+            MAIL<span style={{ ...styles.grenCount, color: '#ffe066' }}>{Math.floor(mailMeter)}</span>
+          </div>
+        )}
+        {mailOn && mailOpen && (
+          <div data-mail-list style={{ ...styles.mailList, [side]: 182 * k, bottom: -ANCHOR_BOTTOM * k + 8, width: 150 * k }}>
+            {MAIL_ITEMS.map((it) => (
+              <div
+                key={it.id} data-mail-item={it.id}
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); if (sendMail(it.id)) setMailOpen(false) }}
+                style={{ ...styles.mailItem, height: 48, ...(mailMeter >= it.cost ? styles.mailItemOn : null) }}
+              >
+                <span>{it.label.toUpperCase()}</span><span>{it.cost}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {ownedCount > 1 && <div ref={cycleBtnRef} data-btn="cycle" style={{ ...styles.roundBtn, ...styles.swapBtn, ...inward(CLUSTER_OFFS.cycle, SMALL_R), background: glassBg }}>⇄</div>}
       </div>
     </div>
@@ -661,4 +710,13 @@ const styles = {
   swapBtn: {
     fontSize: 11, fontWeight: 'bold', letterSpacing: 0,
   },
+  mailList: {
+    position: 'absolute', display: 'flex', flexDirection: 'column', gap: 4, pointerEvents: 'auto', touchAction: 'none',
+  },
+  mailItem: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', boxSizing: 'border-box',
+    borderRadius: 10, background: 'rgba(10,12,16,0.78)', border: '1px solid rgba(255,255,255,0.22)',
+    color: '#777', fontSize: 12, fontWeight: 'bold', letterSpacing: 1,
+  },
+  mailItemOn: { color: '#ffe9a8', border: '1px solid rgba(255,200,80,0.75)', background: 'rgba(60,44,8,0.85)' },
 }
