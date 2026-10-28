@@ -400,10 +400,12 @@ export const useGameStore = create((set, get) => ({
   setPartnerMapId: (id) => set({ partnerMapId: id }),
 
   startGame: () => {
-    // Daily Run (see startDaily): consume the one-shot flag; any other start is a normal run.
-    const daily = _pendingDaily
-    _pendingDaily = null
-    if (daily) startSeededRun(daily.date)
+    // Seeded runs (startDaily / startSeededGame) leave a one-shot _pendingRun; any other
+    // start is a normal run.
+    const pending = _pendingRun
+    _pendingRun = null
+    const daily = pending?.mode === 'daily' ? pending : null
+    if (pending) startSeededRun(pending.seed)
     else endSeededRun()
     // A run that never reached die() (e.g. a co-op guest whose 'die' event was
     // dropped, or a restart from intermission) still counts toward lifetime stats.
@@ -468,7 +470,8 @@ export const useGameStore = create((set, get) => ({
       hitEventId: 0,
       lastKillPending: false,
       coop: createCoop(),   // W5: everyone starts standing
-      runMode: daily ? 'daily' : 'normal',
+      runMode: pending ? pending.mode : 'normal',
+      runSeed: pending ? pending.seed : null,
       dailyDate: daily ? daily.date : null,
       dailyRanked: daily ? daily.ranked : false,
     })
@@ -477,8 +480,9 @@ export const useGameStore = create((set, get) => ({
     emitGameEvent('run_start')   // Wave 4 progression
     get().resetGrenades()
 
-    // Starting loadout layered over the pistol start (no-op for the default / Daily Run).
-    const lo = effectiveLoadout(get().loadoutId, get().stats, !!daily)
+    // Starting loadout layered over the pistol start (no-op for the default and for every
+    // seeded run: Daily and versus players all start on the same pistol).
+    const lo = effectiveLoadout(get().loadoutId, get().stats, !!pending)
     if (lo.id !== 'pistol') {
       const cur = get()
       set(loadoutPatch(lo, { bulletsInClip: cur.bulletsInClip, reserveBullets: cur.reserveBullets, savedClips: cur.savedClips, savedReserves: cur.savedReserves }))
@@ -490,7 +494,8 @@ export const useGameStore = create((set, get) => ({
   // ── Daily seeded run ──
   // Same spawns/drops/box rolls for everyone that UTC day. Solo only. The first daily of a
   // UTC day is "ranked" (score submitted); later ones are practice. Returns false if blocked.
-  runMode: 'normal',     // 'normal' | 'daily'
+  runMode: 'normal',     // 'normal' | 'daily' | 'versus' (Zombie Mail) | 'duel' (Seed Duel)
+  runSeed: null,         // seed string of a seeded run (rng.js), null for a normal run
   dailyDate: null,       // 'YYYY-MM-DD' of the active daily
   dailyRanked: false,
   startDaily: (rankedOverride) => {
@@ -499,9 +504,16 @@ export const useGameStore = create((set, get) => ({
     const date = dailyDate()
     const ranked = rankedOverride ?? !dailyAttemptUsed()
     if (ranked) writeLocalDaily({})   // burn the attempt at run start so quitting doesn't refund it
-    _pendingDaily = { date, ranked }
+    _pendingRun = { mode: 'daily', seed: date, date, ranked }
     get().startGame()
     return true
+  },
+
+  // Versus runs (src/versus.js): same seed on both sides, default loadout, no leaderboard.
+  // mode: 'versus' | 'duel'. Callers handle their own checks (lobby, duel link).
+  startSeededGame: (mode, seed) => {
+    _pendingRun = { mode, seed: String(seed) }
+    get().startGame()
   },
 
   // forcedMod: co-op guest passes the host's roll (null = none); undefined = roll here.
@@ -1334,7 +1346,7 @@ function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills,
   }
 }
 
-let _pendingDaily = null   // set by startDaily, consumed by startGame
+let _pendingRun = null   // { mode, seed, ... } set by startDaily / startSeededGame, consumed by startGame
 const SPAWN_EDGE_OFFSET = 0.9
 const SPAWN_TANGENT_SPREAD = 4.0
 
