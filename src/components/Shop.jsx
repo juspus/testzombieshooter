@@ -154,7 +154,9 @@ export default function Shop() {
   }, [])
 
   const openedAtRef = useRef(Infinity)
+  const downAtRef = useRef(0)   // last pointerdown on the panel since it opened (0 = none)
   useLayoutEffect(() => {
+    downAtRef.current = 0
     if (shopOpen) openedAtRef.current = performance.now()
     else openedAtRef.current = Infinity
   }, [shopOpen])
@@ -179,7 +181,20 @@ export default function Shop() {
       style={{ ...overlayStyle, opacity: shopOpen ? 1 : 0, pointerEvents: shopOpen ? 'auto' : 'none' }}
       onClick={(e) => { if (e.target === e.currentTarget && performance.now() - openedAtRef.current > 500) closeShop() }}
     >
-      <div style={panelStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={panelStyle}
+        // The USE tap that opens the shop lifts its finger over the panel: swallow that click
+        // (a quick tap, or a slower one whose pointerdown landed before the shop opened) so it
+        // cannot buy whatever row the USE button happens to sit on.
+        onPointerDownCapture={() => { downAtRef.current = performance.now() }}
+        onClickCapture={(e) => {
+          const since = performance.now() - openedAtRef.current
+          // detail 0 = keyboard / programmatic click: never a finger lifting over the panel
+          const ghost = e.detail !== 0 && (since < 350 || (downAtRef.current === 0 && since < 1500))
+          if (ghost) { e.stopPropagation(); e.preventDefault() }
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
 
         <div style={headerStyle}>
           <span style={titleStyle}>SUPPLY CHEST</span>
