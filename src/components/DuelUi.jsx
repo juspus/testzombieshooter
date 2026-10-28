@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useGameStore } from '../store'
 import { newRunSeed } from '../rng'
-import { encodeDuel, buildDuelLink, compareDuel, ghostAt } from '../duel'
+import { encodeDuel, buildDuelLink, compareDuel } from '../duel'
 import { MAP_CHOICES } from '../mapSelect'
 import { Button, Panel, SectionLabel } from './ui'
 import { enterRunFullscreen } from '../fullscreen'
@@ -49,13 +49,16 @@ export function DuelHudStat({ statStyle, labelStyle, valueStyle }) {
   const wave = useGameStore((s) => s.wave)
   const kills = useGameStore((s) => s.kills)
   if (!rival) return null
-  const past = wave > rival.final.wave
-  const ghost = ghostAt(rival, wave)
-  const ahead = past || (ghost != null && kills >= ghost)
+  // Same seed = same zombie count per wave, so cleared waves always tie on kills. What decides
+  // the duel is the rival's last wave: before it show their result, on it the kills to beat.
+  const { wave: rw, kills: rk } = rival.final
+  const past = wave > rw
+  const onFinal = wave === rw
+  const color = past || (onFinal && kills > rk) ? '#88dd55' : onFinal ? '#ff6644' : valueStyle.color
   return (
     <div style={statStyle} data-testid="duel-hud">
-      <span style={labelStyle}>{past ? 'RIVAL' : `RIVAL W${wave}`}</span>
-      <span style={{ ...valueStyle, color: ahead ? '#88dd55' : '#ff6644' }}>{past ? 'Past rival' : ghost}</span>
+      <span style={labelStyle}>RIVAL</span>
+      <span style={{ ...valueStyle, color }}>{past ? 'Past rival' : onFinal ? (kills > rk ? 'Ahead' : `Beat ${rk}`) : `W${rw} · ${rk}`}</span>
     </div>
   )
 }
