@@ -5,6 +5,19 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- LAUNCH ROADMAP "Opening Night" (2026-10-28): https://claude.ai/artifact/GmQxGeCaepG712xFCSika8
+  (source `docs/launch-roadmap.html`, republish from that file with the URL). Same picks
+  model: ArtifactData `list` on `calls` (ids `l-*`; decisions `d-awake`, `d-channel` = A/B/talk),
+  write `progress/<id>` `{status}` when building/shipped. Waves: W0 Switch on (migrations,
+  Stripe, legal, TURN, real phone) -> W1 Play it (clean analytics env, playtest night, rate
+  this run, first minute, econ sim, tuning) -> W2 Open the doors (portal build, capture mode,
+  itch.io, CrazyGames) -> W3 Learn (Monday numbers, difficulty, spectate, 2nd pack) -> W4 Safety
+  net (CI, e2e, stale PRs, split big files). Rule on the page: no new gameplay systems before W2.
+  Live state found 28 Oct: 17 players / 29 runs since 25 Oct (dev+preview traffic mixed in, no
+  env tag), checkout off on prod, /api/turn empty, neither pending migration applied (no
+  triggers, no leaderboard_week view), 0 entitlements, no CI, 391 tests pass.
+  An empty Dashboard-type artifact "Cabin Pulse" exists (https://claude.ai/artifact/K3Jd2tVqqSjtfwHjtxGm48),
+  not filled yet - owner wanted the roadmap first.
 - OWNER UI PREFERENCES (2026-10-27): no emoji anywhere in the UI - use short
   text labels. In-game text must be terse (one short line, hints only in the
   first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
