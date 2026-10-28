@@ -145,24 +145,35 @@ function Toggle({ on, onChange, label }) {
 }
 
 function SettingsPanel({ onBack }) {
-  const st = useSettings()
-  const set = st.setSetting
-  const [bright, setBright] = useState(getBrightness)
   return (
     <div style={S.settings}>
       <div style={S.settingsHead}>
         <div style={S.title2}>SETTINGS</div>
         <button style={{ ...S.btn, width: 'auto', padding: '0 22px' }} onClick={onBack}>BACK</button>
       </div>
-      <div style={S.grid}>
+      <ControlSettings />
+    </div>
+  )
+}
+
+// The control/audio rows, shared by the pause settings above and the start menu's SETTINGS panel.
+// `brightness={false}` leaves the brightness row out (the start menu has its own, under Display).
+export function ControlSettings({ brightness = true }) {
+  const st = useSettings()
+  const set = st.setSetting
+  const [bright, setBright] = useState(getBrightness)
+  return (
+    <div style={S.grid}>
         <Row label="LOOK SPEED" value={`${st.lookSensitivity.toFixed(2)}x`}>
           <Slider min={SENS_MIN} max={SENS_MAX} step={0.05} value={st.lookSensitivity} onChange={(v) => set('lookSensitivity', v)} label="Look speed" />
         </Row>
         <Row label="AIM ASSIST"><Toggle on={st.aimAssist} onChange={(v) => set('aimAssist', v)} label="Aim assist" /></Row>
         <Row label="AUTO-SHOOT"><Toggle on={st.autoShoot} onChange={(v) => set('autoShoot', v)} label="Auto-shoot" /></Row>
-        <Row label="BRIGHTNESS" value={`${bright.toFixed(2)}x`}>
-          <Slider min={BRIGHTNESS_MIN} max={BRIGHTNESS_MAX} step={0.05} value={bright} onChange={(v) => { setBrightness(v); setBright(v) }} label="Brightness" />
-        </Row>
+        {brightness && (
+          <Row label="BRIGHTNESS" value={`${bright.toFixed(2)}x`}>
+            <Slider min={BRIGHTNESS_MIN} max={BRIGHTNESS_MAX} step={0.05} value={bright} onChange={(v) => { setBrightness(v); setBright(v) }} label="Brightness" />
+          </Row>
+        )}
         <Row label="VOLUME" value={`${Math.round(st.volume * 100)}%`}>
           <Slider min={0} max={1} step={0.05} value={st.volume} onChange={(v) => set('volume', v)} label="Volume" />
         </Row>
@@ -179,7 +190,6 @@ function SettingsPanel({ onBack }) {
           <Slider min={OPACITY_MIN} max={OPACITY_MAX} step={0.05} value={st.buttonOpacity} onChange={(v) => set('buttonOpacity', v)} label="Button opacity" />
         </Row>
         <Row label="LEFT-HANDED"><Toggle on={st.leftHanded} onChange={(v) => set('leftHanded', v)} label="Left-handed" /></Row>
-      </div>
     </div>
   )
 }

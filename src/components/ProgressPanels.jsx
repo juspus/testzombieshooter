@@ -7,6 +7,7 @@ import { dailyChallenges, weeklyChallenges, dayKey, weekKey, sliceFor, msUntilDa
 import { achievementRows } from '../achievements'
 import { playLevelUp } from '../progressSounds'
 import { SectionLabel } from './ui'
+import { CheckIcon, StarIcon, ChevronIcon } from './Icons'
 
 // Wave 4 progression UI: death-screen XP breakdown, start-screen level badge,
 // challenge list and achievement list. Sizes use clamp() like the rest of the
@@ -58,14 +59,14 @@ function ChallengeRow({ c }) {
   return (
     <div data-testid={`challenge-${c.id}`} style={{ padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: c.done ? '#88cc44' : '#ddd' }}>
-        <span>{c.done ? '✓ ' : ''}{c.text}</span>
+        <span>{c.done ? <><CheckIcon /> </> : ''}{c.text}</span>
         <span style={{ color: GOLD, whiteSpace: 'nowrap' }}>+{c.xp} XP</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
         <span style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
           <span style={{ display: 'block', height: '100%', width: `${(c.progress / c.target) * 100}%`, background: c.done ? '#88cc44' : '#ff6a3a' }} />
         </span>
-        <span style={{ color: '#888', fontSize: '0.85em', minWidth: 48, textAlign: 'right' }}>{c.progress}/{c.target}</span>
+        <span style={{ color: '#888', fontSize: 'max(var(--ui-fs-min), 0.85em)', minWidth: 48, textAlign: 'right' }}>{c.progress}/{c.target}</span>
       </div>
     </div>
   )
@@ -93,8 +94,8 @@ export function AchievementsPanel() {
       <SectionLabel right={`${got}/${rows.length}`}>Unlocked</SectionLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', columnGap: 16 }}>
         {rows.map((r) => (
-          <div key={r.id} data-testid={`ach-${r.id}`} style={{ padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: r.got ? 1 : 0.55, fontSize: 'clamp(9px, 1.7vmin, 12px)' }}>
-            <div style={{ color: r.got ? GOLD : '#999', fontWeight: 'bold', letterSpacing: 1 }}>{r.got ? '★ ' : '☆ '}{r.name}</div>
+          <div key={r.id} data-testid={`ach-${r.id}`} style={{ padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: r.got ? 1 : 0.55, fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.7vmin, 12px))' }}>
+            <div style={{ color: r.got ? GOLD : '#999', fontWeight: 'bold', letterSpacing: 1 }}><StarIcon filled={r.got} /> {r.name}</div>
             <div style={{ color: '#888', letterSpacing: 0.5 }}>{r.desc}</div>
           </div>
         ))}
@@ -183,7 +184,7 @@ export function DeathXpPanel() {
     }}>
       <div style={{
         display: open ? 'grid' : 'none', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', columnGap: 14, rowGap: 1,
-        fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 1, color: '#bbb', minHeight: 14, marginBottom: 4,
+        fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.7vmin, 12px))', letterSpacing: 1, color: '#bbb', minHeight: 14, marginBottom: 4,
       }}>
         {prog.rows.map((r, i) => (
           <div key={r.id} ref={(el) => { rowEls.current[i] = el }} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, opacity: 0, transition: 'opacity 0.2s' }}>
@@ -192,34 +193,34 @@ export function DeathXpPanel() {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'clamp(4px, 1vmin, 8px)', color: GOLD, fontSize: 'clamp(10px, 2vmin, 14px)', letterSpacing: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'clamp(4px, 1vmin, 8px)', color: GOLD, fontSize: 'max(var(--ui-fs-min), clamp(10px, 2vmin, 14px))', letterSpacing: 2 }}>
         <span ref={levelRef} style={{ fontWeight: 'bold', minWidth: 48 }}>LV {prog.levelBefore}</span>
         <span style={{ flex: 1, height: 8, background: 'rgba(255,255,255,0.12)', borderRadius: 4, overflow: 'hidden' }}>
           <span ref={barRef} style={{ display: 'block', height: '100%', width: 0, background: GOLD }} />
         </span>
         <span ref={totalRef} style={{ minWidth: 64, textAlign: 'right', fontWeight: 'bold' }}>+0 XP</span>
-        <span style={{ color: '#777' }}>{open ? '▾' : '▸'}</span>
+        <span style={{ color: '#777' }}><ChevronIcon dir={open ? 'down' : 'right'} /></span>
       </div>
-      <div ref={xpRef} style={{ textAlign: 'right', color: '#777', fontSize: 'clamp(8px, 1.5vmin, 11px)', letterSpacing: 1 }} />
+      <div ref={xpRef} style={{ textAlign: 'right', color: '#777', fontSize: 'max(var(--ui-fs-min), clamp(8px, 1.5vmin, 11px))', letterSpacing: 1 }} />
       <div ref={flashRef} data-testid="level-up-flash" style={{
         position: 'absolute', left: 0, right: 0, top: '30%', textAlign: 'center', pointerEvents: 'none', opacity: 0,
         color: '#fff', fontWeight: 'bold', fontSize: 'clamp(18px, 4.5vmin, 34px)', letterSpacing: 4, textShadow: `0 0 18px ${GOLD}, 0 2px 0 #000`,
       }} />
       {prog.levelUps.map((u, i) => (
         <div key={u.level} ref={(el) => { lvlEls.current[i] = el }} data-testid={`levelup-${u.level}`} style={{
-          opacity: 0, transition: 'opacity 0.3s', color: '#fff', fontSize: 'clamp(9px, 1.8vmin, 12px)', letterSpacing: 2, textAlign: 'center', marginTop: 2,
+          opacity: 0, transition: 'opacity 0.3s', color: '#fff', fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.8vmin, 12px))', letterSpacing: 2, textAlign: 'center', marginTop: 2,
         }}>
           LV {u.level}{u.reward ? <> · <span style={{ color: GOLD }}>{u.reward}</span></> : null}
         </div>
       ))}
-      <div data-testid="next-unlock" style={{ marginTop: 'clamp(3px, 0.8vmin, 6px)', textAlign: 'center', color: '#8fb8d8', fontSize: 'clamp(9px, 1.7vmin, 12px)', letterSpacing: 1 }}>
+      <div data-testid="next-unlock" style={{ marginTop: 'clamp(3px, 0.8vmin, 6px)', textAlign: 'center', color: '#8fb8d8', fontSize: 'max(var(--ui-fs-min), clamp(9px, 1.7vmin, 12px))', letterSpacing: 1 }}>
         {next ? `Next: ${next.text} · LV ${next.level}` : ''}
       </div>
       {(prog.achievements.length > 0 || prog.challenges.length > 0) && (
-        <div style={{ textAlign: 'center', color: '#88cc44', fontSize: 'clamp(8px, 1.5vmin, 11px)', letterSpacing: 1, marginTop: 2 }}>
-          {prog.challenges.length > 0 && `✓ ${prog.challenges.length}`}
+        <div style={{ textAlign: 'center', color: '#88cc44', fontSize: 'max(var(--ui-fs-min), clamp(8px, 1.5vmin, 11px))', letterSpacing: 1, marginTop: 2 }}>
+          {prog.challenges.length > 0 && <><CheckIcon /> {prog.challenges.length}</>}
           {prog.challenges.length > 0 && prog.achievements.length > 0 && ' · '}
-          {prog.achievements.length > 0 && `★ ${prog.achievements.join(', ')}`}
+          {prog.achievements.length > 0 && <><StarIcon /> {prog.achievements.join(', ')}</>}
         </div>
       )}
     </div>
