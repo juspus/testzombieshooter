@@ -7,6 +7,8 @@ import { createRunShareToken } from '../shareToken'
 import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 import { consumeInvite, isValidRoomCode } from '../invite'   // W5 one-tap invite
 import InviteShare from './InviteShare'
+import { consumeDuel } from '../duel'
+import { DuelPanel, DuelDeath } from './DuelUi'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
 import { getReduceMotion, setReduceMotion } from '../cameraFeel'
 import { LevelBadge, useChallengeSummary, ChallengesPanel, AchievementsPanel, DeathXpPanel } from './ProgressPanels'
@@ -415,7 +417,9 @@ const statusIsError = (s) => s.startsWith('Room not') || s.startsWith('Failed')
 function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
   // W5: opening `/?join=CODE` lands on the CO-OP panel with a one-tap join (the tap also satisfies the audio-unlock gesture)
   const [invite] = useState(() => (checkoutReturn?.openLocker ? null : consumeInvite()))
-  const [panel, setPanel] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'coop' : null) // null | 'coop' | 'loadout' | 'progress' | 'locker' | 'settings' | 'username'
+  // Seed Duel: opening `/?duel=TOKEN` shows the challenge card (null for none / a bad token)
+  const [challenge, setChallenge] = useState(() => (checkoutReturn?.openLocker || invite ? null : consumeDuel()))
+  const [panel, setPanel] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'coop' : challenge ? 'duel' : null) // null | 'duel' | 'coop' | 'loadout' | 'progress' | 'locker' | 'settings' | 'username'
   const [coop, setCoop] = useState(invite ? 'invite' : 'idle') // 'idle' | 'host' | 'guest' | 'invite'
   const [progressTab, setProgressTab] = useState('challenges')
   const [roomCode, setRoomCode] = useState('')
@@ -535,7 +539,9 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     : <Button variant="ghost" size="sm" onClick={closePanel}>Back</Button>
 
   let detail = null
-  if (panel === 'coop') {
+  if (panel === 'duel') {
+    detail = <DuelPanel challenge={challenge} onBack={closePanel} onDecline={() => { setChallenge(null); setPanel(null) }} />
+  } else if (panel === 'coop') {
     detail = (
       <Panel title="Co-op" action={backAction} testid="coop-panel">
         {coop === 'idle' && (
@@ -659,6 +665,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <nav className="menu-nav" aria-label="Main menu">
           <Button variant="primary" size="lg" block onClick={() => { enterRunFullscreen(); startGame() }} disabled={roomOpen} data-testid="menu-play">Play</Button>
           <MenuItem label="Daily Run" meta={daily.meta} tone={daily.used ? null : 'warm'} onClick={daily.start} disabled={roomOpen} testid="menu-daily" />
+          <MenuItem label="Seed Duel" meta={challenge ? 'Challenge' : null} tone={challenge ? 'warm' : null} active={panel === 'duel'} onClick={() => togglePanel('duel')} disabled={roomOpen} testid="menu-duel" />
           <MenuItem label="Co-op" meta={coopMeta} active={panel === 'coop'} onClick={() => togglePanel('coop')} testid="menu-coop" />
           <div className="menu-sep" />
           <MenuItem label="Loadout" meta={loadoutSummary} active={panel === 'loadout'} onClick={() => togglePanel('loadout')} disabled={roomOpen} testid="menu-loadout" />
@@ -917,10 +924,12 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   // Daily Run: only the first run of the UTC day is ranked; the rest are practice (never submitted).
   const dailyMode = useGameStore((s) => s.runMode === 'daily')
+  const duelMode = useGameStore((s) => s.runMode === 'duel')   // Seed Duel: never submitted, own result block
   const dailyRanked = useGameStore((s) => s.dailyRanked)
   const dailyDateStr = useGameStore((s) => s.dailyDate)
   const isPractice = (dailyMode && !dailyRanked) || scoreStatus === 'practice'
   const sendScore = async (name) => {
+    if (duelMode) return
     if (dailyMode && !dailyRanked) { setScoreStatus('practice'); return }
     try {
       await submitScore({ name, wave, kills, mode: dailyMode ? 'daily' : 'normal', seedDate: dailyDateStr })
@@ -955,7 +964,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
 
   // Auto-submit for logged-in users with a username
   useEffect(() => {
-    if (!btnVisible || !username || scoreStatus !== 'idle') return
+    if (duelMode || !btnVisible || !username || scoreStatus !== 'idle') return
     setScoreStatus('submitting')
     sendScore(username)
   }, [btnVisible, username])
@@ -1076,7 +1085,9 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         gap: 'clamp(6px, 1.5vmin, 12px)',
       }}>
 
-        {isPractice ? (
+        {duelMode ? (
+          <DuelDeath wave={wave} kills={kills} username={username} />
+        ) : isPractice ? (
           <div style={deathNoteStyle}>PRACTICE</div>
         ) : username ? (
           scoreStatus === 'done' ? (
@@ -1108,12 +1119,12 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         )}
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 'clamp(4px, 1vmin, 8px)' }}>
-          {mpRole === 'guest' ? (
+          {duelMode ? null : mpRole === 'guest' ? (
             <Button size="lg" disabled style={deathBtnStyle}>Waiting…</Button>
           ) : (
             <Button variant="primary" size="lg" onClick={onRestart} style={deathBtnStyle}>Retry</Button>
           )}
-          <Button size="lg" onClick={handleShare} style={deathBtnStyle}>Share</Button>
+          {!duelMode && <Button size="lg" onClick={handleShare} style={deathBtnStyle}>Share</Button>}
           {/* Solo only: in co-op a reload would drop the partner. The reload resets every system for the menu. */}
           {!mpRole && (
             <Button size="lg" onClick={() => window.location.reload()} disabled={scoreStatus === 'submitting'} style={deathBtnStyle}>Menu</Button>
@@ -1123,10 +1134,12 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
           {shareStatus}
         </div>
 
-        <Button variant="ghost" size="sm" onClick={() => setShowLeaderboard((v) => !v)}>
-          {showLeaderboard ? 'Hide leaderboard' : 'Leaderboard'}
-        </Button>
-        {showLeaderboard && <LeaderboardTabs highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
+        {!duelMode && (
+          <Button variant="ghost" size="sm" onClick={() => setShowLeaderboard((v) => !v)}>
+            {showLeaderboard ? 'Hide leaderboard' : 'Leaderboard'}
+          </Button>
+        )}
+        {showLeaderboard && !duelMode && <LeaderboardTabs highlightWave={wave} highlightKills={kills} initialTab={dailyMode ? 'daily' : 'all'} />}
       </div>
       </div>
     </div>

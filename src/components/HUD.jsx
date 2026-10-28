@@ -9,6 +9,7 @@ import { HitMarker, DangerFx, DamageIndicator, LastKillFx } from './FeelFx'
 import PowerUpHud from './PowerUpHud'
 import GrenadeHud from './GrenadeHud'
 import { hintsActive, noteWaveStarted } from '../hints'
+import { DuelHudStat } from './DuelUi'
 import CoopFx from './CoopFx'   // W5 co-op down / revive
 
 const BASE_KNIFE_COOLDOWN = 0.4
@@ -212,6 +213,7 @@ export default function HUD() {
             <span style={labelStyle}>KILLS</span>
             <span style={valueStyle}>{waveKills} / {total}</span>
           </div>
+          <DuelHudStat statStyle={statStyle} labelStyle={labelStyle} valueStyle={valueStyle} />
           <div style={statStyle}>
             <span style={labelStyle}>MONEY</span>
             <span style={{ ...valueStyle, color: canAfford ? '#ffe066' : '#ff6644' }}>
