@@ -90,6 +90,12 @@ void main() {
   gl_FragColor = vec4(c, 1.0);
 }`
 
+// Internal height currently in use. FrameGovernor lowers it under load (400 -> 340 -> 288);
+// only the render-target size changes, the look stays the same chunky pixels.
+let _height = LOFI_HEIGHT
+export function setLofiHeight(h) { _height = h }
+export function getLofiTargetHeight() { return _api ? _api.rt.height : 0 }   // actual RT height (?perf overlay)
+
 // Module-level handle so ForceRenderOnShopOpen can draw a complete lo-fi frame.
 let _api = null
 export function renderLofiNow(gl, scene, camera) {
@@ -167,7 +173,7 @@ export default function LofiPass({ exposure = 1 }) {
 
   // Before Gun/Knife (priority 1): size + bind the target so their gl.render calls land in it.
   useFrame(({ gl: r, size, clock }) => {
-    const h = Math.min(LOFI_HEIGHT, Math.max(2, Math.round(size.height)))
+    const h = Math.min(_height, Math.max(2, Math.round(size.height)))
     const w = Math.max(2, Math.round(h * size.width / size.height))
     const { rt, mat } = api
     if (rt.width !== w || rt.height !== h) {

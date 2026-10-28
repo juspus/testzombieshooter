@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
+import { govInfo } from '../frameGovernor'
+import { getLofiTargetHeight } from './LofiPass'
 
 // Debug-only frame budget overlay (?perf) and bench scene camera (?bench).
 // Same gating as the ?wave=/?money= params: dev + Vercel preview only.
@@ -78,7 +80,8 @@ export default function PerfOverlay() {
     el.textContent =
       `${fpsEma.toFixed(0)} fps  ${(sum / len).toFixed(1)}ms avg  ${worst.toFixed(1)}ms worst\n` +
       `${calls} draws  ${(tris / 1000).toFixed(1)}k tris  ${live} zombies\n` +
-      `geo ${m.geometries}  tex ${m.textures}  prog ${info.programs?.length ?? 0}`
+      `geo ${m.geometries}  tex ${m.textures}  prog ${info.programs?.length ?? 0}\n` +
+      (govInfo.enabled ? `gov L${govInfo.level} ${govInfo.ema.toFixed(1)}ms ema  rt ${getLofiTargetHeight()}p` : 'gov off')
   })
 
   return null

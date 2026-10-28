@@ -21,7 +21,7 @@ doing anything else.
 ### Tech stack
 - React 18 + React Three Fiber (R3F) + @react-three/drei
 - Three.js 0.167, Zustand 4, Vite 5
-- No textures except `public/forest-panorama.png` (baked offline with Pillow)
+- No image assets: the skybox is a canvas texture and the other textures are 64x64 procedural DataTextures (`textures.js`)
 
 ### Key files
 ```
@@ -34,7 +34,7 @@ src/
 └── components/
     ├── Game.jsx               # Canvas setup, fog, scene root
     ├── Arena.jsx              # Full cabin interior + lighting + Roof component
-    ├── ForestSkybox.jsx       # Single cylinder with baked panorama texture
+    ├── ForestSkybox.jsx       # Single cylinder with a procedural canvas texture
     ├── Player.jsx             # Pointer-lock camera, WASD, raycasting shoot, scroll weapon switch
     ├── Gun.jsx                # 3-D gun models (Pistol, AK-47, Desert Eagle, Shotgun)
     ├── Knife.jsx              # Melee knife model + swing animation
@@ -169,7 +169,8 @@ A `pointLight` with `castShadow` renders the scene **6 times per frame** (cube m
 (Note: this had silently regressed — `castShadow` was back on the fireplace light until 2026-10-27. Grep for `pointLight.*castShadow` when touching lights.)
 
 ### Root cause 5 — oversized directional shadow map
-Shadow map was 1024×1024 covering ±30 units. Reduced to 512×512 covering ±18 (matches actual play area).
+Shadow map was 1024×1024 covering ±30 units. Reduced to 512×512 covering ±18 (matches actual play area). The diner uses 512×512 over ±14 (interior is ±8 x ±6).
+(Note: this regressed silently once, back to 1024/±30 in both arenas, and was restored on 2026-10-28. `src/__tests__/perfGuards.test.js` now fails if a map exceeds 512 or a point light gets `castShadow`.)
 
 ```jsx
 <directionalLight castShadow
@@ -179,27 +180,26 @@ Shadow map was 1024×1024 covering ±30 units. Reduced to 512×512 covering ±18
 />
 ```
 
+### Root cause 6 — 755 shadow casters in the Arena
+The Arena's local `Box` helper defaulted `castShadow = true`, so every clapboard line, forest-thicket twig, beam and prop cast shadows: 761 casters in the cabin scene (843 total with zombies in the audit), 837 shadow-pass draws per frame. `Box` now defaults to `castShadow = false`; only wall slabs, window/doorway fills, fireplace pillars, the barricaded door and window planks opt in. Cabin scene is now ~58 casters (+6 per live zombie). New meshes must not cast unless they are a big silhouette that reads in moonlight through a window. Do not flip the `Box` default back.
+
+### Fixed light budget (never change the light count at runtime)
+three.js counts only *visible* lights; any change in that count recompiles every lit shader (same stall as root cause 1). Lights that animate (muzzle flash in `Gun.jsx`, Blackout flashlight in `ModifierFx.jsx`, bulbs/fireplace via `LivingLights`/`Storm`) are always mounted and only change `intensity`. Never toggle `visible` or mount/unmount a light. In `Gun.jsx` the Upgrade Bench hides the gun via a `modelRef` group that holds the meshes only; the muzzle light stays visible. `BulletPickups.jsx` crates glow with `emissive` (no light; it is only used by the model playground). Verified 2026-10-28: `renderer.info.programs.length` stays at 23 (cabin) from wave 1 start through shooting, grenade, all power-ups, weapon swaps, bench and Blackout.
+
+### Frame governor (`src/frameGovernor.js`, `components/FrameGovernor.jsx`)
+Invisible, no setting. Pure state machine fed the raw frame delta (not `time.scale`): EMA of frame time; above 22 ms for 2 s steps down a level, below 17.5 ms (a vsync-locked 60 Hz frame is 16.7 ms, so 14 ms could never be reached) for 6 s steps up; 3 s cooldown, flap back-off up to 8x, first 2 s ignored. Levels: 0 normal (lo-fi height 400); 1 height 340; 2 height 288; 3 height 288 + shadow map refreshed every 2nd frame (`shadowMap.autoUpdate=false`, `needsUpdate` on alternate frames). It never touches lights or materials. Off with `?lofi=0` or `?gov=0` (dev/preview). `?perf` shows `gov L<n>`; `window.__gov` in dev.
+
 ---
 
 ## ForestSkybox
 
 **File:** `src/components/ForestSkybox.jsx`
 
-Single `CylinderGeometry` (radius 18, height 24, 64 segments, open-ended) with `meshBasicMaterial` (no lighting cost) wrapping `public/forest-panorama.png`.
+Single open-ended `CylinderGeometry` (radius 46, height 70, 96 segments) at `[0, 22, 0]` with a `meshBasicMaterial` (no lighting, no fog, `depthTest/depthWrite` off, `renderOrder -100`, `side={THREE.BackSide}`).
 
-- **1 draw call, 1 scene node, zero per-frame cost**
-- No `castShadow`, no `receiveShadow`
-- Texture loaded via `useTexture` from `@react-three/drei`
-- `texture.wrapS = THREE.RepeatWrapping` for seamless horizontal wrap
-- Cylinder positioned at `[0, 5, 0]` so tree line sits at correct eye level
-- `side={THREE.BackSide}` so interior of cylinder is visible
-
-### Regenerating the panorama
-The PNG was generated with Python + Pillow. To regenerate, run the script in the session transcript. Key parameters:
-- Canvas: 4096×1024
-- Seeded RNG: `random.Random(0xF04E57)`
-- 3 tree layers (far/mid/near) with wrap-safe edge mirroring
-- Mist gradient at ground level
+- The texture is a 2048x512 `CanvasTexture` painted procedurally at mount (`makeForestTexture`, seeded LCG, pixel-art pine layers, Nearest filter, no mipmaps, `wrapS = RepeatWrapping`). There is no PNG and nothing to precache.
+- Registered with `registerSkyMaterial` (`weather.js`) so the storm can tint it.
+- 1 draw call, 1 scene node, zero per-frame cost; no `castShadow`/`receiveShadow`.
 
 ---
 
@@ -300,5 +300,5 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 
 - Each unique material config = one WebGL shader program. Avoid adding new `transparent`, `metalness`, or `envMap` combinations to materials that mount/unmount frequently.
 - `meshBasicMaterial` skips all lighting — use it for skybox, UI planes, purely decorative non-lit geometry.
-- `scene.traverseVisible()` is called every frame for the shadow map. Every node with `castShadow=true` adds a shadow draw call. The Arena has ~43 `castShadow` meshes; keep zombie shadow casters at 6 per zombie.
+- `scene.traverseVisible()` is called every frame for the shadow map. Every node with `castShadow=true` adds a shadow draw call. The cabin scene has ~58 `castShadow` meshes at rest (measured 2026-10-28; was 761 after a silent `Box` default regression), the diner ~35; keep zombie shadow casters at 6 per zombie.
 - The geometry cache in `Zombie.jsx` is module-level (singleton). It is never cleared. This is intentional.

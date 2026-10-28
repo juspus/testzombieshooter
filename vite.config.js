@@ -18,15 +18,10 @@ export default defineConfig({
       // and index.html already links to it.
       manifest: false,
 
-      // Cache everything the build emits plus the panorama texture
+      // Cache everything the build emits (the skybox is a canvas texture, no file)
       workbox: {
         // Pre-cache all build output (JS chunks, CSS, HTML, images, fonts)
         globPatterns: ['**/*.{js,css,html,png,jpg,jpeg,webp,svg,ico,woff,woff2,wasm}'],
-
-        // Also pre-cache the big panorama texture that lives in /public
-        additionalManifestEntries: [
-          { url: '/forest-panorama.png', revision: null },
-        ],
 
         // Runtime caching for anything not covered by the pre-cache list
         runtimeCaching: [

@@ -27,6 +27,7 @@ import NetManager from './NetManager'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
 import ModifierFx from './ModifierFx'
+import FrameGovernor from './FrameGovernor'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
 import { initAnalytics } from '../analytics'
@@ -156,6 +157,7 @@ export default function Game() {
         <NetManager />
         <ForceRenderOnShopOpen />
         {LOFI_ON && <LofiPass exposure={LOFI_EXPOSURE[mapId] ?? 1.5} />}
+        <FrameGovernor />
         {(PERF_ON || BENCH_ON) && <PerfOverlay />}
         <Storm />
       </Canvas>

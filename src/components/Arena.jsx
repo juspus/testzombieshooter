@@ -67,7 +67,7 @@ const KIND_BY_COLOR = {
   [ROOF]: 'shingle',
 }
 
-function Box({ position, args, color, roughness = 0.95, metalness = 0, castShadow = true, receiveShadow = true, rotation, emissive, emissiveIntensity = 0, tex }) {
+function Box({ position, args, color, roughness = 0.95, metalness = 0, castShadow = false, receiveShadow = true, rotation, emissive, emissiveIntensity = 0, tex }) {
   const kind = emissive || tex === false ? null : (tex || KIND_BY_COLOR[color])
   if (kind) {
     return <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow} rotation={rotation} {...texBoxProps(args, kind, color, roughness, metalness)} />
@@ -89,8 +89,8 @@ function WindowFill({ cx, cz, isXWall }) {
   const [sw, sd] = isXWall ? [w, WT] : [WT, w]
   return (
     <>
-      <Box position={[cx, sillY, cz]} args={[sw, WIN_SILL_H,   sd]} color={WALL} />
-      <Box position={[cx, lintY, cz]} args={[sw, WIN_LINTEL_H, sd]} color={WALL} />
+      <Box position={[cx, sillY, cz]} args={[sw, WIN_SILL_H,   sd]} color={WALL} castShadow />
+      <Box position={[cx, lintY, cz]} args={[sw, WIN_LINTEL_H, sd]} color={WALL} castShadow />
     </>
   )
 }
@@ -120,7 +120,7 @@ function WindowFrame({ cx, cz, isXWall }) {
 function DoorwayFill({ cx, cz, halfW, isXWall }) {
   const w = halfW * 2
   const [sw, sd] = isXWall ? [w, WT] : [WT, w]
-  return <Box position={[cx, DOOR_LINTEL_Y, cz]} args={[sw, DOOR_LINTEL_H, sd]} color={WALL} />
+  return <Box position={[cx, DOOR_LINTEL_Y, cz]} args={[sw, DOOR_LINTEL_H, sd]} color={WALL} castShadow />
 }
 
 // Interior door frame
@@ -268,19 +268,19 @@ function CeilingBeams() {
     <group>
       {/* Main room — beams run E-W (along X), spaced in Z */}
       {[-8, -4.5, -1, 2.5, 6, 9.5].map((z) => (
-        <Box key={z} position={[3.5, y, z]} args={[11, bh, bd]} color={BEAM} roughness={1} castShadow />
+        <Box key={z} position={[3.5, y, z]} args={[11, bh, bd]} color={BEAM} roughness={1} />
       ))}
       {/* Bedroom — beams run E-W */}
       {[-8.5, -6.5].map((z) => (
-        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
+        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} />
       ))}
       {/* Hall — beams run E-W */}
       {[-1.5, 1.5, 4].map((z) => (
-        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
+        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} />
       ))}
       {/* Kitchen — beams run E-W */}
       {[6.5, 8.5].map((z) => (
-        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} castShadow />
+        <Box key={z} position={[-5.5, y, z]} args={[7, bh, bd]} color={BEAM} roughness={1} />
       ))}
     </group>
   )
@@ -299,9 +299,9 @@ function Fireplace() {
       <Box position={[fx, 0.025, fzW + 0.45]} args={[2.8, 0.05, 1.0]} color={STONE} roughness={1} receiveShadow castShadow={false} />
 
       {/* Left stone pillar */}
-      <Box position={[fx - 1.15, 1.3, fzW + 0.18]} args={[0.38, 2.6, 0.42]} color={STONE} roughness={1} />
+      <Box position={[fx - 1.15, 1.3, fzW + 0.18]} args={[0.38, 2.6, 0.42]} color={STONE} roughness={1} castShadow />
       {/* Right stone pillar */}
-      <Box position={[fx + 1.15, 1.3, fzW + 0.18]} args={[0.38, 2.6, 0.42]} color={STONE} roughness={1} />
+      <Box position={[fx + 1.15, 1.3, fzW + 0.18]} args={[0.38, 2.6, 0.42]} color={STONE} roughness={1} castShadow />
       {/* Lintel beam */}
       <Box position={[fx, 2.5, fzW + 0.18]} args={[2.8, 0.28, 0.44]} color={STONE2} roughness={1} />
       {/* Mantle shelf */}
@@ -316,15 +316,15 @@ function Fireplace() {
       <Box position={[fx, 0.24, fzW + 0.14]} args={[1.5, 0.04, 0.34]} color={ASH} roughness={1} />
 
       {/* Logs */}
-      <mesh position={[fx - 0.22, 0.32, fzW + 0.14]} rotation={[0, 0.4, 0]} castShadow>
+      <mesh position={[fx - 0.22, 0.32, fzW + 0.14]} rotation={[0, 0.4, 0]}>
         <cylinderGeometry args={[0.075, 0.075, 1.1, 5]} />
         <meshStandardMaterial color="#0e0400" roughness={1} />
       </mesh>
-      <mesh position={[fx + 0.18, 0.28, fzW + 0.16]} rotation={[0, -0.3, 0]} castShadow>
+      <mesh position={[fx + 0.18, 0.28, fzW + 0.16]} rotation={[0, -0.3, 0]}>
         <cylinderGeometry args={[0.065, 0.065, 1.0, 5]} />
         <meshStandardMaterial color="#0a0300" roughness={1} />
       </mesh>
-      <mesh position={[fx, 0.38, fzW + 0.10]} rotation={[0, 0, 0]} castShadow>
+      <mesh position={[fx, 0.38, fzW + 0.10]} rotation={[0, 0, 0]}>
         <cylinderGeometry args={[0.055, 0.055, 1.0, 5]} />
         <meshStandardMaterial color="#0c0400" roughness={1} />
       </mesh>
@@ -733,15 +733,15 @@ function NorthWall() {
   return (
     <group>
       {/* Bedroom section: two windows at X=-7 and X=-4 */}
-      <Box position={[-8.5, WH/2, z]} args={[1,  WH, WT]} color={WALL} />
-      <Box position={[-5.5, WH/2, z]} args={[1,  WH, WT]} color={WALL} />
-      <Box position={[-2.5, WH/2, z]} args={[1,  WH, WT]} color={WALL} />
+      <Box position={[-8.5, WH/2, z]} args={[1,  WH, WT]} color={WALL} castShadow />
+      <Box position={[-5.5, WH/2, z]} args={[1,  WH, WT]} color={WALL} castShadow />
+      <Box position={[-2.5, WH/2, z]} args={[1,  WH, WT]} color={WALL} castShadow />
       <WindowFill cx={-7} cz={z} isXWall />
       <WindowFill cx={-4} cz={z} isXWall />
       <WindowFrame cx={-7} cz={z + WT / 2} isXWall />
       <WindowFrame cx={-4} cz={z + WT / 2} isXWall />
       {/* Main room section: solid */}
-      <Box position={[3.5, WH/2, z]} args={[11, WH, WT]} color={WALL} />
+      <Box position={[3.5, WH/2, z]} args={[11, WH, WT]} color={WALL} castShadow />
       {/* Horizontal clapboard groove lines */}
       {[0.55, 1.10, 1.65, 2.20, 2.75].map((y) => (
         <Box key={y} position={[-5.5, y, z + WT / 2 + 0.005]} args={[7, 0.018, 0.012]} color={WALL2} castShadow={false} />
@@ -758,13 +758,13 @@ function SouthWall() {
   return (
     <group>
       {/* Kitchen: window at X=-5 */}
-      <Box position={[-7.5, WH/2, z]} args={[3, WH, WT]} color={WALL} />
-      <Box position={[  -3, WH/2, z]} args={[2, WH, WT]} color={WALL} />
+      <Box position={[-7.5, WH/2, z]} args={[3, WH, WT]} color={WALL} castShadow />
+      <Box position={[  -3, WH/2, z]} args={[2, WH, WT]} color={WALL} castShadow />
       <WindowFill cx={-5} cz={z} isXWall />
       <WindowFrame cx={-5} cz={z - WT / 2} isXWall />
       {/* Main room: window at X=+4 */}
-      <Box position={[0.5, WH/2, z]} args={[5, WH, WT]} color={WALL} />
-      <Box position={[  7, WH/2, z]} args={[4, WH, WT]} color={WALL} />
+      <Box position={[0.5, WH/2, z]} args={[5, WH, WT]} color={WALL} castShadow />
+      <Box position={[  7, WH/2, z]} args={[4, WH, WT]} color={WALL} castShadow />
       <WindowFill cx={4} cz={z} isXWall />
       <WindowFrame cx={4} cz={z - WT / 2} isXWall />
       {/* Clapboards */}
@@ -782,8 +782,8 @@ function EastWall() {
   const x = HW
   return (
     <group>
-      <Box position={[x, WH/2, -5.5]} args={[WT, WH, 9]} color={WALL} />
-      <Box position={[x, WH/2, +5.5]} args={[WT, WH, 9]} color={WALL} />
+      <Box position={[x, WH/2, -5.5]} args={[WT, WH, 9]} color={WALL} castShadow />
+      <Box position={[x, WH/2, +5.5]} args={[WT, WH, 9]} color={WALL} castShadow />
       <WindowFill cx={x} cz={0} isXWall={false} />
       <WindowFrame cx={x - WT / 2} cz={0} isXWall={false} />
       {[0.55, 1.10, 1.65, 2.20, 2.75].map((y) => (
@@ -798,18 +798,18 @@ function WestWall() {
   return (
     <group>
       {/* Bedroom: solid */}
-      <Box position={[x, WH/2,   -7]} args={[WT, WH,   6]} color={WALL} />
+      <Box position={[x, WH/2,   -7]} args={[WT, WH,   6]} color={WALL} castShadow />
       {/* Hall: north of door */}
-      <Box position={[x, WH/2, -2.6]} args={[WT, WH, 2.8]} color={WALL} />
+      <Box position={[x, WH/2, -2.6]} args={[WT, WH, 2.8]} color={WALL} castShadow />
       {/* Hall: column between door and window */}
-      <Box position={[x, WH/2, 1.35]} args={[WT, WH, 0.3]} color={WALL} />
+      <Box position={[x, WH/2, 1.35]} args={[WT, WH, 0.3]} color={WALL} castShadow />
       {/* Hall: south of window */}
-      <Box position={[x, WH/2, 4.25]} args={[WT, WH, 1.5]} color={WALL} />
+      <Box position={[x, WH/2, 4.25]} args={[WT, WH, 1.5]} color={WALL} castShadow />
       <WindowFill cx={x} cz={2.5} isXWall={false} />
       <WindowFrame cx={x + WT / 2} cz={2.5} isXWall={false} />
       <BarricadedDoor />
       {/* Kitchen: solid */}
-      <Box position={[x, WH/2,  7.5]} args={[WT, WH,   5]} color={WALL} />
+      <Box position={[x, WH/2,  7.5]} args={[WT, WH,   5]} color={WALL} castShadow />
       {/* Clapboards on interior face */}
       {[0.55, 1.10, 1.65, 2.20, 2.75].map((y) => (
         <Box key={y} position={[x + WT / 2 + 0.005, y, 0]} args={[0.012, 0.018, 20]} color={WALL2} castShadow={false} />
@@ -822,8 +822,8 @@ function BedroomHallWall() {
   const z = PART_Z_BH
   return (
     <group>
-      <Box position={[  -8, WH/2, z]} args={[2, WH, WT]} color={WALL} />
-      <Box position={[-3.5, WH/2, z]} args={[3, WH, WT]} color={WALL} />
+      <Box position={[  -8, WH/2, z]} args={[2, WH, WT]} color={WALL} castShadow />
+      <Box position={[-3.5, WH/2, z]} args={[3, WH, WT]} color={WALL} castShadow />
       <DoorwayFill cx={-6} cz={z} halfW={1} isXWall />
       <DoorwayFrame cx={-6} cz={z} halfW={1} isXWall />
     </group>
@@ -834,8 +834,8 @@ function HallKitchenWall() {
   const z = PART_Z_HK
   return (
     <group>
-      <Box position={[-7.5, WH/2, z]} args={[3, WH, WT]} color={WALL} />
-      <Box position={[  -3, WH/2, z]} args={[2, WH, WT]} color={WALL} />
+      <Box position={[-7.5, WH/2, z]} args={[3, WH, WT]} color={WALL} castShadow />
+      <Box position={[  -3, WH/2, z]} args={[2, WH, WT]} color={WALL} castShadow />
       <DoorwayFill cx={-5} cz={z} halfW={1} isXWall />
       <DoorwayFrame cx={-5} cz={z} halfW={1} isXWall />
     </group>
@@ -846,11 +846,11 @@ function WestMainWall() {
   const x = PART_X
   return (
     <group>
-      <Box position={[x, WH/2,   -9]} args={[WT, WH,  2]} color={WALL} />
-      <Box position={[x, WH/2,   -5]} args={[WT, WH,  2]} color={WALL} />
-      <Box position={[x, WH/2, -2.5]} args={[WT, WH,  3]} color={WALL} />
-      <Box position={[x, WH/2,    3]} args={[WT, WH,  4]} color={WALL} />
-      <Box position={[x, WH/2,  7.5]} args={[WT, WH,  5]} color={WALL} />
+      <Box position={[x, WH/2,   -9]} args={[WT, WH,  2]} color={WALL} castShadow />
+      <Box position={[x, WH/2,   -5]} args={[WT, WH,  2]} color={WALL} castShadow />
+      <Box position={[x, WH/2, -2.5]} args={[WT, WH,  3]} color={WALL} castShadow />
+      <Box position={[x, WH/2,    3]} args={[WT, WH,  4]} color={WALL} castShadow />
+      <Box position={[x, WH/2,  7.5]} args={[WT, WH,  5]} color={WALL} castShadow />
       <DoorwayFill cx={x} cz={-7} halfW={1} isXWall={false} />
       <DoorwayFrame cx={x} cz={-7} halfW={1} isXWall={false} />
       <DoorwayFill cx={x} cz={ 0} halfW={1} isXWall={false} />
@@ -974,15 +974,15 @@ function SpawnThicket({ cluster, index }) {
       ))}
       {THICKET_TREE_OFFSETS.map(([x, z, h, scale], i) => (
         <group key={i} position={[x, 0, z - 0.3 * (index % 2)]}>
-          <mesh position={[0, h * 0.36, 0]} castShadow>
+          <mesh position={[0, h * 0.36, 0]}>
             <cylinderGeometry args={[0.09 * scale, 0.16 * scale, h * 0.72, 5]} />
             <meshStandardMaterial color={i % 2 ? '#050a08' : '#030706'} roughness={1} />
           </mesh>
-          <mesh position={[0, h * 0.76, 0]} castShadow>
+          <mesh position={[0, h * 0.76, 0]}>
             <coneGeometry args={[1.15 * scale, h * 0.58, 5]} />
             <meshStandardMaterial color={i % 2 ? '#03100d' : '#020b09'} roughness={1} />
           </mesh>
-          <mesh position={[0, h * 0.52, 0]} castShadow>
+          <mesh position={[0, h * 0.52, 0]}>
             <coneGeometry args={[1.45 * scale, h * 0.54, 5]} />
             <meshStandardMaterial color="#010605" roughness={1} />
           </mesh>
@@ -990,9 +990,9 @@ function SpawnThicket({ cluster, index }) {
       ))}
       {THICKET_BRUSH_OFFSETS.map(([x, z, h, rot], i) => (
         <group key={i} position={[x, 0.22, z]} rotation={[0, 0, rot]}>
-          <Box position={[0, h * 0.22, 0]} args={[0.12, h, 0.12]} color={FOREST_FLOOR} castShadow />
-          <Box position={[0.2, h * 0.34, 0.02]} args={[0.08, h * 0.85, 0.08]} color="#030807" rotation={[0, 0, -0.7]} castShadow />
-          <Box position={[-0.2, h * 0.31, -0.02]} args={[0.08, h * 0.78, 0.08]} color="#030807" rotation={[0, 0, 0.65]} castShadow />
+          <Box position={[0, h * 0.22, 0]} args={[0.12, h, 0.12]} color={FOREST_FLOOR} />
+          <Box position={[0.2, h * 0.34, 0.02]} args={[0.08, h * 0.85, 0.08]} color="#030807" rotation={[0, 0, -0.7]} />
+          <Box position={[-0.2, h * 0.31, -0.02]} args={[0.08, h * 0.78, 0.08]} color="#030807" rotation={[0, 0, 0.65]} />
         </group>
       ))}
     </group>
@@ -1018,10 +1018,10 @@ export default function Arena() {
       <ambientLight ref={(o) => { lightReg.amb = o }} intensity={0.55} color="#c8d8f0" />
       {/* Moonlight — shadow map only hits 6 proxy meshes per zombie now */}
       <directionalLight position={[-20, 35, -15]} color="#d0e0ff" intensity={1.8} castShadow
-        shadow-mapSize-width={1024} shadow-mapSize-height={1024}
+        shadow-mapSize-width={512} shadow-mapSize-height={512}
         shadow-camera-near={1} shadow-camera-far={80}
-        shadow-camera-left={-30} shadow-camera-right={30}
-        shadow-camera-top={30} shadow-camera-bottom={-30}
+        shadow-camera-left={-18} shadow-camera-right={18}
+        shadow-camera-top={18} shadow-camera-bottom={-18}
       />
       {/* Hemisphere sky/ground fill */}
       <hemisphereLight skyColor="#3a5080" groundColor="#0a1808" intensity={0.4} />
@@ -1106,11 +1106,11 @@ export default function Arena() {
       <KitchenTable position={[-3.4, 0, 6.4]} />
       <WallLantern position={[-HW + WT, 1.8, 7.5]} rotation={[0, Math.PI / 2, 0]} />
       {/* Hanging pots */}
-      <mesh position={[-5.5, WH - 0.45, 6.5]} castShadow>
+      <mesh position={[-5.5, WH - 0.45, 6.5]}>
         <cylinderGeometry args={[0.10, 0.12, 0.20, 7]} />
         <meshStandardMaterial color={COPPER} roughness={0.8} metalness={0.2} />
       </mesh>
-      <mesh position={[-7, WH - 0.45, 7]} castShadow>
+      <mesh position={[-7, WH - 0.45, 7]}>
         <cylinderGeometry args={[0.08, 0.10, 0.16, 7]} />
         <meshStandardMaterial color={COPPER} roughness={0.8} metalness={0.2} />
       </mesh>
