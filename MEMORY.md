@@ -194,10 +194,14 @@ onboarding summary — see CLAUDE.md for architecture detail.
   unified + new MENU button (solo only, page reload). Lock emoji in the picker replaced
   by an SVG. In-game HUD/shop/intermission untouched.
 
-- 2026-10-28: Closing the shop (E / Esc / backdrop click) now re-locks the
-  pointer if it was locked when the shop opened (Player.jsx). No fresh click
-  needed: browsers allow re-lock after a page-initiated exitPointerLock.
-  Verified in Playwright Chromium (all three close paths; main fails all three).
+- 2026-10-28: Closing the shop with E or a backdrop click re-locks the pointer
+  if it was locked when the shop opened (Player.jsx). PR #128 merged the
+  first version; the Esc fix followed on its own branch. NOT on Esc:
+  first version did, and on Windows Chrome (owner's setup) it left the mouse
+  half-locked - cursor stuck at the crosshair, only center clicks worked. Esc
+  is Chrome's own unlock key; Windows re-handles the press after we re-lock.
+  Linux/headless Chrome can't reproduce that, so pointer-lock changes need an
+  owner test on Windows.
 
 - 2026-10-26: Built the visual roadmap (artifact above). Diagnosis of the
   "flash game" feel: flat look (no post, rigid camera), hits don't land (no
