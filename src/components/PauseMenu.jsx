@@ -3,7 +3,7 @@ import { useGameStore } from '../store'
 import { usePauseUi, pauseGame, resumeGame, openSettings, closeSettings, installLifecycle, lifecycleInput } from '../pause'
 import { useSettings, SENS_MIN, SENS_MAX, OPACITY_MIN, OPACITY_MAX } from '../settings'
 import { getBrightness, setBrightness, BRIGHTNESS_MIN, BRIGHTNESS_MAX } from '../brightness'
-import { installAudioUnlock } from '../sounds'
+import { installAudioUnlock, playVolumePreview } from '../sounds'
 
 const FONT = 'Courier New, monospace'
 const MIN_TAP = 44
@@ -159,8 +159,9 @@ function SettingsPanel({ onBack }) {
 }
 
 // The control/audio rows, shared by the pause settings above and the start menu's SETTINGS panel.
-// `brightness={false}` leaves the brightness row out (the start menu has its own, under Display).
-export function ControlSettings({ brightness = true }) {
+// `brightness={false}` / `audio={false}` leave those rows out (the start menu has its own
+// Display and Audio sections).
+export function ControlSettings({ brightness = true, audio = true }) {
   const st = useSettings()
   const set = st.setSetting
   const [bright, setBright] = useState(getBrightness)
@@ -176,9 +177,11 @@ export function ControlSettings({ brightness = true }) {
             <Slider min={BRIGHTNESS_MIN} max={BRIGHTNESS_MAX} step={0.05} value={bright} onChange={(v) => { setBrightness(v); setBright(v) }} label="Brightness" />
           </Row>
         )}
-        <Row label="VOLUME" value={`${Math.round(st.volume * 100)}%`}>
-          <Slider min={0} max={1} step={0.05} value={st.volume} onChange={(v) => set('volume', v)} label="Volume" />
-        </Row>
+        {audio && VOLUME_ROWS.map(([key, label, preview]) => (
+          <Row key={key} label={label.toUpperCase()} value={`${Math.round(st[key] * 100)}%`}>
+            <Slider min={0} max={1} step={0.05} value={st[key]} onChange={(v) => { set(key, v); playVolumePreview(preview) }} label={`${label} volume`} />
+          </Row>
+        ))}
         <Row label="BUTTON SIZE">
           <div style={{ display: 'flex', gap: 6 }}>
             {['normal', 'large'].map((k) => (
@@ -195,6 +198,13 @@ export function ControlSettings({ brightness = true }) {
     </div>
   )
 }
+
+// [settings key, label, preview sound]
+export const VOLUME_ROWS = [
+  ['volume', 'Master', 'sfx'],
+  ['sfxVolume', 'Effects', 'sfx'],
+  ['musicVolume', 'Music', 'music'],
+]
 
 const SAFE = 'max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left))'
 

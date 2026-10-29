@@ -18,6 +18,7 @@ import { writeLocalDaily } from '../daily'
 import StartPicker, { useLoadoutSummary } from './StartPicker'
 import { hintsActive } from '../hints'
 import BrightnessSlider from './BrightnessSlider'
+import VolumeSliders from './VolumeSliders'
 import { Button, Panel, Tabs, Option, SectionLabel, LockIcon } from './ui'
 import { VERSUS_MODES, scoreSubmittable } from '../versus'
 import { newRunSeed } from '../rng'
@@ -772,10 +773,12 @@ function SettingsPanel({ user, username, onRename }) {
       {touch && (
         <>
           <SectionLabel>Controls</SectionLabel>
-          <ControlSettings brightness={false} />
+          <ControlSettings brightness={false} audio={false} />
         </>
       )}
-      <SectionLabel style={touch ? { marginTop: 18 } : undefined}>Display</SectionLabel>
+      <SectionLabel style={touch ? { marginTop: 18 } : undefined}>Audio</SectionLabel>
+      <VolumeSliders />
+      <SectionLabel style={{ marginTop: 18 }}>Display</SectionLabel>
       <BrightnessSlider />
       <ReduceMotionToggle />
       <SectionLabel style={{ marginTop: 18 }}>Account</SectionLabel>
