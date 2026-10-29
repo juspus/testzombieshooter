@@ -5,6 +5,11 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-10-29: Fixed Zombie Mail zombies wandering to a spot and standing there (owner report).
+  Cause: RemotePlayer renders null out of co-op, so its frame loop never cleared the partner's
+  last position; versus worlds (and co-op after the partner left) kept chasing that stale spot.
+  Now cleared in an effect on mpConnected, and Zombie.jsx only targets the partner while a co-op
+  link is live. Regression checks in scripts/versus-smoke.cjs.
 - 2026-10-29: Volume controls: Master / Effects / Music (settings.js `volume`,
   `sfxVolume`, `musicVolume`; buses in sounds.js, see CLAUDE.md "Audio buses").
   Start-menu Settings now has an Audio section on desktop too: before this,

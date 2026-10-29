@@ -1233,8 +1233,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     const selfOk = !myRole || gs0.coop[myRole].status === 'alive'
     const partnerOk = !myRole || gs0.coop[myRole === 'host' ? 'guest' : 'host'].status === 'alive'
 
-    // Pick the closest player as the chase/face target
-    const rp = partnerOk ? getRemotePlayerPos() : null
+    // Pick the closest player as the chase/face target (the partner only while a co-op link is live:
+    // a versus run has no partner in this world)
+    const rp = myRole && gs0.mpConnected && partnerOk ? getRemotePlayerPos() : null
     let px, pz
     if (rp && !selfOk) {
       px = rp.x; pz = rp.z
