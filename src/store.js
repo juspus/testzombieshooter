@@ -33,6 +33,18 @@ import { emitGameEvent } from './gameEvents'
 import { settleRun } from './progressTracker'
 import { effectiveLoadout, loadoutPatch, readPref, writePref, LOADOUT_PREF_KEY } from './mapSelect'
 import { createCoop } from './coopDown'
+import { meterForKill, addMeter, canSend, spend, mailItem, enqueue, nextDue, land } from './mail'
+
+// Versus slice (src/versus.js). opponent: rival's last status { hp, maxHp, wave, kills, alive, at }.
+const createVersus = () => ({ active: false, mode: null, seed: null, linked: false, opponent: null, result: null, reason: null })
+
+// Zombie Mail (src/mail.js). Separate from `versus` so that slice keeps its shape.
+// incoming: deliveries from the rival waiting to land { id, item, edge, cluster, landAt };
+// landAt is on the mail clock below. waveExtra: mailed zombies in the current wave (HUD total).
+const createMail = () => ({ meter: 0, sent: [], incoming: [], lastLandAt: -Infinity, waveExtra: 0, pendingModifier: null, seen: [], seq: 0, notice: null })
+// Mail clock (seconds): advances only while a versus wave is playing and unpaused. Module state so
+// the per-frame tick never writes the store.
+export const mailClock = { t: 0 }
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 const ACTIVE_MAP = getMap(getInitialMapId())
@@ -250,6 +262,7 @@ export const useGameStore = create((set, get) => ({
   zombies: [],
   pendingSpawns: [],  // zombies queued to enter 10-per-frame
   nextId: 0,
+  mail: createMail(),
   bulletsInClip: CLIP_SIZE,
   reserveBullets: 0,
   isReloading: false,
@@ -400,10 +413,15 @@ export const useGameStore = create((set, get) => ({
   setPartnerMapId: (id) => set({ partnerMapId: id }),
 
   startGame: () => {
-    // Daily Run (see startDaily): consume the one-shot flag; any other start is a normal run.
-    const daily = _pendingDaily
-    _pendingDaily = null
-    if (daily) startSeededRun(daily.date)
+    // Seeded runs (startDaily / startSeededGame) leave a one-shot _pendingRun; any other
+    // start is a normal run.
+    const pending = _pendingRun
+    _pendingRun = null
+    const daily = pending?.mode === 'daily' ? pending : null
+    // Any start that is not a versus run leaves the versus slice clean (solo after a match).
+    if (pending?.mode !== 'versus') set({ versus: createVersus() })
+    mailClock.t = 0
+    if (pending) startSeededRun(pending.seed)
     else endSeededRun()
     // A run that never reached die() (e.g. a co-op guest whose 'die' event was
     // dropped, or a restart from intermission) still counts toward lifetime stats.
@@ -445,6 +463,7 @@ export const useGameStore = create((set, get) => ({
       zombies: [],
       pendingSpawns: [],
       nextId: 0,
+      mail: createMail(),
       bulletsInClip: clip,
       reserveBullets: total - clip,
       isReloading: false,
@@ -468,7 +487,9 @@ export const useGameStore = create((set, get) => ({
       hitEventId: 0,
       lastKillPending: false,
       coop: createCoop(),   // W5: everyone starts standing
-      runMode: daily ? 'daily' : 'normal',
+      runMode: pending ? pending.mode : 'normal',
+      duel: { rival: pending?.mode === 'duel' ? pending.rival ?? null : null, waveLog: [], final: null },
+      runSeed: pending ? pending.seed : null,
       dailyDate: daily ? daily.date : null,
       dailyRanked: daily ? daily.ranked : false,
     })
@@ -477,8 +498,9 @@ export const useGameStore = create((set, get) => ({
     emitGameEvent('run_start')   // Wave 4 progression
     get().resetGrenades()
 
-    // Starting loadout layered over the pistol start (no-op for the default / Daily Run).
-    const lo = effectiveLoadout(get().loadoutId, get().stats, !!daily)
+    // Starting loadout layered over the pistol start (no-op for the default and for every
+    // seeded run: Daily and versus players all start on the same pistol).
+    const lo = effectiveLoadout(get().loadoutId, get().stats, !!pending)
     if (lo.id !== 'pistol') {
       const cur = get()
       set(loadoutPatch(lo, { bulletsInClip: cur.bulletsInClip, reserveBullets: cur.reserveBullets, savedClips: cur.savedClips, savedReserves: cur.savedReserves }))
@@ -490,7 +512,9 @@ export const useGameStore = create((set, get) => ({
   // ── Daily seeded run ──
   // Same spawns/drops/box rolls for everyone that UTC day. Solo only. The first daily of a
   // UTC day is "ranked" (score submitted); later ones are practice. Returns false if blocked.
-  runMode: 'normal',     // 'normal' | 'daily'
+  runMode: 'normal',     // 'normal' | 'daily' | 'versus' (Zombie Mail) | 'duel' (Seed Duel)
+  duel: { rival: null, waveLog: [], final: null },   // Seed Duel (src/duel.js): rival token, cumulative kills per cleared wave, final result
+  runSeed: null,         // seed string of a seeded run (rng.js), null for a normal run
   dailyDate: null,       // 'YYYY-MM-DD' of the active daily
   dailyRanked: false,
   startDaily: (rankedOverride) => {
@@ -499,16 +523,109 @@ export const useGameStore = create((set, get) => ({
     const date = dailyDate()
     const ranked = rankedOverride ?? !dailyAttemptUsed()
     if (ranked) writeLocalDaily({})   // burn the attempt at run start so quitting doesn't refund it
-    _pendingDaily = { date, ranked }
+    _pendingRun = { mode: 'daily', seed: date, date, ranked }
     get().startGame()
     return true
+  },
+
+  // Versus runs (src/versus.js): same seed on both sides, default loadout, no leaderboard.
+  // mode: 'versus' | 'duel'. Callers handle their own checks (lobby, duel link).
+  startSeededGame: (mode, seed, opts) => {
+    _pendingRun = { mode, seed: String(seed), rival: opts?.rival ?? null }
+    get().startGame()
+  },
+
+  // ── Versus (src/versus.js): both players run their own world with one seed ──
+  versus: createVersus(),
+  versusLobbyMode: 'coop',   // lobby choice shared host -> guest: 'coop' | a VERSUS_MODES id
+  setVersusLobbyMode: (m) => set({ versusLobbyMode: m }),
+  // Starts a versus run: sets the slice, DETACHES from the co-op world (the net.js link stays
+  // open, only mpRole / mpConnected drop so every co-op branch goes quiet), then seeds the run.
+  startVersusRun: (mode, seed) => {
+    set({
+      versus: { ...createVersus(), active: true, mode, seed: String(seed), linked: true },
+      mpRole: null, mpConnected: false, remotePlayer: null, partnerMapId: null, coop: createCoop(),
+    })
+    get().startSeededGame('versus', seed)
+  },
+  setVersusOpponent: (opponent) => set((s) => ({ versus: { ...s.versus, opponent } })),
+  // First result wins; it also ends the competition (linked false), so pause etc. return to normal.
+  finishVersus: (result, reason = null) => {
+    if (get().versus.result) return false
+    set((s) => ({ versus: { ...s.versus, result, reason, linked: false } }))
+    return true
+  },
+  clearVersus: () => set({ versus: createVersus() }),
+
+  // ── Zombie Mail (src/mail.js, src/mailRuntime.js) ──
+  // Sender: pay for an item. Returns the mail id to put on the wire, or null when mail is not allowed.
+  spendMail: (itemId) => {
+    const s = get()
+    const it = mailItem(itemId)
+    if (!it || s.runMode !== 'versus' || !s.versus.linked || s.versus.result) return null
+    if (s.phase === 'dead' || s.phase === 'start' || !canSend(s.mail.meter, it)) return null
+    const id = `m${s.mail.seq + 1}`
+    set({ mail: { ...s.mail, meter: spend(s.mail.meter, it), seq: s.mail.seq + 1, sent: [...s.mail.sent, { id, item: it.id }] } })
+    return id
+  },
+  // Receiver: queue a delivery from the rival. Zombie items wait for the mail clock (5 s warning,
+  // 4 s apart) and only land while a wave is playing; Blackout sets the next wave's modifier.
+  receiveMail: ({ id, item }) => {
+    const s = get()
+    const it = mailItem(item)
+    if (!it || typeof id !== 'string' || s.runMode !== 'versus' || !s.versus.linked || s.versus.result) return false
+    if (s.phase === 'dead' || s.phase === 'start' || s.mail.seen.includes(id)) return false
+    const seen = [...s.mail.seen, id]
+    if (it.modifier && s.phase !== 'playing') {
+      // Between waves there is nothing to warn about: intermission re-rolls the wave that is about to
+      // start, wave_clear leaves it for the next nextWave().
+      if (s.phase === 'intermission') set({ waveModifier: it.modifier, mail: { ...s.mail, seen, notice: { text: 'MAIL: BLACKOUT · NEXT WAVE', at: Date.now() } } })
+      else set({ mail: { ...s.mail, seen, pendingModifier: it.modifier, notice: { text: 'MAIL: BLACKOUT · NEXT WAVE', at: Date.now() } } })
+      return true
+    }
+    const clusters = activeSpawnClusters(s.openDoors)
+    const cluster = it.modifier ? 0 : Math.min(clusters.length - 1, Math.floor(keyedRandom('mail-cluster', id) * clusters.length))
+    const q = enqueue({ list: s.mail.incoming, lastLandAt: s.mail.lastLandAt }, { id, item: it.id, edge: clusters[cluster]?.edge, cluster }, mailClock.t)
+    set({ mail: { ...s.mail, seen, incoming: q.list } })
+    return true
+  },
+  // Lands at most one due delivery per call. Only runs while a wave is playing (see tick()).
+  mailTick: (delta) => {
+    mailClock.t += delta
+    const s = get()
+    if (!s.mail.incoming.length || s.lastKillPending) return
+    const q = { list: s.mail.incoming, lastLandAt: s.mail.lastLandAt }
+    const due = nextDue(q, mailClock.t)
+    if (!due) return
+    const nq = land(q, due.id, mailClock.t)
+    const it = mailItem(due.item)
+    const mail = { ...s.mail, incoming: nq.list, lastLandAt: nq.lastLandAt }
+    if (it?.modifier) { set({ mail: { ...mail, pendingModifier: it.modifier } }); return }
+    const clusters = activeSpawnClusters(s.openDoors)
+    const made = buildMailZombies(due, it?.types ?? [], s.nextId, clusters[due.cluster] ?? clusters[0], s.waveModifier)
+    const active = s.zombies.filter((z) => !z.dying).length
+    const slots = Math.max(0, 25 - active)
+    set({
+      zombies: [...s.zombies, ...made.slice(0, slots)],
+      pendingSpawns: [...s.pendingSpawns, ...made.slice(slots)],
+      nextId: s.nextId + made.length,
+      mail: { ...mail, waveExtra: mail.waveExtra + made.length },
+    })
   },
 
   // forcedMod: co-op guest passes the host's roll (null = none); undefined = roll here.
   nextWave: (forcedMod) => {
     const { wave: prevWave, windowPlanks, openDoors, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
     const wave = prevWave + 1
+    if (get().runMode === 'duel') {   // Seed Duel: cumulative kills at the end of the wave just cleared
+      const d = get().duel
+      const log = d.waveLog.slice(0, prevWave - 1)
+      log[prevWave - 1] = get().kills
+      set({ duel: { ...d, waveLog: log } })
+    }
+    const mailMod = get().mail.pendingModifier   // Zombie Mail Blackout from the rival
     const waveModifier = forcedMod !== undefined ? forcedMod
+      : mailMod ? mailMod
       : get().mpRole === 'guest' ? null : rollModifier(wave, get().waveModifier, waveRandom('mod', wave))
     buildGrid(allWallSegments(windowPlanks, openDoors))
     const walls = playerCollisionWalls(openDoors)
@@ -534,6 +651,7 @@ export const useGameStore = create((set, get) => ({
       wavePlanksLost: 0,
       waveStartPlanks: 0,
       lastKillPending: false,
+      mail: { ...get().mail, waveExtra: 0, pendingModifier: null },
     })
     cancelLastKillFx()
   },
@@ -638,6 +756,7 @@ export const useGameStore = create((set, get) => ({
     const { phase, intermissionLeft, wave, nextId, windowPlanks, waveElapsed, paused } = get()
     if (paused) return
     if (phase === 'playing') {
+      if (get().runMode === 'versus') get().mailTick(delta)
       set({ waveElapsed: waveElapsed + delta })
       return
     }
@@ -673,6 +792,10 @@ export const useGameStore = create((set, get) => ({
   die: () => {
     if (get().phase !== 'playing') return
     set({ phase: 'dead', lastKillPending: false })
+    if (get().runMode === 'duel') {
+      const { wave, kills, duel } = get()
+      set({ duel: { ...duel, final: { wave, kills } } })
+    }
     cancelLastKillFx()
     // Single choke point for death: covers hitPlayer() and the co-op 'die'
     // net event (NetManager -> store.die()). runRecorded makes it once-only.
@@ -975,7 +1098,7 @@ export const useGameStore = create((set, get) => ({
   },
 
   getZombieSpeed: () => speedForWave(get().wave),
-  getZombiesForWave: () => modifiedZombieCount(zombiesForWave(get().wave), get().waveModifier),
+  getZombiesForWave: () => modifiedZombieCount(zombiesForWave(get().wave), get().waveModifier) + get().mail.waveExtra,
 
   // ── Multiplayer ──────────────────────────────────────────────────────────
   mpRole: null,       // 'host' | 'guest' | null
@@ -1191,6 +1314,9 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot, weapon = nu
     emitGameEvent('kill', { type: zombie.type, source, head: isHeadshot, weapon: weapon ?? (source === 'gun' ? get().weapon : null), big: damage >= 900 })
     const waveOver = !isGuest && activeCount === 0 && newPending.length === 0
     const statUpdate = {
+      ...(!nuked && get().runMode === 'versus'
+        ? { mail: { ...get().mail, meter: addMeter(get().mail.meter, meterForKill({ source, headshot: source === 'gun' && isHeadshot })) } }
+        : null),
       zombies: withNext,
       pendingSpawns: newPending,
       kills: newKills,
@@ -1334,7 +1460,7 @@ function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills,
   }
 }
 
-let _pendingDaily = null   // set by startDaily, consumed by startGame
+let _pendingRun = null   // { mode, seed, ... } set by startDaily / startSeededGame, consumed by startGame
 const SPAWN_EDGE_OFFSET = 0.9
 const SPAWN_TANGENT_SPREAD = 4.0
 
@@ -1373,6 +1499,27 @@ export function spawnZombies(wave, startId, clusters = SPAWN_CLUSTERS, modifier 
     })
   }
   return zombies
+}
+
+// Zombie Mail landing: the delivery's zombies at one spawn cluster. Jitter is keyed by (mail id,
+// index) so the seeded wave streams (waveRandom) are never consumed.
+export function buildMailZombies(entry, types, startId, cluster, modifier = null) {
+  const basis = getSpawnBasis(cluster.edge)
+  return types.map((type, i) => {
+    const archetype = getZombieArchetype(type)
+    const tangentJitter = (keyedRandom('mail-tan', `${entry.id}-${i}`) - 0.5) * SPAWN_TANGENT_SPREAD
+    const spawnOffset = SPAWN_EDGE_OFFSET + keyedRandom('mail-in', `${entry.id}-${i}`) * 1.3
+    return {
+      id: startId + i,
+      x: cluster.x + basis.tangentX * tangentJitter - basis.outwardX * spawnOffset,
+      z: cluster.z + basis.tangentZ * tangentJitter - basis.outwardZ * spawnOffset,
+      health: modifiedZombieHealth(archetype.health, modifier),
+      maxHealth: modifiedZombieHealth(archetype.health, modifier),
+      type,
+      bossEntrance: false,
+      mail: entry.id,
+    }
+  })
 }
 
 // Dev/preview only: expose the store for browser-driven verification.

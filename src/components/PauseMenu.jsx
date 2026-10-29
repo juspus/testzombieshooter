@@ -40,6 +40,7 @@ export default function PauseLayer() {
   const touch = useIsTouch()
   const active = phase === 'playing' || phase === 'intermission'
   const guest = mpConnected && mpRole === 'guest'
+  const versusLive = useGameStore((s) => s.runMode === 'versus' && s.versus.linked)
 
   useEffect(() => {
     installAudioUnlock()
@@ -68,7 +69,8 @@ export default function PauseLayer() {
         <div style={S.root} onContextMenu={(e) => e.preventDefault()}>
           {menu === 'pause' && (
             <div style={S.col}>
-              <div style={S.title}>PAUSED</div>
+              <div style={S.title}>{versusLive ? 'MENU' : 'PAUSED'}</div>
+              {versusLive && <div style={S.away2}>Versus: no pause</div>}
               <button style={S.btn} onClick={resumeGame}>RESUME</button>
               <button style={S.btn} onClick={() => openSettings('pause')}>SETTINGS</button>
             </div>
@@ -218,6 +220,7 @@ const S = {
     zIndex: 8, pointerEvents: 'none', fontFamily: FONT, fontSize: 11, letterSpacing: 3, color: '#ffb347',
     background: 'rgba(0,0,0,0.55)', padding: '3px 10px', borderRadius: 3,
   },
+  away2: { fontFamily: FONT, fontSize: 14, letterSpacing: 2, color: '#ffb347' },
   root: {
     position: 'absolute', inset: 0, zIndex: 60,
     background: 'rgba(0,0,0,0.82)',

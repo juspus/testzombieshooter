@@ -27,6 +27,8 @@ const ui = (p) => usePauseUi.setState(p)
 
 const isActivePhase = (ph) => ph === 'playing' || ph === 'intermission'
 const coopLive = (st) => !!st.mpRole && st.mpConnected
+// Versus: the rival's world never stops, so neither does yours (the menu still opens).
+const versusLive = (st) => st.runMode === 'versus' && !!st.versus?.linked
 
 let _timer = null
 let _pausedAt = 0
@@ -47,7 +49,7 @@ export function pauseGame(local = false) {
   const guest = coopLive(st) && st.mpRole === 'guest'
   if (guest && !local) return false
   clearTimer()
-  if (!st.paused) {
+  if (!st.paused && (local || !versusLive(st))) {
     useGameStore.setState({ paused: true })
     if (coopLive(st) && !guest) send('game_event', { event: 'pause', data: {} })
   }
@@ -71,6 +73,7 @@ function finishResume() {
 export function resumeGame() {
   if (usePauseUi.getState().menu === 'countdown') return
   clearTimer()
+  if (!useGameStore.getState().paused) { ui({ menu: null, count: 0 }); return }   // versus: nothing was frozen
   let n = RESUME_SECONDS
   ui({ menu: 'countdown', count: n })
   _timer = setInterval(() => {
@@ -90,6 +93,7 @@ export function closeSettings() {
 export function autoPause() {
   const st = useGameStore.getState()
   if (!isActivePhase(st.phase)) return
+  if (versusLive(st)) return
   if (coopLive(st)) {
     // Co-op: the host's hidden tab already pauses the shared world (NetManager). A guest only
     // tells the host it is away; nobody else's world stops.

@@ -63,3 +63,11 @@ export function keyedRandom(stream, key) {
   if (_seed === null) return Math.random()
   return mulberry32(hashString(`${_seed}|${stream}|k${key}`))()
 }
+
+/** New random seed for a versus run (Zombie Mail / Seed Duel): 8 chars, URL-safe. */
+export function newRunSeed() {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789'
+  let s = ''
+  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)]
+  return s
+}
