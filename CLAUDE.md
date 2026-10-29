@@ -302,7 +302,7 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 |---|---|
 | Pause | `src/pause.js` (`pauseGame`, `resumeGame` = 3-2-1, `autoPause`, `installLifecycle`), `PauseMenu.jsx`. It reuses the store `paused` flag, which already froze the world for the co-op host pause. Solo auto-pauses on hidden/pagehide/(touch-only) blur. A co-op guest never pauses the host's world; it sends `away`, and the partner sees PARTNER AWAY. The Mystery Box runs on wall-clock time, so `pause.js` pushes `box.at` forward by the paused time. |
 | Frame deltas | Every `useFrame` clamps the raw delta first: `Math.min(rawDelta, 0.05)`, then multiplies by `time.scale`. Without the clamp, a notification pull-down teleports zombies through walls. |
-| Settings | `src/settings.js` (Zustand + localStorage): look sensitivity (scales mobile and mouse look), aimAssist, autoShoot (both default on; auto-shoot is the owner's call), buttonSize, buttonOpacity, leftHanded, volume (master gain in `sounds.js`). Brightness lives in `brightness.js`. The panel opens from pause. |
+| Settings | `src/settings.js` (Zustand + localStorage): look sensitivity (scales mobile and mouse look), aimAssist, autoShoot (both default on; auto-shoot is the owner's call), buttonSize, buttonOpacity, leftHanded, volume / sfxVolume / musicVolume (master, effects and music buses in `sounds.js`, square curve). Brightness lives in `brightness.js`. The panel opens from pause; the start menu's Settings has an Audio section on every device. |
 | Touch controls | `MobileControls.jsx`: a floating stick in the left 40% + inset (`stickZoneWidth`, below y=110), with `stickVector` in `mobileInput.js` (10% dead zone, analog speed). Player movement normalizes only when the length is above 1. The button cluster is laid out around FIRE. Hit test = drawn circle + `HIT_PAD` 8 px, and the nearest edge wins. USE and grenade track their own pointer ids, so they never steal the look finger. Pointer refs reset on rotate, resize, pause, settings and shop. |
 | Touch sizes | Minimum touch target 44 px (`MIN_TAP`, `useMenuEnv` in `src/menuTouch.js`; in-wave buttons 48, FIRE 64). Minimum text 11 px on phones, 14 px for HUD numbers. Menus built on the UI kit (`ui.jsx`/`ui.css`) get this from `@media (pointer: coarse)` overrides in `ui.css`: the kit height variables become 44 px, and `--ui-fs-min` becomes 11 px (it is 0 on desktop). Wrap inline menu font sizes as `max(var(--ui-fs-min), ...)`. No emoji: use `components/Icons.jsx` (Check, Star, Chevron, Lock). |
 | Upright and install | `RotateGate.jsx` covers only a live run held upright (and pauses it); menus, death and lobby work upright. `InstallHint.jsx` shows on the start screen only, on iOS Safari only, once. `fullscreen.js` requests fullscreen + landscape lock on run-start taps (Android only). `wakeLock.js` holds the screen awake during live, unpaused runs. |
@@ -322,6 +322,10 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 | Two-browser tests | `?peer=local` (dev/preview only) signals through a local PeerJS server: `npx peerjs --port 9000 --host 127.0.0.1` (package `peer`). `scripts/twoplayer-smoke.cjs` (co-op), `scripts/versus-smoke.cjs`, `scripts/mail-smoke.cjs`; args: base URL, screenshot dir. Headless runs are slow (frame delta clamp), so waits are long. |
 
 ---
+
+## Audio buses (sounds.js)
+
+`ac.destination` is shadowed: it returns the **effects** bus, so every sound that connects to it gets the Effects slider and the low-HP muffle for free. Music must connect to `_musicOut(ac)` instead, or it lands on the Effects slider. Heartbeat/stings use `_realDest` (effects level, no muffle). Master sits after all three.
 
 ## Known performance notes
 

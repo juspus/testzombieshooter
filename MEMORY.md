@@ -5,6 +5,11 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-10-29: Volume controls: Master / Effects / Music (settings.js `volume`,
+  `sfxVolume`, `musicVolume`; buses in sounds.js, see CLAUDE.md "Audio buses").
+  Start-menu Settings now has an Audio section on desktop too: before this,
+  desktop had no volume control at all (pause menu + Controls are touch-only).
+  Still no in-run settings on desktop (no desktop pause menu). Not checked by ear.
 - Versus build (2026-10-28, PR #134, branch claude/versus-modes): owner picked Go on
   mail, seed, director, horde, hunter (pvp-modes page `calls`). Cutoff this session:
   foundation + Seed Duel + Zombie Mail, built by Sonnet agents in worktrees (round 1:

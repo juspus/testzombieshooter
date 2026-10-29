@@ -344,6 +344,7 @@
 }
 .ui-setting:last-child { border-bottom: none; }
 .ui-range { width: min(180px, 38vw); accent-color: #b02a1a; }
+.ui-setting__val { color: var(--ui-dim); letter-spacing: 1px; font-size: max(var(--ui-fs-min), 11px); }
 
 /* ── Profile chip (top right) ────────────────────────────────────────────── */
 

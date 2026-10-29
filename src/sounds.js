@@ -46,35 +46,72 @@ export function installAudioUnlock() {
   events.forEach((e) => document.addEventListener(e, unlock, true))
 }
 
-// Master volume (0..1) from the settings store.
-let _volGain = null
-export function applyMasterVolume(v) {
-  if (!_volGain || !_ctx) return
-  _volGain.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), _ctx.currentTime, 0.03)
+// ─── volume buses (settings: volume = master, sfxVolume, musicVolume) ────────
+// Slider 0..1 -> gain via a square curve, so the slider's middle sounds like the middle
+// (a linear gain does nearly all of its audible work in the bottom quarter).
+let _volGain = null      // master: everything
+let _sfxGain = null      // effects through the muffle filter (what `ac.destination` returns)
+let _sfxDryGain = null   // effects that bypass the muffle (heartbeat, stings)
+let _musicGain = null    // music (still muffled with the rest)
+
+export const volumeCurve = (v) => { const c = Math.max(0, Math.min(1, v)); return c * c }
+
+function _setBus(node, v) {
+  if (!node || !_ctx) return
+  node.gain.setTargetAtTime(volumeCurve(v), _ctx.currentTime, 0.03)
 }
 
 // ─── master bus (low-HP / slow-mo muffle) ────────────────────────────────────
 // Every sound connects to `ac.destination`. We shadow that property on the
-// context instance with a lowpass bus, so all existing sounds (incl. panners and
-// music) are muffled together with no per-sound edits. Heartbeat/stings use
-// _realDest to bypass the filter and stay clear.
+// context instance with the effects bus feeding a lowpass, so all existing sounds
+// (incl. panners) get effects volume and the muffle with no per-sound edits.
+// Music connects to _musicGain instead. Heartbeat/stings use _realDest to bypass
+// the filter and stay clear.
+//   sounds -> _sfxGain ----\
+//   music  -> _musicGain ---> _masterLP -> _volGain -> speakers
+//   stings -> _sfxDryGain --------------/
 let _realDest = null
 let _masterLP = null
 let _muffleDanger = 0
 let _muffleSlow = 0
 
 function _installMasterBus(ac) {
-  _volGain = ac.createGain()
-  _volGain.gain.value = useSettings.getState().volume
-  _volGain.connect(ac.destination)
-  _realDest = _volGain   // everything, filtered or bypassing the filter, goes through master volume
+  const st = useSettings.getState()
+  const bus = (v, to) => { const g = ac.createGain(); g.gain.value = volumeCurve(v); g.connect(to); return g }
+  _volGain = bus(st.volume, ac.destination)
   _masterLP = ac.createBiquadFilter()
   _masterLP.type = 'lowpass'
   _masterLP.frequency.value = 22000
   _masterLP.Q.value = 0.5
-  _masterLP.connect(_realDest)
-  Object.defineProperty(ac, 'destination', { get: () => _masterLP, configurable: true })
-  useSettings.subscribe((st, prev) => { if (st.volume !== prev.volume) applyMasterVolume(st.volume) })
+  _masterLP.connect(_volGain)
+  _sfxGain = bus(st.sfxVolume, _masterLP)
+  _sfxDryGain = bus(st.sfxVolume, _volGain)
+  _musicGain = bus(st.musicVolume, _masterLP)
+  _realDest = _sfxDryGain
+  Object.defineProperty(ac, 'destination', { get: () => _sfxGain, configurable: true })
+  useSettings.subscribe((s, prev) => {
+    if (s.volume !== prev.volume) _setBus(_volGain, s.volume)
+    if (s.sfxVolume !== prev.sfxVolume) { _setBus(_sfxGain, s.sfxVolume); _setBus(_sfxDryGain, s.sfxVolume) }
+    if (s.musicVolume !== prev.musicVolume) _setBus(_musicGain, s.musicVolume)
+  })
+}
+
+const _musicOut = (ac) => _musicGain ?? ac.destination
+
+// Short tick so a volume slider is audible from the menus (where nothing else plays).
+// Skipped while the game is paused: the context is suspended and it would queue up.
+let _lastPreview = 0
+export function playVolumePreview(kind = 'sfx') {
+  if (_audioHold) return
+  const ac = ctx()
+  const now = performance.now()
+  if (now - _lastPreview < 140) return
+  _lastPreview = now
+  const t = ac.currentTime + 0.1   // let the bus glide to the new level first
+  if (kind === 'music') {
+    playTone(ac, t, 220, 218, 0.5, 0.12, _musicOut(ac))
+    playTone(ac, t, 330, 327, 0.5, 0.08, _musicOut(ac))
+  } else playTone(ac, t, 1900, 1300, 0.05, 0.12)
 }
 
 function _applyMuffle() {
@@ -1013,7 +1050,7 @@ export function startEerieMusic() {
   _masterGain = ac.createGain()
   _masterGain.gain.setValueAtTime(0, t)
   _masterGain.gain.linearRampToValueAtTime(0.22, t + 5)
-  _masterGain.connect(ac.destination)
+  _masterGain.connect(_musicOut(ac))
 
   // Add a sustained drone oscillator with slow LFO pitch wobble
   function addDrone(freq, gainVal, lfoRate, lfoDepth) {
@@ -1192,7 +1229,7 @@ function _startIntenseLayer() {
 
   _intenseGain = ac.createGain()
   _intenseGain.gain.setValueAtTime(0, t)
-  _intenseGain.connect(ac.destination)
+  _intenseGain.connect(_musicOut(ac))
 
   // Beating drone pair: 55 Hz + 58.3 Hz → 3.3 Hz slow pulse
   for (const [freq, gain] of [[55, 0.28], [58.3, 0.22]]) {

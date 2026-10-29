@@ -18,7 +18,9 @@ export const DEFAULTS = {
   buttonSize: 'normal',     // 'normal' | 'large'  (wired by the controls agent)
   buttonOpacity: DEFAULT_BUTTON_OPACITY,
   leftHanded: false,        // mirror the layout (wired by the controls agent)
-  volume: 1,                // master gain 0..1
+  volume: 1,                // master volume 0..1 (key kept as `volume` so saved values carry over)
+  sfxVolume: 1,             // effects bus 0..1 (everything that isn't music)
+  musicVolume: 1,           // music bus 0..1 (calm drone + wave layer)
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
@@ -33,6 +35,8 @@ export function sanitize(raw) {
   if (Number.isFinite(raw.buttonOpacity)) o.buttonOpacity = clamp(raw.buttonOpacity, OPACITY_MIN, OPACITY_MAX)
   if (typeof raw.leftHanded === 'boolean') o.leftHanded = raw.leftHanded
   if (Number.isFinite(raw.volume)) o.volume = clamp(raw.volume, 0, 1)
+  if (Number.isFinite(raw.sfxVolume)) o.sfxVolume = clamp(raw.sfxVolume, 0, 1)
+  if (Number.isFinite(raw.musicVolume)) o.musicVolume = clamp(raw.musicVolume, 0, 1)
   return o
 }
 
