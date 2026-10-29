@@ -7,15 +7,18 @@ const OUT = (process.argv[3] || require('os').tmpdir()) + '/'
 const st = (p, f) => p.evaluate(f)
 const ok = (c, m) => { console.log(c ? 'PASS' : 'FAIL', m); if (!c) process.exitCode = 1 }
 
-async function lobby(b) {
+// via: 'versus' hosts from Versus > Zombie Mail, 'coop' from the Co-op panel.
+async function lobby(b, via = 'versus') {
   const host = await (await b.newContext({ viewport: { width: 900, height: 500 } })).newPage()
   const guest = await (await b.newContext({ viewport: { width: 900, height: 500 } })).newPage()
   for (const p of [host, guest]) p.on('pageerror', (e) => console.log('pageerror', e.message))
   await host.goto(base + '/?peer=local')
-  await host.getByTestId('menu-coop').click()
+  const item = via === 'coop' ? 'menu-coop' : 'menu-versus'
+  await host.getByTestId(item).click()
+  if (via !== 'coop') await host.getByTestId('versus-mail').click()
   await host.getByRole('button', { name: 'Host game' }).click()
-  await host.waitForFunction(() => /[A-HJ-NP-Z2-9]{5}$/.test((document.querySelector('[data-testid="menu-coop"]')?.textContent || '').trim()), null, { timeout: 15000 })
-  const code = (await host.getByTestId('menu-coop').textContent()).trim().match(/[A-HJ-NP-Z2-9]{5}$/)[0]
+  await host.waitForFunction((id) => /[A-HJ-NP-Z2-9]{5}$/.test((document.querySelector(`[data-testid="${id}"]`)?.textContent || '').trim()), item, { timeout: 15000 })
+  const code = (await host.getByTestId(item).textContent()).trim().match(/[A-HJ-NP-Z2-9]{5}$/)[0]
   await guest.goto(base + '/?peer=local')
   await guest.getByTestId('menu-coop').click()
   await guest.getByLabel('Room code').fill(code)
@@ -29,9 +32,9 @@ async function lobby(b) {
   const mode = process.argv[2] || 'all'
   // ---- Scenario 1: kill guest ----
   let { host, guest } = await lobby(b)
-  await host.getByTestId('mode-mail').click()
-  await guest.waitForSelector('[data-testid="lobby-mode"]', { timeout: 8000 })
-  ok((await guest.getByTestId('lobby-mode').textContent()).includes('Zombie Mail'), 'guest panel shows Mode: Zombie Mail')
+  await guest.waitForSelector('[data-testid="mail-panel"] [data-testid="lobby-mode"]', { timeout: 8000 })
+  ok((await guest.getByTestId('lobby-mode').textContent()).includes('Zombie Mail'), 'guest who joined from Co-op is moved to the Zombie Mail lobby')
+  ok(await host.getByTestId('menu-coop').isDisabled(), 'host: Co-op is disabled while the versus room is open')
   await host.getByRole('button', { name: 'Start game' }).click()
   await guest.waitForFunction(() => window.__game.getState().phase !== 'start', null, { timeout: 10000 })
   await host.waitForFunction(() => window.__game.getState().phase !== 'start')
@@ -86,7 +89,6 @@ async function lobby(b) {
 
   // ---- Scenario 2: forfeit ----
   ;({ host, guest } = await lobby(b))
-  await host.getByTestId('mode-mail').click()
   await host.getByRole('button', { name: 'Start game' }).click()
   await guest.waitForFunction(() => window.__game.getState().phase !== 'start', null, { timeout: 10000 })
   for (const p of [host, guest]) { await p.evaluate(() => window.__game.getState().skipIntermission()); await p.waitForFunction(() => window.__game.getState().phase === 'playing', null, { timeout: 40000 }) }
@@ -110,7 +112,8 @@ async function lobby(b) {
   await host.context().close()
 
   // ---- Scenario 3: co-op still works, and pause is allowed there ----
-  ;({ host, guest } = await lobby(b))
+  ;({ host, guest } = await lobby(b, 'coop'))
+  ok(await guest.getByTestId('lobby-mode').count() === 0, 'co-op guest stays in the Co-op lobby (no versus mode)')
   await host.getByRole('button', { name: 'Start game' }).click()
   await guest.waitForFunction(() => window.__game.getState().phase !== 'start', null, { timeout: 10000 })
   const c = await host.evaluate(() => { const s = window.__game.getState(); return { r: s.mpRole, c: s.mpConnected, rm: s.runMode, v: s.versus.active } })

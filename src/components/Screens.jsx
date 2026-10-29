@@ -25,7 +25,7 @@ import VersusResult from './VersusResult'
 import { SkipHoldButton, ControlSettings } from './PauseMenu'
 import useMenuEnv from '../menuTouch'
 import InstallHint from './InstallHint'
-import { CheckIcon, StarIcon } from './Icons'
+import { CheckIcon, StarIcon, ChevronIcon } from './Icons'
 import { enterRunFullscreen } from '../fullscreen'
 
 function useAuthUser() {
@@ -415,7 +415,7 @@ function RoomCodeDisplay({ code }) {
 const ROOM_CODE_CHARS = /[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]/g
 const statusIsError = (s) => s.startsWith('Room not') || s.startsWith('Failed')
 
-// Start menu: one primary action (PLAY), two more ways to start (Daily, Co-op), then the
+// Start menu: one primary action (PLAY), more ways to start (Daily, Co-op, Versus), then the
 // meta screens. Everything else opens as a panel beside the list (replaces it on narrow
 // portrait screens), so the first screen stays short.
 function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
@@ -423,8 +423,12 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const [invite] = useState(() => (checkoutReturn?.openLocker ? null : consumeInvite()))
   // Seed Duel: opening `/?duel=TOKEN` shows the challenge card (null for none / a bad token)
   const [challenge, setChallenge] = useState(() => (checkoutReturn?.openLocker || invite ? null : consumeDuel()))
-  const [panel, setPanel] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'coop' : challenge ? 'duel' : null) // null | 'duel' | 'coop' | 'loadout' | 'progress' | 'locker' | 'settings' | 'username'
-  const [coop, setCoop] = useState(invite ? 'invite' : 'idle') // 'idle' | 'host' | 'guest' | 'invite'
+  const [panel, setPanel] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'coop' : challenge ? 'versus' : null) // null | 'versus' | 'coop' | 'loadout' | 'progress' | 'locker' | 'settings' | 'username'
+  // Versus panel: the mode list (null) or one mode's screen ('mail' lobby, 'duel').
+  const [versusView, setVersusView] = useState(challenge ? 'duel' : null)
+  const [coop, setCoop] = useState(invite ? 'invite' : 'idle') // room state: 'idle' | 'host' | 'guest' | 'invite'
+  // Which menu owns the open room: the Co-op panel or Versus > Zombie Mail.
+  const [lobbyKind, setLobbyKind] = useState('coop')
   const [progressTab, setProgressTab] = useState('challenges')
   const [roomCode, setRoomCode] = useState('')
   const [joinCode, setJoinCode] = useState('')
@@ -447,8 +451,11 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const mapMismatch = !!partnerMapId && partnerMapId !== ownMapId   // co-op: host waits for a matching guest
   const setMpRole = useGameStore((s) => s.setMpRole)
   const setMpConnected = useGameStore((s) => s.setMpConnected)
+  // Lobby mode (host sets it from the menu it hosts from, guest mirrors): 'coop' or a VERSUS_MODES id.
+  const lobbyMode = useGameStore((s) => s.versusLobbyMode)
+  const setLobbyMode = useGameStore((s) => s.setVersusLobbyMode)
 
-  // A room is open (hosting, joining or invited): only the CO-OP panel stays usable,
+  // A room is open (hosting, joining or invited): only the panel that owns it (Co-op or Versus) stays usable,
   // since solo starts and map reloads would drop the connection.
   const roomOpen = coop !== 'idle'
 
@@ -459,7 +466,10 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     useGameStore.getState().clearMp()
   }, [setMpConnected])
 
-  const handleHost = useCallback(() => {
+  // mode: 'coop' from the Co-op panel, a VERSUS_MODES id from Versus.
+  const handleHost = useCallback((mode = 'coop') => {
+    setLobbyMode(mode)
+    setLobbyKind(mode === 'coop' ? 'coop' : 'versus')
     setCoop('host')
     setStatus('…')
     setMpRole('host')
@@ -476,7 +486,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       },
       onDisconnected,
     )
-  }, [setMpRole, setMpConnected, onDisconnected])
+  }, [setMpRole, setMpConnected, onDisconnected, setLobbyMode])
 
   const handleJoin = useCallback((override) => {
     const code = (typeof override === 'string' ? override : joinCode).trim()
@@ -484,6 +494,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     enterRunFullscreen()   // the guest's run starts without another tap, so this is its gesture
     const from = typeof override === 'string' ? 'invite' : 'idle'
     if (from === 'idle') setCoop('guest')
+    setLobbyKind(panel === 'versus' ? 'versus' : 'coop')
     setStatus('…')
     setMpRole('guest')
     joinRoom(
@@ -503,11 +514,8 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       },
       onDisconnected,
     )
-  }, [joinCode, setMpRole, setMpConnected, onDisconnected])
+  }, [joinCode, panel, setMpRole, setMpConnected, onDisconnected])
 
-  // Lobby mode (host picks, guest mirrors): 'coop' or a VERSUS_MODES id.
-  const lobbyMode = useGameStore((s) => s.versusLobbyMode)
-  const setLobbyMode = useGameStore((s) => s.setVersusLobbyMode)
   // Host: tell the guest the mode on every change and, repeatedly, while it may not be listening yet.
   useEffect(() => {
     if (coop !== 'host' || !connected) return undefined
@@ -515,6 +523,14 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     tell()
     const t = setInterval(tell, 1500)
     return () => clearInterval(t)
+  }, [coop, connected, lobbyMode])
+
+  // Guest (joined by code or invite from either menu): a versus host moves us to its lobby.
+  useEffect(() => {
+    if (coop === 'host' || coop === 'idle' || !connected || lobbyMode === 'coop' || !VERSUS_MODES[lobbyMode]) return
+    setLobbyKind('versus')
+    setPanel('versus')
+    setVersusView(lobbyMode)
   }, [coop, connected, lobbyMode])
 
   const handleStartGame = useCallback(() => {
@@ -540,6 +556,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     setConnected(false)
     useGameStore.getState().clearMp()
     setLobbyMode('coop')
+    setLobbyKind('coop')
   }, [setLobbyMode])
 
   const togglePanel = (id) => setPanel((p) => (p === id ? null : id))
@@ -554,92 +571,114 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     return () => window.removeEventListener('keydown', onKey)
   }, [panel, roomOpen, closePanel])
 
-  const coopMeta = coop === 'host' ? (connected ? 'Partner in' : roomCode || '…')
+  const roomMeta = coop === 'host' ? (connected ? 'Partner in' : roomCode || '…')
     : coop === 'guest' ? (connected ? 'Joined' : '…')
     : coop === 'invite' ? 'Invited' : null
+  const coopMeta = lobbyKind === 'coop' ? roomMeta : null
+  const versusMeta = roomOpen && lobbyKind === 'versus' ? roomMeta : challenge ? 'Challenge' : null
+  const openVersus = () => {
+    if (panel === 'versus') { setPanel(null); return }
+    setVersusView(roomOpen && lobbyKind === 'versus' ? lobbyMode : challenge ? 'duel' : null)
+    setPanel('versus')
+  }
 
-  const backAction = roomOpen && panel === 'coop'
+  const backAction = <Button variant="ghost" size="sm" onClick={closePanel}>Back</Button>
+  // A lobby panel: Leave while its room is open, else Back (onBack).
+  const lobbyAction = (kind, onBack) => (roomOpen && lobbyKind === kind
     ? <Button variant="ghost" size="sm" onClick={handleLeave}>Leave</Button>
-    : <Button variant="ghost" size="sm" onClick={closePanel}>Back</Button>
+    : <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>)
+
+  // Host / join body shared by the Co-op panel and Versus > Zombie Mail (mode = what hosting starts).
+  const lobbyBody = (mode) => (
+    <>
+      {coop === 'idle' && (
+        <div className="ui-stack">
+          <SectionLabel>Host</SectionLabel>
+          <Button block onClick={() => handleHost(mode)}>Host game</Button>
+          <div className="ui-note">{mode === 'coop' ? 'You get a code and an invite link to send.' : 'You get a code and an invite link. Same waves for both of you, each in your own world.'}</div>
+          <SectionLabel>Join</SectionLabel>
+          <div className="ui-field">
+            <input
+              className="ui-input"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(ROOM_CODE_CHARS, '').slice(0, 5))}
+              onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
+              placeholder="CODE"
+              maxLength={5}
+              aria-label="Room code"
+              style={{ textAlign: 'center', letterSpacing: 6 }}
+            />
+            <Button onClick={handleJoin} disabled={!joinCode.trim()}>Join</Button>
+          </div>
+          {status && <div className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined }}>{status}</div>}
+        </div>
+      )}
+
+      {coop === 'host' && (
+        <div className="ui-stack" style={{ alignItems: 'center' }}>
+          {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
+          {roomCode && !connected ? <InviteShare code={roomCode} /> : null}
+          <div className="ui-note">{connected ? 'Partner connected' : roomCode ? 'Waiting for partner…' : status}</div>
+          {connected && mapMismatch && (
+            <div className="ui-note" style={{ color: '#cc9944', textAlign: 'center' }}>
+              Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
+            </div>
+          )}
+          {connected && <Button variant="primary" size="lg" block onClick={handleStartGame} disabled={mapMismatch}>Start game</Button>}
+        </div>
+      )}
+
+      {coop === 'guest' && (
+        <div className="ui-stack" style={{ alignItems: 'center' }}>
+          <div className="ui-note">{connected ? 'Connected — waiting for host to start' : status === '…' ? 'Connecting…' : 'Disconnected'}</div>
+          {connected && lobbyMode !== 'coop' && <div className="ui-note" data-testid="lobby-mode">Mode: {VERSUS_MODES[lobbyMode]?.label}</div>}
+        </div>
+      )}
+
+      {coop === 'invite' && invite && (
+        <div className="ui-stack" style={{ alignItems: 'center' }}>
+          {!isValidRoomCode(invite.code) ? (
+            <div data-testid="invite-error" className="ui-note" style={{ color: '#ff6666' }}>Invalid invite</div>
+          ) : (
+            <>
+              <div className="ui-section-label" style={{ justifyContent: 'center' }}>Invited</div>
+              {!connected && status !== '…' && (
+                <Button variant="primary" size="lg" block onClick={() => handleJoin(invite.code)}>{`Join ${invite.code}`}</Button>
+              )}
+              {status && (
+                <div data-testid="invite-status" className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined, textAlign: 'center' }}>
+                  {status === 'Connected' ? 'Connected — waiting for host to start' : status}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </>
+  )
 
   let detail = null
-  if (panel === 'duel') {
-    detail = <DuelPanel challenge={challenge} onBack={closePanel} onDecline={() => { setChallenge(null); setPanel(null) }} />
+  if (panel === 'versus' && versusView === 'duel') {
+    detail = <DuelPanel challenge={challenge} onBack={() => setVersusView(null)} onDecline={() => { setChallenge(null); setVersusView(null) }} />
+  } else if (panel === 'versus' && VERSUS_MODES[versusView]) {
+    detail = (
+      <Panel title={VERSUS_MODES[versusView].label} action={lobbyAction('versus', () => setVersusView(null))} testid="mail-panel">
+        {lobbyBody(versusView)}
+      </Panel>
+    )
+  } else if (panel === 'versus') {
+    detail = (
+      <Panel title="Versus" action={backAction} testid="versus-panel">
+        <div className="ui-stack">
+          <Option label="Zombie Mail" sub="Live, 2 players. Your kills send zombies to your rival." side={<ChevronIcon dir="right" />} onClick={() => setVersusView('mail')} testid="versus-mail" />
+          <Option label="Seed Duel" sub="Play a seed and send it. A friend plays the same waves any time." side={<ChevronIcon dir="right" />} onClick={() => setVersusView('duel')} testid="versus-duel" />
+        </div>
+      </Panel>
+    )
   } else if (panel === 'coop') {
     detail = (
-      <Panel title="Co-op" action={backAction} testid="coop-panel">
-        {coop === 'idle' && (
-          <div className="ui-stack">
-            <SectionLabel>Host</SectionLabel>
-            <Button block onClick={handleHost}>Host game</Button>
-            <div className="ui-note">You get a code and an invite link to send.</div>
-            <SectionLabel>Join</SectionLabel>
-            <div className="ui-field">
-              <input
-                className="ui-input"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(ROOM_CODE_CHARS, '').slice(0, 5))}
-                onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
-                placeholder="CODE"
-                maxLength={5}
-                aria-label="Room code"
-                style={{ textAlign: 'center', letterSpacing: 6 }}
-              />
-              <Button onClick={handleJoin} disabled={!joinCode.trim()}>Join</Button>
-            </div>
-            {status && <div className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined }}>{status}</div>}
-          </div>
-        )}
-
-        {coop === 'host' && (
-          <div className="ui-stack" style={{ alignItems: 'center' }}>
-            {roomCode ? <RoomCodeDisplay code={roomCode} /> : null}
-            {roomCode && !connected ? <InviteShare code={roomCode} /> : null}
-            <div className="ui-note">{connected ? 'Partner connected' : roomCode ? 'Waiting for partner…' : status}</div>
-            {connected && mapMismatch && (
-              <div className="ui-note" style={{ color: '#cc9944', textAlign: 'center' }}>
-                Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
-              </div>
-            )}
-            {connected && (
-              <div className="ui-stack" style={{ alignSelf: 'stretch' }}>
-                <SectionLabel>Mode</SectionLabel>
-                <Option label="Co-op" sub="One shared world" checked={lobbyMode === 'coop'} onClick={() => setLobbyMode('coop')} testid="mode-coop" />
-                {Object.entries(VERSUS_MODES).map(([id, m]) => (
-                  <Option key={id} label={m.label} sub="Versus, own world each" checked={lobbyMode === id} onClick={() => setLobbyMode(id)} testid={`mode-${id}`} />
-                ))}
-              </div>
-            )}
-            {connected && <Button variant="primary" size="lg" block onClick={handleStartGame} disabled={mapMismatch}>Start game</Button>}
-          </div>
-        )}
-
-        {coop === 'guest' && (
-          <div className="ui-stack" style={{ alignItems: 'center' }}>
-            <div className="ui-note">{connected ? 'Connected — waiting for host to start' : status === '…' ? 'Connecting…' : 'Disconnected'}</div>
-            {connected && <div className="ui-note" data-testid="lobby-mode">Mode: {VERSUS_MODES[lobbyMode]?.label ?? 'Co-op'}</div>}
-          </div>
-        )}
-
-        {coop === 'invite' && invite && (
-          <div className="ui-stack" style={{ alignItems: 'center' }}>
-            {!isValidRoomCode(invite.code) ? (
-              <div data-testid="invite-error" className="ui-note" style={{ color: '#ff6666' }}>Invalid invite</div>
-            ) : (
-              <>
-                <div className="ui-section-label" style={{ justifyContent: 'center' }}>Invited</div>
-                {!connected && status !== '…' && (
-                  <Button variant="primary" size="lg" block onClick={() => handleJoin(invite.code)}>{`Join ${invite.code}`}</Button>
-                )}
-                {status && (
-                  <div data-testid="invite-status" className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined, textAlign: 'center' }}>
-                    {status === 'Connected' ? 'Connected — waiting for host to start' : status}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
+      <Panel title="Co-op" action={lobbyAction('coop', closePanel)} testid="coop-panel">
+        {lobbyBody('coop')}
       </Panel>
     )
   } else if (panel === 'loadout') {
@@ -699,8 +738,8 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <nav className="menu-nav" aria-label="Main menu">
           <Button variant="primary" size="lg" block onClick={() => { enterRunFullscreen(); startGame() }} disabled={roomOpen} data-testid="menu-play">Play</Button>
           <MenuItem label="Daily Run" meta={daily.meta} tone={daily.used ? null : 'warm'} onClick={daily.start} disabled={roomOpen} testid="menu-daily" />
-          <MenuItem label="Seed Duel" meta={challenge ? 'Challenge' : null} tone={challenge ? 'warm' : null} active={panel === 'duel'} onClick={() => togglePanel('duel')} disabled={roomOpen} testid="menu-duel" />
-          <MenuItem label="Co-op" meta={coopMeta} active={panel === 'coop'} onClick={() => togglePanel('coop')} testid="menu-coop" />
+          <MenuItem label="Co-op" meta={coopMeta} active={panel === 'coop'} onClick={() => togglePanel('coop')} disabled={roomOpen && lobbyKind !== 'coop'} testid="menu-coop" />
+          <MenuItem label="Versus" meta={versusMeta} tone={challenge && !roomOpen ? 'warm' : null} active={panel === 'versus'} onClick={openVersus} disabled={roomOpen && lobbyKind !== 'versus'} testid="menu-versus" />
           <div className="menu-sep" />
           <MenuItem label="Loadout" meta={loadoutSummary} active={panel === 'loadout'} onClick={() => togglePanel('loadout')} disabled={roomOpen} testid="menu-loadout" />
           <MenuItem label="Progress" meta={`${challenges.done}/${challenges.total}`} tone={challenges.done === challenges.total ? 'ok' : null}
