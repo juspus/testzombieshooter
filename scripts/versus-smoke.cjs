@@ -45,6 +45,10 @@ async function lobby(b, via = 'versus') {
   console.log(JSON.stringify({ hi, gi }))
   ok(hi.role === null && gi.role === null && !hi.conn && !gi.conn, 'mpRole null / mpConnected false on both')
   ok(hi.runMode === 'versus' && gi.runMode === 'versus' && hi.seed && hi.seed === gi.seed, 'same runSeed, runMode versus')
+  // Separate worlds: no partner for the zombies to chase (regression: the lobby position stuck at 0,5)
+  const partnerPos = (p) => p.evaluate(async () => (await import('/src/components/RemotePlayer.jsx')).getRemotePlayerPos())
+  await host.waitForTimeout(1000)
+  ok(await partnerPos(host) === null && await partnerPos(guest) === null, 'versus: zombies have no partner target on either side')
   ok(hi.vs.linked && gi.vs.linked, 'versus linked')
   ok(hi.zombies > 0 && gi.zombies > 0, 'each has own zombies')
   await host.waitForSelector('[data-testid="rival-strip"]'); await guest.waitForSelector('[data-testid="rival-strip"]')
@@ -119,5 +123,12 @@ async function lobby(b, via = 'versus') {
   const c = await host.evaluate(() => { const s = window.__game.getState(); return { r: s.mpRole, c: s.mpConnected, rm: s.runMode, v: s.versus.active } })
   const cg = await guest.evaluate(() => { const s = window.__game.getState(); return { r: s.mpRole, c: s.mpConnected, rm: s.runMode } })
   ok(c.r === 'host' && c.c && c.rm === 'normal' && !c.v && cg.r === 'guest' && cg.c, 'co-op start unchanged: ' + JSON.stringify([c, cg]))
+  let seen = null
+  for (let i = 0; i < 20 && !seen; i++) { seen = await partnerPos(host); if (!seen) await host.waitForTimeout(500) }
+  ok(seen !== null, 'co-op: host zombies see the partner ' + JSON.stringify(seen))
+  await guest.goto('about:blank'); await guest.context().close()
+  await host.waitForFunction(() => !window.__game.getState().mpConnected, null, { timeout: 40000 }).catch(() => {})
+  await host.waitForTimeout(500)
+  ok(await partnerPos(host) === null, 'co-op: partner target cleared after the partner leaves')
   await b.close()
 })().catch((e) => { console.error('FAIL', e); process.exit(1) })
