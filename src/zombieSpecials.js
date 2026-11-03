@@ -57,3 +57,97 @@ export const SPITTER = {
   SPLASH_DAMAGE: 3,       // direct hit / landing on the player
 }
 export const globFlightTime = (d) => Math.min(SPITTER.FLIGHT_MAX, Math.max(SPITTER.FLIGHT_MIN, d / SPITTER.FLIGHT_SPEED))
+
+// ── Spider ───────────────────────────────────────────────────────────────────
+// Scuttles on all fours with its back to the surface and its limbs bent the wrong way.
+// Outside it is a floor zombie (claws planks like a walker). Once inside it climbs to the
+// ceiling, crawls to the spot above a player, shrieks (the "look up" cue), drops on them,
+// fights on the floor for a moment, then leaps back up.
+export const SPIDER = {
+  BODY_Y: 0.5,            // m from the clung-to surface to the body centre (limbs reach this far)
+  INSIDE_MARGIN: 0.6,     // m inside the walls before it starts climbing (clears the window gap)
+  CLIMB_TIME: 0.9,        // s: first climb, up the wall by the window it came in through
+  LEAP_TIME: 0.45,        // s: back up after a drop
+  CEIL_SPEED_MUL: 1.1,    // on top of the archetype speed while on the ceiling
+  DROP_RANGE: 1.0,        // m horizontal to a player before it winds up
+  CANCEL_RANGE: 2.4,      // m: player escaped during the wind-up -> back to crawling
+  WINDUP: 0.6,            // s shriek + coil before letting go
+  RETRY: 0.8,             // s before another wind-up after a cancel
+  GRAVITY: 22,            // m/s^2 (a 2.2 m drop takes ~0.45 s)
+  LUNGE_SPEED: 2.5,       // m/s horizontal pull toward where the player stood when it let go
+  POUNCE_RADIUS: 1.2,     // m: landing this close to a player hits them
+  POUNCE_DAMAGE: 7,       // BASE_HP is 20
+  FLOOR_TIME: 2.5,        // s on the floor after a drop before leaping back up
+  DOORWAY_H: 2.2,         // interior door lintel height (cabin): it ducks under it
+  DOORWAY_REACH: 0.9,     // m either side of a door plane where the lintel applies
+  CORPSE_Y: 0.16,         // body centre of a corpse lying belly-down, limbs up
+  DEATH_ROLL: 0.5,        // s to roll over (floor kill) / settle (ceiling kill)
+}
+
+// Height of the surface the spider clings to at (x, z): the ceiling, or a door lintel
+// when it is passing through an interior doorway. `doors` = the map's DOOR_DEFS.
+export function spiderCeilingAt(x, z, wallH, doors = []) {
+  for (const d of doors) {
+    const along = d.axis === 'z' ? Math.abs(z - d.z) - d.halfD : Math.abs(x - d.x) - d.halfW
+    const across = d.axis === 'z' ? Math.abs(x - d.x) : Math.abs(z - d.z)
+    if (along < 0.3 && across < SPIDER.DOORWAY_REACH) return Math.min(wallH, SPIDER.DOORWAY_H)
+  }
+  return wallH
+}
+
+export const freshSpiderState = () => ({ s: 'floor', t: 0, dur: 0, y: SPIDER.BODY_Y, y0: SPIDER.BODY_Y, flip: 0, vy: 0, floorT: 0, cd: 0, climbs: 0 })
+
+const _ease = (k) => k * k * (3 - 2 * k)
+
+// One frame of the surface state machine (pure: mutates `sp`, returns an event or null).
+//   s: 'floor' | 'up' (climb / leap) | 'ceil' | 'windup' | 'drop'
+// ctx: { inside, hdist (horizontal m to the target player), ceilY (body centre on the ceiling) }
+// Events: 'climb', 'windup', 'cancel', 'drop', 'land'. The caller moves the zombie (floor/ceil
+// only), applies the pounce on 'land', and plays sounds.
+export function spiderStep(sp, dt, { inside, hdist, ceilY }) {
+  const floorY = SPIDER.BODY_Y
+  switch (sp.s) {
+    case 'floor':
+      sp.y = floorY; sp.flip = 0
+      sp.floorT -= dt
+      if (inside && sp.floorT <= 0) {
+        sp.s = 'up'; sp.t = 0; sp.y0 = sp.y
+        sp.dur = sp.climbs++ === 0 ? SPIDER.CLIMB_TIME : SPIDER.LEAP_TIME
+        return 'climb'
+      }
+      return null
+    case 'up': {
+      sp.t += dt
+      const k = _ease(Math.min(1, sp.t / sp.dur))
+      sp.y = sp.y0 + (ceilY - sp.y0) * k
+      sp.flip = Math.PI * k
+      if (sp.t >= sp.dur) { sp.s = 'ceil'; sp.cd = 0.4 }
+      return null
+    }
+    case 'ceil':
+      sp.y += (ceilY - sp.y) * Math.min(1, dt * 8)   // eases under / out from door lintels
+      sp.flip = Math.PI
+      sp.cd -= dt
+      if (sp.cd <= 0 && hdist <= SPIDER.DROP_RANGE) { sp.s = 'windup'; sp.t = SPIDER.WINDUP; return 'windup' }
+      return null
+    case 'windup':
+      sp.t -= dt
+      if (hdist > SPIDER.CANCEL_RANGE) { sp.s = 'ceil'; sp.cd = SPIDER.RETRY; return 'cancel' }
+      if (sp.t <= 0) { sp.s = 'drop'; sp.vy = 0; sp.y0 = sp.y; return 'drop' }
+      return null
+    case 'drop': {
+      sp.vy += SPIDER.GRAVITY * dt
+      sp.y -= sp.vy * dt
+      const span = sp.y0 - floorY
+      sp.flip = span > 0 ? Math.PI * Math.max(0, Math.min(1, (sp.y - floorY) / span)) : 0
+      if (sp.y <= floorY) { sp.y = floorY; sp.flip = 0; sp.s = 'floor'; sp.floorT = SPIDER.FLOOR_TIME; return 'land' }
+      return null
+    }
+    default:
+      return null
+  }
+}
+// Moves along a surface this frame (the climb / drop are vertical only).
+export const spiderCanMove = (sp) => sp.s === 'floor' || sp.s === 'ceil'
+// Mid-air (climbing up or falling): hit stagger does not freeze it there.
+export const spiderAirborne = (sp) => sp.s === 'up' || sp.s === 'drop'

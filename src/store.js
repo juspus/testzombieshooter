@@ -150,6 +150,8 @@ export const ZOMBIE_ARCHETYPES = {
   exploder: { label: 'Exploder', health: 2, speedMultiplier: 0.95, plankHits: 1, playerDamage: 5, explodes: true },
   armored: { label: 'Armored', health: 5, speedMultiplier: 0.8, plankHits: 2, playerDamage: 8, armored: true },
   spitter: { label: 'Spitter', health: 2, speedMultiplier: 0.8, plankHits: 1, playerDamage: 4, ranged: true },
+  // Ceiling crawler: drops on the player from above (SPIDER in zombieSpecials.js). playerDamage = floor claws.
+  spider: { label: 'Spider', health: 3, speedMultiplier: 1.1, plankHits: 1, playerDamage: 4, climbs: true },
   boss: { label: 'Boss', health: 16, speedMultiplier: 0.58, plankHits: 5, heightScale: 1.45, boss: true, playerDamage: 25 },
 }
 
@@ -162,6 +164,7 @@ const ZOMBIE_TYPE_UNLOCKS = [
   ['screamer', 9],
   ['brute', 5],
   ['runner', 7],
+  ['spider', 11],
 ]
 
 export function getZombieArchetype(type = 'walker') {
@@ -186,6 +189,7 @@ export function specialProbsForWave(wave) {
   if (wave >= 7)  probs.push(['runner',   Math.min(0.12, 0.03 + (wave - 7)  * 0.015)])
   if (wave >= 8)  probs.push(['spitter',  Math.min(0.08, 0.03 + (wave - 8)  * 0.01)])
   if (wave >= 9)  probs.push(['screamer', Math.min(0.12, 0.03 + (wave - 9)  * 0.015)])
+  if (wave >= 11) probs.push(['spider',   Math.min(0.10, 0.04 + (wave - 11) * 0.01)])
   const total = probs.reduce((a, [, p]) => a + p, 0)
   if (total > MAX_SPECIAL_SHARE) {
     const k = MAX_SPECIAL_SHARE / total
@@ -866,7 +870,7 @@ export const useGameStore = create((set, get) => ({
 
   // forcedMod: co-op guest passes the host's roll (null = none); undefined = roll here.
   nextWave: (forcedMod) => {
-    const { wave: prevWave, windowPlanks, openDoors, money, bulletsInClip, reserveBullets, waveKills: prevWaveKills, lastWaveBonuses } = get()
+    const { wave: prevWave, windowPlanks, openDoors, money, bulletsInClip, reserveBullets, lastWaveBonuses } = get()
     const wave = prevWave + 1
     if (get().runMode === 'duel') {   // Seed Duel: cumulative kills at the end of the wave just cleared
       const d = get().duel
@@ -884,7 +888,8 @@ export const useGameStore = create((set, get) => ({
     const walls = playerCollisionWalls(openDoors)
     set({
       phase: 'intermission',
-      money: money + WAVE_REWARD + (prevWaveKills * ZOMBIE_KILL_REWARD) + (lastWaveBonuses?.total ?? 0),
+      // Kill money (base + headshot / knife bonus) was already paid on each kill.
+      money: money + WAVE_REWARD + (lastWaveBonuses?.total ?? 0),
       shopOpen: false,
       walls,
       wave,
@@ -1564,7 +1569,7 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot, weapon = nu
   if (newHealth <= 0) {
     const nuked = source === 'nuke'
     const newKills = kills + 1
-    const newWaveKills = waveKills + (nuked ? 0 : 1)   // nuke kills pay no per-kill money
+    const newWaveKills = waveKills + (nuked ? 0 : 1)   // nuke kills pay no kill money
     const newWaveHeadshots = waveHeadshots + (source === 'gun' && isHeadshot ? 1 : 0)
     const newWaveKnifeKills = waveKnifeKills + (source === 'knife' ? 1 : 0)
     // Immediately slot in the next pending zombie so the active count stays at the cap
@@ -1592,8 +1597,9 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot, weapon = nu
       runKnifeKills: runKnifeKills + (source === 'knife' ? 1 : 0),
     }
     if (!nuked) {
-      // Double Money: pay the kill money again now (base + headshot / knife bonus).
-      if (get().doubleMoneyOn) statUpdate.money = get().money + doubleMoneyExtra(source, isHeadshot)
+      // Kill money lands on the kill (x2 under Double Money). Co-op: both clients run this for
+      // every kill (remote hits too), so each player earns for the partner's kills, as before.
+      statUpdate.money = get().money + killMoney(source, isHeadshot) * (get().doubleMoneyOn ? 2 : 1)
       // Drop roll (host / solo only; never on the wave's last kill).
       if (!isGuest && !waveOver) maybeDropPowerup(get, set, zombie)
     }
@@ -1633,10 +1639,10 @@ function applyZombieDamage(get, set, id, damage, source, isHeadshot, weapon = nu
 }
 
 // ── Wave 3 "Power-ups" helpers ───────────────────────────────────────────────
-// Extra money granted per kill while Double Money is active (mirrors the per-kill
-// reward + headshot/knife bonuses that are otherwise paid at wave end). The wave-clear
-// base reward and wave bonuses (no-planks-lost, fast clear) are NOT doubled.
-export function doubleMoneyExtra(source, isHeadshot) {
+// Money paid on each kill: base reward + headshot / knife bonus (x2 under Double Money).
+// The wave-clear base reward and wave bonuses (no-planks-lost, fast clear, modifier)
+// are paid in nextWave and NOT doubled.
+export function killMoney(source, isHeadshot) {
   return ZOMBIE_KILL_REWARD
     + (source === 'gun' && isHeadshot ? HEADSHOT_KILL_BONUS : 0)
     + (source === 'knife' ? KNIFE_KILL_BONUS : 0)
@@ -1715,7 +1721,8 @@ function buildWaveBonusSummary({ wave, waveKills, waveHeadshots, waveKnifeKills,
     fastClear,
     modifier,
     modifierBonus: modBonus,
-    total: headshots + knifeKills + noPlanksLost + fastClear + modBonus,
+    // Kills / headshots / knife were paid on each kill; `total` is what nextWave pays on top of base.
+    total: noPlanksLost + fastClear + modBonus,
     elapsed: waveElapsed,
     fastClearPar,
     headshotsCount: waveHeadshots,

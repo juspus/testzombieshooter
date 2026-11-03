@@ -260,6 +260,11 @@ Total: 1 shadow-casting light. Point light shadow maps are cube maps (6 render p
 | No planks lost bonus | €10 (requires pre-wave planks) |
 | Fast clear bonus | €8 (finish under par time) |
 
+Kill money (per kill + headshot/knife bonus, `killMoney()` in store.js) is paid on the
+kill, x2 under Double Money; nuke kills pay none. `nextWave` pays only the wave base +
+`lastWaveBonuses.total` (planks / fast clear / modifier). The HUD shows a `+€x` pop
+under MONEY (`MoneyGain` in HUD.jsx). Co-op: both clients pay for every kill.
+
 ---
 
 ## Multiplayer (co-op)
@@ -286,10 +291,17 @@ Two-player co-op over WebSocket (`net.js`). One player is **host**, one is **gue
 |---|---|
 | Feel | `FeelFx.jsx` (hit markers, danger, last-kill), `timeScale.js` (multiply frame deltas by `time.scale`), `cameraFeel.js`, `BloodFX.jsx`, `ImpactFX.jsx`, `hitFx.js` |
 | Look | `LofiPass.jsx` (low-res dither post pass; `?lofi=0`), `textures.js`, `zombieVariant.js`, `Storm.jsx`, `LivingLights.jsx` (`?nofx`) |
-| Run | `doors.js` + `DOOR_COSTS`/`ROOM_ANCHORS` in maps, `powerups.js`, `zombieSpecials.js` (exploder/armored/spitter), `modifiers.js`, `weaponRules.js` (box/bench/crossbow, no gun carry limit), `grenades.js` |
+| Run | `doors.js` + `DOOR_COSTS`/`ROOM_ANCHORS` in maps, `powerups.js`, `zombieSpecials.js` (exploder/armored/spitter/spider), `modifiers.js`, `weaponRules.js` (box/bench/crossbow, no gun carry limit), `grenades.js` |
 | Progression | `progression.js`, `challenges.js`, `achievements.js`, `gameEvents.js`, `progressTracker.js`, level rewards in `cosmetics.js`, `mapSelect.js` (map picker + loadouts) |
 | Daily | `rng.js` — all gameplay randomness goes through `runRandom`/`waveRandom`/`keyedRandom` (seeded in Daily Run); cosmetic randomness stays on `Math.random` |
 | Tools | `?perf`, `?bench`, `/?models` playground (`src/playground/registry.js`), `/?testlab` soundboard |
+
+### Spider zombie (wave 11+, `SPIDER` + `spiderStep` in zombieSpecials.js)
+Floor zombie outside (claws planks like a walker). Inside it climbs to the ceiling, crawls above the nearest player, shrieks (the "look up" cue), drops (pounce, each client checks its own player), claws for `FLOOR_TIME`, then leaps back up.
+- Built in a "surface frame": body on its back, limbs bent backward, surface at y = -`BODY_Y`. A `flipRef` group between the zombie root and `bodyRef` rolls it by PI onto the ceiling (it is identity for every other type). The root's `position.y` is the spider's body centre (0.5 on the floor), NOT `ZOMBIE_HEIGHT/2`.
+- On the ceiling it moves with the walls minus `FURNITURE_COLLIDERS`, and `spiderCeilingAt` drops it to the 2.2 m door lintel inside interior doorways.
+- Its own death (falls, rolls belly-down, limbs curl) and `settleCorpse()` (shared). Bullet holes are moved into the flip group's frame.
+- Player pitch is clamped to +-60 deg, so a spider right overhead is out of view; the shriek is the cue. Model: `/?models&m=spider` (Ceiling / Wind-up anims).
 
 `hitZombie(id, isHeadshot, source, weapon, dist, mult)` — weapon/dist feed armour rules, mult feeds upgrades.
 Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombies with `!z.dying`.

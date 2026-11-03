@@ -8,7 +8,8 @@ import * as THREE from 'three'
 import { PistolModel, AKModel, DeagleModel, ShotgunModel, FlamethrowerModel, CrossbowModel } from '../components/Gun'
 import { BoxMesh, BenchMesh } from '../components/Machines'
 import { HuntingKnifeModel } from '../components/Knife'
-import { ZombieBody } from '../components/Zombie'
+import { ZombieBody, poseSpiderLimbs } from '../components/Zombie'
+import { SPIDER } from '../zombieSpecials'
 import { PickupMesh } from '../components/BulletPickups'
 import RemotePlayer, { pushRemotePlayerSample } from '../components/RemotePlayer'
 import { useGameStore } from '../store'
@@ -22,6 +23,9 @@ const FLAME_POS = [[-0.2, 0.25, 0.05], [0.2, 0.3, -0.05], [0, 0.55, 0.1], [0, -0
 export function ZombieDisplay({ type, ctrl, variant = 0 }) {
   const outer = useRef()
   const lArm = useRef(), rArm = useRef(), lLeg = useRef(), rLeg = useRef()
+  const limbs = useMemo(() => [lArm, rArm, lLeg, rLeg], [])
+  const bodyOff = useRef()   // spider: flips about its body centre ('ceiling'), rolls over on death
+  const isSpider = type === 'spider'
   const flames = useRef([])
   const headRef = useRef(), sacRef = useRef()
   const g = useMemo(() => getZombieVariant(type, `pg${variant}`).gait, [type, variant])
@@ -36,11 +40,25 @@ export function ZombieDisplay({ type, ctrl, variant = 0 }) {
     s.t += dt
     const dying = id === 'death'
     s.death = dying ? Math.min(1, s.death + dt / 0.75) : Math.max(0, s.death - dt / 0.3)
-    if (outer.current) {
+    if (isSpider) {
+      // Spider: no topple. 'ceiling' hangs it upside down in place (as seen from below in game).
+      const b = bodyOff.current
+      if (b) {
+        b.rotation.z = id === 'ceiling' ? Math.PI : s.death * Math.PI
+        b.position.y = SPIDER.BODY_Y + (SPIDER.CORPSE_Y - SPIDER.BODY_Y) * s.death
+        b.position.x = id === 'windup' ? Math.sin(s.t * 60) * 0.025 : 0
+      }
+      if (id === 'walk' || id === 'burning' || id === 'ceiling') s.walk += dt * 8.5
+      const ph = s.t % 1
+      const mode = dying ? 'dead' : id === 'attack' ? 'attack' : id === 'windup' ? 'windup'
+        : (id === 'walk' || id === 'burning' || id === 'ceiling') ? 'walk' : 'idle'
+      const k = dying ? s.death : id === 'attack' ? (ph < 0.72 ? ph / 0.72 : 1 - (ph - 0.72) / 0.28) : id === 'windup' ? 1 : 0
+      poseSpiderLimbs(limbs, mode, mode === 'walk' ? s.walk : s.t, k)
+    } else if (outer.current) {
       outer.current.rotation.x = -s.death * (Math.PI / 2)
       outer.current.position.y = s.death * 0.22
     }
-    if (!dying || s.death < 1) {
+    if (!isSpider && (!dying || s.death < 1)) {
       let la, ra, ll, rl
       if (id === 'attack') {
         const phase = s.t % 1
@@ -83,7 +101,7 @@ export function ZombieDisplay({ type, ctrl, variant = 0 }) {
 
   return (
     <group ref={outer}>
-      <group position={[0, FEET_OFFSET, 0]}>
+      <group ref={bodyOff} position={[0, isSpider ? SPIDER.BODY_Y : FEET_OFFSET, 0]}>
         <ZombieBody type={type} id="playground" seed={`pg${variant}`} leftArmRef={lArm} rightArmRef={rArm} leftLegRef={lLeg} rightLegRef={rLeg} headRef={headRef} sacRef={sacRef} />
         {FLAME_POS.map((p, i) => (
           <mesh key={i} ref={(el) => (flames.current[i] = el)} position={p} visible={false} geometry={flameGeo} material={flameMat} />
