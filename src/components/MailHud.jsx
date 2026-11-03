@@ -21,7 +21,7 @@ export const isTouchHud = () => {
 }
 
 export default function MailHud() {
-  const live = useGameStore((s) => s.runMode === 'versus' && s.versus.active && s.versus.linked && !s.versus.result && LIVE.has(s.phase))
+  const live = useGameStore((s) => s.runMode === 'versus' && s.versus.mode === 'mail' && s.versus.active && s.versus.linked && !s.versus.result && LIVE.has(s.phase))
   const meter = useGameStore((s) => s.mail?.meter ?? 0)
   const phase = useGameStore((s) => s.phase)
   const wave = useGameStore((s) => s.wave)

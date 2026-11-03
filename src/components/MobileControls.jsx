@@ -93,7 +93,7 @@ export default function MobileControls() {
   const mailBtnRef = useRef(null)
   const mailPointerRef = useRef(null)
   const [mailOpen, setMailOpen] = useState(false)
-  const mailOn = useGameStore((s) => s.runMode === 'versus' && s.versus.active && s.versus.linked && !s.versus.result)
+  const mailOn = useGameStore((s) => s.runMode === 'versus' && s.versus.mode === 'mail' && s.versus.active && s.versus.linked && !s.versus.result)
   const mailMeter = useGameStore((s) => s.mail?.meter ?? 0)
   const cycleBtnRef = useRef(null)
   const ownedCount = useGameStore((s) => s.ownedWeapons.length)

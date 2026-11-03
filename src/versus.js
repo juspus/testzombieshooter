@@ -6,6 +6,7 @@ import { send, onMessage } from './net'
 /** Versus modes that sit beside the default co-op lobby choice. */
 export const VERSUS_MODES = {
   mail: { label: 'Zombie Mail' },
+  director: { label: 'The Director' },
 }
 
 export const isVersusMode = (id) => Object.prototype.hasOwnProperty.call(VERSUS_MODES, id)
