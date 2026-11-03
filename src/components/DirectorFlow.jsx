@@ -103,11 +103,11 @@ function DefenderStrip() {
   const wave = useGameStore((s) => s.wave)
   if (d.role !== 'defender') return null
   const text = phase === 'intermission'
-    ? `ROUND ${d.round} · DEFEND · DIRECTOR BUILDING WAVE ${wave}${d.nextMod ? ` · ${d.nextMod.toUpperCase()}` : ''}`
+    ? `ROUND ${d.round} · WAVE ${wave} BEING BUILT${d.nextMod ? ` · ${d.nextMod.toUpperCase()}` : ''}`
     : d.windowLeft > 0 ? `ROUND ${d.round} · INCOMING ${Math.ceil(d.windowLeft)}` : `ROUND ${d.round} · DEFEND`
   return (
     <div data-testid="director-strip" style={{
-      position: 'absolute', zIndex: 6, pointerEvents: 'none', left: 0, right: 0, top: 'max(44px, calc(env(safe-area-inset-top) + 38px))',
+      position: 'absolute', zIndex: 6, pointerEvents: 'none', left: 0, right: 0, top: 'calc(env(safe-area-inset-top, 0px) + 100px)',   // under the HUD stats box (it ends near 90 px)
       textAlign: 'center', fontFamily: FONT, fontSize: 'max(var(--ui-fs-min), 12px)', letterSpacing: 3, color: '#ffcc66', textShadow: '0 1px 3px #000',
     }}>{text}</div>
   )
