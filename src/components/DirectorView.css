@@ -1,75 +1,143 @@
-/* The Director's screen. Uses the ui.css tokens; controls are 44px on touch. */
+/* The Director's screen: a survivor's war map. Aged paper map (canvas) on a dark wooden table,
+   index cards on a cork-and-wood strip, masking tape and rubber stamps. No font files:
+   Courier New for typewriter text, a system handwriting stack for the hand-written numbers. */
 .dv {
+  --dv-wood: #2c1b10;
+  --dv-wood-2: #3a2415;
+  --dv-paper: #e4d6b0;
+  --dv-ink: #2a2118;
+  --dv-red: #a3201a;
+  --dv-hand: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
   position: fixed; inset: 0; z-index: 60;
   display: flex; flex-direction: column;
-  background: #070806; color: var(--ui-text);
-  font-family: var(--ui-font);
+  background: var(--dv-wood); color: var(--dv-paper);
+  font-family: 'Courier New', monospace;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   touch-action: none;
 }
+.dv-wood, .dv-head, .dv-bar {
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 9px, rgba(255,200,140,0.05) 9px 10px, transparent 10px 23px),
+    linear-gradient(180deg, var(--dv-wood-2), var(--dv-wood));
+}
 .dv-head {
-  display: flex; align-items: center; gap: 10px;
-  height: 40px; padding: 0 12px; flex: none;
-  border-bottom: 1px solid var(--ui-line); background: rgba(10, 7, 6, 0.9);
+  display: flex; align-items: center; gap: 12px; flex: none;
+  height: 46px; padding: 0 12px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6); position: relative; z-index: 2;
 }
-.dv-tag { font-size: 14px; font-weight: bold; letter-spacing: 1px; }
-.dv-dim { color: var(--ui-dim); }
+/* masking tape with ragged ends */
+.dv-tape {
+  position: relative; padding: 5px 16px; font-size: 14px; font-weight: bold; letter-spacing: 2px; white-space: nowrap;
+  color: var(--dv-ink); background: rgba(226, 212, 160, 0.94); transform: rotate(-1.2deg);
+  clip-path: polygon(0 8%, 3% 0, 6% 10%, 94% 0, 97% 12%, 100% 4%, 100% 92%, 97% 100%, 94% 90%, 6% 100%, 3% 88%, 0 96%);
+}
+/* pencil-drawn HP bar */
+.dv-hp {
+  position: relative; width: 96px; height: 14px; flex: none; background: rgba(230, 218, 182, 0.9);
+  border: 2px solid #4a4036; border-radius: 3px 5px 3px 4px;
+}
+.dv-hp > i {
+  display: block; height: 100%; transition: width 0.12s;
+  background: repeating-linear-gradient(135deg, #3b342c 0 2px, transparent 2px 5px);
+  border-right: 2px solid #3b342c;
+}
+.dv-score { font-size: 14px; font-weight: bold; color: #b9a982; letter-spacing: 1px; }
 .dv-grow { flex: 1; }
-.dv-hp { width: 90px; height: 10px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.5); flex: none; }
-.dv-hp > i { display: block; height: 100%; transition: width 0.12s; }
-.dv-status { font-size: 14px; font-weight: bold; color: var(--ui-gold); white-space: nowrap; }
-.dv-status--hot { color: var(--ui-accent); }
-.dv-budget {
-  display: inline-flex; align-items: baseline; gap: 6px;
-  font-size: 24px; font-weight: bold; color: #fff; line-height: 1;
+/* rubber stamp */
+.dv-stamp {
+  font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; white-space: nowrap;
+  padding: 3px 9px; color: #e8a393; border: 2px solid #c8594a; border-radius: 3px;
+  background: rgba(163, 32, 26, 0.22); transform: rotate(-3deg);
+  box-shadow: inset 0 0 0 1px rgba(200, 89, 74, 0.35);
 }
-.dv-budget small { font-size: 11px; letter-spacing: 2px; color: var(--ui-dim); font-weight: normal; }
+.dv-stamp--hot { color: #fff; background: var(--dv-red); border-color: #e0705e; }
+/* the budget on a paper slip, big red handwriting */
+.dv-budget {
+  display: inline-flex; align-items: baseline; gap: 6px; height: 36px; padding: 0 10px;
+  background: var(--dv-paper); color: var(--dv-ink); transform: rotate(1.2deg);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5); align-self: center;
+}
+.dv-budget small { font-size: 11px; letter-spacing: 2px; color: #6b5c44; }
+.dv-budget b { font-family: var(--dv-hand); font-size: 30px; line-height: 34px; color: var(--dv-red); font-weight: bold; }
 
 .dv-body { flex: 1; min-height: 0; display: flex; }
 .dv--portrait .dv-body { flex-direction: column; }
-.dv-map { position: relative; flex: 1; min-width: 0; min-height: 0; }
+.dv-map { position: relative; flex: 1; min-width: 0; min-height: 0; background: #1a0f08; }
 .dv-map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
 .dv-note, .dv-hint {
-  position: absolute; left: 8px;
-  font-size: 12px; padding: 4px 10px; pointer-events: none; white-space: nowrap;
-  background: rgba(0, 0, 0, 0.65); border: 1px solid var(--ui-line);
+  position: absolute; left: 10px; font-size: 12px; padding: 4px 10px; pointer-events: none; white-space: nowrap;
+  background: #e3d5ae; color: var(--dv-ink); box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4); transform: rotate(-0.8deg);
 }
-.dv-hint { top: 8px; color: var(--ui-dim); }
-.dv-note { bottom: 8px; color: var(--ui-gold); }
+.dv-hint { top: 10px; }
+.dv-note { bottom: 10px; color: var(--dv-red); font-weight: bold; }
 
+/* cork-and-wood strip with index cards */
 .dv-bar {
-  flex: none; display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
-  width: 248px; padding: 8px; border-left: 1px solid var(--ui-line); background: rgba(10, 7, 6, 0.92);
+  flex: none; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+  width: 280px; padding: 10px 10px 12px; box-shadow: inset 4px 0 8px rgba(0, 0, 0, 0.55);
 }
-.dv--portrait .dv-bar { width: auto; border-left: 0; border-top: 1px solid var(--ui-line); max-height: 46%; }
-.dv-units { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.dv--portrait .dv-bar { width: auto; box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.55); max-height: 46%; }
+.dv-units { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .dv--portrait .dv-units { grid-template-columns: repeat(3, 1fr); }
-.dv-mods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.dv-mods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 
 .dv-unit {
   position: relative; display: flex; align-items: center; gap: 5px;
   min-height: 44px; padding: 0 6px; min-width: 0;
-  font-family: var(--ui-font); font-size: 12px; font-weight: bold; color: var(--ui-text);
-  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 2px;
+  font-family: 'Courier New', monospace; font-size: 12px; font-weight: bold; color: var(--dv-ink);
+  background: linear-gradient(180deg, #eadfbf, #dfd0a6);
+  border: 0; border-bottom: 2px solid #b8a67a; border-radius: 2px 3px 2px 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   cursor: pointer; text-align: left;
+  transition: transform 0.1s, box-shadow 0.1s;
 }
-.dv-unit.is-sel { border-color: var(--ui-gold); background: rgba(255, 209, 102, 0.16); color: #fff; }
-.dv-unit.is-broke { opacity: 0.55; }
-.dv-unit.is-locked, .dv-unit.is-closed { opacity: 0.32; cursor: not-allowed; }
-.dv-sw { width: 10px; height: 10px; border-radius: 50%; flex: none; }
-.dv-key { font-size: 11px; color: var(--ui-dim); font-weight: normal; }
-.dv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dv-cost { font-size: 14px; color: var(--ui-gold); }
-.dv-unit.is-locked .dv-cost { font-size: 11px; color: var(--ui-dim); }
-.dv-mod { flex-direction: column; justify-content: center; gap: 0; text-align: center; }
-.dv-mod { padding: 0 2px; }
+.dv-unit:nth-child(2n) { transform: rotate(0.5deg); }
+.dv-unit:nth-child(2n+1) { transform: rotate(-0.4deg); }
+/* selected: lifted and pinned */
+.dv-unit.is-sel {
+  transform: translateY(-3px) rotate(-1.8deg) scale(1.03); z-index: 1;
+  box-shadow: 0 7px 9px rgba(0, 0, 0, 0.6); background: linear-gradient(180deg, #f3e9c8, #e8d9ae);
+}
+.dv-unit.is-sel::after {
+  content: ''; position: absolute; top: -5px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e0695c, #8c1e18); box-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
+}
+.dv-unit.is-broke { opacity: 0.6; }
+.dv-unit.is-locked, .dv-unit.is-closed {
+  cursor: not-allowed; background: linear-gradient(180deg, #a9a392, #9b957f); color: #5d5849; box-shadow: none;
+}
+.dv-unit.is-closed { opacity: 0.55; }
+.dv-sw { width: 11px; height: 11px; border-radius: 50%; flex: none; border: 1.5px solid var(--dv-ink); }
+.dv-unit.is-locked .dv-sw { opacity: 0.4; }
+.dv-key { font-size: 11px; color: #7a6a4c; font-weight: normal; }
+.dv-name { font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* cost: hand-circled in red ink */
+.dv-cost {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  min-width: 26px; height: 26px; padding: 0 3px;
+  font-family: var(--dv-hand); font-size: 18px; color: var(--dv-red);
+  border: 2px solid var(--dv-red); border-radius: 52% 48% 55% 45% / 48% 55% 45% 52%; transform: rotate(-4deg);
+}
+/* locked: stamped wave number */
+.dv-lock {
+  flex: none; font-size: 11px; letter-spacing: 1px; padding: 1px 4px; color: #7c2a22;
+  border: 2px solid #7c2a22; border-radius: 2px; transform: rotate(-8deg); opacity: 0.85;
+}
+.dv-mod { flex-direction: column; justify-content: center; gap: 2px; text-align: center; padding: 0 2px; }
 .dv-mod .dv-name { flex: none; max-width: 100%; font-size: 11px; overflow: visible; text-overflow: clip; }
+.dv-mod .dv-cost { min-width: 22px; height: 22px; font-size: 15px; }
 .dv--touch .dv-key { display: none; }
 
 @media (hover: hover) {
-  .dv-unit:not(.is-locked):not(.is-closed):hover { border-color: rgba(255, 255, 255, 0.5); }
+  .dv-unit:not(.is-locked):not(.is-closed):not(.is-sel):hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.55); }
 }
 @media (max-height: 480px) {
-  .dv-head { height: 36px; }
-  .dv-bar { width: 232px; padding: 6px; gap: 6px; }
+  .dv-head { height: 40px; gap: 8px; }
+  .dv-budget { height: 32px; }
+  .dv-budget b { font-size: 26px; line-height: 30px; }
+  .dv-bar { width: 258px; padding: 8px; gap: 8px; }
+  .dv-unit { gap: 4px; padding: 0 5px; }
+  .dv-unit .dv-name { font-size: 11px; }
+  .dv-sw { width: 9px; height: 9px; }
+  .dv-cost { min-width: 24px; height: 24px; font-size: 16px; }
 }

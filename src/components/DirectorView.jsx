@@ -14,12 +14,17 @@ import { MSG, decodeZombie } from '../director'
 import { sendVersus } from '../versus'
 import useMenuEnv from '../menuTouch'
 import {
-  UNIT_COLORS, UNIT_RADIUS, mapBounds, fitMap, project, hitCluster, yawToScreen,
+  UNIT_RADIUS, mapBounds, fitMap, project, yawToScreen,
   availableBudget, reconcilePending, buyWave, spawnOpen, unitRows, modRows,
   unitForKey, matchZombies, approach, approachAngle,
 } from '../directorView'
+import {
+  PIN_COLORS, INK, RED_INK, BLUE_INK, HAND_FONT, seededRandom, spreadMarkers, hitPoint, paintPaper,
+  wobbleLine, inkRect, inkPine, circlePath, circleJitter,
+} from '../directorPaper'
 
 let _spawnCounter = 0
+const MARKER_R = 21
 const HIT_RADIUS = 24   // 48 px tap circle around a cluster marker
 const FLASH_MS = 450
 
@@ -32,8 +37,6 @@ function mapGeometry() {
   const bounds = mapBounds(walls, clusters, 2)
   return { walls, furniture, clusters, windows, bounds, windowBlock: map.windowBlockSegment }
 }
-
-const hpColor = (f) => (f > 0.6 ? '#7fd36b' : f > 0.3 ? '#f0c040' : '#ff4a3a')
 
 function roundScore(rounds, defender) {
   const me = defender === 'host' ? 'guest' : 'host'
@@ -97,7 +100,7 @@ function DirectorScreen({ send }) {
     if (!row || row.status !== 'ok') return false
     send(MSG.SPAWN, { seed, id: `${seed}:${++_spawnCounter}`, type: sel, cluster })
     spend(row.cost)
-    flashes.current.push({ cluster, t: performance.now(), color: UNIT_COLORS[sel] })
+    flashes.current.push({ cluster, t: performance.now(), color: PIN_COLORS[sel] })
     return true
   }, [send, seed, spend])
 
@@ -132,23 +135,120 @@ function DirectorScreen({ send }) {
   }, [])
 
   // ── Canvas ────────────────────────────────────────────────────────────────
+  // Paper and ink are painted once per size (and ink again when planks change) to offscreen
+  // canvases; each frame blits them and draws only the moving pieces.
   const wrapRef = useRef(null)
   const canvasRef = useRef(null)
   const flashes = useRef([])
   const sprites = useRef({ zombies: [], px: 0, pz: 0, yaw: 0, init: false, view: null })
-  const sizeRef = useRef({ w: 0, h: 0, dpr: 1, fit: { scale: 1, ox: 0, oy: 0 } })
+  const sizeRef = useRef({ w: 0, h: 0, dpr: 1, fit: { scale: 1, ox: 0, oy: 0 }, markers: [] })
 
   useEffect(() => {
     const wrap = wrapRef.current, canvas = canvasRef.current
     if (!wrap || !canvas) return undefined
     const ctx = canvas.getContext('2d')
+    const layers = { paper: null, ink: null, planksKey: '', jitter: [] }
+    const offscreen = (w, h, dpr) => {
+      const o = document.createElement('canvas')
+      o.width = Math.round(w * dpr); o.height = Math.round(h * dpr)
+      const oc = o.getContext('2d'); oc.setTransform(dpr, 0, 0, dpr, 0, 0)
+      return [o, oc]
+    }
+
+    const buildInk = (planks) => {
+      const { w, h, dpr, fit, markers } = sizeRef.current
+      const g = live.current.geo
+      const [o, c] = offscreen(w, h, dpr)
+      const rnd = seededRandom(1234)
+      const s = fit.scale
+      const P = (x, z) => project(fit, x, z)
+
+      // Cabin extents (world) for the tree ring
+      let cx0 = Infinity, cx1 = -Infinity, cz0 = Infinity, cz1 = -Infinity
+      for (const sg of g.walls) {
+        cx0 = Math.min(cx0, sg.x - sg.halfW); cx1 = Math.max(cx1, sg.x + sg.halfW)
+        cz0 = Math.min(cz0, sg.z - sg.halfD); cz1 = Math.max(cz1, sg.z + sg.halfD)
+      }
+      // Pine ring
+      const size = Math.max(9, Math.min(20, s * 1.5))
+      const trees = []
+      for (let i = 0; i < 400 && trees.length < 70; i++) {
+        const x = cx0 - 7 + rnd() * (cx1 - cx0 + 14), z = cz0 - 7 + rnd() * (cz1 - cz0 + 14)
+        if (x > cx0 - 1.8 && x < cx1 + 1.8 && z > cz0 - 1.8 && z < cz1 + 1.8) continue
+        const p = P(x, z)
+        if (p.x < 8 || p.y < size + 4 || p.x > w - 8 || p.y > h - 8) continue
+        if (markers.some((m) => Math.hypot(m.x - p.x, m.y - p.y) < 34)) continue
+        if (trees.some((t) => Math.hypot(t.x - p.x, t.y - p.y) < size * 0.9)) continue
+        trees.push(p)
+      }
+      trees.sort((a, b) => a.y - b.y)
+      for (const t of trees) inkPine(c, t.x, t.y, size * (0.85 + rnd() * 0.3), rnd)
+
+      // Furniture: faint pencil outlines
+      for (const f of g.furniture) {
+        const a = P(f.x - f.halfW, f.z - f.halfD)
+        inkRect(c, a.x, a.y, f.halfW * 2 * s, f.halfD * 2 * s, rnd, { line: 'rgba(60,48,36,0.45)', width: 1 })
+      }
+      // Walls: ink outline, wash, hatching
+      for (const sg of g.walls) {
+        const a = P(sg.x - sg.halfW, sg.z - sg.halfD)
+        inkRect(c, a.x, a.y, sg.halfW * 2 * s, sg.halfD * 2 * s, rnd, { hatch: true, wash: 'rgba(60,40,20,0.16)' })
+      }
+      // Windows: pencil tally per plank, red X when open
+      for (const win of g.windows) {
+        const n = planks[win.id] ?? 0
+        const p = P(win.winX, win.winZ)
+        const ns = win.wall === 'N' || win.wall === 'S'
+        const half = s * 1.0
+        c.lineCap = 'round'
+        c.strokeStyle = 'rgba(60,48,36,0.5)'; c.lineWidth = 1
+        c.beginPath(); ns ? (c.moveTo(p.x - half, p.y), c.lineTo(p.x + half, p.y)) : (c.moveTo(p.x, p.y - half), c.lineTo(p.x, p.y + half)); c.stroke()
+        if (n > 0) {
+          const k = Math.min(n, 6), len = Math.max(7, s * 0.7)
+          c.strokeStyle = '#2f2820'; c.lineWidth = 2
+          c.beginPath()
+          for (let i = 0; i < k; i++) {
+            const off = (-half * 0.8) + (i + 0.5) * (half * 1.6 / k) + (rnd() - 0.5)
+            const j = (rnd() - 0.5) * 1.5
+            if (ns) { c.moveTo(p.x + off, p.y - len / 2 + j); c.lineTo(p.x + off + j, p.y + len / 2) }
+            else { c.moveTo(p.x - len / 2 + j, p.y + off); c.lineTo(p.x + len / 2, p.y + off + j) }
+          }
+          c.stroke()
+        } else {
+          const r = Math.max(6, s * 0.6)
+          c.strokeStyle = RED_INK; c.lineWidth = 2.4
+          c.beginPath(); wobbleLine(c, p.x - r, p.y - r, p.x + r, p.y + r, rnd, 0.8, 6); wobbleLine(c, p.x + r, p.y - r, p.x - r, p.y + r, rnd, 0.8, 6); c.stroke()
+        }
+      }
+      // Dotted pencil paths from marker to window
+      c.setLineDash([2, 5]); c.strokeStyle = 'rgba(42,33,24,0.65)'; c.lineWidth = 1.6
+      g.clusters.forEach((cl, i) => {
+        const win = g.windows[cl.windowId ?? i]
+        if (!win || !markers[i]) return
+        const e = P(win.ax, win.az)
+        c.beginPath(); c.moveTo(markers[i].x, markers[i].y); c.lineTo(e.x, e.y); c.stroke()
+      })
+      c.setLineDash([])
+      layers.ink = o
+    }
 
     const resize = () => {
       const r = wrap.getBoundingClientRect()
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height))
       canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr)
-      sizeRef.current = { w, h, dpr, fit: fitMap(live.current.geo.bounds, w, h, 14) }
+      const g = live.current.geo
+      const fit = fitMap(g.bounds, w, h, 16)
+      const raw = g.clusters.map((cl) => ({ ...project(fit, cl.x, cl.z), edge: cl.edge }))
+      const markers = spreadMarkers(raw, MARKER_R * 2 + 12, { w, h, pad: MARKER_R + 6 })
+      sizeRef.current = { w, h, dpr, fit, markers }
+      const [po, pc] = offscreen(w, h, dpr)
+      paintPaper(pc, w, h)
+      layers.paper = po
+      const rnd = seededRandom(99)
+      layers.jitter = markers.map(() => [circleJitter(rnd), circleJitter(rnd)])
+      layers.planksKey = JSON.stringify(live.current.view?.planks ?? {})
+      buildInk(live.current.view?.planks ?? {})
     }
     resize()
     const ro = new ResizeObserver(resize)
@@ -164,17 +264,19 @@ function DirectorScreen({ send }) {
     }
 
     const draw = (c, now, dt) => {
-      const { view: v, selected: sel, open: isOpen, geo: g } = live.current
-      const { w, h, dpr, fit } = sizeRef.current
+      const { view: v, selected: sel, open: isOpen } = live.current
+      const { w, h, dpr, fit, markers } = sizeRef.current
       const sp = sprites.current
 
-      // New snapshot: retarget sprites.
+      // New snapshot: retarget sprites; repaint the ink layer only if the planks changed.
       if (sp.view !== v) {
         sp.view = v
         if (v) {
           sp.zombies = matchZombies(sp.zombies, (v.zombies ?? []).map(decodeZombie))
           if (!sp.init) { sp.px = v.player.x; sp.pz = v.player.z; sp.yaw = v.player.yaw; sp.init = true }
         } else { sp.zombies = []; sp.init = false }
+        const key = JSON.stringify(v?.planks ?? {})
+        if (key !== layers.planksKey) { layers.planksKey = key; buildInk(v?.planks ?? {}) }
       }
       if (v) {
         for (const z of sp.zombies) { z.x = approach(z.x, z.tx, dt); z.z = approach(z.z, z.tz, dt) }
@@ -183,109 +285,88 @@ function DirectorScreen({ send }) {
       }
 
       c.setTransform(dpr, 0, 0, dpr, 0, 0)
-      c.fillStyle = '#0a0c09'
-      c.fillRect(0, 0, w, h)
+      c.drawImage(layers.paper, 0, 0, w, h)
+      c.drawImage(layers.ink, 0, 0, w, h)
       const s = fit.scale
       const P = (x, z) => project(fit, x, z)
 
-      // Floor
-      const wb = g.bounds
-      const a = P(wb.minX + 2, wb.minZ + 2), b = P(wb.maxX - 2, wb.maxZ - 2)
-      c.fillStyle = '#10140e'
-      c.fillRect(a.x, a.y, b.x - a.x, b.y - a.y)
-
-      const rect = (seg) => c.fillRect(fit.ox + (seg.x - seg.halfW) * s, fit.oy + (seg.z - seg.halfD) * s, seg.halfW * 2 * s, seg.halfD * 2 * s)
-      c.fillStyle = 'rgba(120,100,80,0.28)'
-      for (const f of g.furniture) rect(f)
-      c.fillStyle = '#8a7660'
-      for (const seg of g.walls) rect(seg)
-
-      // Windows + planks, and the dotted run from each spawn cluster to its window.
-      const planks = v?.planks ?? {}
-      c.font = `bold ${Math.max(11, Math.min(14, s * 0.9))}px 'Courier New', monospace`
-      c.textAlign = 'center'; c.textBaseline = 'middle'
-      for (const win of g.windows) {
-        const n = planks[win.id] ?? 0
-        const seg = g.windowBlock(win.id)
-        c.fillStyle = n > 0 ? '#b07a3a' : '#c9503c'
-        rect(seg)
-        const lp = P(win.ix, win.iz)
-        c.fillStyle = n > 0 ? '#f0d9a0' : '#ff8a78'
-        c.fillText(String(n), lp.x, lp.y)
-      }
-      c.setLineDash([3, 4]); c.lineWidth = 1
-      g.clusters.forEach((cl, i) => {
-        const win = g.windows[cl.windowId ?? i]
-        if (!win) return
-        const m = P(cl.x, cl.z), e = P(win.ax, win.az)
-        c.strokeStyle = 'rgba(255,255,255,0.14)'
-        c.beginPath(); c.moveTo(m.x, m.y); c.lineTo(e.x, e.y); c.stroke()
-      })
-      c.setLineDash([])
-
-      // Zombies
-      for (const z of sp.zombies) {
-        const p = P(z.x, z.z)
-        const r = Math.max(3, Math.min(10, s * 0.4 * ((UNIT_RADIUS[z.type] ?? 3) / 3)))
-        c.globalAlpha = 0.45 + 0.55 * Math.max(0, Math.min(1, z.hp))
-        c.fillStyle = UNIT_COLORS[z.type] ?? '#9bbf6a'
-        c.beginPath(); c.arc(p.x, p.y, r, 0, 6.2832); c.fill()
-        c.globalAlpha = 1
-        if (z.hp < 0.999) {
-          c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(p.x - r, p.y - r - 5, r * 2, 3)
-          c.fillStyle = hpColor(z.hp); c.fillRect(p.x - r, p.y - r - 5, r * 2 * Math.max(0, z.hp), 3)
-        }
-      }
-
-      // Defender arrow
+      // Defender: pencil view cone + blue ink arrow
       if (v && sp.init) {
         const p = P(sp.px, sp.pz), d = yawToScreen(sp.yaw)
-        const L = Math.max(9, Math.min(16, s * 0.9))
-        c.fillStyle = '#ffffff'
+        const ang = Math.atan2(d.dy, d.dx)
+        const R = Math.max(40, s * 5.5)
+        c.fillStyle = 'rgba(29,63,154,0.13)'
+        c.beginPath(); c.moveTo(p.x, p.y); c.arc(p.x, p.y, R, ang - 0.55, ang + 0.55); c.closePath(); c.fill()
+        c.strokeStyle = 'rgba(29,63,154,0.4)'; c.lineWidth = 1; c.setLineDash([3, 3])
+        c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(ang - 0.55) * R, p.y + Math.sin(ang - 0.55) * R)
+        c.moveTo(p.x, p.y); c.lineTo(p.x + Math.cos(ang + 0.55) * R, p.y + Math.sin(ang + 0.55) * R); c.stroke()
+        c.setLineDash([])
+        const L = Math.max(10, Math.min(16, s * 0.9))
         c.beginPath()
         c.moveTo(p.x + d.dx * L, p.y + d.dy * L)
-        c.lineTo(p.x - d.dx * L * 0.7 - d.dy * L * 0.6, p.y - d.dy * L * 0.7 + d.dx * L * 0.6)
-        c.lineTo(p.x - d.dx * L * 0.7 + d.dy * L * 0.6, p.y - d.dy * L * 0.7 - d.dx * L * 0.6)
-        c.closePath(); c.fill()
-        c.strokeStyle = 'rgba(0,0,0,0.6)'; c.lineWidth = 1.5; c.stroke()
+        c.lineTo(p.x - d.dx * L * 0.7 - d.dy * L * 0.65, p.y - d.dy * L * 0.7 + d.dx * L * 0.65)
+        c.lineTo(p.x - d.dx * L * 0.25, p.y - d.dy * L * 0.25)
+        c.lineTo(p.x - d.dx * L * 0.7 + d.dy * L * 0.65, p.y - d.dy * L * 0.7 - d.dx * L * 0.65)
+        c.closePath()
+        c.fillStyle = BLUE_INK; c.fill()
+        c.strokeStyle = '#f4ead0'; c.lineWidth = 1.6; c.lineJoin = 'round'; c.stroke()
       }
 
-      // Cluster markers (tap targets)
+      // Zombies: map pins. Head fill level = HP.
+      for (const z of sp.zombies) {
+        const p = P(z.x, z.z)
+        const r = Math.max(5, Math.min(9, s * 0.38 * ((UNIT_RADIUS[z.type] ?? 3) / 3)))
+        const hy = p.y - r - 4
+        c.fillStyle = 'rgba(30,18,6,0.3)'
+        c.beginPath(); c.ellipse(p.x + 3, p.y + 1, r * 0.8, r * 0.3, 0, 0, 6.2832); c.fill()
+        c.strokeStyle = '#3a3128'; c.lineWidth = 1.5
+        c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x, hy + r * 0.6); c.stroke()
+        c.fillStyle = '#efe4c4'
+        c.beginPath(); c.arc(p.x, hy, r, 0, 6.2832); c.fill()
+        const hp = Math.max(0.12, Math.min(1, z.hp))
+        c.save(); c.beginPath(); c.arc(p.x, hy, r, 0, 6.2832); c.clip()
+        c.fillStyle = PIN_COLORS[z.type] ?? PIN_COLORS.walker
+        c.fillRect(p.x - r, hy + r - 2 * r * hp, 2 * r, 2 * r * hp)
+        c.restore()
+        c.strokeStyle = INK; c.lineWidth = 1.5
+        c.beginPath(); c.arc(p.x, hy, r, 0, 6.2832); c.stroke()
+        c.fillStyle = 'rgba(255,255,255,0.55)'
+        c.beginPath(); c.arc(p.x - r * 0.35, hy - r * 0.35, r * 0.2, 0, 6.2832); c.fill()
+      }
+
+      // Spawn markers: hand-circled numbers in red ink
       const pulse = 0.5 + 0.5 * Math.sin(now / 220)
-      const col = sel ? UNIT_COLORS[sel] : '#c8c0b6'
-      g.clusters.forEach((cl, i) => {
-        const p = P(cl.x, cl.z)
-        const live2 = isOpen && sel
-        c.globalAlpha = isOpen ? 1 : 0.35
-        c.lineWidth = live2 ? 2.5 : 1.5
-        c.strokeStyle = col
-        c.fillStyle = 'rgba(0,0,0,0.55)'
-        c.beginPath(); c.arc(p.x, p.y, 15, 0, 6.2832); c.fill(); c.stroke()
+      const live2 = isOpen && sel
+      markers.forEach((m, i) => {
+        c.globalAlpha = isOpen ? 1 : 0.4
+        c.fillStyle = 'rgba(236,224,190,0.88)'
+        c.beginPath(); c.arc(m.x, m.y, MARKER_R - 1, 0, 6.2832); c.fill()
+        c.strokeStyle = RED_INK; c.lineCap = 'round'; c.lineJoin = 'round'
+        const jt = layers.jitter[i]
+        c.lineWidth = 2.6; circlePath(c, m.x, m.y, MARKER_R - 1, jt[0], 0); c.stroke()
+        c.lineWidth = 1.6; circlePath(c, m.x, m.y, MARKER_R + 0.5, jt[1], 2.1); c.stroke()
+        c.fillStyle = RED_INK; c.font = `bold 22px ${HAND_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'
+        c.fillText(String(i + 1), m.x, m.y + 1)
         if (live2) {
-          c.globalAlpha = 0.25 + 0.35 * pulse
-          c.beginPath(); c.arc(p.x, p.y, 15 + 5 * pulse, 0, 6.2832); c.stroke()
-          c.globalAlpha = 1
+          c.strokeStyle = PIN_COLORS[sel] ?? RED_INK; c.globalAlpha = 0.35 + 0.4 * pulse; c.lineWidth = 3
+          c.beginPath(); c.arc(m.x, m.y, MARKER_R + 5 + 3 * pulse, 0, 6.2832); c.stroke()
         }
-        c.fillStyle = col
-        c.globalAlpha = isOpen ? 1 : 0.35
-        c.font = "bold 14px 'Courier New', monospace"
-        c.fillText(String(i + 1), p.x, p.y + 1)
         c.globalAlpha = 1
       })
 
-      // Spawn flashes
+      // Spawn flashes (ink splash rings)
       const fl = flashes.current
       for (let i = fl.length - 1; i >= 0; i--) {
         const t = (now - fl[i].t) / FLASH_MS
-        if (t >= 1) { fl.splice(i, 1); continue }
-        const p = P(g.clusters[fl[i].cluster].x, g.clusters[fl[i].cluster].z)
+        const m = markers[fl[i].cluster]
+        if (t >= 1 || !m) { fl.splice(i, 1); continue }
         c.globalAlpha = 1 - t; c.strokeStyle = fl[i].color; c.lineWidth = 3
-        c.beginPath(); c.arc(p.x, p.y, 15 + 22 * t, 0, 6.2832); c.stroke()
+        c.beginPath(); c.arc(m.x, m.y, MARKER_R + 22 * t, 0, 6.2832); c.stroke()
         c.globalAlpha = 1
       }
 
       if (!v) {
-        c.fillStyle = '#8a837c'; c.font = "14px 'Courier New', monospace"
+        c.fillStyle = INK; c.font = `18px ${HAND_FONT}`; c.textAlign = 'center'
         c.fillText('Waiting for the defender...', w / 2, h / 2)
       }
     }
@@ -296,7 +377,7 @@ function DirectorScreen({ send }) {
 
   const onPointerDown = (e) => {
     const rect = canvasRef.current.getBoundingClientRect()
-    const i = hitCluster(sizeRef.current.fit, live.current.geo.clusters, e.clientX - rect.left, e.clientY - rect.top, HIT_RADIUS)
+    const i = hitPoint(sizeRef.current.markers, e.clientX - rect.left, e.clientY - rect.top, HIT_RADIUS)
     if (i >= 0) { e.preventDefault(); trySpawn(i) }
   }
 
@@ -316,13 +397,12 @@ function DirectorScreen({ send }) {
   return (
     <div className={`dv${touch ? ' dv--touch' : ''}${portrait ? ' dv--portrait' : ''}`} data-testid="director-view">
       <header className="dv-head">
-        <span className="dv-tag">R{director.round ?? 1}</span>
-        <span className="dv-tag">W{view?.wave ?? '-'}</span>
-        <span className="dv-hp" title="Defender HP"><i style={{ width: `${hpFrac * 100}%`, background: hpColor(hpFrac) }} /></span>
-        <span className="dv-tag dv-dim">{roundScore(director.rounds, director.defender)}</span>
+        <span className="dv-tape" data-testid="dv-tape">ROUND {director.round ?? 1} &middot; WAVE {view?.wave ?? '-'}</span>
+        <span className="dv-hp" title="Defender HP"><i style={{ width: `${hpFrac * 100}%` }} /></span>
+        <span className="dv-score">{roundScore(director.rounds, director.defender)}</span>
         <span className="dv-grow" />
-        <span className={`dv-status${view?.phase === 'playing' && view.spawnLeft > 0 && view.spawnLeft <= 5 ? ' dv-status--hot' : ''}`} data-testid="dv-status">{status}</span>
-        <span className="dv-budget" data-testid="dv-budget"><small>BUDGET</small>{Math.floor(avail)}</span>
+        <span className={`dv-stamp${view?.phase === 'playing' && view.spawnLeft > 0 && view.spawnLeft <= 5 ? ' dv-stamp--hot' : ''}`} data-testid="dv-status">{status}</span>
+        <span className="dv-budget" data-testid="dv-budget"><small>BUDGET</small><b>{Math.floor(avail)}</b></span>
       </header>
 
       <div className="dv-body">
@@ -341,10 +421,10 @@ function DirectorScreen({ send }) {
                 aria-disabled={u.status === 'locked'} aria-pressed={selected === u.id}
                 onClick={() => pick(u.id)}
               >
-                <i className="dv-sw" style={{ background: UNIT_COLORS[u.id] }} />
+                <i className="dv-sw" style={{ background: PIN_COLORS[u.id] }} />
                 <span className="dv-key">{i + 1}</span>
                 <span className="dv-name">{u.label}</span>
-                <span className="dv-cost">{u.status === 'locked' ? `W${u.wave}` : u.cost}</span>
+                {u.status === 'locked' ? <span className="dv-lock">W{u.wave}</span> : <span className="dv-cost">{u.cost}</span>}
               </button>
             ))}
           </div>
@@ -357,7 +437,7 @@ function DirectorScreen({ send }) {
                 onClick={() => tryMod(m.id)}
               >
                 <span className="dv-name">{m.label}</span>
-                <span className="dv-cost">{m.status === 'locked' ? `W${m.wave}` : m.cost}</span>
+                {m.status === 'locked' ? <span className="dv-lock">W{m.wave}</span> : <span className="dv-cost">{m.cost}</span>}
               </button>
             ))}
           </div>
