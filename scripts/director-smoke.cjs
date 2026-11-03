@@ -80,10 +80,12 @@ const swap = async (host, guest, round, defenderSide) => {
   ok(Math.abs(z1.x) > 15 || Math.abs(z1.z) > 15, `walker spawned at a treeline cluster (${z1.x.toFixed(1)}, ${z1.z.toFixed(1)})`)
   // dir_state to the director at ~8 Hz
   const n0 = await G(guest, () => { window.__stateN = 0; return import('/src/versus.js').then((v) => { v.onVersus('dir_state', () => { window.__stateN++ }); return 0 }) })
-  await sleep(3000)
+  // Headless SwiftShader saturates the main thread, so even a bare setInterval(125) on the defender page fires only ~2/s
+  // (not background throttling: same with the no-throttle flags). Compare receipts with that timer's own rate.
+  const timer = (await G(host, () => new Promise((res) => { let n = 0; const t = setInterval(() => n++, 125); setTimeout(() => { clearInterval(t); res(n / 3) }, 3000) })))
   const rate = (await G(guest, () => window.__stateN)) / 3
   const view = await G(guest, () => window.__game.getState().director.view)
-  ok(rate > 2 && rate < 12, `dir_state rate ~8 Hz: ${rate.toFixed(1)}/s`)
+  ok(rate > 0.6 * Math.min(timer, 8) && rate < 12, `dir_state keeps up with the defender's event loop: ${rate.toFixed(1)}/s received vs ${timer.toFixed(1)}/s timer ticks (8 Hz target)`)
   ok(view && view.round === 1 && view.zombies.length >= 1 && view.player && typeof view.budgetLeft === 'number' && view.hp > 0 && Array.isArray(view.clusters), 'director.view has zombies, player, budget, hp')
   // window end -> autofill the remainder as walkers
   await closeWindow(host)
@@ -118,7 +120,7 @@ const swap = async (host, guest, round, defenderSide) => {
   g = await dir(guest)
   ok(g.turns[1]?.host?.wavesCleared === 2 && g.turns[1].host.died, 'director received the turn result')
   ok(await host.getByTestId('director-between').count() === 1 && /YOU DIRECT NEXT/.test(await guest.getByTestId('director-next').textContent()) === false, 'between card shown; guest defends next')
-  await host.screenshot({ path: OUT + 'dir-between.png' })
+  await host.screenshot({ path: OUT + 'dsmoke-between.png' })
   await bothReady(host, guest)
 
   // ---- Round 1, turn 2: guest defends ----
@@ -144,7 +146,9 @@ const swap = async (host, guest, round, defenderSide) => {
   await spawn(host, 'boss', 4)
   await sleep(800)
   ok((await dir(guest)).zombies === 1, 'boss (locked) rejected')
-  await guest.screenshot({ path: OUT + 'dir-defender.png' })
+  await sleep(1500)
+  await host.screenshot({ path: OUT + 'dsmoke-director.png' })
+  await guest.screenshot({ path: OUT + 'dsmoke-defender.png' })
   await G(guest, () => window.__game.getState().directorEndTurn(false))   // 0 waves, 0 damage
   await bothReady(host, guest)
 
