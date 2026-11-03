@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 vi.mock('../profilePersistence', () => ({ persistProfile: vi.fn() }))
 
-import { useGameStore, MAX_RESERVE, doubleMoneyExtra } from '../store'
+import { useGameStore, MAX_RESERVE, killMoney } from '../store'
 import * as pu from '../powerups'
 
 const live = (id, over = {}) => ({ id, x: 0, z: 0, health: 2, maxHealth: 2, type: 'walker', ...over })
@@ -146,14 +146,14 @@ describe('store effects', () => {
     S().applyPowerup('double_money')
     S().hitZombie(1, true)
     S().hitZombie(1, true)               // 2 hp walker: headshot (3) kills in one
-    expect(S().money).toBeCloseTo(doubleMoneyExtra('gun', true))
-    expect(doubleMoneyExtra('gun', true)).toBeCloseTo(1.5)
-    expect(doubleMoneyExtra('knife', true)).toBeCloseTo(3)
-    expect(doubleMoneyExtra('gun', false)).toBeCloseTo(1)
+    expect(S().money).toBeCloseTo(2 * killMoney('gun', true))
+    expect(killMoney('gun', true)).toBeCloseTo(1.5)
+    expect(killMoney('knife', true)).toBeCloseTo(3)
+    expect(killMoney('gun', false)).toBeCloseTo(1)
     const before = S().money
     S().tickPowerups(21)
     S().hitZombie(2, true)
-    expect(S().money).toBe(before)       // expired: no extra
+    expect(S().money).toBeCloseTo(before + killMoney('gun', true))   // expired: paid once
   })
 
   it('Max Ammo refills clips and reserves of every owned weapon, never lowering', () => {

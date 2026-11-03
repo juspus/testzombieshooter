@@ -260,6 +260,11 @@ Total: 1 shadow-casting light. Point light shadow maps are cube maps (6 render p
 | No planks lost bonus | €10 (requires pre-wave planks) |
 | Fast clear bonus | €8 (finish under par time) |
 
+Kill money (per kill + headshot/knife bonus, `killMoney()` in store.js) is paid on the
+kill, x2 under Double Money; nuke kills pay none. `nextWave` pays only the wave base +
+`lastWaveBonuses.total` (planks / fast clear / modifier). The HUD shows a `+€x` pop
+under MONEY (`MoneyGain` in HUD.jsx). Co-op: both clients pay for every kill.
+
 ---
 
 ## Multiplayer (co-op)

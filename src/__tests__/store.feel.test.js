@@ -93,3 +93,29 @@ describe('last kill slow-mo', () => {
     useGameStore.setState({ mpRole: null })
   })
 })
+
+describe('kill money', () => {
+  const walker = (id) => ({ id, x: 0, z: 0, health: 1, maxHealth: 1, type: 'walker' })
+  beforeEach(() => {
+    vi.useFakeTimers()
+    useGameStore.getState().startGame()
+    useGameStore.setState({ phase: 'playing', wave: 1, money: 0, waveElapsed: 999, waveStartPlanks: 0,
+      zombies: [walker(1), walker(2), walker(3)], pendingSpawns: [] })
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('pays on each kill (headshot / knife bonus included) and not again at wave end', () => {
+    const S = useGameStore.getState
+    S().hitZombie(1, false)
+    expect(S().money).toBeCloseTo(1)
+    S().hitZombie(2, true)
+    expect(S().money).toBeCloseTo(2.5)
+    S().hitZombie(3, true, 'knife')
+    expect(S().money).toBeCloseTo(5.5)
+    vi.advanceTimersByTime(1200)
+    expect(S().phase).toBe('wave_clear')
+    expect(S().lastWaveBonuses.total).toBe(0)   // no planks / fast clear / modifier
+    S().nextWave()
+    expect(S().money).toBeCloseTo(5.5 + S().lastWaveBonuses.base)
+  })
+})
