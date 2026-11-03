@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { otherRole } from '../coopDown'   // W5 down/revive
@@ -87,6 +87,15 @@ export default function RemotePlayer() {
   // Walk state
   const walkPhase = useRef(0)
   const lastPos   = useRef(null)
+
+  // Out of co-op (partner left, or a versus run detached the shared world) this component renders
+  // nothing, so its frame loop never runs: clear the partner's last position here, or zombies keep
+  // chasing that stale spot.
+  useEffect(() => {
+    if (mpConnected) return
+    _buffer.length = 0
+    _currentPos = null
+  }, [mpConnected])
 
   useFrame(() => {
     const g = groupRef.current

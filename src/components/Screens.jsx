@@ -140,6 +140,7 @@ export default function Screens() {
   const perks = useGameStore((s) => s.perks)
   const mpRole = useGameStore((s) => s.mpRole)
   const paused = useGameStore((s) => s.paused)
+  const dirFrozen = useGameStore((s) => s.director?.active && s.director.role !== 'defender')   // The Director: directing / between turns / over
 
   const authUser = useAuthUser()
   const { username, refresh: refreshProfile } = useProfile(authUser)
@@ -160,6 +161,8 @@ export default function Screens() {
     }
     prevUserId.current = id
   }, [authUser?.id])
+
+  if (dirFrozen) return null   // DirectorView / DirectorFlow own the screen
 
   if (paused && mpRole === 'guest') {
     return <PausedOverlay />
@@ -597,7 +600,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <div className="ui-stack">
           <SectionLabel>Host</SectionLabel>
           <Button block onClick={() => handleHost(mode)}>Host game</Button>
-          <div className="ui-note">{mode === 'coop' ? 'You get a code and an invite link to send.' : 'You get a code and an invite link. Same waves for both of you, each in your own world.'}</div>
+          <div className="ui-note">{mode === 'coop' ? 'You get a code and an invite link to send.' : mode === 'director' ? 'You get a code and an invite link. Take turns building waves and defending them.' : 'You get a code and an invite link. Same waves for both of you, each in your own world.'}</div>
           <SectionLabel>Join</SectionLabel>
           <div className="ui-field">
             <input
@@ -673,6 +676,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
       <Panel title="Versus" action={backAction} testid="versus-panel">
         <div className="ui-stack">
           <Option label="Zombie Mail" sub="Live, 2 players. Your kills send zombies to your rival." side={<ChevronIcon dir="right" />} onClick={() => setVersusView('mail')} testid="versus-mail" />
+          <Option label="The Director" sub="Build your rival's waves, then defend yours. Best of 3." side={<ChevronIcon dir="right" />} onClick={() => setVersusView('director')} testid="versus-director" />
           <Option label="Seed Duel" sub="Play a seed and send it. A friend plays the same waves any time." side={<ChevronIcon dir="right" />} onClick={() => setVersusView('duel')} testid="versus-duel" />
         </div>
       </Panel>
