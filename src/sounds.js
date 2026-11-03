@@ -1792,3 +1792,62 @@ export function playBenchDone(x, y, z) {
   ;[880, 1320, 1760].forEach((f, i) => playTone(ac, t + i * 0.1, f, f, 0.5, 0.12, dest))
   playTone(ac, t, 2200, 4400, 0.2, 0.06, dest)
 }
+
+// ── Spider zombie ────────────────────────────────────────────────────────────
+// Skitter: a burst of dry clicks (claws on wood). Played from wherever the spider is,
+// so on the ceiling the panner puts it above the listener. Shares the footstep budget idea
+// but keeps its own throttle so a spider never starves the walkers' steps.
+let _skitBuf = null
+let _skitActive = 0
+let _skitLastMs = 0
+export function playSpiderSkitter(x, y, z) {
+  const now = performance.now()
+  if (_skitActive >= 2 || now - _skitLastMs < 90) return
+  _skitActive++
+  _skitLastMs = now
+  const ac = ctx()
+  const t = ac.currentTime
+  if (!_skitBuf) _skitBuf = noiseBuffer(ac, 0.04)
+  const dest = _zombieOutput(ac, x, y, z)
+  for (let i = 0; i < 4; i++) {
+    playNoise(ac, _skitBuf, t + i * 0.038 + Math.random() * 0.012, 0.022, 0.2, 'bandpass', 2300 + Math.random() * 1400, 7, dest)
+  }
+  setTimeout(() => { _skitActive-- }, 220)
+}
+
+// Wind-up before the drop: a rising, raspy shriek. This is the player's "look up" cue,
+// so it is louder than a groan.
+export function playSpiderShriek(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  const osc = ac.createOscillator()
+  osc.type = 'sawtooth'
+  osc.frequency.setValueAtTime(260, t)
+  osc.frequency.exponentialRampToValueAtTime(980, t + 0.55)
+  const lfo = ac.createOscillator()
+  lfo.frequency.value = 31
+  const lg = ac.createGain()
+  lg.gain.value = 60
+  lfo.connect(lg); lg.connect(osc.frequency)
+  const bp = ac.createBiquadFilter()
+  bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 2.5
+  const g = ac.createGain()
+  g.gain.setValueAtTime(0.001, t)
+  g.gain.exponentialRampToValueAtTime(0.32, t + 0.12)
+  g.gain.setValueAtTime(0.32, t + 0.45)
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.62)
+  osc.connect(bp); bp.connect(g); g.connect(dest ?? ac.destination)
+  osc.start(t); lfo.start(t); osc.stop(t + 0.65); lfo.stop(t + 0.65)
+  playNoise(ac, noiseBuffer(ac, 0.6), t, 0.58, 0.12, 'highpass', 3500, 0.8, dest)
+}
+
+// Landing from the ceiling: body thud + claw scrape
+export function playSpiderLand(x, y, z) {
+  const ac = ctx()
+  const t = ac.currentTime
+  const dest = _zombieOutput(ac, x, y, z)
+  playNoise(ac, noiseBuffer(ac, 0.25), t, 0.2, 0.6, 'lowpass', 260, 0.7, dest)
+  playTone(ac, t, 95, 38, 0.18, 0.4, dest)
+  playNoise(ac, noiseBuffer(ac, 0.12), t + 0.04, 0.1, 0.12, 'bandpass', 1800, 3, dest)
+}
