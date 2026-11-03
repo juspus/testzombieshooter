@@ -222,7 +222,8 @@ function BonusBreakdown({ bonuses }) {
     bonuses.modifierBonus > 0 && [MODIFIERS[bonuses.modifier]?.name ?? 'Modifier', bonuses.modifierBonus],
     bonuses.fastClear > 0 && [`Fast ${formatSeconds(bonuses.elapsed)}`, bonuses.fastClear],
   ].filter(Boolean)
-  const payout = bonuses.base + bonuses.kills + bonuses.total
+  // Whole wave's earnings. Kill rows were already paid on each kill; nextWave pays base + total.
+  const payout = bonuses.base + bonuses.kills + bonuses.headshots + bonuses.knifeKills + bonuses.total
 
   return (
     <div style={styles.bonusPanel}>

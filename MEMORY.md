@@ -5,6 +5,9 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-11-03: Kill money now lands on the kill (was held until wave end, so the
+  counter sat still mid-wave). `+€x` pop under MONEY. Same totals, same co-op split
+  (each player still earns for partner kills). Dying mid-wave now keeps that wave's kill money.
 - 2026-10-29: Volume controls: Master / Effects / Music (settings.js `volume`,
   `sfxVolume`, `musicVolume`; buses in sounds.js, see CLAUDE.md "Audio buses").
   Start-menu Settings now has an Audio section on desktop too: before this,

@@ -100,6 +100,44 @@ function ClawDecalPool() {
   )
 }
 
+// "+€1.50" under MONEY whenever money goes up mid-run (kills, wave pay, nuke...).
+// Gains inside the fade window add up. Store subscription + WAAPI: no re-renders.
+// Phase gate on both sides skips the run reset (dead/start -> intermission).
+// Phones: right of the bar, since toasts sit right under it there.
+const MONEY_GAIN_PHASES = new Set(['playing', 'wave_clear', 'intermission'])
+const MoneyGain = memo(function MoneyGain({ side }) {
+  const dx = side ? '0' : '-50%'
+  const ref = useRef(null)
+  useEffect(() => {
+    let sum = 0
+    let anim = null
+    const unsub = useGameStore.subscribe((s, prev) => {
+      const gain = s.money - prev.money
+      if (!(gain > 0.001) || !MONEY_GAIN_PHASES.has(s.phase) || !MONEY_GAIN_PHASES.has(prev.phase)) return
+      const el = ref.current
+      if (!el?.animate) return
+      sum = anim?.playState === 'running' ? sum + gain : gain
+      el.textContent = `+€${sum.toFixed(2)}`
+      anim?.cancel()
+      anim = el.animate([
+        { opacity: 1, transform: `translate(${dx}, -3px)` },
+        { opacity: 1, transform: `translate(${dx}, 0)`, offset: 0.15 },
+        { opacity: 1, transform: `translate(${dx}, 1px)`, offset: 0.7 },
+        { opacity: 0, transform: `translate(${dx}, 5px)` },
+      ], { duration: 1000, easing: 'ease-out' })
+    })
+    return () => { unsub(); anim?.cancel() }
+  }, [dx])
+  const place = side ? { bottom: 0, left: 'calc(100% + 14px)' } : { top: '100%', left: '50%' }
+  return (
+    <span ref={ref} data-money-gain style={{
+      position: 'absolute', ...place, opacity: 0,
+      color: '#8dff6a', fontSize: side ? 14 : 16, fontWeight: 'bold', fontFamily: 'Courier New, monospace',
+      letterSpacing: 1, whiteSpace: 'nowrap', pointerEvents: 'none', textShadow: '0 1px 2px #000',
+    }} />
+  )
+})
+
 function getIsMobileHud() {
   if (typeof window === 'undefined') return false
   const coarsePointer = window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
@@ -214,11 +252,12 @@ export default function HUD() {
             <span style={valueStyle}>{waveKills} / {total}</span>
           </div>
           <DuelHudStat statStyle={statStyle} labelStyle={labelStyle} valueStyle={valueStyle} />
-          <div style={statStyle}>
+          <div style={{ ...statStyle, position: 'relative' }}>
             <span style={labelStyle}>MONEY</span>
             <span style={{ ...valueStyle, color: canAfford ? '#ffe066' : '#ff6644' }}>
               €{money.toFixed(2)}
             </span>
+            <MoneyGain side={isMobile} />
           </div>
         </div>
       )}
