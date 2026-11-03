@@ -70,10 +70,12 @@ export function reconcilePending(pending, now, { settleMs = 400, maxAgeMs = 2500
   return pending.filter((p) => now - p.t < settleMs && now - p.t < maxAgeMs)
 }
 
-/** The wave the director is buying for: during intermission it is the upcoming one. */
+/**
+ * The wave the director is buying for. The defender's store bumps `wave` in nextWave() before
+ * intermission starts, so `view.wave` already is the upcoming wave there.
+ */
 export function buyWave(view) {
-  if (!view) return 1
-  return view.phase === 'intermission' ? view.wave + 1 : view.wave
+  return view ? view.wave : 1
 }
 
 /** Spawns are accepted in intermission (they land when the wave starts) and during the window. */

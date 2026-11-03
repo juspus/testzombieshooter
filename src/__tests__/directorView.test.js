@@ -66,10 +66,11 @@ describe('unit rules', () => {
     const v = state({ wave: 3, budgetLeft: 3 })
     expect(unitRows(v, [{ cost: 1, t: 0 }]).find((r) => r.id === 'exploder').status).toBe('broke')
   })
-  it('intermission buys for the next wave', () => {
-    const v = state({ phase: 'intermission', wave: 3, budgetLeft: 20, spawnLeft: 0 })
+  it('intermission buys for the upcoming wave, which the store already counts as view.wave', () => {
+    const v = state({ phase: 'intermission', wave: 4, budgetLeft: 20, spawnLeft: 0 })
     expect(buyWave(v)).toBe(4)
     expect(unitRows(v, []).find((r) => r.id === 'brute').status).toBe('ok')
+    expect(unitRows(state({ phase: 'intermission', wave: 3, budgetLeft: 20, spawnLeft: 0 }), []).find((r) => r.id === 'brute').status).not.toBe('ok')
   })
   it('spawn window rules', () => {
     expect(spawnOpen(state())).toBe(true)
@@ -79,7 +80,7 @@ describe('unit rules', () => {
     expect(spawnOpen(null)).toBe(false)
   })
   it('modifiers: intermission only, wave-gated, one per wave', () => {
-    const inter = state({ phase: 'intermission', wave: 2, budgetLeft: 10, spawnLeft: 0 })   // next wave 3
+    const inter = state({ phase: 'intermission', wave: 3, budgetLeft: 10, spawnLeft: 0 })   // upcoming wave 3
     const by = (v) => Object.fromEntries(modRows(v, []).map((m) => [m.id, m.status]))
     expect(modsOpen(inter)).toBe(true)
     expect(by(inter)).toEqual({ fog: 'ok', blackout: 'ok', bloodlust: 'locked' })
