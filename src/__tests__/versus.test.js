@@ -10,7 +10,7 @@ import { VERSUS_MODES, isVersusMode, scoreSubmittable, compareResult, sendVersus
 
 describe('versus rules', () => {
   it('registers Zombie Mail only (co-op is the lobby default)', () => {
-    expect(Object.keys(VERSUS_MODES)).toEqual(['mail'])
+    expect(Object.keys(VERSUS_MODES)).toEqual(['mail', 'director'])
     expect(VERSUS_MODES.mail.label).toBe('Zombie Mail')
     expect(isVersusMode('mail')).toBe(true)
     expect(isVersusMode('coop')).toBe(false)

@@ -89,7 +89,7 @@ export default function Game() {
   const phase = useGameStore((s) => s.phase)
   const mapId = useGameStore((s) => s.mapId)
   // The Director: while directing / between turns / over, this world is frozen and covered; the 3D loop stops.
-  const dirFrozen = useGameStore((s) => s.director.active && s.director.role !== 'defender')
+  const dirFrozen = useGameStore((s) => s.director?.active && s.director.role !== 'defender')
   const isPlaying = phase === 'playing'
   const isActive = phase === 'playing' || phase === 'intermission'
   const inGame = phase === 'playing' || phase === 'wave_clear' || phase === 'intermission'

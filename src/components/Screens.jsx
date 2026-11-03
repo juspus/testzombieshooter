@@ -140,7 +140,7 @@ export default function Screens() {
   const perks = useGameStore((s) => s.perks)
   const mpRole = useGameStore((s) => s.mpRole)
   const paused = useGameStore((s) => s.paused)
-  const dirFrozen = useGameStore((s) => s.director.active && s.director.role !== 'defender')   // The Director: directing / between turns / over
+  const dirFrozen = useGameStore((s) => s.director?.active && s.director.role !== 'defender')   // The Director: directing / between turns / over
 
   const authUser = useAuthUser()
   const { username, refresh: refreshProfile } = useProfile(authUser)

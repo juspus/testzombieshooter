@@ -59,7 +59,7 @@ const createDirector = () => ({
   active: false, role: null, round: 1, defender: 'host', view: null, turns: {}, rounds: [], result: null,
   side: 'host', stage: 'off', turn: 0,
   budget: 0, windowLeft: 0, spawned: 0, spawnSeen: [], modSeen: [], nextMod: null,
-  turnDamage: 0, turnCleared: 0, betweenAt: 0, ready: { me: false, rival: false },
+  queued: [], turnDamage: 0, turnCleared: 0, betweenAt: 0, ready: { me: false, rival: false },
 })
 const dirDefending = (s) => s.director.active && s.director.role === 'defender' && s.director.stage === 'turn'
 const dirWindowOpen = (s) => dirDefending(s) && s.director.windowLeft > 0
@@ -659,7 +659,7 @@ export const useGameStore = create((set, get) => ({
     set({
       director: {
         ...d, round, defender, role, turn, stage: 'turn', view: null,
-        budget: waveBudget(wave), windowLeft: 0, spawned: 0, spawnSeen: [], modSeen: [], nextMod: null,
+        budget: waveBudget(wave), windowLeft: 0, spawned: 0, spawnSeen: [], modSeen: [], nextMod: null, queued: [],
         turnDamage: 0, turnCleared: 0, betweenAt: 0, ready: { me: false, rival: false },
       },
       phase: 'intermission',
@@ -689,18 +689,26 @@ export const useGameStore = create((set, get) => ({
   directorStartWave: () => {
     const s = get()
     if (!dirDefending(s)) return false
+    // Spawns the director pre-placed during the intermission land now.
+    const clusters = activeSpawnClusters(s.openDoors)
+    const made = []
+    s.director.queued.forEach((q, i) => {
+      const ci = Math.max(0, resolveCluster(q.cluster, SPAWN_CLUSTERS, clusters))
+      made.push(...buildMailZombies({ id: `d${q.key}` }, [q.type], s.nextId + i, clusters[ci], s.waveModifier))
+    })
+    const placed = placeDirectorZombies({ zombies: [], pendingSpawns: [] }, made)
     set({
       phase: 'playing',
       shopOpen: false,
       intermissionLeft: 0,
-      zombies: [],
-      pendingSpawns: [],
+      ...placed,
+      nextId: s.nextId + made.length,
       waveElapsed: 0,
       waveHeadshots: 0,
       waveKnifeKills: 0,
       wavePlanksLost: 0,
       waveStartPlanks: countPlanks(s.windowPlanks),
-      director: { ...s.director, windowLeft: DIRECTOR.SPAWN_WINDOW_S, spawned: 0 },
+      director: { ...s.director, windowLeft: DIRECTOR.SPAWN_WINDOW_S, queued: [] },
     })
     return true
   },
@@ -753,7 +761,8 @@ export const useGameStore = create((set, get) => ({
   directorSpawn: ({ id, type, cluster } = {}) => {
     const s = get()
     const d = s.director
-    if (!dirWindowOpen(s) || s.phase !== 'playing') return 'closed'
+    const pre = dirDefending(s) && s.phase === 'intermission'   // pre-placed: lands when the wave starts
+    if (!pre && (!dirWindowOpen(s) || s.phase !== 'playing')) return 'closed'
     if ((typeof id !== 'string' && typeof id !== 'number') || id === '') return 'bad'
     const key = String(id)
     if (d.spawnSeen.includes(key)) return 'dup'
@@ -762,6 +771,10 @@ export const useGameStore = create((set, get) => ({
     const clusters = activeSpawnClusters(s.openDoors)
     const ci = resolveCluster(cluster, SPAWN_CLUSTERS, clusters)
     if (ci < 0) return 'bad'
+    if (pre) {
+      set({ director: { ...d, budget: d.budget - unit.cost, spawned: d.spawned + 1, spawnSeen: [...d.spawnSeen, key], queued: [...d.queued, { key, type: unit.id, cluster }] } })
+      return 'ok'
+    }
     const made = buildMailZombies({ id: `d${key}` }, [unit.id], s.nextId, clusters[ci], s.waveModifier)
     set({
       ...placeDirectorZombies(s, made),
@@ -892,7 +905,7 @@ export const useGameStore = create((set, get) => ({
       waveStartPlanks: 0,
       lastKillPending: false,
       mail: { ...get().mail, waveExtra: 0, pendingModifier: null },
-      ...(dirDef ? { director: { ...get().director, budget: waveBudget(wave), windowLeft: 0, spawned: 0, nextMod: null } } : null),
+      ...(dirDef ? { director: { ...get().director, budget: waveBudget(wave), windowLeft: 0, spawned: 0, nextMod: null, queued: [] } } : null),
     })
     cancelLastKillFx()
   },

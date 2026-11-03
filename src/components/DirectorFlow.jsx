@@ -15,7 +15,7 @@ const turnLine = (t) => (t ? `${t.wavesCleared}/${DIRECTOR.WAVES_PER_TURN} waves
 // The Director's own screens (outside the Canvas): the between-turns card, the match result and a
 // one-line status for the defender. DirectorView (the director's map) is mounted beside it.
 export default function DirectorFlow() {
-  const stage = useGameStore((s) => (s.director.active ? s.director.stage : 'off'))
+  const stage = useGameStore((s) => (s.director?.active ? s.director.stage : 'off'))
   if (stage === 'between') return <BetweenCard />
   if (stage === 'over') return <ResultCard />
   if (stage === 'turn') return <DefenderStrip />

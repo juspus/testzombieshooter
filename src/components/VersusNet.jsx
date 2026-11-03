@@ -143,7 +143,7 @@ function WinOverlay() {
   const phase = useGameStore((s) => s.phase)
   const seed = useGameStore((s) => s.versus.seed)
   const [dismissed, setDismissed] = useState(null)   // seed whose overlay was dismissed
-  const director = useGameStore((s) => s.director.active)
+  const director = useGameStore((s) => !!s.director?.active)
   const open = result === 'win' && !director && LIVE_PHASES.has(phase) && dismissed !== seed
 
   useEffect(() => {
