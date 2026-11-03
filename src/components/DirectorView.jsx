@@ -409,7 +409,6 @@ function DirectorScreen({ send }) {
         <div className="dv-map" ref={wrapRef}>
           <canvas ref={canvasRef} onPointerDown={onPointerDown} data-testid="dv-canvas" />
           {closedFill && <div className="dv-note" data-testid="dv-fill">{Math.floor(avail)} left auto-fills as walkers</div>}
-          {hint && <div className="dv-hint">{hint}</div>}
         </div>
 
         <aside className="dv-bar">
@@ -441,6 +440,8 @@ function DirectorScreen({ send }) {
               </button>
             ))}
           </div>
+          {/* in the card strip, not on the map: on phones a map overlay covered spawn marker 1 */}
+          {hint && <div className="dv-hint" data-testid="dv-hint">{hint}</div>}
         </aside>
       </div>
     </div>
