@@ -37,7 +37,7 @@ export function levelFromXp(xp) {
 // ── XP sources ──────────────────────────────────────────────────────────────
 export const XP = {
   KILL: 1,
-  SPECIAL_KILL: 3,       // brute / armored / spitter / exploder
+  SPECIAL_KILL: 3,       // brute / armored / spitter / exploder / spider
   BOSS_KILL: 25,
   HEADSHOT: 1,           // on top of the kill
   WAVE_PER_NUMBER: 10,   // cleared wave N pays 10 * N
@@ -47,7 +47,7 @@ export const XP = {
   WEEKLY: 600,
 }
 
-const SPECIALS = new Set(['brute', 'armored', 'spitter', 'exploder'])
+const SPECIALS = new Set(['brute', 'armored', 'spitter', 'exploder', 'spider'])
 export function killXp(type) {
   if (type === 'boss') return XP.BOSS_KILL
   return SPECIALS.has(type) ? XP.SPECIAL_KILL : XP.KILL

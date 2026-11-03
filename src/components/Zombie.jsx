@@ -18,11 +18,13 @@ import { getZombieVariant, getVariantColors, SHIRTS, PANTS, TONES } from '../zom
 import * as THREE from 'three'
 // Wave 3 special archetypes (exploder / spitter / armored)
 import { EXPLODER, SPITTER, burstPlayerDamage, burstZombieDamage, burstPlankHits, globFlightTime } from '../zombieSpecials'
+import { SPIDER, spiderStep, spiderCeilingAt, spiderCanMove, spiderAirborne, freshSpiderState } from '../zombieSpecials'
 import { raycastWorld } from '../worldRay'
 import { modFx } from '../modifiers'
 import { spawnImpact } from '../impactParticles'
 import SpecialFX from './SpecialFX'
 import { playExploderHiss, playExplosion, playSpitWindup, playSpitLaunch } from '../sounds'
+import { playSpiderSkitter, playSpiderShriek, playSpiderLand } from '../sounds'
 import { send, isConnected } from '../net'
 
 const _geoCache = new Map()
@@ -224,6 +226,7 @@ const _TYPE_COLORS = {
   exploder: { skin: '#9aa14a', skinDark: '#6d7430', skinVein: '#c9731c', shirt: '#4a3a22', shirtTear: '#2c2214', accent: '#ff8a1a', eye: '#ffd23a' },
   armored: { skin: '#6b7a78', skinDark: '#48524f', skinVein: '#2e3836', shirt: '#1d2128', shirtTear: '#12151a', accent: '#5aa0d8', eye: '#ff5a1a' },
   spitter: { skin: '#6f8a4a', skinDark: '#4a6232', skinVein: '#8acf2a', shirt: '#2b3a22', shirtTear: '#1a2414', accent: '#9aff3a', eye: '#c6ff3a' },
+  spider: { skin: '#a3a596', skinDark: '#77796c', skinVein: '#3c3c58', shirt: '#6e665c', shirtTear: '#4a443c', accent: '#b8c8de', eye: '#dff2ff' },
   boss: { skin: '#8b4c43', skinDark: '#5b2d28', skinVein: '#2d0707', shirt: '#201010', shirtTear: '#120808', accent: '#ff2a1a', eye: '#ff1000' },
 }
 
@@ -282,6 +285,82 @@ function spitLOS(x1, z1, x2, z2) {
 }
 const netEvent = (event, data) => { if (isConnected()) send('game_event', { event, data }) }
 
+// ── Spider: model + module helpers ──────────────────────────────────────────
+// The spider is built in its own "surface frame": +z forward, +y away from the surface it
+// clings to (the floor, or the ceiling once the flip group rolls it by PI), body centre at
+// the origin and the surface at y = -SPIDER.BODY_Y. The humanoid torso + head are reused,
+// laid on their back (head forward, chest away from the surface) and tilted so the head
+// rides a little higher; the four limbs are custom and bend the wrong way.
+const SPIDER_MODEL_ROT = [-Math.PI / 2 - 0.18, 0, Math.PI]
+const SPIDER_MODEL_POS = [0, 0, -0.25]
+const SPIDER_L1 = 0.5              // upper limb (shoulder / hip -> elbow / knee apex)
+const SPIDER_L2 = 1.0              // lower limb (apex -> claw on the surface)
+const SPIDER_A0 = 0.75             // upper limb raise above the body plane (rad)
+// phi = forward angle from the lateral axis, b = elbow/knee bend, ph = gait phase
+// (diagonal pairs move together). Order = leftArm, rightArm, leftLeg, rightLeg refs.
+const SPIDER_LIMBS = [
+  { pos: [ 0.22,  0.00,  0.10], side:  1, phi:  0.75, arm: true,  b: 1.75, ph: 0 },
+  { pos: [-0.22,  0.00,  0.10], side: -1, phi:  0.75, arm: true,  b: 1.75, ph: Math.PI },
+  { pos: [ 0.14, -0.07, -0.42], side:  1, phi: -0.65, arm: false, b: 1.68, ph: Math.PI },
+  { pos: [-0.14, -0.07, -0.42], side: -1, phi: -0.65, arm: false, b: 1.68, ph: 0 },
+]
+const SPIDER_FLAMES = [[0, 0.05, 0.3], [0, 0.1, -0.25], [0.35, -0.05, 0.1], [-0.35, -0.05, 0.1]]
+const SPIDER_DOORS = ACTIVE_MAP.DOOR_DEFS ?? []
+const _furniture = new Set(ACTIVE_MAP.FURNITURE_COLLIDERS ?? [])
+const _flipInv = new THREE.Matrix4()
+
+// Limb group layout (poseSpiderLimbs relies on it): outer group (yaw) > raise group >
+// [knee group (first child) > lower limb, upper limb mesh, joint knob].
+function SpiderLimbs({ id, limbRefs, skin, skinDark, pants, bone }) {
+  return SPIDER_LIMBS.map((L, i) => (
+    <group key={i} ref={limbRefs[i]} position={L.pos} rotation={[0, L.side > 0 ? -L.phi : Math.PI + L.phi, 0]}>
+      <group rotation={[0, 0, SPIDER_A0]}>
+        <group position={[SPIDER_L1, 0, 0]} rotation={[0, 0, -L.b]}>
+          <mesh geometry={bg(SPIDER_L2, 0.085, 0.085)} position={[SPIDER_L2 / 2, 0, 0]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
+          <mesh geometry={bg(0.14, 0.05, 0.13)} position={[SPIDER_L2 + 0.02, 0, 0]} userData={{ zombieId: id, isHead: false }} material={sm(L.arm ? bone : skinDark, 0.85)} />
+          {L.arm && [-0.045, 0, 0.045].map((z, j) => (
+            <mesh key={j} geometry={bg(0.12, 0.022, 0.022)} position={[SPIDER_L2 + 0.13, -0.015, z]} rotation={[0, -z * 5, -0.45]} material={sm(bone, 0.85)} />
+          ))}
+        </group>
+        <mesh geometry={bg(SPIDER_L1, 0.12, 0.12)} position={[SPIDER_L1 / 2, 0, 0]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(L.arm ? skin : pants, 0.95)} />
+        <mesh geometry={bg(0.14, 0.14, 0.14)} position={[SPIDER_L1, 0, 0]} userData={{ zombieId: id, isHead: false }} material={sm(skinDark, 0.9)} />
+      </group>
+    </group>
+  ))
+}
+
+// Pose the four spider limbs. mode: 'walk' | 'idle' | 'windup' | 'attack' | 'fall' | 'dead';
+// t = gait cycle / clock, k = 0..1 strength of windup / attack / dead.
+export function poseSpiderLimbs(refs, mode, t, k = 0) {
+  for (let i = 0; i < 4; i++) {
+    const g = refs[i]?.current
+    if (!g) continue
+    const L = SPIDER_LIMBS[i]
+    const raise = g.children[0]
+    const knee = raise?.children[0]
+    let phi = L.phi, a = SPIDER_A0, b = L.b
+    if (mode === 'walk') {
+      const ph = t + L.ph
+      phi -= 0.32 * Math.cos(ph)               // swings forward while lifted
+      a += 0.3 * Math.max(0, Math.sin(ph))
+    } else if (mode === 'idle') {
+      a += 0.035 * Math.sin(t * 2.2 + L.ph)
+    } else if (mode === 'windup') {            // coils in and trembles
+      a += 0.24 * k + Math.sin(t * 55 + i * 1.7) * 0.035 * k
+      phi *= 1 - 0.3 * k
+    } else if (mode === 'attack') {            // front limbs rear up, then slam
+      if (L.arm) { a += 1.1 * k; b -= 0.6 * k }
+    } else if (mode === 'fall') {              // splayed mid-air
+      a += 0.45; b -= 0.6
+    } else if (mode === 'dead') {              // curls up
+      a += 0.6 * k; b += 0.75 * k; phi *= 1 - 0.3 * k
+    }
+    g.rotation.y = L.side > 0 ? -phi : Math.PI + phi
+    if (raise) raise.rotation.z = a
+    if (knee) knee.rotation.z = -b
+  }
+}
+
 // Move a zombie: full move → axis-split for wall-threading → push-out.
 // The axis-split is needed so zombies can thread through narrow window
 // openings when following A* paths at a slight angle.
@@ -339,15 +418,16 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
   const isExploder = type === 'exploder'
   const isArmored = type === 'armored'
   const isSpitter = type === 'spitter'
+  const isSpider = type === 'spider'
   // Variant build: scales the whole model group, so meshes (and therefore the raycast
   // hitboxes, head included) scale with the visuals. Feet are re-seated on the floor.
   const baseHeight = isCrawler ? 0.7 : isScreamer ? heightScale * 1.08 : heightScale
-  const widthScale = (isBoss ? 1.42 : isExploder ? 1.2 : isArmored ? 1.12 : isSpitter ? 0.9 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.08 : isScreamer ? 0.82 : 1) * variant.w
-  const depthScale = (isBoss ? 1.42 : isExploder ? 1.3 : isArmored ? 1.12 : isSpitter ? 0.9 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.22 : isScreamer ? 0.88 : 1) * variant.w
+  const widthScale = (isBoss ? 1.42 : isExploder ? 1.2 : isArmored ? 1.12 : isSpitter || isSpider ? 0.9 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.08 : isScreamer ? 0.82 : 1) * variant.w
+  const depthScale = (isBoss ? 1.42 : isExploder ? 1.3 : isArmored ? 1.12 : isSpitter || isSpider ? 0.9 : isBrute ? 1.32 : isRunner ? 0.88 : isCrawler ? 1.22 : isScreamer ? 0.88 : 1) * variant.w
   const visualHeightScale = baseHeight * variant.h
-  const modelPosition = isCrawler ? [0, -0.36, 0.10] : [0, 0.866 * baseHeight * (variant.h - 1), 0]
+  const modelPosition = isCrawler ? [0, -0.36, 0.10] : isSpider ? SPIDER_MODEL_POS : [0, 0.866 * baseHeight * (variant.h - 1), 0]
   // limp = a slight static lean toward the bad leg
-  const modelRotation = isCrawler ? [-0.82, 0, 0] : isScreamer ? [0.16, 0, 0] : isSpitter ? [0.24, 0, 0] : [0, 0, variant.limp * 0.05]
+  const modelRotation = isCrawler ? [-0.82, 0, 0] : isSpider ? SPIDER_MODEL_ROT : isScreamer ? [0.16, 0, 0] : isSpitter ? [0.24, 0, 0] : [0, 0, variant.limp * 0.05]
   const headPosition = isCrawler ? [0, -0.70, 0.63] : [0, 0, 0]
   // Keep the crawler head in the existing crawl pose, but counter-rotate the torso
   // so the chest pitches forward into the ground instead of arching backward.
@@ -640,6 +720,8 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
         </>
       )}
 
+      {!isSpider && (
+        <>
       {/* ══ LEFT ARM — pivot at shoulder ══ */}
       <group ref={leftArmRef} position={leftArmPosition}>
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
@@ -693,8 +775,10 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
           </>
         )}
       </group>
+        </>
+      )}
 
-      {!isCrawler && (
+      {!isCrawler && !isSpider && (
         <>
       {/* ══ LEFT LEG — pivot at hip ══ */}
       <group ref={leftLegRef} position={[-0.12, -0.175, 0]}>
@@ -725,6 +809,11 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
       )}
       </group>
       </group>
+
+      {isSpider && (
+        <SpiderLimbs id={id} limbRefs={[leftArmRef, rightArmRef, leftLegRef, rightLegRef]}
+          skin={skin} skinDark={vc.skinDark} pants={shirt} bone={skullBone} />
+      )}
 
       {/* Bullet holes */}
       {holes.map((h, i) => (
@@ -757,7 +846,12 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   // Wave 3 special archetypes
   const isExploder = type === 'exploder'
   const isSpitter = type === 'spitter'
+  const isSpider = type === 'spider'
   const noPlankAttack = type === 'runner' || type === 'screamer' || isSpitter
+  const spdRef = useRef(null)              // spider surface state (zombieSpecials.js spiderStep)
+  if (isSpider && !spdRef.current) spdRef.current = freshSpiderState()
+  const flipRef = useRef()                 // spider: rolls the body onto the ceiling (rotation.z = PI)
+  const ceilWallsRef = useRef(null)        // spider on the ceiling: walls without furniture
   const exRef = useRef({ fuse: -1, total: 1, done: false, flashT: 0, flashOn: false })
   const spRef = useRef({ state: 0, t: 0, cd: 1.5 + keyedRandom('spit0', id) * 2, post: -1, postT: 0, los: false, hold: false, gx: 0, gz: 0 })
   const sacRef = useRef()   // spitter throat sac
@@ -774,7 +868,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const zombieWallsRef  = useRef(ACTIVE_MAP.wallSegments())
   const stepTimerRef    = useRef(Math.random() * 0.6)
   const groanTimerRef   = useRef(3 + Math.random() * 8)   // idle groan countdown (positional, globally rate-limited in sounds.js)
-  const groanPitchRef   = useRef((type === 'brute' ? 0.75 : type === 'runner' ? 1.15 : type === 'screamer' ? 1.3 : type === 'armored' ? 0.7 : type === 'exploder' ? 0.8 : 0.9 + Math.random() * 0.2))
+  const groanPitchRef   = useRef((type === 'brute' ? 0.75 : type === 'runner' ? 1.15 : type === 'screamer' ? 1.3 : type === 'armored' ? 0.7 : type === 'exploder' ? 0.8 : type === 'spider' ? 1.45 : 0.9 + Math.random() * 0.2))
   const isAggressorRef  = useRef(false)
   const walkCycleRef    = useRef(Math.random() * Math.PI * 2)
   // Deterministic look from the id (same on host and guest, no net data)
@@ -784,6 +878,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   const rightLegRef     = useRef()
   const leftArmRef      = useRef()
   const rightArmRef     = useRef()
+  const limbRefs        = useRef([leftArmRef, rightArmRef, leftLegRef, rightLegRef]).current   // spider limbs
   const dyingTimerRef      = useRef(0)
   const removedRef         = useRef(false)
   const deathStartQuatRef  = useRef(null)
@@ -803,11 +898,17 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     if (hidden) return
     if (ref.current) {
       const heightScale = archetype.heightScale ?? 1
-      ref.current.position.set(startX, (ZOMBIE_HEIGHT * heightScale) / 2, startZ)
+      ref.current.position.set(startX, isSpider ? SPIDER.BODY_Y : (ZOMBIE_HEIGHT * heightScale) / 2, startZ)
       Player.registerZombieRef(id, ref.current)
       _zombieGroups[id] = ref.current
     }
     _holeAdders[id] = (localPos, localNormal) => {
+      // Holes render inside the spider's flip group: move the point into that frame
+      const fl = flipRef.current
+      if (fl && (fl.rotation.z !== 0 || fl.position.x !== 0)) {
+        fl.updateMatrix()
+        localPos = localPos.clone().applyMatrix4(_flipInv.copy(fl.matrix).invert())
+      }
       const quat = new THREE.Quaternion().setFromUnitVectors(
         new THREE.Vector3(0, 0, 1),
         localNormal.clone().normalize()
@@ -844,6 +945,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     openDoorsRef.current = openDoors
     // Structure + boarded windows + closed doors + windows of still-sealed rooms
     zombieWallsRef.current = ACTIVE_MAP.allWallSegments(windowPlanks, openDoors)
+    if (isSpider) ceilWallsRef.current = zombieWallsRef.current.filter((w) => !_furniture.has(w))
   }, [windowPlanks, openDoors])
 
   // Windows of rooms that are still sealed are never attacked (Wave 3 doors).
@@ -1024,13 +1126,57 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     }
   }
 
-  function followPath(pos, fallbackX, fallbackZ) {
+  // Settle into a frozen corpse: out of every registry (not a raycast / melee / flame
+  // target, no AI), baked matrices, no shadows.
+  function settleCorpse() {
+    removedRef.current = true
+    corpseRef.current = true
+    const g = ref.current
+    const fx = fxRef.current
+    if (fx.flash > 0) { fx.flash = 0; setFlash(g, false) }
+    for (let i = 0; i < flameRefs.current.length; i++) { if (flameRefs.current[i]) flameRefs.current[i].visible = false }
+    Player.unregisterZombieRef(id)
+    delete _zombieGroups[id]
+    delete _holeAdders[id]
+    delete _igniters[id]
+    delete _hitReactors[id]
+    freezeCorpse(g)
+    removeDyingZombie(id)   // store keeps it as a corpse (capped), see store.js
+  }
+
+  // ── Spider death: falls off the ceiling (gravity), rolls onto its belly with the
+  // limbs curling up, then settles like any other corpse.
+  function spiderDeathTick(delta) {
+    const g = ref.current, sp = spdRef.current, fl = flipRef.current
+    let d = sp.dead
+    if (!d) {
+      d = sp.dead = { t: 0, f0: fl ? fl.rotation.z : 0, vy: sp.s === 'drop' ? sp.vy : 0 }
+      if (fl) fl.position.x = 0
+      const kill = fxRef.current.kill
+      if (kill && kill.weapon === 'deagle' && headRef.current) {
+        headRef.current.localToWorld(_hv.set(0, 0.78, 0))
+        BloodFX.spawn?.(_hv, _hd.set(kill.dx, 0.35, kill.dz).normalize(), 2)
+        headRef.current.visible = false
+      }
+    }
+    d.t += delta
+    if (g.position.y > SPIDER.CORPSE_Y) {
+      d.vy += SPIDER.GRAVITY * delta
+      g.position.y = Math.max(SPIDER.CORPSE_Y, g.position.y - d.vy * delta)
+    }
+    const k = _smooth(0, SPIDER.DEATH_ROLL, d.t)
+    if (fl) fl.rotation.z = d.f0 + (Math.PI - d.f0) * k
+    poseSpiderLimbs(limbRefs, 'dead', 0, k)
+    if (d.t >= SPIDER.DEATH_ROLL && g.position.y <= SPIDER.CORPSE_Y) settleCorpse()
+  }
+
+  function followPath(pos, fallbackX, fallbackZ, walls = zombieWallsRef.current) {
     const path = pathRef.current
     if (path.length > 0 && wpIdxRef.current < path.length) {
       // LOS shortcut — skip waypoints we can already see directly
       while (
         wpIdxRef.current < path.length - 1 &&
-        hasDirectPath(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z, zombieWallsRef.current)
+        hasDirectPath(pos.x, pos.z, path[wpIdxRef.current + 1].x, path[wpIdxRef.current + 1].z, walls)
       ) { wpIdxRef.current++ }
       const wp = path[wpIdxRef.current]
       const dx = wp.x - pos.x, dz = wp.z - pos.z
@@ -1099,6 +1245,10 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       if (isExploder && !exRef.current.done) {
         if (exRef.current.fuse < 0) startFuse(EXPLODER.DEATH_FUSE, ref.current.position)
         exploderTick(delta, ref.current.position)
+      }
+      if (isSpider) {
+        if (!removedRef.current) spiderDeathTick(delta)
+        return
       }
       if (!removedRef.current) {
         const baseY = (ZOMBIE_HEIGHT * (archetype.heightScale ?? 1)) / 2
@@ -1170,22 +1320,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           applyMove(ref.current.position, fx.kx * step, fx.kz * step, zombieWallsRef.current)
           fx.vel *= Math.exp(-4.5 * delta)
         }
-        if (dyingTimerRef.current >= fx.dur) {
-          // Settle into a frozen corpse: out of every registry (not a raycast /
-          // melee / flame target, no AI), baked matrices, no shadows.
-          removedRef.current = true
-          corpseRef.current = true
-          const g = ref.current
-          if (fx.flash > 0) { fx.flash = 0; setFlash(g, false) }
-          for (let i = 0; i < flameRefs.current.length; i++) { if (flameRefs.current[i]) flameRefs.current[i].visible = false }
-          Player.unregisterZombieRef(id)
-          delete _zombieGroups[id]
-          delete _holeAdders[id]
-          delete _igniters[id]
-          delete _hitReactors[id]
-          freezeCorpse(g)
-          removeDyingZombie(id)   // store keeps it as a corpse (capped), see store.js
-        }
+        if (dyingTimerRef.current >= fx.dur) settleCorpse()
       }
       return
     }
@@ -1200,7 +1335,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     if (fx.stagger > 0) {
       fx.stagger -= delta
       if (isSpitter) spitterCancel()
-      return
+      if (!(isSpider && spiderAirborne(spdRef.current))) return   // a climbing / falling spider keeps going
     }
 
     // First zombie to physically reach a window's opening shatters its glass —
@@ -1257,6 +1392,44 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       gx = spRef.current.gx; gz = spRef.current.gz
     }
 
+    // Spider: floor <-> ceiling state machine. Anything but 'floor' = up off the ground:
+    // no melee, no plank attacks, moves with the ceiling walls (no furniture).
+    const sp = spdRef.current
+    let offFloor = false
+    if (isSpider) {
+      const inside = Math.abs(pos.x) < CABIN_HW - SPIDER.INSIDE_MARGIN && Math.abs(pos.z) < CABIN_HD - SPIDER.INSIDE_MARGIN
+      const ceilY = spiderCeilingAt(pos.x, pos.z, MAP_WALL_H, SPIDER_DOORS) - SPIDER.BODY_Y
+      const ev = spiderStep(sp, delta, { inside, hdist: Math.hypot(px - pos.x, pz - pos.z), ceilY })
+      if (ev === 'climb') playSpiderSkitter(pos.x, 1.2, pos.z)
+      else if (ev === 'windup') playSpiderShriek(pos.x, pos.y, pos.z)
+      else if (ev === 'drop') { sp.tx = px; sp.tz = pz }
+      else if (ev === 'land') {
+        playSpiderLand(pos.x, 0.2, pos.z)
+        _burstPt.x = pos.x; _burstPt.y = 0.05; _burstPt.z = pos.z
+        spawnImpact(_burstPt, _burstUp, 'floor', 1.5)
+        _burstPt.y = 0.9
+        // Every client checks its OWN player (same model as melee)
+        if (selfOk && (lx - pos.x) ** 2 + (lz - pos.z) ** 2 <= SPIDER.POUNCE_RADIUS * SPIDER.POUNCE_RADIUS) {
+          hitPlayer(SPIDER.POUNCE_DAMAGE, pos.x, pos.z)
+        }
+        attackTimerRef.current = 1.2   // no instant follow-up claw after the pounce
+      }
+      if (sp.s === 'drop') {
+        // pulls toward where the player stood when it let go
+        const dx = sp.tx - pos.x, dz = sp.tz - pos.z
+        const d = Math.hypot(dx, dz)
+        if (d > 0.05) {
+          const st = Math.min(d, SPIDER.LUNGE_SPEED * delta)
+          applyMove(pos, (dx / d) * st, (dz / d) * st, zombieWallsRef.current)
+        }
+      }
+      pos.y = sp.y
+      if (flipRef.current) flipRef.current.rotation.z = sp.flip
+      offFloor = sp.s !== 'floor'
+    }
+    const walls = (offFloor && ceilWallsRef.current) || zombieWallsRef.current
+    const plankOk = !noPlankAttack && !offFloor
+
     // Revert attack mode if the target plank was destroyed or zombie entered the cabin
     if (modeRef.current === 'attack_window' && targetWindowRef.current >= 0) {
       const insideCabin = Math.abs(pos.x) < CABIN_HW && Math.abs(pos.z) < CABIN_HD
@@ -1280,7 +1453,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       const boardedWins = WINDOW_DEFS.filter((w) => (planks[w.id] ?? 0) > 0 && isWinActive(w.id))
 
       // Consider switching to attack_window mode
-      if (!noPlankAttack && modeRef.current !== 'attack_window' && boardedWins.length > 0) {
+      if (plankOk && modeRef.current !== 'attack_window' && boardedWins.length > 0) {
         let nearWin = boardedWins[0], nearDist = Infinity
         for (const win of boardedWins) {
           const dx = pos.x - win.ax, dz = pos.z - win.az
@@ -1315,7 +1488,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         if (newPath && newPath.length > 1) {
           pathRef.current = newPath
           wpIdxRef.current = 1
-        } else if (!noPlankAttack && !isBlocked(px, pz)) {
+        } else if (plankOk && !isBlocked(px, pz)) {
           // Player unreachable via open path — force nearest window attack
           let nearWin = -1, nearDist = Infinity
           for (const win of WINDOW_DEFS) {
@@ -1371,7 +1544,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       // which may be the remote player. Damage is fully client-local, mirroring
       // how the old kill-distance check only ever tested against lx,lz.
       const ldx = lx - pos.x, ldz = lz - pos.z
-      if (selfOk && !isExploder && ldx * ldx + ldz * ldz <= PLAYER_ATTACK_RANGE * PLAYER_ATTACK_RANGE) {
+      if (selfOk && !isExploder && !offFloor && ldx * ldx + ldz * ldz <= PLAYER_ATTACK_RANGE * PLAYER_ATTACK_RANGE) {
         modeRef.current = 'attack_player'
         ref.current.lookAt(lx, pos.y, lz)
         isAttackingRef.current = true
@@ -1390,12 +1563,12 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           if (nd2 <= EXPLODER.PRIME_RANGE * EXPLODER.PRIME_RANGE) startFuse(EXPLODER.PRIME_TIME, pos)
         }
         ref.current.lookAt(px, pos.y, pz)
-        if (hasDirectPath(pos.x, pos.z, gx, gz, zombieWallsRef.current)) {
+        if (hasDirectPath(pos.x, pos.z, gx, gz, walls)) {
           const dx = gx - pos.x, dz = gz - pos.z
           const dist = Math.sqrt(dx * dx + dz * dz)
           if (dist > 0.01) moveDir = _moveDir.set(dx / dist, 0, dz / dist)
         } else {
-          moveDir = followPath(pos, gx, gz)
+          moveDir = followPath(pos, gx, gz, walls)
         }
       }
     }
@@ -1403,10 +1576,12 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     // Exploder plants its feet while the fuse burns; spitter holds still to hold the shot
     if (isExploder && exRef.current.fuse >= 0) moveDir = null
     if (isSpitter && (spRef.current.hold || spRef.current.state === 1)) moveDir = null
+    if (isSpider && !spiderCanMove(sp)) moveDir = null
 
     if (moveDir) {
       let speedMultiplier = archetype.speedMultiplier
       if (isExploder && (px - pos.x) ** 2 + (pz - pos.z) ** 2 <= EXPLODER.RUSH_RANGE * EXPLODER.RUSH_RANGE) speedMultiplier *= EXPLODER.RUSH_MULT
+      if (offFloor) speedMultiplier *= SPIDER.CEIL_SPEED_MUL
       if (type !== 'screamer') {
         const zombies = useGameStore.getState().zombies
         for (const z of zombies) {
@@ -1423,21 +1598,38 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
         }
       }
       const step = speed * speedMultiplier * modFx.speedMul * delta   // Bloodlust modifier
-      applyMove(pos, moveDir.x * step, moveDir.z * step, zombieWallsRef.current)
+      applyMove(pos, moveDir.x * step, moveDir.z * step, walls)
 
       // Footstep sound — proximity to local player's ears
       const sdx = lx - pos.x, sdz = lz - pos.z
       if (sdx * sdx + sdz * sdz < 144) {
         stepTimerRef.current -= delta
         if (stepTimerRef.current <= 0) {
-          stepTimerRef.current = 0.55 + Math.random() * 0.1
-          playZombieFootstep(pos.x, 0.2, pos.z)
+          if (isSpider) {
+            // skitter from where it is: overhead when it's on the ceiling
+            stepTimerRef.current = 0.32 + Math.random() * 0.12
+            playSpiderSkitter(pos.x, pos.y, pos.z)
+          } else {
+            stepTimerRef.current = 0.55 + Math.random() * 0.1
+            playZombieFootstep(pos.x, 0.2, pos.z)
+          }
         }
       }
     }
 
     // Animation
-    if (isAttackingRef.current) {
+    if (isSpider) {
+      if (moveDir) walkCycleRef.current += delta * variant.gait.rate * 2.2   // fast scuttle
+      let mode = moveDir ? 'walk' : 'idle', k = 0, t = walkCycleRef.current
+      if (sp.s === 'windup') { mode = 'windup'; k = 1 - Math.max(0, sp.t) / SPIDER.WINDUP; t = performance.now() / 1000 }
+      else if (spiderAirborne(sp)) mode = 'fall'
+      else if (isAttackingRef.current) {
+        const ph = 1.0 - attackTimerRef.current / ATTACK_INTERVAL
+        mode = 'attack'; k = ph < 0.72 ? ph / 0.72 : 1 - (ph - 0.72) / 0.28   // slow rear-up, fast slam
+      }
+      poseSpiderLimbs(limbRefs, mode, t, k)
+      if (flipRef.current) flipRef.current.position.x = mode === 'windup' ? Math.sin(performance.now() * 0.06) * 0.025 * k : 0
+    } else if (isAttackingRef.current) {
       const phase = 1.0 - attackTimerRef.current / ATTACK_INTERVAL
       // Slow lift (72% of cycle), fast slam (28% of cycle)
       const HIGH = 0.9, LOW = -1.05, LIFT = 0.1
@@ -1482,6 +1674,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   return (
     <group ref={ref} scale={bodyScale}>
       {hidden && <mesh geometry={bg(0.1, 0.1, 0.1)} material={HIT_MAT} frustumCulled={false} />}
+      <group ref={flipRef}>
       <group ref={bodyRef}>
         <ZombieBody
           type={type}
@@ -1498,7 +1691,8 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
           holes={holes}
         />
       </group>
-      {!hidden && FLAME_OFFSETS.map((off, i) => (
+      </group>
+      {!hidden && (isSpider ? SPIDER_FLAMES : FLAME_OFFSETS).map((off, i) => (
         <mesh
           key={`flame${i}`}
           ref={(el) => (flameRefs.current[i] = el)}

@@ -226,6 +226,15 @@ onboarding summary — see CLAUDE.md for architecture detail.
 
 ## Dated log
 
+- 2026-11-03: Spider zombie (owner idea). Owner calls: drop-then-climb-back attack,
+  breaks planks like a walker, unlocks wave 11 (guaranteed 1/wave, then 4-10%).
+  HP 3, pounce 7, floor claw 4. Rules + tuning in zombieSpecials.js (SPIDER), model/AI in
+  Zombie.jsx (see CLAUDE.md "Spider zombie"). Verified headless: enters, climbs, crawls,
+  drops, leaps back; ceiling kill falls to a corpse; ducks under the hall door lintel;
+  6 shadow casters; programs stay 23. Not playtested by a human or by ear yet; balance
+  (pounce 7, 2.5 s on the floor) is a guess. Co-op: each client runs the spider's
+  surface state locally (only x/z are synced), like the other specials.
+
 - 2026-10-28: Owner call: keep every gun picked up in a run (removed the
   3-gun CoD replace rule, `MAX_GUNS` gone from weaponRules.js) and grenades
   are shop-only (start 0, no +2 per wave, Max Ammo no longer refills them;

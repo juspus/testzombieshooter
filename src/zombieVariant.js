@@ -51,6 +51,7 @@ export const SHIRTS = {
   exploder: ['#4a3a22', '#3c4a2a', '#5a3a2a'],
   armored:  ['#1d2128', '#2a2e22', '#2a2230'],   // under the plates
   spitter:  ['#2b3a22', '#3a3a24', '#2a2f38'],
+  spider:   ['#6e665c', '#5a554e', '#4a4038'],   // filthy nightgown
 }
 export const PANTS = ['#18180f', '#2a3c5c', '#4a4228', '#3a2e2e']
 // Sickly skin tones as a tint over the archetype's own skin colour, so a
@@ -78,6 +79,7 @@ const RANGE = {
   exploder: { h: 0.05, w: 0.06, dmg: 0.4 },   // bloated silhouette stays readable
   armored:  { h: 0.04, w: 0.03, dmg: 0.2 },   // gear hides most damage variants
   spitter:  { h: 0.06, w: 0.05, dmg: 0.6 },
+  spider:   { h: 0.06, w: 0.05, dmg: 0.5 },   // limbs are custom: noArm / limp are ignored
 }
 const P_ARM = 0.12, P_JAW = 0.10, P_RIBS = 0.14, P_LIMP = 0.18
 
