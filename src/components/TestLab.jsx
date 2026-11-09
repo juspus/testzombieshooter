@@ -15,6 +15,8 @@ const GROUPS = [
   { title: 'Weapons', sounds: [
     { id: 'pistol_shot',  label: 'Pistol Shot',  fn: () => playGunshot('pistol'),  dur: 200 },
     { id: 'shotgun_shot', label: 'Shotgun Shot', fn: () => playGunshot('shotgun'), dur: 500 },
+    { id: 'ak47_shot',    label: 'AK-47 Shot',   fn: () => playGunshot('ak47'),    dur: 400 },
+    { id: 'deagle_shot',  label: 'Deagle Shot',  fn: () => playGunshot('deagle'),  dur: 600 },
     { id: 'pump',         label: 'Pump Action',  fn: playPumpAction,   dur: 250 },
     { id: 'reload',       label: 'Reload',       fn: playReload,       dur: 1100 },
     { id: 'empty',        label: 'Empty Click',  fn: playEmptyClick,   dur: 100 },
@@ -64,6 +66,7 @@ export default function TestLab() {
         <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: 3, color: '#ff4400', textTransform: 'uppercase', marginRight: 'auto' }}>
           Sound &amp; Weapon Lab
         </span>
+        <a href="/?sfx" style={linkBtn}>Sound Designer</a>
         <a href="/?models" style={linkBtn}>3D Models</a>
         <a href="/" style={linkBtn}>← Game</a>
       </div>

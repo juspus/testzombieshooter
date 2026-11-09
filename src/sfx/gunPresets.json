@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "weapons": {
+    "pistol": {
+      "label": "Pistol (9mm)",
+      "master": {"drive": 2.5, "threshold": -12, "ratio": 6, "makeup": 2.2, "out": 1, "limiter": false, "room": 0, "roomSize": 0.6, "roomTone": 3000},
+      "vary": {"pitch": 0.02, "level": 0.05},
+      "layers": [
+        {"name": "Sub punch", "on": true, "src": "sine", "f0": 70, "f1": 28, "sweep": 0.035, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 3, "delay": 0, "attack": 0, "decay": 0.042, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Body", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 200, "ffEnd": 200, "q": 0.6, "gain": 3.5, "delay": 0, "attack": 0, "decay": 0.2, "snap": 0.11, "snapTime": 0.035, "drive": true},
+        {"name": "Bark", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 380, "ffEnd": 380, "q": 0.9, "gain": 2.2, "delay": 0, "attack": 0, "decay": 0.085, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Crack", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "highpass", "ff": 1200, "ffEnd": 1200, "q": 1, "gain": 1, "delay": 0, "attack": 0, "decay": 0.016, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Room", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 130, "ffEnd": 130, "q": 1.2, "gain": 0.55, "delay": 0, "attack": 0.025, "decay": 0.275, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide back click", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 2700, "ffEnd": 2700, "q": 4.5, "gain": 0.48, "delay": 0.076, "attack": 0, "decay": 0.03, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide back thump", "on": true, "src": "sine", "f0": 165, "f1": 82, "sweep": 0.028, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 0.3, "delay": 0.076, "attack": 0, "decay": 0.028, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide fwd click", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 3300, "ffEnd": 3300, "q": 5.5, "gain": 0.58, "delay": 0.116, "attack": 0, "decay": 0.024, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide fwd thump", "on": true, "src": "sine", "f0": 205, "f1": 100, "sweep": 0.022, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 0.36, "delay": 0.116, "attack": 0, "decay": 0.022, "snap": 1, "snapTime": 0, "drive": false}
+      ]
+    },
+    "shotgun": {
+      "label": "Pump Shotgun (12ga)",
+      "master": {"drive": 0, "threshold": -12, "ratio": 6, "makeup": 1, "out": 0.55, "limiter": true, "room": 0, "roomSize": 0.8, "roomTone": 2500},
+      "vary": {"pitch": 0.02, "level": 0.05},
+      "layers": [
+        {"name": "Sub hit", "on": true, "src": "sine", "f0": 60, "f1": 25, "sweep": 0.095, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 4, "delay": 0, "attack": 0, "decay": 0.105, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Growl", "on": true, "src": "saw", "f0": 55, "f1": 22, "sweep": 0.2, "filter": "lowpass", "ff": 220, "ffEnd": 220, "q": 1, "gain": 3.2, "delay": 0, "attack": 0, "decay": 0.36, "snap": 0.12, "snapTime": 0.32, "drive": false},
+        {"name": "Boom body", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 85, "ffEnd": 85, "q": 0.4, "gain": 4.5, "delay": 0, "attack": 0, "decay": 0.56, "snap": 0.04, "snapTime": 0.45, "drive": false},
+        {"name": "Upper body", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 220, "ffEnd": 220, "q": 0.8, "gain": 2.5, "delay": 0, "attack": 0, "decay": 0.18, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Bark", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 300, "ffEnd": 300, "q": 0.9, "gain": 3.5, "delay": 0, "attack": 0, "decay": 0.14, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Mid burst", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 620, "ffEnd": 620, "q": 1.2, "gain": 2.2, "delay": 0, "attack": 0, "decay": 0.05, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Pellet spray", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 950, "ffEnd": 950, "q": 1, "gain": 2.2, "delay": 0, "attack": 0, "decay": 0.03, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Muzzle crack", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "highpass", "ff": 1500, "ffEnd": 1500, "q": 0.8, "gain": 2.2, "delay": 0, "attack": 0, "decay": 0.016, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Room tail", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 75, "ffEnd": 75, "q": 0.9, "gain": 2.5, "delay": 0, "attack": 0.03, "decay": 0.52, "snap": 0.056, "snapTime": 0.5, "drive": false}
+      ]
+    },
+    "ak47": {
+      "label": "AK-47 (5.45mm)",
+      "master": {"drive": 3, "threshold": -14, "ratio": 8, "makeup": 4, "out": 1.6, "limiter": true, "room": 0.12, "roomSize": 0.7, "roomTone": 2500},
+      "vary": {"pitch": 0.035, "level": 0.08},
+      "layers": [
+        {"name": "Sub punch", "on": true, "src": "sine", "f0": 85, "f1": 35, "sweep": 0.03, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 2.5, "delay": 0, "attack": 0, "decay": 0.04, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Body", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 260, "ffEnd": 260, "q": 0.7, "gain": 3, "delay": 0, "attack": 0, "decay": 0.14, "snap": 0.2, "snapTime": 0.03, "drive": true},
+        {"name": "Bark", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 700, "ffEnd": 700, "q": 1, "gain": 2.4, "delay": 0, "attack": 0, "decay": 0.07, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Crack", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "highpass", "ff": 2500, "ffEnd": 2500, "q": 0.7, "gain": 1.6, "delay": 0, "attack": 0, "decay": 0.02, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Room", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 160, "ffEnd": 160, "q": 1, "gain": 0.6, "delay": 0, "attack": 0.02, "decay": 0.22, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Bolt clack", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 3000, "ffEnd": 3000, "q": 4, "gain": 0.35, "delay": 0.05, "attack": 0, "decay": 0.025, "snap": 1, "snapTime": 0, "drive": false}
+      ]
+    },
+    "deagle": {
+      "label": "Desert Eagle (.50 AE)",
+      "master": {"drive": 3, "threshold": -10, "ratio": 6, "makeup": 4, "out": 1.7, "limiter": true, "room": 0.18, "roomSize": 0.9, "roomTone": 2200},
+      "vary": {"pitch": 0.02, "level": 0.05},
+      "layers": [
+        {"name": "Sub punch", "on": true, "src": "sine", "f0": 60, "f1": 22, "sweep": 0.08, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 4, "delay": 0, "attack": 0, "decay": 0.09, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Growl", "on": true, "src": "saw", "f0": 70, "f1": 30, "sweep": 0.15, "filter": "lowpass", "ff": 260, "ffEnd": 260, "q": 1, "gain": 1.5, "delay": 0, "attack": 0, "decay": 0.2, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Body", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 150, "ffEnd": 150, "q": 0.5, "gain": 4, "delay": 0, "attack": 0, "decay": 0.32, "snap": 0.15, "snapTime": 0.045, "drive": true},
+        {"name": "Bark", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 420, "ffEnd": 420, "q": 0.8, "gain": 2.6, "delay": 0, "attack": 0, "decay": 0.1, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Crack", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "highpass", "ff": 1500, "ffEnd": 1500, "q": 1, "gain": 1.6, "delay": 0, "attack": 0, "decay": 0.022, "snap": 1, "snapTime": 0, "drive": true},
+        {"name": "Room", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 100, "ffEnd": 100, "q": 1, "gain": 1.2, "delay": 0, "attack": 0.03, "decay": 0.5, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide back click", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 2200, "ffEnd": 2200, "q": 4, "gain": 0.5, "delay": 0.1, "attack": 0, "decay": 0.035, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide back thump", "on": true, "src": "sine", "f0": 140, "f1": 70, "sweep": 0.03, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 0.35, "delay": 0.1, "attack": 0, "decay": 0.03, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide fwd click", "on": true, "src": "noise", "f0": 120, "f1": 40, "sweep": 0.05, "filter": "bandpass", "ff": 2800, "ffEnd": 2800, "q": 5, "gain": 0.6, "delay": 0.15, "attack": 0, "decay": 0.028, "snap": 1, "snapTime": 0, "drive": false},
+        {"name": "Slide fwd thump", "on": true, "src": "sine", "f0": 180, "f1": 90, "sweep": 0.025, "filter": "none", "ff": 1000, "ffEnd": 1000, "q": 1, "gain": 0.4, "delay": 0.15, "attack": 0, "decay": 0.025, "snap": 1, "snapTime": 0, "drive": false}
+      ]
+    }
+  }
+}

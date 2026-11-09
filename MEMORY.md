@@ -5,6 +5,13 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-11-09: Gun sound rework, step 1 = tooling (branch claude/modest-pasteur-ui3afx). Pistol /
+  shotgun / AK / Deagle shots are now data presets (src/sfx/gunPresets.json) + a live editor at
+  /?sfx (see CLAUDE.md "Gun sounds"). Pistol + shotgun ported (within ~1 dB of the old sounds);
+  AK + Deagle got their own presets (were one generic placeholder). Found: the pistol peaks ~+5 dBFS,
+  so it hard-clips at default volume (its loudness is partly that distortion); not fixed, owner's
+  call while tuning. Workflow: owner tweaks, pastes "Copy for Claude" blocks; I commit the `full:`
+  JSON. Not checked by ear by me.
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the

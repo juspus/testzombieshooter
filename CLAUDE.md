@@ -340,6 +340,25 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 
 `ac.destination` is shadowed: it returns the **effects** bus, so every sound that connects to it gets the Effects slider and the low-HP muffle for free. Music must connect to `_musicOut(ac)` instead, or it lands on the Effects slider. Heartbeat/stings use `_realDest` (effects level, no muffle). Master sits after all three.
 
+## Gun sounds (src/sfx/, Sound Designer `/?sfx`)
+
+Pistol / shotgun / AK-47 / Deagle shots are presets in `src/sfx/gunPresets.json` (one layer per
+line), played by `src/sfx/gunSynth.js` (`playShotPreset`). A preset = `master` (drive -> compressor
+-> makeup for layers with `drive: true`; everything -> `out` -> optional limiter; `room` send to a
+shared cached convolver) + `vary` (random pitch/level per shot) + `layers` (noise or oscillator ->
+filter -> envelope with optional two-stage "snap" decay). Noise buffers are cached per context.
+Crossbow and flamethrower are still hand-written in sounds.js.
+- `/?sfx` (`components/SoundDesigner.jsx`) edits presets live; edits save to localStorage
+  (`sfx.gunOverrides.v1`) and, off production, `getGunPreset` plays them in game (another tab
+  picks them up without a reload). Each edit stores the hash of the shipped preset it started
+  from; the page warns when the shipped one changed.
+- The owner pastes "Copy for Claude" blocks (diff, metrics, `full:` JSON) into chat. To ship one,
+  put the `full:` JSON into gunPresets.json for that weapon (keep `label`). To propose a variant,
+  send a preset JSON; the owner pastes it into the designer to hear it.
+- Measure without ears: `renderShot(preset)` + `analyze()` in a page (OfflineAudioContext) give
+  peak, punch (first 100 ms RMS), length and band split. "Punch" is the number to balance guns by.
+  Peaks above 0 dBFS clip at the speakers (master/sfx volume default to 1).
+
 ## Known performance notes
 
 - Each unique material config = one WebGL shader program. Avoid adding new `transparent`, `metalness`, or `envMap` combinations to materials that mount/unmount frequently.
