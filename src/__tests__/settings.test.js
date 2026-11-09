@@ -24,6 +24,13 @@ describe('settings', () => {
     expect(DEFAULTS.lookSensitivity).toBe(1)
   })
 
+  it('desktop fullscreen and raw mouse default on, keep saved booleans, drop junk', () => {
+    expect(DEFAULTS.fullscreen).toBe(true)
+    expect(DEFAULTS.rawMouse).toBe(true)
+    expect(sanitize({ fullscreen: false, rawMouse: false })).toMatchObject({ fullscreen: false, rawMouse: false })
+    expect(sanitize({ fullscreen: 'no', rawMouse: 0 })).toMatchObject({ fullscreen: true, rawMouse: true })
+  })
+
   it('volume buses default to full and keep saved master volume', () => {
     expect(DEFAULTS.sfxVolume).toBe(1)
     expect(DEFAULTS.musicVolume).toBe(1)

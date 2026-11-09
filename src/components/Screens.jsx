@@ -24,10 +24,12 @@ import { VERSUS_MODES, scoreSubmittable } from '../versus'
 import { newRunSeed } from '../rng'
 import VersusResult from './VersusResult'
 import { SkipHoldButton, ControlSettings } from './PauseMenu'
-import useMenuEnv from '../menuTouch'
 import InstallHint from './InstallHint'
 import { CheckIcon, StarIcon, ChevronIcon } from './Icons'
 import { enterRunFullscreen } from '../fullscreen'
+import useMenuEnv from '../menuTouch'
+import { useSettings, SENS_MIN, SENS_MAX } from '../settings'
+import { setFullscreenPref } from '../desktopInput'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -771,13 +773,9 @@ function SettingsPanel({ user, username, onRename }) {
   const { touch } = useMenuEnv()
   return (
     <div>
-      {touch && (
-        <>
-          <SectionLabel>Controls</SectionLabel>
-          <ControlSettings brightness={false} audio={false} />
-        </>
-      )}
-      <SectionLabel style={touch ? { marginTop: 18 } : undefined}>Audio</SectionLabel>
+      <SectionLabel>Controls</SectionLabel>
+      {touch ? <ControlSettings brightness={false} audio={false} /> : <DesktopControls />}
+      <SectionLabel style={{ marginTop: 18 }}>Audio</SectionLabel>
       <VolumeSliders />
       <SectionLabel style={{ marginTop: 18 }}>Display</SectionLabel>
       <BrightnessSlider />
@@ -801,6 +799,37 @@ function SettingsPanel({ user, username, onRename }) {
         </div>
       )}
     </div>
+  )
+}
+
+// Mouse and keyboard rows of the start-menu Controls section (UI kit rows, like Audio below).
+// The pause menu shows the same three in ControlSettings.
+function DesktopControls() {
+  const st = useSettings()
+  return (
+    <>
+      <label className="ui-setting">
+        <span>Mouse speed <span className="ui-setting__val">{st.lookSensitivity.toFixed(2)}x</span></span>
+        <input
+          type="range" className="ui-range" min={SENS_MIN} max={SENS_MAX} step={0.05} value={st.lookSensitivity}
+          aria-label="Mouse speed"
+          onChange={(e) => st.setSetting('lookSensitivity', parseFloat(e.target.value))}
+          onPointerDown={(e) => e.stopPropagation()}
+        />
+      </label>
+      <div className="ui-setting">
+        Fullscreen
+        <Button size="sm" aria-pressed={st.fullscreen} onClick={() => setFullscreenPref(!st.fullscreen)} style={{ minWidth: 64 }}>
+          {st.fullscreen ? 'On' : 'Off'}
+        </Button>
+      </div>
+      <div className="ui-setting">
+        Raw mouse
+        <Button size="sm" aria-pressed={st.rawMouse} onClick={() => st.setSetting('rawMouse', !st.rawMouse)} style={{ minWidth: 64 }}>
+          {st.rawMouse ? 'On' : 'Off'}
+        </Button>
+      </div>
+    </>
   )
 }
 

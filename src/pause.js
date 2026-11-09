@@ -8,6 +8,7 @@ import { useGameStore } from './store'
 import { send } from './net'
 import { setAudioHold } from './sounds'
 import { resetMobileInput } from './mobileInput'
+import { usesPointerLock, getLockTarget, captureMouse } from './desktopInput'
 
 // Touch-only inputs that Player.jsx reads (kept out of mobileInput.js: another agent owns it).
 export const lifecycleInput = { skipHeld: false }
@@ -32,6 +33,9 @@ const versusLive = (st) => st.runMode === 'versus' && !!st.versus?.linked
 
 let _timer = null
 let _pausedAt = 0
+let _menuAt = 0            // when the menu last opened (the Esc press that opened it must not close it)
+let _resumeWanted = false  // desktop: RESUME asked for the mouse; resume once pointer lock is back
+let _awaySent = false      // co-op: this client told its partner it is in the menu
 
 function clearTimer() { if (_timer) { clearInterval(_timer); _timer = null } }
 
@@ -53,11 +57,76 @@ export function pauseGame(local = false) {
     useGameStore.setState({ paused: true })
     if (coopLive(st) && !guest) send('game_event', { event: 'pause', data: {} })
   }
-  dropInputs()
-  try { document.exitPointerLock?.() } catch { /* ignore */ }
-  ui({ menu: 'pause', count: 0 })
+  showMenu()
   return true
 }
+
+function showMenu() {
+  dropInputs()
+  // Only when held: a stray exitPointerLock() would let the browser re-lock without a click.
+  try { if (document.pointerLockElement) document.exitPointerLock?.() } catch { /* ignore */ }
+  if (!usePauseUi.getState().menu) _menuAt = performance.now()
+  ui({ menu: 'pause', count: 0 })
+}
+
+// Desktop menu (Esc / mouse lost). Solo freezes the world; versus opens the menu without freezing
+// (pauseGame); co-op never freezes the partner's world from here: the menu opens, the partner
+// sees PARTNER AWAY. The phone pause button still uses pauseGame (a co-op host can freeze both).
+export function openGameMenu() {
+  const st = useGameStore.getState()
+  if (!isActivePhase(st.phase)) return false
+  if (coopLive(st)) {
+    clearTimer()
+    if (!_awaySent) { send('game_event', { event: 'away', data: { away: true } }); _awaySent = true }
+    showMenu()
+    return true
+  }
+  return pauseGame()
+}
+
+// The mouse left pointer lock mid-run (Esc, Alt+Tab, held Esc in fullscreen). Code that frees the
+// mouse on purpose sets shopOpen, paused or the menu first, so it lands in the early returns.
+export function onMouseLost() {
+  const st = useGameStore.getState()
+  if (!isActivePhase(st.phase) || st.shopOpen) return false
+  const { menu, glLost } = usePauseUi.getState()
+  if (glLost) return false
+  if (menu === 'countdown') return pauseGame()   // Esc during 3-2-1: back to the menu
+  if (menu || st.paused) return false             // already in a menu, or frozen by someone else
+  return openGameMenu()
+}
+
+// RESUME. Desktop needs the mouse back first (a click on RESUME is the gesture), so the resume
+// itself waits for pointerlockchange; if the browser refuses, the menu just stays up.
+export function requestResume() {
+  if (!usesPointerLock() || !getLockTarget() || document.pointerLockElement) { resumeGame(); return }
+  _resumeWanted = true
+  captureMouse().catch(() => {})
+}
+
+// Esc keydown (desktop). With Keyboard Lock (our fullscreen in Chrome/Edge) it arrives while the
+// mouse is still locked; otherwise the browser has usually freed the mouse already, and the same
+// press can arrive just after onMouseLost opened the menu (hence the 400 ms guard).
+export function onEscapeKey() {
+  const { menu } = usePauseUi.getState()
+  if (!menu) { openGameMenu(); return }
+  if (performance.now() - _menuAt < 400) return
+  if (menu === 'pause') requestResume()
+  else if (menu === 'settings') closeSettings()
+  else if (menu === 'countdown') pauseGame()
+}
+
+function onPointerLockChange() {
+  if (document.pointerLockElement) {
+    if (_resumeWanted) {
+      _resumeWanted = false
+      if (usePauseUi.getState().menu === 'pause') resumeGame()
+    }
+    return
+  }
+  onMouseLost()
+}
+function onPointerLockError() { _resumeWanted = false }
 
 function finishResume() {
   clearTimer()
@@ -105,6 +174,7 @@ export function autoPause() {
 
 export function onReturn() {
   const st = useGameStore.getState()
+  if (_awaySent) return   // still in the desktop menu: the partner keeps seeing AWAY until it closes
   if (coopLive(st)) send('game_event', { event: 'away', data: { away: false } })
 }
 
@@ -124,6 +194,19 @@ export function installLifecycle() {
   document.addEventListener('visibilitychange', onVis)
   window.addEventListener('pagehide', onHide)
   window.addEventListener('blur', onBlur)
+  document.addEventListener('pointerlockchange', onPointerLockChange)
+  document.addEventListener('pointerlockerror', onPointerLockError)
+
+  // Menu closed (any path: resume, run over, host resume): clear the desktop resume request and
+  // tell a co-op partner we are back.
+  const unsubUi = usePauseUi.subscribe((s, p) => {
+    if (s.menu || !p.menu) return
+    _resumeWanted = false
+    if (_awaySent) {
+      _awaySent = false
+      if (coopLive(useGameStore.getState())) send('game_event', { event: 'away', data: { away: false } })
+    }
+  })
 
   // Keep audio, box timers and the menu consistent with the store's `paused` flag, whoever set it
   // (this module, the co-op host's tab, or a 'pause' event from the host).
@@ -154,7 +237,10 @@ export function installLifecycle() {
     document.removeEventListener('visibilitychange', onVis)
     window.removeEventListener('pagehide', onHide)
     window.removeEventListener('blur', onBlur)
+    document.removeEventListener('pointerlockchange', onPointerLockChange)
+    document.removeEventListener('pointerlockerror', onPointerLockError)
     unsub()
+    unsubUi()
     _installed = false
   }
 }

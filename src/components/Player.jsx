@@ -88,7 +88,8 @@ function checkWindowShatter(origin, direction, maxDist) {
 import { send, isConnected } from '../net'
 import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } from '../mobileInput'
 import { getSettings } from '../settings'
-import { lifecycleInput } from '../pause'
+import { lifecycleInput, usePauseUi, onEscapeKey } from '../pause'
+import { setLockTarget, captureMouse } from '../desktopInput'
 import * as THREE from 'three'
 import { playDoorDenied } from '../sounds'
 import { doorBuyStatus } from '../doors'
@@ -298,11 +299,22 @@ export default function Player() {
     }
   }, [])
 
+  // Pointer lock (raw input when available) + fullscreen if the setting is on (desktopInput.js).
   const requestLock = useCallback(() => {
     if ((phase === 'playing' || phase === 'intermission') && !shopOpenRef.current) {
-      gl.domElement.requestPointerLock()?.catch?.(() => {})
+      captureMouse().catch(() => {})
     }
-  }, [phase, gl])
+  }, [phase])
+
+  useEffect(() => {
+    setLockTarget(gl.domElement)
+    return () => setLockTarget(null)
+  }, [gl])
+
+  // Desktop menu open (co-op/versus keep the world running): drop held keys and the trigger.
+  useEffect(() => usePauseUi.subscribe((s, p) => {
+    if (s.menu && !p.menu) { keys.current = {}; mouseHeldRef.current = false }
+  }), [])
 
   // Sync shopOpen ref and manage pointer lock: the shop frees the cursor, and
   // closing it re-locks if we had the lock going in (never true on touch).
@@ -333,12 +345,17 @@ export default function Player() {
       pitch.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, pitch.current))
     }
     const onKeyDown = (e) => {
-      keys.current[e.code] = true
-      if (e.code === 'Escape' && shopOpenRef.current) {
-        relockAfterShopRef.current = false
-        closeShop()
+      if (e.code === 'Escape') {
+        if (shopOpenRef.current) {
+          relockAfterShopRef.current = false
+          closeShop()
+          return
+        }
+        onEscapeKey()   // pause menu (pause.js)
         return
       }
+      if (usePauseUi.getState().menu) return
+      keys.current[e.code] = true
       if (e.code === 'KeyE') {
         if (shopOpenRef.current) { closeShop(); return }
         if (selfStatusRef.current !== 'alive' || reviveNearRef.current) return
@@ -366,6 +383,7 @@ export default function Player() {
       switchWeapon(weapons[next])
     }
 
+    onLockChange()   // the PLAY click may have locked the canvas before this mounted
     document.addEventListener('pointerlockchange', onLockChange)
     document.addEventListener('mousemove', onMouseMove)
     document.addEventListener('keydown', onKeyDown)

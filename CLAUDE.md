@@ -323,6 +323,19 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 
 ---
 
+## Desktop feel (2026-11-09)
+
+Goal: a desktop run should feel like a native game, not a web page. Touch devices skip all of this.
+
+| Area | Files / rules |
+|---|---|
+| Mouse capture | `src/desktopInput.js`. `captureMouse()` = pointer lock with raw input (`unadjustedMovement`; on `NotSupportedError`, e.g. Linux Chrome, retry plain and remember), THEN fullscreen (setting `fullscreen`). Order matters: `requestFullscreen` uses up the click's user activation, so a lock requested after it fails. PLAY (via `enterRunFullscreen`) and the canvas click both capture. Lock target = the R3F canvas (`setLockTarget` from Player, `canvas` fallback). |
+| Esc kept by the game | In our fullscreen, `navigator.keyboard.lock(['Escape'])` (Chrome/Edge): a short Esc reaches the page, holding Esc leaves fullscreen. Other browsers: Esc frees the mouse and leaves fullscreen. Neither Keyboard Lock nor raw input can be tested headless. |
+| Pause on lost mouse | `pause.js`: `pointerlockchange` to unlocked mid-run calls `onMouseLost` -> `openGameMenu`. Solo freezes; versus and co-op (host too) open the menu without freezing, and co-op sends `away` (partner sees PARTNER AWAY) until it closes. Code that frees the mouse mid-run on purpose must set `shopOpen`, `paused` or the menu first, or the menu opens. RESUME = `requestResume`: re-captures the mouse, resumes on the lock. Esc toggles the menu (`onEscapeKey`, 400 ms guard so one press can't open and close it). Only call `exitPointerLock` while the lock is held: a stray call lets the browser re-lock without a click. |
+| Other | The mouse stays captured through WAVE CLEARED (`Game.jsx` releases only when leaving the run). No right-click menu (text fields keep it). `index.html` forces the arrow cursor (`!important`) over inline `cursor: pointer`. Settings: desktop shows MOUSE SPEED / FULLSCREEN / RAW MOUSE, touch rows are touch-only. |
+
+---
+
 ## Versus modes (2026-10-28, `docs/pvp-modes.html`)
 
 | Area | Files / rules |

@@ -5,6 +5,14 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-11-09: Desktop feel (owner liked how kelyje2.lt feels native; that site runs the original
+  2001 Windows exe in WASM + WebGPU, not applicable to us). Built: Esc / lost mouse opens the pause
+  menu (desktop had none), PLAY captures the mouse + goes fullscreen with Esc kept by the game
+  (Keyboard Lock, Chrome/Edge), raw mouse input, no right-click menu, arrow cursor. Settings
+  FULLSCREEN / RAW MOUSE default on. Rules in CLAUDE.md "Desktop feel". Not tried in real
+  Chrome yet (Keyboard Lock and raw input can't be tested headless). No QUIT in the pause menu
+  (ending a run mid-wave needs a call on XP/score). Session env `testzombieshooter` (personal)
+  only adds kelyje2.lt to the allowed hosts.
 - 2026-11-03: Kill money now lands on the kill (was held until wave end, so the
   counter sat still mid-wave). `+€x` pop under MONEY. Same totals, same co-op split
   (each player still earns for partner kills). Dying mid-wave now keeps that wave's kill money.

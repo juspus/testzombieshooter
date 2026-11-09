@@ -17,6 +17,11 @@
       html, body { width: 100%; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
       body { position: fixed; inset: 0; font-family: 'Courier New', monospace; touch-action: none; }
       #root { width: var(--app-width, 100vw); height: var(--app-height, 100dvh); overflow: hidden; }
+      /* A game, not a web page: arrow cursor everywhere (inline styles still say pointer), I-beam in
+         text fields, no tap flash, no image dragging. */
+      *, *::before, *::after { cursor: default !important; -webkit-tap-highlight-color: transparent; }
+      input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), textarea, [contenteditable="true"] { cursor: text !important; }
+      img { -webkit-user-drag: none; }
     </style>
   </head>
   <body>

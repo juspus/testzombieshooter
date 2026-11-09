@@ -90,12 +90,13 @@ export default function Game() {
   const isActive = phase === 'playing' || phase === 'intermission'
   const inGame = phase === 'playing' || phase === 'wave_clear' || phase === 'intermission'
 
-  // Release pointer lock only when leaving active gameplay entirely
+  // Release pointer lock only when leaving the run (death, menu). The 3 s WAVE CLEARED screen keeps
+  // the mouse, so the next wave needs no extra click.
   useEffect(() => {
-    if (!isActive && document.pointerLockElement) {
+    if (!inGame && document.pointerLockElement) {
       document.exitPointerLock?.()
     }
-  }, [isActive])
+  }, [inGame])
 
   useEffect(() => installWakeLock(), [])
 
