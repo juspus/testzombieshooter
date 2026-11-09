@@ -5,6 +5,20 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
+  wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
+  alternate who defends first). Owner disliked the first director screen; picked the
+  "survivor's war map" look (paper, ink, pins, index cards, tape/stamps). Built by two Sonnet
+  agents on the src/director.js contract (game side || view). Costs/unlocks are guesses; not
+  playtested by a human. Known: money for waves skipped after a mid-turn death is not made up;
+  defender must click to re-lock the pointer at turn start. Headless setInterval runs ~2/s
+  under SwiftShader, so director-smoke compares send vs receive rate instead of asserting 8 Hz.
+  Next on the versus list: combat core -> Horde Duel -> Hunter.
+- 2026-10-29: Fixed Zombie Mail zombies wandering to a spot and standing there (owner report).
+  Cause: RemotePlayer renders null out of co-op, so its frame loop never cleared the partner's
+  last position; versus worlds (and co-op after the partner left) kept chasing that stale spot.
+  Now cleared in an effect on mpConnected, and Zombie.jsx only targets the partner while a co-op
+  link is live. Regression checks in scripts/versus-smoke.cjs.
 - 2026-11-03: Kill money now lands on the kill (was held until wave end, so the
   counter sat still mid-wave). `+€x` pop under MONEY. Same totals, same co-op split
   (each player still earns for partner kills). Dying mid-wave now keeps that wave's kill money.
