@@ -25,6 +25,8 @@ import PowerUps from './PowerUps'
 import Machines from './Machines'
 import NetManager from './NetManager'
 import VersusNet from './VersusNet'
+import DirectorView from './DirectorView'
+import DirectorFlow from './DirectorFlow'
 import MailHud from './MailHud'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
@@ -86,6 +88,8 @@ export default function Game() {
   useEffect(() => { initAnalytics(); initProgression() }, [])
   const phase = useGameStore((s) => s.phase)
   const mapId = useGameStore((s) => s.mapId)
+  // The Director: while directing / between turns / over, this world is frozen and covered; the 3D loop stops.
+  const dirFrozen = useGameStore((s) => s.director?.active && s.director.role !== 'defender')
   const isPlaying = phase === 'playing'
   const isActive = phase === 'playing' || phase === 'intermission'
   const inGame = phase === 'playing' || phase === 'wave_clear' || phase === 'intermission'
@@ -114,6 +118,7 @@ export default function Game() {
     <div style={{ position: 'fixed', top: 0, left: 0, width: 'var(--app-width, 100vw)', height: 'var(--app-height, 100dvh)', background: '#000', overflow: 'hidden' }}>
       <Canvas
         shadows
+        frameloop={dirFrozen ? 'never' : 'always'}
         // Lo-fi pass: the scene renders at ~300px tall, so MSAA and hi-dpi are wasted work.
         gl={{ preserveDrawingBuffer: true, antialias: !LOFI_ON }}
         dpr={LOFI_ON ? 1 : [1, 2]}
@@ -169,15 +174,17 @@ export default function Game() {
         <Storm />
       </Canvas>
 
-      {isActive && <HUD />}
+      {isActive && !dirFrozen && <HUD />}
       <VoiceChat />
-      <MobileControls />
-      <Shop />
+      {!dirFrozen && <MobileControls />}
+      {!dirFrozen && <Shop />}
       <Screens />
       <ProgressToasts />
       <PauseLayer />
       <MailHud />
       <VersusNet />
+      <DirectorView />
+      <DirectorFlow />
       <RotateGate />
     </div>
   )

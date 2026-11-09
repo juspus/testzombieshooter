@@ -4,6 +4,7 @@ import { isConnected, disconnect } from '../net'
 import { sendVersus, onVersus, ensureVersusListener, compareResult } from '../versus'
 import { installRematch, resetRematch } from '../versusRematch'
 import { installMail } from '../mailRuntime'
+import { installDirector } from '../directorRuntime'
 import { Button } from './ui'
 import { RematchButton, RESULT_TITLES, reasonText } from './VersusResult'
 
@@ -33,7 +34,8 @@ export default function VersusNet() {
     ensureVersusListener()
     const offRematch = installRematch()
     const offMail = installMail()
-    return () => { offRematch(); offMail() }
+    const offDirector = installDirector()
+    return () => { offRematch(); offMail(); offDirector() }
   }, [])
 
   // A new run (first start or rematch) resets the per-run clocks.
@@ -46,7 +48,7 @@ export default function VersusNet() {
     send()
     const t = setInterval(send, STATUS_MS)
     const unsubPhase = useGameStore.subscribe((s, prev) => {
-      if (s.phase !== prev.phase && s.phase === 'dead') {
+      if (s.phase !== prev.phase && s.phase === 'dead' && s.versus.mode !== 'director') {
         send()
         // I died: the rival still alive means I lost; otherwise compare the two runs.
         const st = useGameStore.getState()
@@ -64,7 +66,7 @@ export default function VersusNet() {
         hp: +d.hp || 0, maxHp: +d.maxHp || 0, wave: +d.wave || 0, kills: +d.kills || 0, alive: !!d.alive, mail: +d.mail || 0, at: Date.now(),
       })
       // Rival down while I am still standing.
-      if (!d.alive && st.phase !== 'dead' && st.versus.linked) st.finishVersus('win', 'death')
+      if (!d.alive && st.phase !== 'dead' && st.versus.linked && st.versus.mode !== 'director') st.finishVersus('win', 'death')
     })
     // Closing the tab or the app says so right away; PeerJS often never reports the dropped link.
     const leave = () => { if (isConnected()) sendVersus('leave', { seed: useGameStore.getState().versus.seed }) }
@@ -105,7 +107,7 @@ export default function VersusNet() {
 // ── Rival strip: HP bar, wave, kills (or OUT). Top-right so it never meets the top-centre stats
 // or the top-left pause / HP on phones. ─────────────────────────────────────────────────────
 function RivalStrip() {
-  const show = useGameStore((s) => s.versus.active && s.runMode === 'versus' && (s.phase === 'playing' || s.phase === 'intermission' || s.phase === 'wave_clear'))
+  const show = useGameStore((s) => s.versus.active && s.versus.mode !== 'director' && s.runMode === 'versus' && (s.phase === 'playing' || s.phase === 'intermission' || s.phase === 'wave_clear'))
   const rival = useGameStore((s) => s.versus.opponent)
   if (!show) return null
   const out = !!rival && !rival.alive
@@ -141,7 +143,8 @@ function WinOverlay() {
   const phase = useGameStore((s) => s.phase)
   const seed = useGameStore((s) => s.versus.seed)
   const [dismissed, setDismissed] = useState(null)   // seed whose overlay was dismissed
-  const open = result === 'win' && LIVE_PHASES.has(phase) && dismissed !== seed
+  const director = useGameStore((s) => !!s.director?.active)
+  const open = result === 'win' && !director && LIVE_PHASES.has(phase) && dismissed !== seed
 
   useEffect(() => {
     if (!open) return undefined
