@@ -94,12 +94,8 @@ export default function Game() {
   const isActive = phase === 'playing' || phase === 'intermission'
   const inGame = phase === 'playing' || phase === 'wave_clear' || phase === 'intermission'
 
-  // Release pointer lock only when leaving active gameplay entirely
-  useEffect(() => {
-    if (!isActive && document.pointerLockElement) {
-      document.exitPointerLock?.()
-    }
-  }, [isActive])
+  // Pointer lock is never released by the game (death screen and menus use the virtual cursor,
+  // virtualCursor.js); only the browser frees the mouse.
 
   useEffect(() => installWakeLock(), [])
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../store'
-import { usePauseUi, pauseGame, resumeGame, openSettings, closeSettings, installLifecycle, lifecycleInput } from '../pause'
+import { usePauseUi, pauseGame, requestResume, openSettings, closeSettings, installLifecycle, lifecycleInput } from '../pause'
+import { setFullscreenPref } from '../desktopInput'
+import { useVirtualCursor } from '../virtualCursor'
 import { useSettings, SENS_MIN, SENS_MAX, OPACITY_MIN, OPACITY_MAX } from '../settings'
 import { getBrightness, setBrightness, BRIGHTNESS_MIN, BRIGHTNESS_MAX } from '../brightness'
 import { installAudioUnlock, playVolumePreview } from '../sounds'
@@ -41,6 +43,8 @@ export default function PauseLayer() {
   const active = phase === 'playing' || phase === 'intermission'
   const guest = mpConnected && mpRole === 'guest'
   const versusLive = useGameStore((s) => s.runMode === 'versus' && s.versus.linked)
+  const frozen = useGameStore((s) => s.paused)
+  useVirtualCursor(active && (menu === 'pause' || menu === 'settings' || glFailed))
 
   useEffect(() => {
     installAudioUnlock()
@@ -69,9 +73,9 @@ export default function PauseLayer() {
         <div style={S.root} onContextMenu={(e) => e.preventDefault()}>
           {menu === 'pause' && (
             <div style={S.col}>
-              <div style={S.title}>{versusLive ? 'MENU' : 'PAUSED'}</div>
-              {versusLive && <div style={S.away2}>Versus: no pause</div>}
-              <button style={S.btn} onClick={resumeGame}>RESUME</button>
+              <div style={S.title}>{frozen ? 'PAUSED' : 'MENU'}</div>
+              {!frozen && <div style={S.away2}>{versusLive ? 'Versus: no pause' : 'Co-op: no pause'}</div>}
+              <button style={S.btn} onClick={requestResume} data-testid="pause-resume">RESUME</button>
               <button style={S.btn} onClick={() => openSettings('pause')}>SETTINGS</button>
             </div>
           )}
@@ -161,17 +165,21 @@ function SettingsPanel({ onBack }) {
 // The control/audio rows, shared by the pause settings above and the start menu's SETTINGS panel.
 // `brightness={false}` / `audio={false}` leave those rows out (the start menu has its own
 // Display and Audio sections).
+// Touch shows the on-screen control rows; mouse and keyboard show FULLSCREEN and RAW MOUSE.
 export function ControlSettings({ brightness = true, audio = true }) {
   const st = useSettings()
   const set = st.setSetting
+  const touch = useIsTouch()
   const [bright, setBright] = useState(getBrightness)
   return (
     <div style={S.grid}>
-        <Row label="LOOK SPEED" value={`${st.lookSensitivity.toFixed(2)}x`}>
+        <Row label={touch ? 'LOOK SPEED' : 'MOUSE SPEED'} value={`${st.lookSensitivity.toFixed(2)}x`}>
           <Slider min={SENS_MIN} max={SENS_MAX} step={0.05} value={st.lookSensitivity} onChange={(v) => set('lookSensitivity', v)} label="Look speed" />
         </Row>
-        <Row label="AIM ASSIST"><Toggle on={st.aimAssist} onChange={(v) => set('aimAssist', v)} label="Aim assist" /></Row>
-        <Row label="AUTO-SHOOT"><Toggle on={st.autoShoot} onChange={(v) => set('autoShoot', v)} label="Auto-shoot" /></Row>
+        {!touch && <Row label="FULLSCREEN"><Toggle on={st.fullscreen} onChange={setFullscreenPref} label="Fullscreen" /></Row>}
+        {!touch && <Row label="RAW MOUSE"><Toggle on={st.rawMouse} onChange={(v) => set('rawMouse', v)} label="Raw mouse" /></Row>}
+        {touch && <Row label="AIM ASSIST"><Toggle on={st.aimAssist} onChange={(v) => set('aimAssist', v)} label="Aim assist" /></Row>}
+        {touch && <Row label="AUTO-SHOOT"><Toggle on={st.autoShoot} onChange={(v) => set('autoShoot', v)} label="Auto-shoot" /></Row>}
         {brightness && (
           <Row label="BRIGHTNESS" value={`${bright.toFixed(2)}x`}>
             <Slider min={BRIGHTNESS_MIN} max={BRIGHTNESS_MAX} step={0.05} value={bright} onChange={(v) => { setBrightness(v); setBright(v) }} label="Brightness" />
@@ -182,7 +190,7 @@ export function ControlSettings({ brightness = true, audio = true }) {
             <Slider min={0} max={1} step={0.05} value={st[key]} onChange={(v) => { set(key, v); playVolumePreview(preview) }} label={`${label} volume`} />
           </Row>
         ))}
-        <Row label="BUTTON SIZE">
+        {touch && <Row label="BUTTON SIZE">
           <div style={{ display: 'flex', gap: 6 }}>
             {['normal', 'large'].map((k) => (
               <button key={k} aria-pressed={st.buttonSize === k} style={{ ...S.toggle, ...(st.buttonSize === k ? S.toggleOn : null) }} onClick={() => set('buttonSize', k)}>
@@ -190,11 +198,11 @@ export function ControlSettings({ brightness = true, audio = true }) {
               </button>
             ))}
           </div>
-        </Row>
-        <Row label="BUTTON OPACITY" value={`${Math.round(st.buttonOpacity * 100)}%`}>
+        </Row>}
+        {touch && <Row label="BUTTON OPACITY" value={`${Math.round(st.buttonOpacity * 100)}%`}>
           <Slider min={OPACITY_MIN} max={OPACITY_MAX} step={0.05} value={st.buttonOpacity} onChange={(v) => set('buttonOpacity', v)} label="Button opacity" />
-        </Row>
-        <Row label="LEFT-HANDED"><Toggle on={st.leftHanded} onChange={(v) => set('leftHanded', v)} label="Left-handed" /></Row>
+        </Row>}
+        {touch && <Row label="LEFT-HANDED"><Toggle on={st.leftHanded} onChange={(v) => set('leftHanded', v)} label="Left-handed" /></Row>}
     </div>
   )
 }

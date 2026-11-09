@@ -7,6 +7,8 @@ export default defineConfig({
   // into client code so debug-only features can check it at runtime.
   define: {
     'import.meta.env.VITE_VERCEL_ENV': JSON.stringify(process.env.VERCEL_ENV || 'development'),
+    // Short commit of this build, shown on preview start menus (which build am I playing?).
+    'import.meta.env.VITE_BUILD': JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7)),
   },
   plugins: [
     react(),

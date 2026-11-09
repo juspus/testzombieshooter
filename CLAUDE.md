@@ -323,6 +323,23 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 
 ---
 
+## Desktop feel (2026-11-09)
+
+Goal: a desktop run should feel like a native game, not a web page. Touch devices skip all of this.
+
+| Area | Files / rules |
+|---|---|
+| Mouse capture | `src/desktopInput.js`. `captureMouse()` = pointer lock with raw input (`unadjustedMovement`; on `NotSupportedError`, e.g. Linux Chrome, retry plain and remember), THEN fullscreen (setting `fullscreen`). Order matters: `requestFullscreen` uses up the click's user activation, so a lock requested after it fails. PLAY (via `enterRunFullscreen`) and the canvas click both capture. Lock target = the R3F canvas (`setLockTarget` from Player, `canvas` fallback). |
+| Esc kept by the game | In our fullscreen, `navigator.keyboard.lock(['Escape'])` (Chrome/Edge): a short Esc reaches the page, holding Esc leaves fullscreen. Other browsers: Esc frees the mouse and leaves fullscreen. Neither Keyboard Lock nor raw input can be tested headless. |
+| Never release the mouse | The game never calls `exitPointerLock`. Menus (pause, settings, shop, death, start, versus win, Director cards and map) keep the lock and use the virtual cursor. Only the browser frees the mouse: Esc outside our Chrome/Edge fullscreen, holding Esc, Alt+Tab. |
+| Virtual cursor | `src/virtualCursor.js`. A screen with clickable UI calls `useVirtualCursor(open)`; the arrow shows while a screen asks AND the lock is held. It moves with `movementX/Y`, and trusted mouse/pointer/wheel events are stopped at window capture (nothing behind the menu sees them). Button presses become synthetic `pointerdown/mousedown/pointerup/mouseup/click` on `elementFromPoint` (the click goes to the nearest element holding press and release), text fields get focus, range inputs are dragged (native value setter + `input`/`change`, so React sees it), the wheel scrolls the nearest scrollable box. `:hover` can't fire, so hover styles also match `[data-vhover]` (ui.css, DirectorView.css). The trusted click keeps user activation, so fullscreen/clipboard/popups work from a virtual click. New menu UI: call `useVirtualCursor`, and add a `[data-vhover]` twin to any `:hover` rule. |
+| Pause on lost mouse | `pause.js`: when the browser frees the mouse mid-run, `onMouseLost` -> `openGameMenu` (real cursor). Solo freezes; versus and co-op (host too) open the menu without freezing, and co-op sends `away` (partner sees PARTNER AWAY) until it closes. RESUME = `requestResume`: resumes at once while the lock is held, otherwise re-captures and resumes on the lock. Esc toggles the menu (`onEscapeKey`, 400 ms guard so one press can't open and close it). The shop closing while the mouse is free opens the menu too. |
+| Other | No right-click menu (text fields keep it). `index.html` forces the arrow cursor (`!important`) over inline `cursor: pointer`. Settings: desktop shows MOUSE SPEED / FULLSCREEN / RAW MOUSE, touch rows are touch-only. |
+| Deploy updates | The service worker precaches the whole app, so a page loads the OLD build while a new deploy's worker installs. `main.jsx` (`installUpdateReload`) asks for an update check on load and reloads once on `controllerchange`, only on the start menu (never mid-run). Before this, every deploy needed two reloads. Preview start menus show `build <sha>` (`VITE_BUILD`). Test real-browser input with `/usr/bin/google-chrome` headed under `xvfb-run` and `xdotool key Escape`: Keyboard Lock needs a secure context (localhost or https). |
+| Automation | Under `navigator.webdriver` (Playwright), run starts don't capture the mouse unless the URL has `?capture=1`, so smoke scripts' positional clicks keep working. Headless pointer lock fakes movement (every move is undone by a re-centre move): browser tests drop trusted `mousemove` in an init script and place the arrow with `window.__vcursor.moveTo(x, y)` (dev), then press real buttons. |
+
+---
+
 ## Versus modes (2026-10-28, `docs/pvp-modes.html`)
 
 | Area | Files / rules |

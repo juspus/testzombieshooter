@@ -5,6 +5,24 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-11-09: Desktop feel (owner liked how kelyje2.lt feels native; that site runs the original
+  2001 Windows exe in WASM + WebGPU, not applicable to us). Built: Esc / lost mouse opens the pause
+  menu (desktop had none), PLAY captures the mouse + goes fullscreen with Esc kept by the game
+  (Keyboard Lock, Chrome/Edge), raw mouse input, no right-click menu, arrow cursor. Settings
+  FULLSCREEN / RAW MOUSE default on. Rules in CLAUDE.md "Desktop feel". Not tried in real
+  Chrome yet (Keyboard Lock and raw input can't be tested headless). No QUIT in the pause menu
+  (ending a run mid-wave needs a call on XP/score). Session env `testzombieshooter` (personal)
+  only adds kelyje2.lt to the allowed hosts.
+- 2026-11-09 (same day, owner follow-up): "Esc still works as always" -> the game never releases
+  the mouse now; every menu uses an in-game virtual cursor (src/virtualCursor.js). Told the owner
+  plainly: browsers won't let a page disable Esc; only Chrome/Edge in our fullscreen keep a short
+  Esc for the game (hold Esc exits). Firefox/Safari/windowed Chrome: Esc frees the mouse, pause
+  menu with the real cursor. Not tried in real Chrome by me (headless fakes pointer-lock movement).
+- 2026-11-09 (later): owner said the virtual cursor "does nothing" and Esc leaves the game, in
+  Chrome. Reproduced with real Chrome + xdotool under Xvfb: the latest build works (Esc -> menu,
+  fullscreen and lock kept, arrow active). Root cause was most likely the service worker serving
+  the previous build (deploys needed two reloads). Fixed in main.jsx; preview start menu now shows
+  `build <sha>` so the owner can check the version.
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the

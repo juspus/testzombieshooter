@@ -129,7 +129,7 @@
 .dv--touch .dv-key { display: none; }
 
 @media (hover: hover) {
-  .dv-unit:not(.is-locked):not(.is-closed):not(.is-sel):hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.55); }
+  .dv-unit:not(.is-locked):not(.is-closed):not(.is-sel):hover, .dv-unit:not(.is-locked):not(.is-closed):not(.is-sel)[data-vhover] { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.55); }
 }
 @media (max-height: 480px) {
   .dv-head { height: 40px; gap: 8px; }

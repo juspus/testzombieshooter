@@ -6,6 +6,7 @@ import { installRematch, resetRematch } from '../versusRematch'
 import { installMail } from '../mailRuntime'
 import { installDirector } from '../directorRuntime'
 import { Button } from './ui'
+import { useVirtualCursor } from '../virtualCursor'
 import { RematchButton, RESULT_TITLES, reasonText } from './VersusResult'
 
 const FONT = 'Courier New, monospace'
@@ -146,9 +147,9 @@ function WinOverlay() {
   const director = useGameStore((s) => !!s.director?.active)
   const open = result === 'win' && !director && LIVE_PHASES.has(phase) && dismissed !== seed
 
+  useVirtualCursor(open)
   useEffect(() => {
     if (!open) return undefined
-    try { document.exitPointerLock?.() } catch { /* ignore */ }
     useGameStore.setState({ paused: true })
     return () => useGameStore.setState({ paused: false })
   }, [open])

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { GRENADE } from '../grenades'
+import { useVirtualCursor } from '../virtualCursor'
 import { useGameStore, AK_COST, AK_CLIP, DEAGLE_COST, DEAGLE_CLIP, SHOTGUN_COST, SHOTGUN_CLIP, AMMO_PACK_COST, AMMO_PACK_AMOUNT, DEEP_POCKETS_AMMO_PACK_AMOUNT, PERK_COSTS, STRONG_PLANK_COST, CALIBER_LABELS, FLAMETHROWER_COST, FLAMETHROWER_START_AMMO, FLAMETHROWER_AMMO_PACK_COST, FLAMETHROWER_AMMO_PACK_AMOUNT, FLAME_DPS, BANDAGE_COST, BANDAGE_HEAL, HELMET_DEFS, BODY_ARMOR_DEFS } from '../store'
 
 const ITEMS = [
@@ -122,6 +123,7 @@ export default function Shop() {
   const [isMobile, setIsMobile] = useState(getIsMobileShop)
   const shopOpen = useGameStore((s) => s.shopOpen)
   const closeShop = useGameStore((s) => s.closeShop)
+  useVirtualCursor(shopOpen)
   const buyItem = useGameStore((s) => s.buyItem)
   const buyPerk = useGameStore((s) => s.buyPerk)
   const buyBandage = useGameStore((s) => s.buyBandage)

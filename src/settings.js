@@ -21,6 +21,8 @@ export const DEFAULTS = {
   volume: 1,                // master volume 0..1 (key kept as `volume` so saved values carry over)
   sfxVolume: 1,             // effects bus 0..1 (everything that isn't music)
   musicVolume: 1,           // music bus 0..1 (calm drone + wave layer)
+  fullscreen: true,         // desktop: runs go fullscreen, Esc kept by the game (desktopInput.js)
+  rawMouse: true,           // desktop: pointer lock without OS mouse acceleration where supported
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
@@ -37,6 +39,8 @@ export function sanitize(raw) {
   if (Number.isFinite(raw.volume)) o.volume = clamp(raw.volume, 0, 1)
   if (Number.isFinite(raw.sfxVolume)) o.sfxVolume = clamp(raw.sfxVolume, 0, 1)
   if (Number.isFinite(raw.musicVolume)) o.musicVolume = clamp(raw.musicVolume, 0, 1)
+  if (typeof raw.fullscreen === 'boolean') o.fullscreen = raw.fullscreen
+  if (typeof raw.rawMouse === 'boolean') o.rawMouse = raw.rawMouse
   return o
 }
 

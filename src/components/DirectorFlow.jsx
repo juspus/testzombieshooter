@@ -5,6 +5,7 @@ import { readyUp } from '../directorRuntime'
 import { DIRECTOR } from '../director'
 import { BETWEEN_S, turnAt, score } from '../directorFlow'
 import { Button } from './ui'
+import { useVirtualCursor } from '../virtualCursor'
 import { RematchButton, RESULT_TITLES } from './VersusResult'
 
 const FONT = 'Courier New, monospace'
@@ -30,9 +31,6 @@ const overlay = {
 const box = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 16, maxWidth: 'min(460px, 94vw)', textAlign: 'center' }
 const small = { fontSize: 'max(var(--ui-fs-min), 13px)', letterSpacing: 2, color: '#aaa' }
 
-function useExitLock() {
-  useEffect(() => { try { document.exitPointerLock?.() } catch { /* ignore */ } }, [])
-}
 
 function Scoreboard({ d }) {
   const sc = score(d.rounds)
@@ -42,7 +40,7 @@ function Scoreboard({ d }) {
 }
 
 function BetweenCard() {
-  useExitLock()
+  useVirtualCursor(true)   // the card keeps the mouse; desktop clicks come from the virtual cursor
   const d = useGameStore((s) => s.director)
   const [now, setNow] = useState(Date.now())
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t) }, [])
@@ -71,7 +69,7 @@ function BetweenCard() {
 }
 
 function ResultCard() {
-  useExitLock()
+  useVirtualCursor(true)   // the card keeps the mouse; desktop clicks come from the virtual cursor
   const d = useGameStore((s) => s.director)
   const reason = useGameStore((s) => s.versus.reason)
   const result = d.result ?? 'draw'

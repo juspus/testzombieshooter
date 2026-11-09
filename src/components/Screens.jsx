@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { track } from '../analytics'
+import { useVirtualCursor } from '../virtualCursor'
 import { CROSSHAIR_COLORS, SUPPORTER_SKU, describeUnlock, isUnlocked, itemsOfKind, unlockText } from '../cosmetics'
 import { hydrateStoreFromLocal, syncProfileWithCloud } from '../profilePersistence'
 import { createRunShareToken } from '../shareToken'
@@ -24,10 +25,12 @@ import { VERSUS_MODES, scoreSubmittable } from '../versus'
 import { newRunSeed } from '../rng'
 import VersusResult from './VersusResult'
 import { SkipHoldButton, ControlSettings } from './PauseMenu'
-import useMenuEnv from '../menuTouch'
 import InstallHint from './InstallHint'
 import { CheckIcon, StarIcon, ChevronIcon } from './Icons'
 import { enterRunFullscreen } from '../fullscreen'
+import useMenuEnv from '../menuTouch'
+import { useSettings, SENS_MIN, SENS_MAX } from '../settings'
+import { setFullscreenPref } from '../desktopInput'
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -424,6 +427,7 @@ const statusIsError = (s) => s.startsWith('Room not') || s.startsWith('Failed')
 // meta screens. Everything else opens as a panel beside the list (replaces it on narrow
 // portrait screens), so the first screen stays short.
 function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
+  useVirtualCursor(true)
   // W5: opening `/?join=CODE` lands on the CO-OP panel with a one-tap join (the tap also satisfies the audio-unlock gesture)
   const [invite] = useState(() => (checkoutReturn?.openLocker ? null : consumeInvite()))
   // Seed Duel: opening `/?duel=TOKEN` shows the challenge card (null for none / a bad token)
@@ -740,6 +744,9 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <div>
           <h1 className="menu-title">CABIN</h1>
           {!isMobile && hintsActive() && <div className="menu-hint">WASD · Mouse · Click</div>}
+          {import.meta.env.VITE_VERCEL_ENV !== 'production' && import.meta.env.VITE_BUILD && (
+            <div className="menu-hint" style={{ opacity: 0.5 }}>build {import.meta.env.VITE_BUILD}</div>
+          )}
         </div>
         <nav className="menu-nav" aria-label="Main menu">
           <Button variant="primary" size="lg" block onClick={() => { enterRunFullscreen(); startGame() }} disabled={roomOpen} data-testid="menu-play">Play</Button>
@@ -775,13 +782,9 @@ function SettingsPanel({ user, username, onRename }) {
   const { touch } = useMenuEnv()
   return (
     <div>
-      {touch && (
-        <>
-          <SectionLabel>Controls</SectionLabel>
-          <ControlSettings brightness={false} audio={false} />
-        </>
-      )}
-      <SectionLabel style={touch ? { marginTop: 18 } : undefined}>Audio</SectionLabel>
+      <SectionLabel>Controls</SectionLabel>
+      {touch ? <ControlSettings brightness={false} audio={false} /> : <DesktopControls />}
+      <SectionLabel style={{ marginTop: 18 }}>Audio</SectionLabel>
       <VolumeSliders />
       <SectionLabel style={{ marginTop: 18 }}>Display</SectionLabel>
       <BrightnessSlider />
@@ -805,6 +808,37 @@ function SettingsPanel({ user, username, onRename }) {
         </div>
       )}
     </div>
+  )
+}
+
+// Mouse and keyboard rows of the start-menu Controls section (UI kit rows, like Audio below).
+// The pause menu shows the same three in ControlSettings.
+function DesktopControls() {
+  const st = useSettings()
+  return (
+    <>
+      <label className="ui-setting">
+        <span>Mouse speed <span className="ui-setting__val">{st.lookSensitivity.toFixed(2)}x</span></span>
+        <input
+          type="range" className="ui-range" min={SENS_MIN} max={SENS_MAX} step={0.05} value={st.lookSensitivity}
+          aria-label="Mouse speed"
+          onChange={(e) => st.setSetting('lookSensitivity', parseFloat(e.target.value))}
+          onPointerDown={(e) => e.stopPropagation()}
+        />
+      </label>
+      <div className="ui-setting">
+        Fullscreen
+        <Button size="sm" aria-pressed={st.fullscreen} onClick={() => setFullscreenPref(!st.fullscreen)} style={{ minWidth: 64 }}>
+          {st.fullscreen ? 'On' : 'Off'}
+        </Button>
+      </div>
+      <div className="ui-setting">
+        Raw mouse
+        <Button size="sm" aria-pressed={st.rawMouse} onClick={() => st.setSetting('rawMouse', !st.rawMouse)} style={{ minWidth: 64 }}>
+          {st.rawMouse ? 'On' : 'Off'}
+        </Button>
+      </div>
+    </>
   )
 }
 
@@ -996,6 +1030,7 @@ function Sub({ children, style }) {
 }
 
 function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, username }) {
+  useVirtualCursor(true)
   const lastRunUnlocks = useGameStore((s) => s.lastRunUnlocks)
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)
