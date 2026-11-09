@@ -18,6 +18,11 @@ start of every session. Keep entries short — a few lines each.
   plainly: browsers won't let a page disable Esc; only Chrome/Edge in our fullscreen keep a short
   Esc for the game (hold Esc exits). Firefox/Safari/windowed Chrome: Esc frees the mouse, pause
   menu with the real cursor. Not tried in real Chrome by me (headless fakes pointer-lock movement).
+- 2026-11-09 (later): owner said the virtual cursor "does nothing" and Esc leaves the game, in
+  Chrome. Reproduced with real Chrome + xdotool under Xvfb: the latest build works (Esc -> menu,
+  fullscreen and lock kept, arrow active). Root cause was most likely the service worker serving
+  the previous build (deploys needed two reloads). Fixed in main.jsx; preview start menu now shows
+  `build <sha>` so the owner can check the version.
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the

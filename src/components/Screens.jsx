@@ -744,6 +744,9 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <div>
           <h1 className="menu-title">CABIN</h1>
           {!isMobile && hintsActive() && <div className="menu-hint">WASD · Mouse · Click</div>}
+          {import.meta.env.VITE_VERCEL_ENV !== 'production' && import.meta.env.VITE_BUILD && (
+            <div className="menu-hint" style={{ opacity: 0.5 }}>build {import.meta.env.VITE_BUILD}</div>
+          )}
         </div>
         <nav className="menu-nav" aria-label="Main menu">
           <Button variant="primary" size="lg" block onClick={() => { enterRunFullscreen(); startGame() }} disabled={roomOpen} data-testid="menu-play">Play</Button>
