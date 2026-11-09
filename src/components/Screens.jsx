@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { track } from '../analytics'
+import { useVirtualCursor } from '../virtualCursor'
 import { CROSSHAIR_COLORS, SUPPORTER_SKU, describeUnlock, isUnlocked, itemsOfKind, unlockText } from '../cosmetics'
 import { hydrateStoreFromLocal, syncProfileWithCloud } from '../profilePersistence'
 import { createRunShareToken } from '../shareToken'
@@ -426,6 +427,7 @@ const statusIsError = (s) => s.startsWith('Room not') || s.startsWith('Failed')
 // meta screens. Everything else opens as a panel beside the list (replaces it on narrow
 // portrait screens), so the first screen stays short.
 function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn }) {
+  useVirtualCursor(true)
   // W5: opening `/?join=CODE` lands on the CO-OP panel with a one-tap join (the tap also satisfies the audio-unlock gesture)
   const [invite] = useState(() => (checkoutReturn?.openLocker ? null : consumeInvite()))
   // Seed Duel: opening `/?duel=TOKEN` shows the challenge card (null for none / a bad token)
@@ -1025,6 +1027,7 @@ function Sub({ children, style }) {
 }
 
 function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, username }) {
+  useVirtualCursor(true)
   const lastRunUnlocks = useGameStore((s) => s.lastRunUnlocks)
   const [opacity, setOpacity] = useState(0)
   const [btnVisible, setBtnVisible] = useState(false)

@@ -90,6 +90,7 @@ import { mobileInput, mobileState, consumeMobileLook, consumeMobilePressed } fro
 import { getSettings } from '../settings'
 import { lifecycleInput, usePauseUi, onEscapeKey } from '../pause'
 import { setLockTarget, captureMouse } from '../desktopInput'
+import { onCursorActive } from '../virtualCursor'
 import * as THREE from 'three'
 import { playDoorDenied } from '../sounds'
 import { doorBuyStatus } from '../doors'
@@ -316,23 +317,10 @@ export default function Player() {
     if (s.menu && !p.menu) { keys.current = {}; mouseHeldRef.current = false }
   }), [])
 
-  // Sync shopOpen ref and manage pointer lock: the shop frees the cursor, and
-  // closing it re-locks if we had the lock going in (never true on touch).
-  // Not on Escape: it's the browser's own unlock key, and on Windows Chrome
-  // re-handles that same press after we re-lock, leaving the mouse half-locked.
-  const relockAfterShopRef = useRef(false)
-  useEffect(() => {
-    shopOpenRef.current = shopOpen
-    if (shopOpen) {
-      // Only ever set here: this re-runs when requestLock changes (phase), by
-      // which point the lock is already released.
-      if (locked.current) relockAfterShopRef.current = true
-      document.exitPointerLock?.()
-    } else if (relockAfterShopRef.current) {
-      relockAfterShopRef.current = false
-      requestLock()
-    }
-  }, [shopOpen, requestLock])
+  // The shop keeps the mouse: on desktop its clicks come from the virtual cursor (virtualCursor.js).
+  useEffect(() => { shopOpenRef.current = shopOpen }, [shopOpen])
+  // A menu's arrow takes the mouse: a held trigger must not keep firing behind it or after it.
+  useEffect(() => onCursorActive((on) => { if (on) mouseHeldRef.current = false }), [])
 
   useEffect(() => {
     const onLockChange = () => {
@@ -347,7 +335,6 @@ export default function Player() {
     const onKeyDown = (e) => {
       if (e.code === 'Escape') {
         if (shopOpenRef.current) {
-          relockAfterShopRef.current = false
           closeShop()
           return
         }

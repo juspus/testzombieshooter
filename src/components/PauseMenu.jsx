@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useGameStore } from '../store'
 import { usePauseUi, pauseGame, requestResume, openSettings, closeSettings, installLifecycle, lifecycleInput } from '../pause'
 import { setFullscreenPref } from '../desktopInput'
+import { useVirtualCursor } from '../virtualCursor'
 import { useSettings, SENS_MIN, SENS_MAX, OPACITY_MIN, OPACITY_MAX } from '../settings'
 import { getBrightness, setBrightness, BRIGHTNESS_MIN, BRIGHTNESS_MAX } from '../brightness'
 import { installAudioUnlock, playVolumePreview } from '../sounds'
@@ -43,6 +44,7 @@ export default function PauseLayer() {
   const guest = mpConnected && mpRole === 'guest'
   const versusLive = useGameStore((s) => s.runMode === 'versus' && s.versus.linked)
   const frozen = useGameStore((s) => s.paused)
+  useVirtualCursor(active && (menu === 'pause' || menu === 'settings' || glFailed))
 
   useEffect(() => {
     installAudioUnlock()

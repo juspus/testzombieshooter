@@ -13,6 +13,11 @@ start of every session. Keep entries short — a few lines each.
   Chrome yet (Keyboard Lock and raw input can't be tested headless). No QUIT in the pause menu
   (ending a run mid-wave needs a call on XP/score). Session env `testzombieshooter` (personal)
   only adds kelyje2.lt to the allowed hosts.
+- 2026-11-09 (same day, owner follow-up): "Esc still works as always" -> the game never releases
+  the mouse now; every menu uses an in-game virtual cursor (src/virtualCursor.js). Told the owner
+  plainly: browsers won't let a page disable Esc; only Chrome/Edge in our fullscreen keep a short
+  Esc for the game (hold Esc exits). Firefox/Safari/windowed Chrome: Esc frees the mouse, pause
+  menu with the real cursor. Not tried in real Chrome by me (headless fakes pointer-lock movement).
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the

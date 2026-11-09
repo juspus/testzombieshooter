@@ -19,8 +19,9 @@ const noop = () => {}
 
 export const setLockTarget = (el) => { _target = el }
 // Player registers the R3F canvas; a PLAY click right after load can beat that mount, so fall back
-// to the page's canvas (the R3F one is the only canvas in the DOM).
-export const getLockTarget = () => _target || (typeof document !== 'undefined' ? document.querySelector('canvas') : null)
+// to the three.js canvas (three marks it data-engine; the Director map is a second canvas).
+export const getLockTarget = () => _target || (typeof document !== 'undefined'
+  ? document.querySelector('canvas[data-engine]') || document.querySelector('canvas') : null)
 export const usesPointerLock = () => !getIsTouchScreen()
 
 // Settles once the lock request is answered (the result itself arrives as pointerlockchange /

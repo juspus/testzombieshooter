@@ -66,10 +66,10 @@
 .ui-btn--ghost { border-color: transparent; background: transparent; color: var(--ui-dim); }
 
 @media (hover: hover) {
-  .ui-btn:not(:disabled):hover { border-color: #fff; color: #fff; background: rgba(255, 255, 255, 0.08); }
-  .ui-btn--primary:not(:disabled):hover { background: var(--ui-accent); border-color: var(--ui-accent); color: #000; }
-  .ui-btn--gold:not(:disabled):hover { background: var(--ui-gold); border-color: var(--ui-gold); color: #000; }
-  .ui-btn--ghost:not(:disabled):hover { background: transparent; border-color: transparent; color: #fff; }
+  .ui-btn:not(:disabled):hover, .ui-btn:not(:disabled)[data-vhover] { border-color: #fff; color: #fff; background: rgba(255, 255, 255, 0.08); }
+  .ui-btn--primary:not(:disabled):hover, .ui-btn--primary:not(:disabled)[data-vhover] { background: var(--ui-accent); border-color: var(--ui-accent); color: #000; }
+  .ui-btn--gold:not(:disabled):hover, .ui-btn--gold:not(:disabled)[data-vhover] { background: var(--ui-gold); border-color: var(--ui-gold); color: #000; }
+  .ui-btn--ghost:not(:disabled):hover, .ui-btn--ghost:not(:disabled)[data-vhover] { background: transparent; border-color: transparent; color: #fff; }
 }
 .ui-btn:not(:disabled):active { transform: translateY(1px); }
 .ui-btn:disabled { opacity: 0.4; cursor: default; }
@@ -193,7 +193,7 @@
   cursor: pointer;
 }
 .ui-tab[aria-selected='true'] { color: var(--ui-accent); border-bottom-color: var(--ui-accent); background: var(--ui-accent-soft); }
-@media (hover: hover) { .ui-tab:hover { color: #fff; } }
+@media (hover: hover) { .ui-tab:hover, .ui-tab[data-vhover] { color: #fff; } }
 
 /* ── Option rows (radio-style pickers) ───────────────────────────────────── */
 
@@ -217,7 +217,7 @@
 .ui-option + .ui-option { margin-top: 4px; }
 .ui-option[aria-checked='true'] { border-color: rgba(255, 51, 0, 0.5); border-left-color: var(--ui-accent); background: var(--ui-accent-soft); color: #fff; }
 .ui-option:disabled { cursor: default; color: var(--ui-faint); }
-@media (hover: hover) { .ui-option:not(:disabled):hover { border-left-color: var(--ui-accent); color: #fff; } }
+@media (hover: hover) { .ui-option:not(:disabled):hover, .ui-option:not(:disabled)[data-vhover] { border-left-color: var(--ui-accent); color: #fff; } }
 
 .ui-option__label, .ui-option__sub { display: block; }
 .ui-option__label { font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
@@ -290,7 +290,7 @@
 }
 .menu-item[aria-current='true'] { background: var(--ui-accent-soft); border-left-color: var(--ui-accent); color: #fff; }
 @media (hover: hover) {
-  .menu-item:not(:disabled):hover { background: var(--ui-accent-soft); border-left-color: var(--ui-accent); color: #fff; }
+  .menu-item:not(:disabled):hover, .menu-item:not(:disabled)[data-vhover] { background: var(--ui-accent-soft); border-left-color: var(--ui-accent); color: #fff; }
 }
 .menu-item:disabled { opacity: 0.35; cursor: default; }
 .menu-item__meta { flex: none; font-size: 11px; font-weight: normal; letter-spacing: 1px; color: var(--ui-dim); }
@@ -363,7 +363,7 @@
   letter-spacing: 2px;
   cursor: pointer;
 }
-@media (hover: hover) { .ui-level:hover { border-color: var(--ui-gold); } }
+@media (hover: hover) { .ui-level:hover, .ui-level[data-vhover] { border-color: var(--ui-gold); } }
 .ui-level__bar { width: clamp(50px, 10vmin, 90px); height: 5px; background: rgba(255, 255, 255, 0.12); border-radius: 3px; overflow: hidden; }
 .ui-level__fill { display: block; height: 100%; background: var(--ui-gold); }
 .ui-level__xp { color: var(--ui-dim); font-size: 11px; letter-spacing: 1px; }
@@ -415,3 +415,6 @@
 @media (pointer: coarse) {
   .ui-range { height: 44px; margin: 0; touch-action: pan-y; }
 }
+
+/* Virtual cursor (virtualCursor.js) over buttons without a kit hover style (inline-styled menus). */
+button:not(:disabled):not(.ui-btn):not(.menu-item):not(.ui-tab):not(.ui-option)[data-vhover] { filter: brightness(1.35); }

@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import { preloadSupabase } from './supabase'
 import { installDesktopFeel } from './desktopInput'
+import { installVirtualCursor } from './virtualCursor'
 
 installDesktopFeel()
+installVirtualCursor()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

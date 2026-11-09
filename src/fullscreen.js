@@ -11,6 +11,9 @@ export function enterRunFullscreen() {
   try {
     if (typeof document === 'undefined' || typeof navigator === 'undefined') return
     if (!getIsTouchScreen()) {
+      // Automation (Playwright smoke scripts) clicks menus by position, which a held mouse would
+      // turn into virtual-cursor clicks: no auto-capture there unless the URL asks (?capture=1).
+      if (navigator.webdriver && new URLSearchParams(window.location.search).get('capture') !== '1') return
       // Callers start the run right after this call. A timeout keeps the click's user activation
       // (about 5 s) and lets us see whether a run really started (a lobby JOIN does not).
       setTimeout(() => {

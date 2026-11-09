@@ -13,6 +13,7 @@ import { getMap, getInitialMapId } from '../maps'
 import { MSG, decodeZombie } from '../director'
 import { sendVersus } from '../versus'
 import useMenuEnv from '../menuTouch'
+import { useVirtualCursor } from '../virtualCursor'
 import {
   UNIT_RADIUS, mapBounds, fitMap, project, yawToScreen,
   availableBudget, reconcilePending, buyWave, spawnOpen, unitRows, modRows,
@@ -56,6 +57,7 @@ export default function DirectorView({ send = sendVersus }) {
 }
 
 function DirectorScreen({ send }) {
+  useVirtualCursor(true)
   const director = useGameStore((s) => s.director)
   const seed = useGameStore((s) => s.runSeed)
   const view = director?.view ?? null

@@ -61,10 +61,9 @@ export function pauseGame(local = false) {
   return true
 }
 
+// The menu keeps the mouse: with pointer lock held, the virtual cursor (virtualCursor.js) clicks it.
 function showMenu() {
   dropInputs()
-  // Only when held: a stray exitPointerLock() would let the browser re-lock without a click.
-  try { if (document.pointerLockElement) document.exitPointerLock?.() } catch { /* ignore */ }
   if (!usePauseUi.getState().menu) _menuAt = performance.now()
   ui({ menu: 'pause', count: 0 })
 }
@@ -84,8 +83,8 @@ export function openGameMenu() {
   return pauseGame()
 }
 
-// The mouse left pointer lock mid-run (Esc, Alt+Tab, held Esc in fullscreen). Code that frees the
-// mouse on purpose sets shopOpen, paused or the menu first, so it lands in the early returns.
+// The browser freed the mouse mid-run (Esc outside Chrome/Edge fullscreen, held Esc, Alt+Tab). The
+// game itself never releases pointer lock; screens that need clicks use the virtual cursor.
 export function onMouseLost() {
   const st = useGameStore.getState()
   if (!isActivePhase(st.phase) || st.shopOpen) return false
@@ -96,8 +95,9 @@ export function onMouseLost() {
   return openGameMenu()
 }
 
-// RESUME. Desktop needs the mouse back first (a click on RESUME is the gesture), so the resume
-// itself waits for pointerlockchange; if the browser refuses, the menu just stays up.
+// RESUME. With the mouse still held (virtual cursor), resume at once. If the browser freed it, the
+// real click on RESUME is the gesture to take it back; the resume waits for pointerlockchange, and
+// if the browser refuses, the menu just stays up.
 export function requestResume() {
   if (!usesPointerLock() || !getLockTarget() || document.pointerLockElement) { resumeGame(); return }
   _resumeWanted = true
@@ -105,8 +105,9 @@ export function requestResume() {
 }
 
 // Esc keydown (desktop). With Keyboard Lock (our fullscreen in Chrome/Edge) it arrives while the
-// mouse is still locked; otherwise the browser has usually freed the mouse already, and the same
-// press can arrive just after onMouseLost opened the menu (hence the 400 ms guard).
+// mouse is still locked and toggles the menu like a native game; otherwise the browser has usually
+// freed the mouse already, and the same press can arrive just after onMouseLost opened the menu
+// (hence the 400 ms guard).
 export function onEscapeKey() {
   const { menu } = usePauseUi.getState()
   if (!menu) { openGameMenu(); return }
@@ -225,6 +226,10 @@ export function installLifecycle() {
       }
       if (!st.paused && usePauseUi.getState().menu) { clearTimer(); ui({ menu: null, count: 0 }) }
     }
+    // Desktop: the shop closed while the browser had freed the mouse (Esc in the shop outside our
+    // fullscreen) -> pause menu, whose RESUME takes the mouse back. Never unlocked mid-run, no menu.
+    if (prev.shopOpen && !st.shopOpen && isActivePhase(st.phase) && usesPointerLock() && getLockTarget()
+      && !document.pointerLockElement && !usePauseUi.getState().menu) openGameMenu()
     // A run that ends/moves on (death, restart) must never leave a stale pause behind.
     if (st.phase !== prev.phase && !isActivePhase(st.phase)) {
       clearTimer()
