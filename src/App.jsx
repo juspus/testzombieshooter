@@ -5,10 +5,12 @@ import Game from './components/Game'
 // bundle path is unchanged.
 const TestLab = lazy(() => import('./components/TestLab'))
 const ModelPlayground = lazy(() => import('./playground/ModelPlayground'))
+const SoundDesigner = lazy(() => import('./components/SoundDesigner'))
 
 export default function App() {
   if (typeof window !== 'undefined') {
     const q = new URLSearchParams(window.location.search)
+    if (q.has('sfx')) return <Suspense fallback={null}><SoundDesigner /></Suspense>
     if (q.has('models')) return <Suspense fallback={null}><ModelPlayground /></Suspense>
     if (window.location.search.includes('testlab')) return <Suspense fallback={null}><TestLab /></Suspense>
   }
