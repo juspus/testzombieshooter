@@ -5,6 +5,20 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- Tech roadmap (2026-11-10, owner asked for a technical one to brainstorm):
+  https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF (source `docs/tech-roadmap.html`,
+  republish from that file with the URL). Same picks model: ArtifactData `list` on `calls`
+  (card ids `t-*`, decisions `d-order` and `d-types` = A/B/C/talk), write `progress/<id>` when
+  building/shipped. Waves: T0 board up (CI, perf budget, solo smoke, lint) -> T1 lighter
+  zombies (hitboxes, merge zombie to ~12 parts, bake static cabin, lazy versus code) -> T2 room
+  by room (mode rules, store slices, one file per gun, zombie AI out of React, registry, file
+  splits) -> T3 signal (net protocol + version, crash reports, checkJs) -> T4 nights (docs trim,
+  knip, balance sim). Baseline measured headless on e198bc9: src 13,908 -> 28,449 lines since
+  10-26; 117 meshes/zombie; wave 8 = 5,044 nodes, 4,442 meshes; wave 1 = 723 draws; mobile
+  auto-shoot targeting 2.05 ms/frame vs 0.03 ms with box hitboxes; shotgun shot 5.1 ms; main
+  chunk 172 kB gzip (146 on 10-28); 90 mode checks in 15 files; no CI at all. Measure scripts
+  were in the session scratchpad (gone); t-budget rebuilds them. Waiting on owner picks.
+
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the

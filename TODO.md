@@ -57,6 +57,8 @@ Prioritised in the mobile roadmap (`docs/mobile-roadmap.html`, link in MEMORY.md
 
 ## Tech / dev
 
+Prioritised in the tech roadmap (`docs/tech-roadmap.html`, link in MEMORY.md).
+
 - **Rapier physics** — evaluate replacing manual collision with @react-three/rapier for cleaner wall/zombie interactions (deferred pending clear need)
 - **Split Arena.jsx** — it's large; candidate split: `Cabin.jsx` (geometry), `Lighting.jsx`, `Props.jsx`
 - **E2E smoke test** — Playwright: load game, start wave, kill one zombie, reach wave 2
