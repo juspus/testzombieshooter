@@ -5,6 +5,39 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- LIVE ROADMAP (2026-11-11, owner: "merge roadmaps, build them further"): "Night After Night",
+  https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF (source `docs/next-roadmap.html`, republish from
+  that file with the URL; it replaced the 10-Nov tech roadmap at the same link). It supersedes the
+  Cabin Roadmap and Cabin on a Phone (both shipped); their open items moved in (quest, new maps,
+  mastery as cards; seasons, 3-4 players under Not now; owner-only list). Picks: ArtifactData
+  `list` on `calls` (cards `p-*`/`t-*`, decisions `d-sequence`, `d-point`, `d-firstrun`, `d-types` =
+  A/B/C/talk; the old `d-order` doc is the tech page's pick, C = "features first"); write `progress/<id>` when building/shipped. Track 1 (progression): 0 board up
+  (p-boards + CI/budget/smoke/lint) -> P1 something to find (feats unlock guns/perks/gear/box/
+  bench/diner; Journal; unlock moment; legacy; seeded modes use the full set) -> P2 every run
+  counts (levels pay every time, NEW BEST, challenges aim at next unlock) -> P3 reasons for tonight
+  (Daily up front, last week's result, nights tally, no streaks) -> P4 longer nights (harder-night
+  dials, survivors with a rule, mastery, quest, third map). Track 2 = the tech cards (T1-T4).
+  Draft unlock list + run-1 set are in the page (UNLOCKS / START_SET). Owner had SKIPPED special
+  waves and CrazyGames/Poki on 27 Oct: don't re-propose.
+  Owner picks made on the tech page before the merge (carried, same ids): Go on every tech card
+  except Skip t-modes and Skip t-checkjs (yet d-types = A, ask); old d-order = C (features first).
+  Progression cards and the three new decisions: no picks yet.
+- Owner feedback 2026-11-11: "progression feels flat, no reason to come back, no point".
+  Diagnosis: run 1 has everything (6 guns in the box, doors, bench, all perks/power-ups); 11 level
+  rewards, 7 cosmetic, last at L20; XP curve assumes long runs (10 waves ~870 XP, but a wave-3 run
+  ~95 XP, so L5 takes ~9 runs); achievements/challenges pay badges and XP only; no way to win.
+  Advised against permanent stat upgrades.
+- PRODUCTION FACTS (2026-11-11, Supabase project "cabin"): only 3 of 6 migrations applied; missing
+  20261015 (hardening) and 20261027 (daily/weekly boards), so the Daily ranked attempt throws
+  daily_unavailable and the weekly board falls back to all-time. events 25 Oct-10 Nov: 49 devices,
+  101 sessions, 5 came back another day, median recorded death wave 3, 6 daily starts / 2 ends,
+  22 challenges, 87 achievements (webdriver excluded; owner/preview visits included).
+  privacy.html/terms.html still have [OWNER_*] placeholders. 0 entitlements.
+- Tech baseline (2026-11-10, headless on e198bc9): src 13,908 -> 28,449 lines since 10-26; 117
+  meshes/zombie; wave 8 = 5,044 nodes, 4,442 meshes; wave 1 = 723 draws; mobile auto-shoot
+  targeting 2.05 ms/frame vs 0.03 ms with box hitboxes; shotgun shot 5.1 ms; main chunk 172 kB gzip
+  (146 on 10-28); 90 mode checks in 15 files; no CI. Measure scripts were in the session
+  scratchpad (gone); t-budget rebuilds them.
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the
