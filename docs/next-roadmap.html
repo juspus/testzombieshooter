@@ -447,8 +447,8 @@ footer li { min-width: 0; overflow-wrap: anywhere; }
 // dep: a decision that shapes this card (picking 'C' there dims it).  carried: note from an earlier roadmap.
 // track: 'p' (reasons to come back) or 't' (under the floorboards).
 const DECISIONS = {
-  'd-order': { title: 'What runs first?',
-    intro: `Next on the versus list were the combat core, Horde Duel and Hunter. This plan competes with those for the same sessions.`,
+  'd-sequence': { title: 'What runs first?',
+    intro: `On the tech page you picked "Features first". The options changed when the plans merged, so this needs a fresh pick. Next on the versus list were the combat core, Horde Duel and Hunter, and this plan competes with them for the same sessions.`,
     options: [
       { key: 'A', rec: true, title: 'Progression first',
         text: `Wave 0, then P1 and P2, with tech cards pulled in when a progression card needs them (one file per gun before the unlock list). Versus waits.` },
@@ -893,7 +893,7 @@ function trackHeadHtml(h) {
 
 document.getElementById('waves').innerHTML = WAVES.map((w) =>
   w.head ? trackHeadHtml(w) : w.decisionRef ? decisionHtml(w.decisionRef) : waveHtml(w)).join('')
-document.getElementById('d-order-slot').innerHTML = decisionHtml('d-order')
+document.getElementById('d-order-slot').innerHTML = decisionHtml('d-sequence')
 
 function planHtml() {
   const chip = (id) => `<a href="#${id.startsWith('p-') || id.startsWith('t-') ? 'item-' + id : id}" data-chip="${id}">${esc(TITLES[id])}</a>`

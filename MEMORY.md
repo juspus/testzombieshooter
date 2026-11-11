@@ -10,15 +10,18 @@ start of every session. Keep entries short — a few lines each.
   that file with the URL; it replaced the 10-Nov tech roadmap at the same link). It supersedes the
   Cabin Roadmap and Cabin on a Phone (both shipped); their open items moved in (quest, new maps,
   mastery as cards; seasons, 3-4 players under Not now; owner-only list). Picks: ArtifactData
-  `list` on `calls` (cards `p-*`/`t-*`, decisions `d-order`, `d-point`, `d-firstrun`, `d-types` =
-  A/B/C/talk); write `progress/<id>` when building/shipped. Track 1 (progression): 0 board up
+  `list` on `calls` (cards `p-*`/`t-*`, decisions `d-sequence`, `d-point`, `d-firstrun`, `d-types` =
+  A/B/C/talk; the old `d-order` doc is the tech page's pick, C = "features first"); write `progress/<id>` when building/shipped. Track 1 (progression): 0 board up
   (p-boards + CI/budget/smoke/lint) -> P1 something to find (feats unlock guns/perks/gear/box/
   bench/diner; Journal; unlock moment; legacy; seeded modes use the full set) -> P2 every run
   counts (levels pay every time, NEW BEST, challenges aim at next unlock) -> P3 reasons for tonight
   (Daily up front, last week's result, nights tally, no streaks) -> P4 longer nights (harder-night
   dials, survivors with a rule, mastery, quest, third map). Track 2 = the tech cards (T1-T4).
   Draft unlock list + run-1 set are in the page (UNLOCKS / START_SET). Owner had SKIPPED special
-  waves and CrazyGames/Poki on 27 Oct: don't re-propose. Waiting on picks.
+  waves and CrazyGames/Poki on 27 Oct: don't re-propose.
+  Owner picks made on the tech page before the merge (carried, same ids): Go on every tech card
+  except Skip t-modes and Skip t-checkjs (yet d-types = A, ask); old d-order = C (features first).
+  Progression cards and the three new decisions: no picks yet.
 - Owner feedback 2026-11-11: "progression feels flat, no reason to come back, no point".
   Diagnosis: run 1 has everything (6 guns in the box, doors, bench, all perks/power-ups); 11 level
   rewards, 7 cosmetic, last at L20; XP curve assumes long runs (10 waves ~870 XP, but a wave-3 run
