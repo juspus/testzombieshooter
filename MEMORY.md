@@ -5,6 +5,14 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-11-11 OWNER: "progression feels flat, no reason to come back, no point." Diagnosis:
+  run 1 already has everything (all 6 guns in the box, doors, bench, power-ups, modifiers);
+  11 level rewards, 7 cosmetic, last one at L20 (80 empty levels); a 10-wave run is ~870 XP,
+  so L16 takes ~17 runs and L20 ~30; the 27 achievements and the challenges pay badges/XP
+  only; a run has no ending. Proposed "unlock by doing" (feats add guns/perks/zombies/maps to
+  the game; death screen shows NEW + next 3 goals), plus in-run NEW BEST and milestone waves.
+  Advised against permanent stat upgrades. Waiting on the owner's direction.
+
 - Tech roadmap (2026-11-10, owner asked for a technical one to brainstorm):
   https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF (source `docs/tech-roadmap.html`,
   republish from that file with the URL). Same picks model: ArtifactData `list` on `calls`
