@@ -1,7 +1,7 @@
 # TODO.md
 
 Ideas and deferred work to return to. No priority order — discuss before picking one up.
-The prioritised plan lives in the roadmap (`docs/roadmap.html`, link in MEMORY.md);
+The prioritised plan lives in the live roadmap (`docs/next-roadmap.html`, link in MEMORY.md);
 this file stays the raw idea stash.
 
 ---
@@ -57,7 +57,7 @@ Prioritised in the mobile roadmap (`docs/mobile-roadmap.html`, link in MEMORY.md
 
 ## Tech / dev
 
-Prioritised in the tech roadmap (`docs/tech-roadmap.html`, link in MEMORY.md).
+Prioritised in the live roadmap (`docs/next-roadmap.html`, track two).
 
 - **Rapier physics** — evaluate replacing manual collision with @react-three/rapier for cleaner wall/zombie interactions (deferred pending clear need)
 - **Split Arena.jsx** — it's large; candidate split: `Cabin.jsx` (geometry), `Lighting.jsx`, `Props.jsx`

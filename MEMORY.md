@@ -5,28 +5,36 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
-- 2026-11-11 OWNER: "progression feels flat, no reason to come back, no point." Diagnosis:
-  run 1 already has everything (all 6 guns in the box, doors, bench, power-ups, modifiers);
-  11 level rewards, 7 cosmetic, last one at L20 (80 empty levels); a 10-wave run is ~870 XP,
-  so L16 takes ~17 runs and L20 ~30; the 27 achievements and the challenges pay badges/XP
-  only; a run has no ending. Proposed "unlock by doing" (feats add guns/perks/zombies/maps to
-  the game; death screen shows NEW + next 3 goals), plus in-run NEW BEST and milestone waves.
-  Advised against permanent stat upgrades. Waiting on the owner's direction.
-
-- Tech roadmap (2026-11-10, owner asked for a technical one to brainstorm):
-  https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF (source `docs/tech-roadmap.html`,
-  republish from that file with the URL). Same picks model: ArtifactData `list` on `calls`
-  (card ids `t-*`, decisions `d-order` and `d-types` = A/B/C/talk), write `progress/<id>` when
-  building/shipped. Waves: T0 board up (CI, perf budget, solo smoke, lint) -> T1 lighter
-  zombies (hitboxes, merge zombie to ~12 parts, bake static cabin, lazy versus code) -> T2 room
-  by room (mode rules, store slices, one file per gun, zombie AI out of React, registry, file
-  splits) -> T3 signal (net protocol + version, crash reports, checkJs) -> T4 nights (docs trim,
-  knip, balance sim). Baseline measured headless on e198bc9: src 13,908 -> 28,449 lines since
-  10-26; 117 meshes/zombie; wave 8 = 5,044 nodes, 4,442 meshes; wave 1 = 723 draws; mobile
-  auto-shoot targeting 2.05 ms/frame vs 0.03 ms with box hitboxes; shotgun shot 5.1 ms; main
-  chunk 172 kB gzip (146 on 10-28); 90 mode checks in 15 files; no CI at all. Measure scripts
-  were in the session scratchpad (gone); t-budget rebuilds them. Waiting on owner picks.
-
+- LIVE ROADMAP (2026-11-11, owner: "merge roadmaps, build them further"): "Night After Night",
+  https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF (source `docs/next-roadmap.html`, republish from
+  that file with the URL; it replaced the 10-Nov tech roadmap at the same link). It supersedes the
+  Cabin Roadmap and Cabin on a Phone (both shipped); their open items moved in (quest, new maps,
+  mastery as cards; seasons, 3-4 players under Not now; owner-only list). Picks: ArtifactData
+  `list` on `calls` (cards `p-*`/`t-*`, decisions `d-order`, `d-point`, `d-firstrun`, `d-types` =
+  A/B/C/talk); write `progress/<id>` when building/shipped. Track 1 (progression): 0 board up
+  (p-boards + CI/budget/smoke/lint) -> P1 something to find (feats unlock guns/perks/gear/box/
+  bench/diner; Journal; unlock moment; legacy; seeded modes use the full set) -> P2 every run
+  counts (levels pay every time, NEW BEST, challenges aim at next unlock) -> P3 reasons for tonight
+  (Daily up front, last week's result, nights tally, no streaks) -> P4 longer nights (harder-night
+  dials, survivors with a rule, mastery, quest, third map). Track 2 = the tech cards (T1-T4).
+  Draft unlock list + run-1 set are in the page (UNLOCKS / START_SET). Owner had SKIPPED special
+  waves and CrazyGames/Poki on 27 Oct: don't re-propose. Waiting on picks.
+- Owner feedback 2026-11-11: "progression feels flat, no reason to come back, no point".
+  Diagnosis: run 1 has everything (6 guns in the box, doors, bench, all perks/power-ups); 11 level
+  rewards, 7 cosmetic, last at L20; XP curve assumes long runs (10 waves ~870 XP, but a wave-3 run
+  ~95 XP, so L5 takes ~9 runs); achievements/challenges pay badges and XP only; no way to win.
+  Advised against permanent stat upgrades.
+- PRODUCTION FACTS (2026-11-11, Supabase project "cabin"): only 3 of 6 migrations applied; missing
+  20261015 (hardening) and 20261027 (daily/weekly boards), so the Daily ranked attempt throws
+  daily_unavailable and the weekly board falls back to all-time. events 25 Oct-10 Nov: 49 devices,
+  101 sessions, 5 came back another day, median recorded death wave 3, 6 daily starts / 2 ends,
+  22 challenges, 87 achievements (webdriver excluded; owner/preview visits included).
+  privacy.html/terms.html still have [OWNER_*] placeholders. 0 entitlements.
+- Tech baseline (2026-11-10, headless on e198bc9): src 13,908 -> 28,449 lines since 10-26; 117
+  meshes/zombie; wave 8 = 5,044 nodes, 4,442 meshes; wave 1 = 723 draws; mobile auto-shoot
+  targeting 2.05 ms/frame vs 0.03 ms with box hitboxes; shotgun shot 5.1 ms; main chunk 172 kB gzip
+  (146 on 10-28); 90 mode checks in 15 files; no CI. Measure scripts were in the session
+  scratchpad (gone); t-budget rebuilds them.
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the
