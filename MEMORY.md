@@ -5,6 +5,10 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- 2026-11-10: Fixed a black strip at the bottom on load that only a resize cleared (owner report).
+  Cause: Game.jsx dropped every height-only resize under 15% (FilteredResizeObserver + a gl.setSize
+  override, old iOS URL-bar hack), so a bookmarks bar / URL bar change after load left the canvas
+  short. Now R3F resizes always, debounced (resize 100 ms). Guard: src/__tests__/canvasResize.test.js.
 - The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
   wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
   alternate who defends first). Owner disliked the first director screen; picked the
