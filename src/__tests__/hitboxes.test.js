@@ -10,7 +10,6 @@ function makeBox(part, box) {
   const m = new THREE.Mesh(HB_GEO, HB_MAT)
   m.position.set(...box.p)
   m.scale.set(...box.s)
-  m.rotation.x = box.r ?? 0
   m.visible = false
   m.layers.set(HITBOX_LAYER)
   m.userData = { hitbox: part, isHead: part === 'head' }
@@ -61,13 +60,6 @@ describe('hitbox specs', () => {
     expect(sp.armR).toBeNull()
     expect(sp.limbUpper).toBeTruthy()
     expect(sp.limbLower).toBeTruthy()
-  })
-
-  it('the head box sits above the torso box (little overlap, so head and body hits stay distinct)', () => {
-    const s = hitboxSpec('walker')
-    const headBottom = s.head.p[1] - s.head.s[1] / 2
-    const torsoTop = s.torso.p[1] + s.torso.s[1] / 2
-    expect(headBottom).toBeGreaterThanOrEqual(torsoTop - 0.05)
   })
 })
 
@@ -128,15 +120,6 @@ describe('zombieBoxHit', () => {
     rc.far = 10
     expect(zombieBoxHit(rc, root)).toBeNull()
   })
-
-  it('a slanted (rotated) box is hit where the rotated shape is, not its axis-aligned bounds', () => {
-    const root = new THREE.Group()
-    root.add(makeBox('arm', { p: [0, 0, 0], s: [0.14, 0.14, 0.6], r: Math.PI / 2 }))   // z-long box turned to y-long
-    root.updateMatrixWorld(true)
-    expect(zombieBoxHit(ray(0, 0.25, 5, 0, 0, -1), root)).toBeTruthy()
-    expect(zombieBoxHit(ray(0, 0, 5, 0.0, 0, -1), root)).toBeTruthy()
-    expect(zombieBoxHit(ray(0.2, 0, 5, 0, 0, -1), root)).toBeNull()
-  })
 })
 
 describe('hitboxes are invisible to visual-tree raycasts', () => {
@@ -188,13 +171,34 @@ describe('hitZombieRay', () => {
     expect(hh.point.z).toBeCloseTo(0.14, 2)
   })
 
-  it('a ray that hits only the generous part of a box still counts, at the box surface', () => {
+  it('a ray inside a box but missing the visual body is a miss (boxes are only a broad phase)', () => {
     const { root } = makeZombie()
     // x = 0.28 is inside the torso box (0.3) but outside the visual body (0.25)
-    const h = hitZombieRay(ray(0.28, 0, 5, 0, 0, -1), root)
-    expect(h).toBeTruthy()
-    expect(h.isHead).toBe(false)
-    expect(h.distance).toBeCloseTo(4.85, 2)
+    expect(zombieBoxHit(ray(0.28, 0, 5, 0, 0, -1), root)).toBeTruthy()
+    expect(hitZombieRay(ray(0.28, 0, 5, 0, 0, -1), root)).toBeNull()
+  })
+
+  it('head or body comes from the visual mesh, not from which box was hit', () => {
+    const { root } = makeZombie()
+    // through the head box but beside the 0.3 wide skull (box is 0.34): a miss, never a headshot
+    expect(hitZombieRay(ray(0.16, 0.75, 5, 0, 0, -1), root)).toBeNull()
+    // through the skull: headshot, from the mesh's isHead
+    expect(hitZombieRay(ray(0, 0.75, 5, 0, 0, -1), root).isHead).toBe(true)
+  })
+
+  it('skips transparent meshes such as the floor aura discs', () => {
+    const { root, torso } = makeZombie()
+    const aura = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ transparent: true }))
+    aura.rotation.x = -Math.PI / 2
+    aura.position.y = -0.6
+    torso.add(aura)
+    root.updateMatrixWorld(true)
+    // a ray through the torso box that only crosses the disc below the body would hit the disc first
+    // if it counted; it must not, and the body is hit instead
+    const h = hitZombieRay(ray(0, 3, 0, 0, -1, 0), root)
+    expect(h.isHead).toBe(true)
+    // a ray that is inside the torso box and only meets the disc is a miss
+    expect(hitZombieRay(ray(0.27, -0.5, 2, 0, -0.01, -1), root)).toBeNull()
   })
 
   it('returns null on a miss', () => {

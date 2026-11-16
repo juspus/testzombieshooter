@@ -731,7 +731,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
         <>
       {/* ══ LEFT ARM — pivot at shoulder ══ */}
       <group ref={leftArmRef} position={leftArmPosition}>
-        {variant.noArm !== -1 && <Hitbox part="arm" box={hb.armL} />}
+        <Hitbox part="arm" box={hb.armL} />
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[-0.057, -0.170, 0.095]} rotation={[-0.55, 0, -0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[-0.070, -0.330, 0.195]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
@@ -759,7 +759,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
 
       {/* ══ RIGHT ARM — pivot at shoulder ══ */}
       <group ref={rightArmRef} position={rightArmPosition}>
-        {variant.noArm !== 1 && <Hitbox part="arm" box={hb.armR} />}
+        <Hitbox part="arm" box={hb.armR} />
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[0.057, -0.170, 0.095]} rotation={[-0.45, 0, 0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[0.068, -0.310, 0.185]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />

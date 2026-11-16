@@ -21,5 +21,5 @@ const prep = (m) => {
 
 export default function Hitbox({ part, box }) {
   if (!box) return null
-  return <mesh ref={prep} geometry={HB_GEO} material={HB_MAT} position={box.p} scale={box.s} rotation={[box.r, 0, 0]} visible={false} userData={UD[part]} />
+  return <mesh ref={prep} geometry={HB_GEO} material={HB_MAT} position={box.p} scale={box.s} visible={false} userData={UD[part]} />
 }
