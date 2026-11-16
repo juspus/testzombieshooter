@@ -26,6 +26,8 @@ import SpecialFX from './SpecialFX'
 import { playExploderHiss, playExplosion, playSpitWindup, playSpitLaunch } from '../sounds'
 import { playSpiderSkitter, playSpiderShriek, playSpiderLand } from '../sounds'
 import { send, isConnected } from '../net'
+import Hitbox from './Hitbox'
+import { hitboxSpec } from '../hitboxes'
 
 const _geoCache = new Map()
 function bg(x, y, z) {
@@ -304,6 +306,7 @@ const SPIDER_LIMBS = [
   { pos: [ 0.14, -0.07, -0.42], side:  1, phi: -0.65, arm: false, b: 1.68, ph: Math.PI },
   { pos: [-0.14, -0.07, -0.42], side: -1, phi: -0.65, arm: false, b: 1.68, ph: 0 },
 ]
+const SPIDER_HB = hitboxSpec('spider')
 const SPIDER_FLAMES = [[0, 0.05, 0.3], [0, 0.1, -0.25], [0.35, -0.05, 0.1], [-0.35, -0.05, 0.1]]
 const SPIDER_DOORS = ACTIVE_MAP.DOOR_DEFS ?? []
 const _furniture = new Set(ACTIVE_MAP.FURNITURE_COLLIDERS ?? [])
@@ -321,9 +324,11 @@ function SpiderLimbs({ id, limbRefs, skin, skinDark, pants, bone }) {
           {L.arm && [-0.045, 0, 0.045].map((z, j) => (
             <mesh key={j} geometry={bg(0.12, 0.022, 0.022)} position={[SPIDER_L2 + 0.13, -0.015, z]} rotation={[0, -z * 5, -0.45]} material={sm(bone, 0.85)} />
           ))}
+          <Hitbox part="limb" box={SPIDER_HB.limbLower} />
         </group>
         <mesh geometry={bg(SPIDER_L1, 0.12, 0.12)} position={[SPIDER_L1 / 2, 0, 0]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(L.arm ? skin : pants, 0.95)} />
         <mesh geometry={bg(0.14, 0.14, 0.14)} position={[SPIDER_L1, 0, 0]} userData={{ zombieId: id, isHead: false }} material={sm(skinDark, 0.9)} />
+        <Hitbox part="limb" box={SPIDER_HB.limbUpper} />
       </group>
     </group>
   ))
@@ -419,6 +424,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
   const isArmored = type === 'armored'
   const isSpitter = type === 'spitter'
   const isSpider = type === 'spider'
+  const hb = hitboxSpec(type)   // invisible raycast boxes (src/hitboxes.js)
   // Variant build: scales the whole model group, so meshes (and therefore the raycast
   // hitboxes, head included) scale with the visuals. Feet are re-seated on the floor.
   const baseHeight = isCrawler ? 0.7 : isScreamer ? heightScale * 1.08 : heightScale
@@ -619,6 +625,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
           <mesh geometry={bg(0.014, 0.08, 0.012)} position={[0.04, 0.47, 0.15]} material={sm('#9aff3a', 0.4, 0, '#6aff1a', 1.6)} />
         </>
       )}
+      <Hitbox part="head" box={hb.head} />
       </group>
 
       <group rotation={bodyRotation}>
@@ -724,6 +731,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
         <>
       {/* ══ LEFT ARM — pivot at shoulder ══ */}
       <group ref={leftArmRef} position={leftArmPosition}>
+        {variant.noArm !== -1 && <Hitbox part="arm" box={hb.armL} />}
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[-0.057, -0.170, 0.095]} rotation={[-0.55, 0, -0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[-0.070, -0.330, 0.195]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
@@ -751,6 +759,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
 
       {/* ══ RIGHT ARM — pivot at shoulder ══ */}
       <group ref={rightArmRef} position={rightArmPosition}>
+        {variant.noArm !== 1 && <Hitbox part="arm" box={hb.armR} />}
         <mesh geometry={bg(0.10, 0.10, 0.10)} position={[0, -0.060, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.13, 0.36, 0.12)} position={[0.057, -0.170, 0.095]} rotation={[-0.45, 0, 0.12]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(shirt, 0.95)} />
         <mesh geometry={bg(0.09, 0.09, 0.09)} position={[0.068, -0.310, 0.185]} userData={{ zombieId: id, isHead: false }} material={sm(skin, 0.9)} />
@@ -782,6 +791,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
         <>
       {/* ══ LEFT LEG — pivot at hip ══ */}
       <group ref={leftLegRef} position={[-0.12, -0.175, 0]}>
+        <Hitbox part="leg" box={hb.legL} />
         {isArmored && <mesh geometry={bg(0.18, 0.13, 0.20)} position={[0, -0.37, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />}
         <mesh geometry={bg(0.16, 0.36, 0.17)} position={[0, -0.200, 0]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
         <mesh geometry={bg(0.08, 0.07, 0.04)} position={[0, -0.380, 0.09]} userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
@@ -793,6 +803,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
 
       {/* ══ RIGHT LEG — pivot at hip ══ */}
       <group ref={rightLegRef} position={[0.12, -0.175, 0]}>
+        <Hitbox part="leg" box={hb.legR} />
         {isArmored && <mesh geometry={bg(0.18, 0.13, 0.20)} position={[0, -0.37, 0.04]} userData={{ zombieId: id, isHead: false }} material={sm('#2a3744', 0.45, 0.6)} />}
         <mesh geometry={bg(0.16, 0.36, 0.17)} position={[0, -0.200, 0]} castShadow userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
         <mesh geometry={bg(0.08, 0.07, 0.04)} position={[0, -0.380, 0.09]} userData={{ zombieId: id, isHead: false }} material={sm(pants, 0.95)} />
@@ -807,6 +818,7 @@ export function ZombieBody({ type = 'walker', id = 'display', seed, variant: var
       {type !== 'walker' && (
         <mesh geometry={bg(isBoss ? 0.30 : 0.18, isBoss ? 0.055 : 0.035, 0.028)} position={[0, 0.455, 0.126]} userData={{ zombieId: id, isHead: false }} material={sm(accent, 0.75, 0, accent, isBoss ? 2.8 : isRunner ? 1.5 : 0.7)} />
       )}
+      <Hitbox part="torso" box={hb.torso} />
       </group>
       </group>
 
