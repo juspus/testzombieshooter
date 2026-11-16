@@ -44,32 +44,6 @@ import { handleContextLost, handleContextRestored } from '../pause'
 import PerfOverlay, { PERF_ON, BENCH_ON } from './PerfOverlay'
 import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
 
-// Blocks iOS address-bar-triggered resize events (small height-only changes < 15%)
-// at the ResizeObserver level so R3F never calls setSize for spurious viewport shifts.
-class FilteredResizeObserver {
-  constructor(cb) {
-    this._cb = cb
-    this._lastW = 0
-    this._lastH = 0
-    this._inner = new ResizeObserver((entries) => {
-      const pass = entries.filter((e) => {
-        const w = e.contentRect.width
-        const h = e.contentRect.height
-        const dw = Math.abs(w - this._lastW)
-        const dh = Math.abs(h - this._lastH)
-        if (this._lastH > 0 && dw < 1 && dh / this._lastH < 0.15) return false
-        this._lastW = w
-        this._lastH = h
-        return true
-      })
-      if (pass.length > 0) this._cb(pass)
-    })
-  }
-  observe(el) { this._inner.observe(el) }
-  unobserve(el) { this._inner.unobserve(el) }
-  disconnect() { this._inner.disconnect() }
-}
-
 function ForceRenderOnShopOpen() {
   const shopOpen = useGameStore((s) => s.shopOpen)
   const { gl, scene, camera } = useThree()
@@ -123,7 +97,10 @@ export default function Game() {
         dpr={LOFI_ON ? 1 : [1, 2]}
         camera={{ fov: 75, near: 0.1, far: 200 }}
         style={{ width: '100%', height: '100%' }}
-        resize={{ polyfill: FilteredResizeObserver }}
+        // Never drop a resize: an ignored height-only change (bookmarks bar, URL bar, PWA launch)
+        // left a black strip under the canvas until the next width change. The debounce only
+        // coalesces a burst (toolbar animation, window drag) into one setSize at the final size.
+        resize={{ debounce: { scroll: 50, resize: 100 } }}
         onCreated={({ gl, scene }) => {
           // Context loss (iOS reclaims memory from background tabs): keep the run. preventDefault lets
           // three.js rebuild its GPU resources on restore; the game pauses meanwhile (pause.js).
@@ -132,19 +109,6 @@ export default function Game() {
             handleContextLost()
           })
           gl.domElement.addEventListener('webglcontextrestored', () => handleContextRestored(scene))
-
-          // Secondary guard: block setSize() calls that aren't genuine resizes.
-          const _setSize = gl.setSize.bind(gl)
-          gl.setSize = (w, h, updateStyle) => {
-            const dpr = gl.getPixelRatio()
-            const cw = gl.domElement.width / dpr
-            const ch = gl.domElement.height / dpr
-            const blocked = (Math.abs(w - cw) < 1 && Math.abs(h - ch) < 1) ||
-                            (Math.abs(w - cw) < 1 && Math.abs(h - ch) / ch < 0.15)
-            console.log(`[setSize] ${cw}x${ch} → ${w}x${h} ${blocked ? 'BLOCKED' : 'ALLOWED'}`)
-            if (blocked) return
-            _setSize(w, h, updateStyle)
-          }
         }}
       >
         <fog attach="fog" args={['#0b1118', 7, 34]} />
