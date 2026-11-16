@@ -20,6 +20,9 @@ const failures = []
 const check = (cond, msg) => { log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) failures.push(msg) }
 
 // Console errors that are about the sandbox/CI having no network, not about the game.
+// The cabin has ~1,540 non-zombie meshes at wave 1; an empty Arena has none. Floor well below the real value.
+const MIN_WORLD_MESHES = 1200
+
 const IGNORED_ERRORS = [
   /Failed to load resource/i,
   /net::ERR_/i,
@@ -49,6 +52,46 @@ async function frameStats(page) {
     }
     return { colors: seen.size, mean: sum / n }
   })
+}
+
+// Scene structure: how many meshes the world has besides zombies, and which zombie ids have a mesh.
+// Every zombie mesh carries userData.zombieId (id -1 is the hidden shader warmer).
+async function sceneStats(page) {
+  return page.evaluate(() => {
+    const { scene } = window.__r3f
+    let meshes = 0, zombieMeshes = 0
+    const ids = new Set()
+    scene.traverse((o) => {
+      if (!o.isMesh) return
+      meshes++
+      const z = o.userData && o.userData.zombieId
+      if (z !== undefined) { zombieMeshes++; ids.add(z) }
+    })
+    return { meshes, worldMeshes: meshes - zombieMeshes, zombieMeshIds: [...ids] }
+  })
+}
+
+// Put one live zombie 1.5-4 m straight ahead of the camera, at its own floor height, and return its
+// id and health. Its root group is the highest ancestor that holds no other zombie's meshes.
+// Zombie.jsx moves the group again on the next frame, so the caller shoots at once.
+async function placeZombieInFront(page, dist) {
+  return page.evaluate((d) => {
+    const { scene, camera } = window.__r3f
+    const st = window.__game.getState()
+    const z = st.zombies.find((x) => !x.dying)
+    if (!z) return null
+    let mesh = null
+    scene.traverse((o) => { if (!mesh && o.isMesh && o.userData && o.userData.zombieId === z.id) mesh = o })
+    if (!mesh) return null
+    const only = (root) => { let ok = true; root.traverse((o) => { if (o.isMesh && o.userData && o.userData.zombieId !== undefined && o.userData.zombieId !== z.id) ok = false }); return ok }
+    let root = mesh
+    while (root.parent && root.parent !== scene && only(root.parent)) root = root.parent
+    const dir = camera.getWorldDirection(camera.position.clone())
+    const len = Math.hypot(dir.x, dir.z) || 1
+    root.position.set(camera.position.x + (dir.x / len) * d, root.position.y, camera.position.z + (dir.z / len) * d)
+    root.updateMatrixWorld(true)
+    return { id: z.id, health: z.health }
+  }, dist)
 }
 
 ;(async () => {
@@ -89,6 +132,39 @@ async function frameStats(page) {
     const f = await frameStats(page)
     check(f.colors >= 4 && f.mean > 0.5 && f.mean < 250, `frame is not blank (${f.colors} distinct colours, mean brightness ${f.mean.toFixed(0)})`)
     await shot(page, '2-wave1')
+
+
+    // 3b. Scene structure: an empty cabin or a missing ZombieManager must fail, even though the
+    //     store-driven steps below would still pass. (Arena null: ~1,500 -> ~0 world meshes.)
+    const liveIds = await G(() => window.__game.getState().zombies.filter((z) => !z.dying).map((z) => z.id))
+    await page.waitForFunction((ids) => {
+      const have = new Set(); window.__r3f.scene.traverse((o) => { if (o.isMesh && o.userData && o.userData.zombieId !== undefined) have.add(o.userData.zombieId) })
+      return ids.every((i) => have.has(i))
+    }, liveIds, { timeout: 20000 }).catch(() => {})
+    const sc = await sceneStats(page)
+    check(sc.worldMeshes >= MIN_WORLD_MESHES, `cabin and world are in the scene (${sc.worldMeshes} non-zombie meshes, need >= ${MIN_WORLD_MESHES})`)
+    const missing = liveIds.filter((id) => !sc.zombieMeshIds.includes(id))
+    check(liveIds.length > 0 && missing.length === 0, `every live zombie has meshes in the scene (${liveIds.length} live, missing ids: ${missing.join(',') || 'none'})`)
+
+    // 3c. A real shot: click the canvas (the first click takes pointer lock, the second fires),
+    //     then a click on a zombie put in the crosshair must damage it through Player.jsx's raycast.
+    await page.mouse.click(640, 360)
+    const locked = await page.waitForFunction(() => document.pointerLockElement === document.querySelector('canvas'), null, { polling: 100, timeout: 10000 }).then(() => true, () => false)
+    check(locked, 'a click on the canvas takes pointer lock')
+    const ammo0 = await G(() => window.__game.getState().bulletsInClip)
+    await page.mouse.click(640, 360)
+    const fired = await page.waitForFunction((n) => window.__game.getState().bulletsInClip < n, ammo0, { polling: 100, timeout: 20000 }).then(() => true, () => false)
+    check(fired, `a click fires: bulletsInClip ${ammo0} -> ${await G(() => window.__game.getState().bulletsInClip)}`)
+    let hitInfo = null
+    for (const d of [3, 2, 4, 2.5, 3.5, 1.5]) {
+      const placed = await placeZombieInFront(page, d)
+      if (!placed) break
+      await page.mouse.click(640, 360)
+      await page.waitForTimeout(250)
+      const after = await G((id) => { const z = window.__game.getState().zombies.find((x) => x.id === id); return z ? { health: z.health, dying: !!z.dying } : null }, placed.id)
+      if (after && (after.dying || after.health < placed.health)) { hitInfo = { id: placed.id, before: placed.health, after, dist: d }; break }
+    }
+    check(!!hitInfo, hitInfo ? `a shot at a zombie in the crosshair hit it: #${hitInfo.id} health ${hitInfo.before} -> ${hitInfo.after.health}${hitInfo.after.dying ? ' (killed)' : ''}` : 'a shot at a zombie in the crosshair hit it')
 
     // 4. Kill one zombie and see the kill counted.
     const k0 = await G(() => window.__game.getState().kills)
