@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
-import { send, onMessage, offMessage } from '../net'
+import { send, onMessage } from '../net'
 import { getZombiePositions, applyRemoteZombiePositions, Zombie } from './Zombie'
 import { pushRemotePlayerSample } from './RemotePlayer'
 import { zombieHitFxFromNet } from '../hitFx'
@@ -126,20 +126,22 @@ export default function NetManager() {
   // ── Subscribe to incoming messages ────────────────────────────────────
   useEffect(() => {
     if (!mpConnected) return
+    const offs = []   // unsubscribes: onMessage allows several listeners per kind
+    const on = (type, fn) => { offs.push(onMessage(type, fn)) }
 
-    onMessage('pos', (data) => {
+    on('pos', (data) => {
       pushRemotePlayerSample(data)
     })
 
-    onMessage('game_event', ({ event, data }) => {
+    on('game_event', ({ event, data }) => {
       applyRemoteEvent(event, data)
     })
 
     // Frag grenade thrown by the partner: simulate it here too (it hurts our own player; the host
     // alone applies zombie / plank damage). See Grenades.jsx.
-    onMessage('grenade_throw', (d) => Grenades.throw(d))
+    on('grenade_throw', (d) => Grenades.throw(d))
 
-    onMessage('remote_sound', ({ sound, weapon, up, x, y, z }) => {
+    on('remote_sound', ({ sound, weapon, up, x, y, z }) => {
       if (sound === 'gunshot')  playRemoteGunshot(weapon, x, y, z, !!up)
       else if (sound === 'footstep') playRemoteFootstep(x, y, z)
       else if (sound === 'knife')    playRemoteKnifeSwing(x, y, z)
@@ -148,15 +150,15 @@ export default function NetManager() {
     // ── Power-ups (host-authoritative) ────────────────────────────────────
     if (mpRole === 'guest') {
       // Host rolled a drop: mirror it (same id) without re-broadcasting
-      onMessage('powerup_spawn', (d) => addDrop(d, { notify: false }))
+      on('powerup_spawn', (d) => addDrop(d, { notify: false }))
       // Host validated a collect (by either player): both apply it to their own state
-      onMessage('powerup_apply', ({ id, type }) => {
+      on('powerup_apply', ({ id, type }) => {
         takeDrop(id)
         useGameStore.getState().applyPowerup(type)
       })
     } else {
       // Guest asks to collect: validate the drop still exists, then apply on both
-      onMessage('powerup_collect', ({ id }) => {
+      on('powerup_collect', ({ id }) => {
         const d = takeDrop(id)
         if (!d) return
         useGameStore.getState().applyPowerup(d.type)
@@ -165,7 +167,7 @@ export default function NetManager() {
     }
 
     if (mpRole === 'guest') {
-      onMessage('zombie_update', (posMap) => {
+      on('zombie_update', (posMap) => {
         applyRemoteZombiePositions(posMap)
         // Also sync health / dying from the host snapshot
         const state = useGameStore.getState()
@@ -183,16 +185,7 @@ export default function NetManager() {
       })
     }
 
-    return () => {
-      offMessage('pos')
-      offMessage('game_event')
-      offMessage('zombie_update')
-      offMessage('remote_sound')
-      offMessage('grenade_throw')
-      offMessage('powerup_spawn')
-      offMessage('powerup_apply')
-      offMessage('powerup_collect')
-    }
+    return () => { for (const off of offs) off() }
   }, [mpConnected, mpRole])
 
   // ── Per-frame sends ────────────────────────────────────────────────────
