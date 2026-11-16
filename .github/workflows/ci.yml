@@ -2,7 +2,7 @@ name: CI
 
 # Every pull request, and every push to main:
 #   test  - unit tests (includes src/__tests__/perfGuards.test.js) and the production build
-#   lint  - ESLint: full-repo warnings report, then a strict check of the lines the PR changed
+#   lint  - ESLint: full-repo warnings report, then a strict check of the problems the PR adds
 #   e2e   - solo smoke run and the perf budget, against a non-production build served by `vite preview`
 # CI never runs the co-op / versus / mail / director smoke scripts (they need a local PeerJS server);
 # they stay available on demand in scripts/.
@@ -55,6 +55,8 @@ jobs:
       - run: npm ci
       - name: Whole repo (warnings only, never fails)
         run: npm run lint
+      - name: Self-check of the changed-lines rule
+        run: npm run lint:selfcheck
       - name: Lines this PR changed (errors fail the check)
         if: github.event_name == 'pull_request'
         run: npm run lint:changed -- origin/${{ github.base_ref }}

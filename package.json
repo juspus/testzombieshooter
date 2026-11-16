@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "lint:changed": "node scripts/lint-changed.cjs",
     "smoke": "node scripts/smoke-solo.cjs",
-    "perf:budget": "node scripts/perf-budget.cjs"
+    "perf:budget": "node scripts/perf-budget.cjs",
+    "lint:selfcheck": "node scripts/lint-changed.cjs --self-check"
   },
   "dependencies": {
     "@react-three/drei": "^9.109.2",

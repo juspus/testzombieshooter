@@ -74,11 +74,11 @@ async function sceneStats(page) {
 // Put one live zombie 1.5-4 m straight ahead of the camera, at its own floor height, and return its
 // id and health. Its root group is the highest ancestor that holds no other zombie's meshes.
 // Zombie.jsx moves the group again on the next frame, so the caller shoots at once.
-async function placeZombieInFront(page, dist) {
-  return page.evaluate((d) => {
+async function placeZombieInFront(page, dist, nth) {
+  return page.evaluate(([d, nth]) => {
     const { scene, camera } = window.__r3f
     const st = window.__game.getState()
-    const z = st.zombies.find((x) => !x.dying)
+    const z = st.zombies.filter((x) => !x.dying)[nth]
     if (!z) return null
     let mesh = null
     scene.traverse((o) => { if (!mesh && o.isMesh && o.userData && o.userData.zombieId === z.id) mesh = o })
@@ -90,8 +90,8 @@ async function placeZombieInFront(page, dist) {
     const len = Math.hypot(dir.x, dir.z) || 1
     root.position.set(camera.position.x + (dir.x / len) * d, root.position.y, camera.position.z + (dir.z / len) * d)
     root.updateMatrixWorld(true)
-    return { id: z.id, health: z.health }
-  }, dist)
+    return { id: z.id, type: z.type, health: z.health, locked: document.pointerLockElement === document.querySelector('canvas'), ammo: st.bulletsInClip }
+  }, [dist, nth])
 }
 
 ;(async () => {
@@ -155,16 +155,20 @@ async function placeZombieInFront(page, dist) {
     await page.mouse.click(640, 360)
     const fired = await page.waitForFunction((n) => window.__game.getState().bulletsInClip < n, ammo0, { polling: 100, timeout: 20000 }).then(() => true, () => false)
     check(fired, `a click fires: bulletsInClip ${ammo0} -> ${await G(() => window.__game.getState().bulletsInClip)}`)
+    // Zombie.jsx moves a placed zombie on its next frame, so a click that lands after a frame misses:
+    // retry with other distances and other zombies.
     let hitInfo = null
-    for (const d of [3, 2, 4, 2.5, 3.5, 1.5]) {
-      const placed = await placeZombieInFront(page, d)
-      if (!placed) break
+    const tried = []
+    for (const [d, nth] of [[3, 0], [2.5, 1], [3, 2], [2, 3], [3.5, 0], [2.5, 4], [3, 1], [2, 2]]) {
+      const placed = await placeZombieInFront(page, d, nth)
+      if (!placed) continue
       await page.mouse.click(640, 360)
       await page.waitForTimeout(250)
       const after = await G((id) => { const z = window.__game.getState().zombies.find((x) => x.id === id); return z ? { health: z.health, dying: !!z.dying } : null }, placed.id)
+      tried.push(`#${placed.id}(${placed.type}) d${d} lock=${placed.locked} ammo=${placed.ammo} hp ${placed.health}->${after ? after.health : '?'}`)
       if (after && (after.dying || after.health < placed.health)) { hitInfo = { id: placed.id, before: placed.health, after, dist: d }; break }
     }
-    check(!!hitInfo, hitInfo ? `a shot at a zombie in the crosshair hit it: #${hitInfo.id} health ${hitInfo.before} -> ${hitInfo.after.health}${hitInfo.after.dying ? ' (killed)' : ''}` : 'a shot at a zombie in the crosshair hit it')
+    check(!!hitInfo, hitInfo ? `a shot at a zombie in the crosshair hit it: #${hitInfo.id} health ${hitInfo.before} -> ${hitInfo.after.health}${hitInfo.after.dying ? ' (killed)' : ''} (attempt ${tried.length})` : `a shot at a zombie in the crosshair hit it (attempts: ${tried.join('; ')})`)
 
     // 4. Kill one zombie and see the kill counted.
     const k0 = await G(() => window.__game.getState().kills)
@@ -197,8 +201,8 @@ async function placeZombieInFront(page, dist) {
     check(w2.wave === 2, `reached wave 2 (money ${w2.money}, kills ${w2.kills})`)
     await shot(page, '4-wave2-intermission')
 
-    // 7. Wave 2 starts too.
-    await G(() => window.__game.getState().skipIntermission())
+    // 7. Wave 2 starts too. (No modifier: a random Blackout would make the brightness check flaky.)
+    await G(() => { window.__game.setState({ waveModifier: null }); window.__game.getState().skipIntermission() })
     await page.waitForFunction(() => window.__game.getState().phase === 'playing' && window.__game.getState().wave === 2, null, { timeout: 120000 })
     check(true, 'wave 2 is playing')
     const f2 = await frameStats(page)

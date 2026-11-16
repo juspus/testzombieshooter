@@ -3,7 +3,11 @@
 // Headless Chromium (SwiftShader) at 1280x720, ?wave=8&lofi=0&gov=0, wave 8 started and waited
 // until 25 zombies are alive. The world is then paused (store `paused`, so zombies and the camera
 // hold still) and ONE frame is rendered by hand with gl.info.autoReset = false:
-//   draws, triangles (shadow pass included), scene nodes, meshes, castShadow meshes, shader programs.
+//   draws, triangles (shadow pass included), scene nodes, meshes, castShadow meshes, lights (total
+//   and visible), shader programs. Programs are read again after a real shot (click on the canvas)
+//   and after swapping through every weapon, and the highest reading is budgeted: a gun or muzzle
+//   material that compiles on first use shows up there.
+// The light limits are exact: CLAUDE.md fixes the light count (a changed count recompiles every lit shader).
 // To keep the single frame stable the probe is taken three times and the highest value of each
 // metric is kept (all samples are in the JSON). The main JS chunk's gzip size comes from the last
 // `vite build` in dist/ (run `npx vite build` first).
@@ -49,14 +53,16 @@ async function measureFrame(page) {
     const calls = gl.info.render.calls
     const triangles = gl.info.render.triangles
     gl.info.autoReset = true
-    let nodes = 0, meshes = 0, casters = 0
+    let nodes = 0, meshes = 0, casters = 0, lightsTotal = 0, lightsVisible = 0
     scene.traverse((o) => {
       nodes++
       if (o.isMesh) { meshes++; if (o.castShadow) casters++ }
+      if (o.isLight) lightsTotal++
     })
+    scene.traverseVisible((o) => { if (o.isLight) lightsVisible++ })   // what three.js counts for shaders
     let liveZombies = 0
     for (const z of window.__game.getState().zombies) if (!z.dying) liveZombies++
-    return { draws: calls, triangles, nodes, meshes, castShadowMeshes: casters, programs: gl.info.programs.length, liveZombies }
+    return { draws: calls, triangles, nodes, meshes, castShadowMeshes: casters, lightsTotal, lightsVisible, programs: gl.info.programs.length, liveZombies }
   })
 }
 
@@ -87,9 +93,24 @@ async function measureFrame(page) {
 
   const samples = []
   for (let i = 0; i < 3; i++) { samples.push(await measureFrame(page)); await page.waitForTimeout(300) }
-  const keys = ['draws', 'triangles', 'nodes', 'meshes', 'castShadowMeshes', 'programs']
+  // Then a real shot and a swap through every weapon, reading the program count after each step.
+  const programReadings = [...samples.map((s) => s.programs)]
+  const readPrograms = async (label) => { await page.waitForTimeout(800); const n = await G(() => window.__r3f.gl.info.programs.length); programReadings.push(n); log(`programs after ${label}: ${n}`) }
+  await G(() => window.__game.setState({ paused: false, ownedWeapons: ['pistol', 'shotgun', 'ak47', 'deagle'] }))
+  await page.mouse.click(640, 360)   // takes pointer lock
+  await page.waitForFunction(() => document.pointerLockElement === document.querySelector('canvas'), null, { polling: 100, timeout: 10000 }).catch(() => {})
+  const ammo0 = await G(() => window.__game.getState().bulletsInClip)
+  await page.mouse.click(640, 360)   // fires
+  await page.waitForFunction((n) => window.__game.getState().bulletsInClip < n, ammo0, { polling: 100, timeout: 20000 }).catch(() => log('warning: the shot did not fire'))
+  await readPrograms('a shot')
+  for (const w of ['shotgun', 'ak47', 'deagle', 'pistol']) {
+    await G((x) => window.__game.getState().switchWeapon(x), w)
+    await readPrograms('switching to ' + w)
+  }
+  const keys = ['draws', 'triangles', 'nodes', 'meshes', 'castShadowMeshes', 'lightsTotal', 'lightsVisible', 'programs']
   const measured = {}
   for (const k of keys) measured[k] = Math.max(...samples.map((s) => s[k]))
+  measured.programs = Math.max(...programReadings)
   measured.mainChunkGzipKB = Math.round(bundle.kB * 10) / 10
   const live = Math.min(...samples.map((s) => s.liveZombies))
   await browser.close()
@@ -107,7 +128,7 @@ async function measureFrame(page) {
   fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true })
   fs.writeFileSync(outPath, JSON.stringify(result, null, 2))
 
-  console.log(`\nperf budget (wave ${wave}, ${live} live zombies, 1280x720, one frame, max of ${samples.length} samples)`)
+  console.log(`\nperf budget (wave ${wave}, ${live} live zombies, 1280x720, one frame, max of ${samples.length} samples; programs: max of ${programReadings.length} readings incl. after a shot and weapon swaps)`)
   console.log('  metric             value      limit')
   for (const r of rows) console.log(`  ${r.metric.padEnd(18)} ${String(r.value).padStart(8)}  ${String(r.limit ?? '-').padStart(8)}  ${r.ok ? 'ok' : 'OVER'}`)
   console.log(`result written to ${outPath}`)
