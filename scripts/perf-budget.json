@@ -1,0 +1,19 @@
+{
+  "_about": "Limits for scripts/perf-budget.cjs: highest of 5 local runs (2026-11-16, wave 8, 25 live zombies, 1280x720) plus about 10%. Zombie variants are random, so nodes and casters wobble by about 1% between runs. Raise a limit only on purpose, in the same PR as the change that needs it, and say why.",
+  "_measured": {
+    "draws": 831,
+    "triangles": 17114,
+    "nodes": 5061,
+    "meshes": 4458,
+    "castShadowMeshes": 202,
+    "programs": 22,
+    "mainChunkGzipKB": 171.1
+  },
+  "draws": 915,
+  "triangles": 18900,
+  "nodes": 5570,
+  "meshes": 4900,
+  "castShadowMeshes": 222,
+  "programs": 24,
+  "mainChunkGzipKB": 188
+}

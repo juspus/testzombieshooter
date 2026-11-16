@@ -1,0 +1,105 @@
+name: CI
+
+# Every pull request, and every push to main:
+#   test  - unit tests (includes src/__tests__/perfGuards.test.js) and the production build
+#   lint  - ESLint: full-repo warnings report, then a strict check of the lines the PR changed
+#   e2e   - solo smoke run and the perf budget, against a non-production build served by `vite preview`
+# CI never runs the co-op / versus / mail / director smoke scripts (they need a local PeerJS server);
+# they stay available on demand in scripts/.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned: used only inside the e2e job. Not in package.json on purpose.
+  PLAYWRIGHT_VERSION: 1.63.0
+
+jobs:
+  test:
+    name: Unit tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
+        run: npx vitest run
+      - name: Production build
+        run: npx vite build
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # lint:changed diffs against the PR base
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Whole repo (warnings only, never fails)
+        run: npm run lint
+      - name: Lines this PR changed (errors fail the check)
+        if: github.event_name == 'pull_request'
+        run: npm run lint:changed -- origin/${{ github.base_ref }}
+
+  e2e:
+    name: Solo smoke and perf budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Playwright is not a project dependency (the dev sandbox ships its own). Install it here only.
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@${PLAYWRIGHT_VERSION}
+          npx playwright install --with-deps chromium
+      # Not a production build (no VERCEL_ENV), so window.__game / window.__r3f and ?wave= exist.
+      - name: Build
+        run: npx vite build
+      - name: Serve the build
+        run: |
+          npx vite preview --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && exit 0; sleep 1; done
+          cat preview.log; exit 1
+      - name: Solo smoke
+        run: npm run smoke -- http://localhost:4173 smoke-shots
+      - name: Perf budget
+        run: npm run perf:budget -- http://localhost:4173 --out perf-budget-result.json
+      - name: Perf budget summary
+        if: always()
+        run: |
+          if [ -f perf-budget-result.json ]; then
+            { echo '### Perf budget'; echo '```json'; node -e "const r=require('./perf-budget-result.json');console.log(JSON.stringify({measured:r.measured,limits:Object.fromEntries(Object.keys(r.measured).map(k=>[k,r.limits[k]])),breaches:r.breaches},null,2))"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload screenshots and result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-output
+          path: |
+            smoke-shots
+            perf-budget-result.json
+            preview.log
+          if-no-files-found: ignore

@@ -357,6 +357,22 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 
 ---
 
+## Checks: CI, lint, solo smoke, perf budget
+
+`.github/workflows/ci.yml` runs on every pull request and push to `main` (Node 20, three parallel jobs).
+
+| Check | Command | What it does |
+|---|---|---|
+| Tests + build | `npx vitest run`, `npx vite build` | Includes `perfGuards.test.js`. Run both before every PR. |
+| Lint | `npm run lint` | ESLint flat config (`eslint.config.js`): react-hooks (rules-of-hooks, exhaustive-deps), no-undef, no-unused-vars, JSX awareness, a few dupe/unreachable bug catchers. No style rules, no Prettier. Whole repo, every problem is a **warning**, exit 0 (34 pre-existing at 2026-11-16). |
+| Lint, strict | `npm run lint:changed [baseRef]` | Same rules as **errors**, but only on lines this branch added or changed (diff against `merge-base(baseRef, HEAD)`, default `origin/main`; uncommitted and new files count). CI fails on it. Fix by using the name, adding the hook dep, or prefixing an unused name with `_`. Never reformat or "fix" old warnings to get green. |
+| Solo smoke | `npm run smoke -- <baseUrl> [shotDir]` | `scripts/smoke-solo.cjs`: boots the game, Play, wave 1, kills a zombie via `hitZombie`, clears the wave, reaches wave 2. Fails on a console error, page error or blank frame. ~35 s headless. |
+| Perf budget | `npm run perf:budget -- <baseUrl> [--out file.json]` | `scripts/perf-budget.cjs`: `?wave=8&lofi=0&gov=0`, 25 live zombies, world paused, one frame at 1280x720 (`gl.info.autoReset = false`): draws, triangles, nodes, meshes, castShadow meshes, shader programs; plus main chunk gzip size from `dist/` (run `npx vite build` first). Limits in `scripts/perf-budget.json`; any breach exits 1 and names the metric. |
+
+- Smoke and budget need `window.__game` / `window.__r3f`, so point them at `npx vite --port N` or a non-production `vite build` served by `vite preview`, never a `VERCEL_ENV=production` build. Playwright is deliberately **not** in `package.json` (the sandbox ships its own; scripts `require('playwright')`). CI installs it inside the `e2e` job only (`npm install --no-save playwright@<pin>`).
+- Perf budget limits are today's measurement plus about 10% (2026-11-16: 831 draws, 17,114 triangles, ~5,050 nodes, ~4,450 meshes, ~200 casters, 22 programs, 171 kB gzip). Zombie variants are random, so nodes and casters wobble by about 1% between runs. Raise a limit only on purpose, in the PR that needs it, and say why in the PR. A perf card that makes things faster should lower the limit in the same PR.
+- The co-op, versus, mail and director smoke scripts stay manual (they need the local PeerJS server).
+
 ## Audio buses (sounds.js)
 
 `ac.destination` is shadowed: it returns the **effects** bus, so every sound that connects to it gets the Effects slider and the low-HP muffle for free. Music must connect to `_musicOut(ac)` instead, or it lands on the Effects slider. Heartbeat/stings use `_realDest` (effects level, no muffle). Master sits after all three.
