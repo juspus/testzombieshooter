@@ -4,10 +4,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Saira+Stencil+One&display=swap">
 <style>
-/* The one live roadmap: reasons to come back (progression) and what sits under the floorboards
-   (tech), merged. Dark boards with moonlight leaking through the gaps (the accent).
-   Layout: one reading column. Summary first (today's players, the plan in two tracks, three
-   calls), then waves of cards with Go / Discuss / Skip, then what is carried over and parked. */
+/* The control panel for the cabin: what Claude is building, in the owner's order, with the
+   roadmap below as the backlog. Dark boards with moonlight leaking through the gaps (the accent);
+   ember marks the progression track. Layout: one reading column. The panel comes first (pipeline
+   counts, needs-you, in progress, the reorderable queue, requests, shipped), then the roadmap. */
 :root {
   --bg: #100f0d;
   --surface: #181613;
@@ -107,35 +107,6 @@ code { font-family: var(--mono); font-size: 0.86em; background: var(--raised); b
 .section > h2 { font-size: 1.45rem; }
 .prose { max-width: 62ch; display: grid; gap: 12px; color: var(--muted); }
 .prose b { color: var(--fg); }
-
-/* Plan at a glance: two tracks x three horizons */
-.plan { display: grid; gap: 10px; }
-.plan-row { display: grid; gap: 10px; }
-.plan-head { display: none; }
-.lane { display: grid; gap: 8px; padding: 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); min-width: 0; }
-.lane h3 { font: 600 0.72rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
-.lane.p h3 { color: var(--ember); }
-.lane.t h3 { color: var(--gap); }
-.lane .when { color: var(--muted); font-weight: 400; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chips a {
-  font-size: 0.84rem; text-decoration: none; color: var(--fg); line-height: 1.3;
-  border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; background: var(--raised);
-}
-.lane.p .chips a { border-left: 3px solid var(--ember); }
-.lane.t .chips a { border-left: 3px solid var(--gap); }
-.chips a[data-call="go"] { border-color: color-mix(in srgb, var(--go) 60%, var(--line)); }
-.chips a[data-call="skip"] { opacity: 0.5; text-decoration: line-through; }
-@media (min-width: 760px) {
-  .plan { grid-template-columns: 7.5rem repeat(3, minmax(0, 1fr)); align-items: stretch; }
-  .plan-row { display: contents; }
-  .plan-head { display: block; font: 600 0.7rem var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); padding: 0 4px; }
-  .plan-track { display: grid; align-content: center; font: 600 0.72rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; }
-  .plan-track.p { color: var(--ember); }
-  .plan-track.t { color: var(--gap); }
-  .lane h3 { display: none; }
-}
-@media (max-width: 759px) { .plan-track { display: none; } }
 
 /* Tables (targets, unlocks) */
 .tscroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
@@ -324,24 +295,208 @@ footer li { min-width: 0; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: no-preference) {
   html { scroll-behavior: smooth; }
 }
+
+/* ── Control panel ─────────────────────────────────────────────────── */
+.panel { display: grid; gap: 22px; padding-block: 4px 32px; }
+.panel > * { min-width: 0; }
+.pipeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 520px) {
+  .pipeline { gap: 5px; }
+  .pipe { padding: 8px 6px; }
+  .pipe b { font-size: 1.35rem; }
+  .pipe span { font-size: 0.7rem; line-height: 1.25; }
+}
+.pipe { display: grid; gap: 3px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; text-decoration: none; color: inherit; }
+.pipe b { font: 600 1.7rem/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.pipe span { font-size: 0.8rem; color: var(--muted); }
+.pipe.now b { color: var(--gap); }
+.pipe.review b { color: var(--talk); }
+.pipe.needs b { color: var(--ember); }
+.pipe.queued b { color: var(--fg); }
+.pipe.shipped b { color: var(--go); }
+.block { display: grid; gap: 10px; scroll-margin-top: 24px; }
+.block > * { min-width: 0; }
+.block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.block-head h2 { font-size: 1.2rem; }
+.block-head .hint { font-size: 0.84rem; color: var(--muted); max-width: 46ch; }
+.empty { font-size: 0.92rem; color: var(--muted); padding: 12px; border: 1px dashed var(--line); border-radius: 10px; }
+.empty b { color: var(--fg); }
+
+/* Needs you */
+.needs { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.needs li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ember); border-radius: 8px; font-size: 0.94rem; }
+.needs .kind { font: 600 0.68rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ember); white-space: nowrap; }
+.needs li.k-blocked { border-left-color: var(--skip); }
+.needs li.k-blocked .kind { color: var(--skip); }
+.needs li.k-review { border-left-color: var(--talk); }
+.needs li.k-review .kind { color: var(--talk); }
+.needs a { color: var(--fg); }
+.needs .sub { display: block; color: var(--muted); font-size: 0.86rem; }
+.linkbtn { font: inherit; color: var(--gap); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+
+/* In progress */
+.active-list { display: grid; gap: 10px; }
+.active { display: grid; gap: 8px; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.active.s-building { border-color: color-mix(in srgb, var(--gap) 55%, var(--line)); }
+.active.s-review { border-color: color-mix(in srgb, var(--talk) 55%, var(--line)); }
+.active.s-blocked { border-color: color-mix(in srgb, var(--skip) 60%, var(--line)); }
+.active h3 { font-size: 1.04rem; line-height: 1.3; min-width: 0; }
+.active h3 a { color: var(--fg); text-decoration: none; }
+.active h3 a:hover { text-decoration: underline; }
+.summary { color: var(--fg); }
+.blocker { padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--skip) 10%, var(--surface)); color: var(--fg); font-size: 0.92rem; }
+.blocker b { color: var(--skip); }
+.pbar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--line) 60%, transparent); overflow: hidden; }
+.pbar i { display: block; height: 100%; border-radius: 999px; background: var(--gap); }
+.s-review .pbar i { background: var(--talk); }
+.s-blocked .pbar i { background: var(--skip); }
+.pbar.mini { height: 5px; width: 72px; display: inline-block; vertical-align: middle; }
+.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 0.9rem; }
+.steps li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; color: var(--muted); }
+.steps li::before { content: ""; width: 12px; height: 12px; margin-top: 5px; border-radius: 3px; border: 1.5px solid var(--line); }
+.steps li.done { color: var(--fg); }
+.steps li.done::before { background: var(--go); border-color: var(--go); }
+.links { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 0.8rem var(--mono); }
+.tiny { font: 0.74rem var(--mono); color: var(--muted); }
+
+/* The queue */
+.qlist { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; counter-reset: q; }
+.qrow {
+  display: grid; grid-template-columns: 2.1rem minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 9px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  position: relative;
+}
+.qrow.first { border-color: color-mix(in srgb, var(--gap) 55%, var(--line)); }
+.qrow.hold { opacity: 0.6; }
+.qrow.dragging { z-index: 2; border-color: var(--gap); box-shadow: 0 8px 22px color-mix(in srgb, #000 40%, transparent); background: var(--raised); }
+.qrow.flash { animation: flash 0.9s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--gap) 20%, var(--surface)); } to { background: var(--surface); } }
+.rank { font: 600 1rem var(--mono); color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.qrow.first .rank { color: var(--gap); }
+.qmain { display: grid; gap: 3px; min-width: 0; }
+.qtitle { font-size: 0.98rem; line-height: 1.3; }
+.qtitle a { color: var(--fg); text-decoration: none; }
+.qtitle a:hover { text-decoration: underline; }
+.trk { font: 600 0.66rem var(--mono); letter-spacing: 0.06em; border-radius: 4px; padding: 1px 5px; margin-right: 6px; vertical-align: 1px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.trk.p { color: var(--ember); border-color: color-mix(in srgb, var(--ember) 50%, var(--line)); }
+.trk.t { color: var(--gap); border-color: color-mix(in srgb, var(--gap) 50%, var(--line)); }
+.trk.x { color: var(--go); border-color: color-mix(in srgb, var(--go) 50%, var(--line)); }
+.qmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font: 0.74rem var(--mono); color: var(--muted); }
+.qmeta .linkbtn { font: 0.74rem var(--mono); }
+.qmeta .held { color: var(--talk); }
+.qmeta .next { color: var(--gap); }
+.qctl { display: flex; gap: 4px; align-items: center; }
+.qctl button, .grip {
+  width: 38px; height: 38px; display: grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--raised); color: var(--fg); cursor: pointer;
+}
+.qctl button:disabled { opacity: 0.35; cursor: default; }
+.grip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.grip:active { cursor: grabbing; }
+.qctl svg { width: 16px; height: 16px; fill: currentColor; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Request form */
+.request { display: grid; gap: 8px; padding: 14px; background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; }
+.request label { display: grid; gap: 4px; font-size: 0.84rem; color: var(--muted); }
+.request input[type="text"] {
+  font: 0.96rem var(--body); color: var(--fg); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%;
+}
+.request .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.request .check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--muted); }
+.request button[type="submit"] {
+  font: 700 0.9rem var(--body); min-height: 40px; padding: 0 18px; cursor: pointer;
+  color: var(--gap-ink); background: var(--gap); border: 1px solid var(--gap); border-radius: 8px;
+}
+.request button:disabled, .request input:disabled, .request textarea:disabled { opacity: 0.55; cursor: default; }
+.formmsg { font-size: 0.84rem; color: var(--muted); }
+
+/* Shipped */
+details.shipped { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface); }
+details.shipped summary { color: var(--fg); font-weight: 700; }
+.shiplist { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.shiplist li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding-block: 6px; border-top: 1px solid var(--line); font-size: 0.92rem; }
+.shiplist a { color: var(--fg); }
+
+/* Owner chores (checkable) */
+.yours li { grid-template-columns: 26px minmax(0, 1fr) auto; }
+.yours li.done { opacity: 0.6; }
+.yours li.done b { text-decoration: line-through; }
+.chore-btn {
+  font: 700 0.82rem var(--body); min-height: 36px; padding: 0 12px; cursor: pointer; align-self: center;
+  color: var(--muted); background: var(--raised); border: 1px solid var(--line); border-radius: 8px; white-space: nowrap;
+}
+.chore-btn[aria-pressed="true"] { color: var(--go); border-color: var(--go); }
+.chore-btn:disabled { opacity: 0.55; cursor: default; }
+
+.pill.review { color: var(--talk); border: 1px solid var(--talk); }
+.pill.blocked { color: var(--skip); border: 1px solid var(--skip); }
+.pill.queued { color: var(--fg); border: 1px solid var(--line); }
+.card .pbar.mini { margin-left: 2px; }
+.urgent { color: var(--skip); }
+
+@media (max-width: 480px) {
+  .qrow { grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 8px; padding: 8px; }
+  .qctl button, .grip { width: 34px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qrow.flash { animation: none; }
+}
 </style>
 
 <div class="wrap">
   <div class="boards col" aria-hidden="true"></div>
-  <header class="hero col">
-    <p class="eyebrow">Roadmap · progression and tech in one plan · 11 Nov 2026</p>
+  <header class="hero col" style="padding-bottom: 14px;">
+    <p class="eyebrow">Control panel · the cabin · progression and tech</p>
     <h1>Night After <span>Night</span></h1>
-    <p class="verdict">Players don't come back because nothing gives them a reason. The first run already has everything, most rewards are crosshair colours, and a run can't be won. This plan fixes that first, mostly with content the game already has. The technical work runs alongside it, so the game stays light on phones and cheap to extend.</p>
-    <ul class="stats" aria-label="Key measurements">
-      <li class="stat warm"><b>5<small>of 49</small></b><span>devices came back on a second day since 25 Oct.</span></li>
-      <li class="stat warm"><b>6<small>of 6</small></b><span>guns are already in the Mystery Box on the first run.</span></li>
-      <li class="stat warm"><b>7<small>of 11</small></b><span>level rewards are cosmetic. Nothing comes after level 20.</span></li>
-      <li class="stat"><b>2<small>of 6</small></b><span>database migrations never reached production. The daily and weekly boards don't work.</span></li>
-    </ul>
-    <p class="howto">This page replaces the tech roadmap and takes over what was still open on the <a href="https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz" target="_blank" rel="noopener noreferrer">Cabin Roadmap</a> and <a href="https://claude.ai/artifact/Y6wqJxYQUme3yGerfDAZJz" target="_blank" rel="noopener noreferrer">Cabin on a Phone</a>. Tap <b>Go</b>, <b>Discuss</b> or <b>Skip</b> on each card, make the four calls, and open any card's details to leave a note. Picks save on this page, and Claude reads them at the start of the next session.</p>
-    <nav class="strip" aria-label="Jump to a section">
+    <p class="verdict">This is where you run my work. <b>Go</b> puts a card in the queue. The queue's order is the order I build in, and you can reorder it any time. Every card shows how far along it is.</p>
+    <p class="sync" data-sync data-state="loading">Loading the panel…</p>
+  </header>
+
+  <section class="panel col" id="panel" aria-label="Control panel">
+    <ul class="pipeline" id="pipeline" aria-label="Work at a glance"></ul>
+
+    <section class="block" id="needs-block" aria-labelledby="h-needs">
+      <div class="block-head"><h2 id="h-needs">Needs you</h2><p class="hint">Decisions, reviews and blockers waiting on you.</p></div>
+      <ul class="needs" id="needs"></ul>
+    </section>
+
+    <section class="block" id="now-block" aria-labelledby="h-now">
+      <div class="block-head"><h2 id="h-now">In progress</h2><p class="hint">I update these as I work: steps, a one-line summary, then the PR and a preview link.</p></div>
+      <div class="active-list" id="active"></div>
+    </section>
+
+    <section class="block" id="queue-block" aria-labelledby="h-queue">
+      <div class="block-head"><h2 id="h-queue">Queue</h2><p class="hint">I finish what's in progress, then take the top item that isn't on hold. Drag the handle or use the arrows to reorder.</p></div>
+      <ol class="qlist" id="queue"></ol>
+      <p class="sr-only" id="queue-live" aria-live="polite"></p>
+    </section>
+
+    <form class="request" id="request" aria-labelledby="h-request">
+      <h2 id="h-request" style="font-size: 1.05rem;">Ask for something</h2>
+      <label for="req-title">What should I build or fix?
+        <input type="text" id="req-title" maxlength="120" placeholder="For example: The shotgun feels weak past wave 10" required disabled>
+      </label>
+      <label for="req-detail">Details (optional)
+        <textarea id="req-detail" rows="2" maxlength="2000" placeholder="What you saw, what you want, anything I should know" disabled></textarea>
+      </label>
+      <div class="row">
+        <label class="check" for="req-top"><input type="checkbox" id="req-top" disabled> Put it first in the queue</label>
+        <button type="submit" id="req-submit" disabled>Add to the queue</button>
+      </div>
+      <p class="formmsg" id="req-msg" aria-live="polite"></p>
+    </form>
+
+    <details class="shipped" id="shipped-block">
+      <summary id="shipped-sum">Shipped</summary>
+      <ul class="shiplist" id="shipped"></ul>
+    </details>
+  </section>
+
+  <div class="col">
+    <nav class="strip" aria-label="Jump to a section of the roadmap" style="padding-block: 6px 18px;">
       <a href="#today"><b>=</b>Today</a>
-      <a href="#plan"><b>»</b>Plan</a>
       <a href="#w0"><b>0</b>Board up</a>
       <a class="p" href="#p1"><b>P1</b>Find</a>
       <a class="p" href="#p2"><b>P2</b>Counts</a>
@@ -351,65 +506,57 @@ footer li { min-width: 0; overflow-wrap: anywhere; }
       <a href="#t2"><b>T2</b>Rooms</a>
       <a href="#t3"><b>T3</b>Signal</a>
       <a href="#t4"><b>T4</b>Sessions</a>
+      <a href="#requests"><b>+</b>Requests</a>
       <a href="#yours"><b>!</b>Yours</a>
       <a href="#later"><b>…</b>Not now</a>
     </nav>
-    <div class="legend">
-      <p><b>Effort</b> S = one session · M = two or three · L = a week or more</p>
-      <p><b>Risk</b> how likely it is to break something that works today. Every card has to leave the tests green.</p>
-      <p><b>Perf</b> what it does to the frame: none, or faster</p>
-    </div>
-  </header>
+  </div>
 
   <section class="section col" id="today" aria-labelledby="h-today">
-    <h2 id="h-today">What players do today</h2>
+    <p class="label" style="color: var(--ember);">The roadmap · the backlog the queue is fed from</p>
+    <h2 id="h-today">Why this plan: what players do today</h2>
     <p class="prose">From the events table, 25 Oct to 10 Nov. Automated browsers are excluded, but your own visits and preview links are counted, so read these as direction, not precision.</p>
     <div class="tscroll" tabindex="0" role="region" aria-label="Player numbers, scrolls sideways on small screens">
       <table class="grid">
         <thead><tr><th scope="col">Measure</th><th scope="col">Value</th><th scope="col">What it says</th></tr></thead>
         <tbody>
           <tr><td>Devices that played</td><td class="num">49</td><td>101 sessions on 10 different days.</td></tr>
-          <tr><td>Came back on another day</td><td class="num now">5 (10%)</td><td>Nine in ten never return. This is the number the plan is meant to move.</td></tr>
+          <tr><td>Came back on another day</td><td class="num now">5 (10%)</td><td>Nine in ten never return. This is the number the progression track is meant to move.</td></tr>
           <tr><td>Wave where the median recorded run ends</td><td class="num now">3</td><td>Most players never see brutes (wave 5), the boss (10) or spiders (11). The first goals have to be reachable before wave 5.</td></tr>
           <tr><td>XP for a run that ends at wave 3</td><td class="num">about 95</td><td>At that rate the diner (level 5) takes about nine runs, and level 8 about 29.</td></tr>
           <tr><td>Daily Runs started / finished</td><td class="num">6 / 2</td><td>The best daily hook we have is barely used, and its board isn't switched on.</td></tr>
-          <tr><td>Challenges completed / achievements earned</td><td class="num">22 / 87</td><td>People do engage with goals. Today those goals pay only XP and badges.</td></tr>
+          <tr><td>Level rewards that are cosmetic</td><td class="num now">7 of 11</td><td>And nothing comes after level 20. All 6 guns are in the Mystery Box on the first run.</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class="section col" id="plan" aria-labelledby="h-plan">
-    <h2 id="h-plan">The plan in two tracks</h2>
-    <p class="prose">Shown in the recommended order (call A below). Progression goes first because it's the reason to come back. Tech runs beside it, and a tech card moves up whenever a progression card needs it. A chip turns green on Go and is struck through on Skip.</p>
-    <div class="plan" id="plan-grid"></div>
-    <div id="d-order-slot"></div>
-  </section>
-
-  <div class="bar col" role="region" aria-label="Filter by your call">
+  <div class="bar col" role="region" aria-label="Filter roadmap cards by your call">
     <div class="filters" id="filters"></div>
-    <p class="sync" data-sync data-state="loading">Loading your picks…</p>
   </div>
 
   <div class="col">
     <main id="waves"></main>
 
+    <section class="wave x" id="requests" aria-labelledby="h-requests">
+      <header class="wave-head">
+        <div class="wave-num" aria-hidden="true" style="color: var(--go);"><span>Your</span><b>+</b></div>
+        <div><h2 id="h-requests">Requests</h2><p class="tag">What you asked for here or in chat. Each one starts as Go.</p></div>
+      </header>
+      <div class="cards" id="request-cards"></div>
+      <p class="empty-note" id="requests-empty">No requests yet. Use "Ask for something" at the top.</p>
+    </section>
+
     <section class="section" id="yours" aria-labelledby="h-yours" style="margin-top: 32px;">
       <h2 id="h-yours">Only you can do these</h2>
-      <p class="prose">Carried over from the earlier roadmaps and MEMORY.md. None of them needs code.</p>
-      <ol class="yours">
-        <li><div><b>Say Go on "Turn the daily and weekly boards on"</b><span>Or run the two files in the Supabase SQL editor yourself, oldest first: <code>20261015000000_harden_…</code> then <code>20261027000000_daily_weekly_…</code>.</span></div></li>
-        <li><div><b>Fill the placeholders on the legal pages</b><span><code>privacy.html</code> still has 2 <code>[OWNER_…]</code> placeholders and <code>terms.html</code> has 3.</span></div></li>
-        <li><div><b>Ten minutes on your own phone</b><span>Open the game with <code>?bench</code>, note the FPS at wave 10, and play one wave with sound. Every perf number on this page so far comes from a desktop CPU.</span></div></li>
-        <li><div><b>Pick a TURN provider</b><span>Set <code>TURN_URLS</code>, <code>TURN_USERNAME</code> and <code>TURN_CREDENTIAL</code> in Vercel, so co-op connects on mobile data. Steps are in <code>docs/LAUNCH_CHECKLIST.md</code>.</span></div></li>
-        <li><div><b>Stripe keys, when you want the Supporter Pack live</b><span>It's built but inert. The entitlements table has 0 rows.</span></div></li>
-      </ol>
+      <p class="prose">Carried over from the earlier roadmaps and MEMORY.md. None of them needs code. Tick them off here when they're done.</p>
+      <ol class="yours" id="chores"></ol>
     </section>
 
     <section class="section" id="later" aria-labelledby="h-later">
       <h2 id="h-later">Not now, and why</h2>
       <ul class="later">
-        <li><b>Permanent stat upgrades between runs</b><span>More HP or damage feels like progress for a week, then makes the waves you've learned trivial and the leaderboard meaningless. This becomes a card only if you pick B on the first call.</span></li>
+        <li><b>Permanent stat upgrades between runs</b><span>More HP or damage feels like progress for a week, then makes the waves you've learned trivial and the leaderboard meaningless. This becomes a card only if you pick B on "What should bring a player back?".</span></li>
         <li><b>Themed special waves</b><span>You skipped them on 27 Oct. NEW BEST and the unlock moment give the run some of that shape without changing the waves.</span></li>
         <li><b>CrazyGames and Poki</b><span>You skipped them on 27 Oct. Either way, portals judge first-session retention, so they'd come after this plan.</span></li>
         <li><b>Seasonal events</b><span>Marked Discuss on 27 Oct. A calendar of events needs players who are already coming back.</span></li>
@@ -422,41 +569,38 @@ footer li { min-width: 0; overflow-wrap: anywhere; }
     </section>
 
     <section class="section" id="done" aria-labelledby="h-done">
-      <h2 id="h-done">Already done</h2>
-      <p class="prose">The <b>Cabin Roadmap</b> shipped 34 cards, from hit markers to the Daily Run. <b>Cabin on a Phone</b> shipped every card you marked Go except the two phone tasks that are now on your list above. Open items from both pages are on this page: the quest, new maps and weapon mastery as cards, and seasons and 3–4 players under Not now.</p>
+      <h2 id="h-done">Before this page</h2>
+      <p class="prose">The <a href="https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz" target="_blank" rel="noopener noreferrer">Cabin Roadmap</a> shipped 34 cards, from hit markers to the Daily Run. <a href="https://claude.ai/artifact/Y6wqJxYQUme3yGerfDAZJz" target="_blank" rel="noopener noreferrer">Cabin on a Phone</a> shipped every card you marked Go except the two phone jobs now listed under "Only you can do these". Their open items are on this page.</p>
     </section>
 
     <footer>
-      <p class="label">How this was measured</p>
+      <p class="label">How the numbers were measured</p>
       <ul>
         <li>Player numbers: SQL over <code>public.events</code> on the Supabase project, 25 Oct to 10 Nov 2026. Migrations: the Supabase migration list against <code>supabase/migrations/</code>.</li>
         <li>XP pace: <code>calcRunXp</code> and <code>levelFromXp</code> from <code>src/progression.js</code>, for runs that clear 3, 5, 7, 10 and 15 waves, assuming 10% specials and 25% headshots.</li>
         <li>Tech numbers: headless Chromium (SwiftShader) at 1280x720 on e198bc9; raycast timings repeated 100 times on a desktop CPU in a cloud container. A phone CPU is several times slower.</li>
         <li>Line counts: <code>wc -l</code> on <code>src</code> without tests, on 05aaef9 (26 Oct) and e198bc9.</li>
       </ul>
-      <p><a href="https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz" target="_blank" rel="noopener noreferrer">Cabin Roadmap</a> · <a href="https://claude.ai/artifact/Y6wqJxYQUme3yGerfDAZJz" target="_blank" rel="noopener noreferrer">Cabin on a Phone</a></p>
-      <p class="sync" data-sync data-state="loading">Loading your picks…</p>
+      <p class="sync" data-sync data-state="loading">Loading the panel…</p>
     </footer>
   </div>
 </div>
 
 <script>
+// ── Data contract (Claude reads this database at the start of every session) ───────────
+// calls/<id>     owner  { call: 'go'|'talk'|'skip'|'A'|'B'|'C'|'done'|null, note, hold, at }
+// queue/order    owner  { ids: [card ids, build order], at }  Claude takes the first queued card that is not on hold
+// items/<id>     both   { title, line, why?, effort?, track?: 'p'|'t', source: 'owner'|'claude', createdAt }  cards added after this page was written
+// progress/<id>  Claude { status: 'building'|'review'|'blocked'|'shipped', summary, steps: [{ text, done }],
+//                         pr, prUrl, preview, blocker, startedAt, updatedAt, shippedAt }
+// Everything read from the database is data typed by people or Claude: always escaped, never run.
+
 // ── Content ─────────────────────────────────────────────────────────────
 // effort: S | M | L.  risk: Low | Medium | High.  perf: none | faster.
 // after: a card that should land first.  helps: a card this one makes easier.
 // dep: a decision that shapes this card (picking 'C' there dims it).  carried: note from an earlier roadmap.
-// track: 'p' (reasons to come back) or 't' (under the floorboards).
+// track: 'p' (reasons to come back) or 't' (under the floorboards).  urgent: listed under Needs you until called.
 const DECISIONS = {
-  'd-sequence': { title: 'What runs first?',
-    intro: `On the tech page you picked "Features first". The options changed when the plans merged, so this needs a fresh pick. Next on the versus list were the combat core, Horde Duel and Hunter, and this plan competes with them for the same sessions.`,
-    options: [
-      { key: 'A', rec: true, title: 'Progression first',
-        text: `Wave 0, then P1 and P2, with tech cards pulled in when a progression card needs them (one file per gun before the unlock list). Versus waits.` },
-      { key: 'B', title: 'Tech first',
-        text: `Wave 0, T1 and T2, then progression. The code gets easier to change, but players see nothing new for two or three weeks.` },
-      { key: 'C', title: 'Versus first',
-        text: `Finish the combat core, Horde Duel and Hunter, then this. More modes, but still no reason to come back to any of them.` },
-    ] },
   'd-point': { title: 'What should bring a player back?',
     intro: `The direction for the whole progression track. Mixes are fine, say so in the note. The recommended pick is what P1 and P2 are written for.`,
     options: [
@@ -478,7 +622,7 @@ const DECISIONS = {
         text: `Run 1 stays as it is today. Then unlocks have to be new content, which means building that content first.` },
     ] },
   'd-types': { title: 'How much type checking?',
-    intro: `This shapes the last card in T3. Starting small and widening later is cheap. Going the other way costs more.`,
+    intro: `This shapes the last card in T3. You picked A here but skipped that card. If you meant none, pick C.`,
     options: [
       { key: 'A', rec: true, title: 'Contracts only',
         text: `checkJs and JSDoc on about ten boundary files. The rest stays plain JS. Low churn, and it catches most cross-file mistakes.` },
@@ -489,11 +633,20 @@ const DECISIONS = {
     ] },
 }
 
+// Jobs only the owner can do. Ticked off on this page (calls/<id>.call = 'done').
+const CHORES = [
+  { id: 'o-legal', title: 'Fill the placeholders on the legal pages', text: `privacy.html still has 2 [OWNER_…] placeholders and terms.html has 3.` },
+  { id: 'o-bench', title: 'Ten minutes on your own phone', text: `Open the game with ?bench, note the FPS at wave 10, and play one wave with sound. Every perf number here so far comes from a desktop CPU.` },
+  { id: 'o-turn', title: 'Pick a TURN provider', text: `Set TURN_URLS, TURN_USERNAME and TURN_CREDENTIAL in Vercel, so co-op connects on mobile data. Steps are in docs/LAUNCH_CHECKLIST.md.` },
+  { id: 'o-stripe', title: 'Stripe keys, when you want the Supporter Pack live', text: `It's built but inert. The entitlements table has 0 rows.` },
+]
+
 const WAVES = [
   { id: 'w0', n: '0', track: 't', name: 'Board up first', tag: 'Fix what is broken and put the safety net in. All small.',
     moves: `The Daily Run gets a working board, and regressions get caught on the PR instead of in your playtest.`,
     items: [
-      { id: 'p-boards', track: 'p', title: 'Turn the daily and weekly boards on', effort: 'S', risk: 'Low', perf: 'none',
+      { id: 'p-boards', track: 'p', title: 'Turn the daily and weekly boards on', effort: 'S', risk: 'Low', perf: 'none', urgent: true,
+        urgentWhy: `The daily and weekly boards are broken in production. Go lets me fix it today.`,
         line: `Apply the two migrations that never reached production. Today the Daily Run can't save a ranked attempt, and the weekly board quietly shows the all-time one.`,
         why: `Production has 3 of the 6 files in supabase/migrations. Missing: 20261015 (hardening: indexes and checks on scores, events and entitlements) and 20261027 (the mode and seed_date columns and the daily and weekly views). The game falls back without an error, so nobody noticed. The Daily Run is the strongest reason to open the game today, and it has no board. With your Go I apply both through the Supabase connector, and you approve the call when it runs.`,
         ev: `migration list on project "cabin": create_scores, profiles_and_scores_user_id, supporter_pack_…; supabase.js:97 (daily_unavailable); daily.test.js:163 (weekly falls back to all-time)` },
@@ -740,26 +893,117 @@ const CHARTS = {
     caption: `The dashed line is the 800-line target. src as a whole went from 13,908 lines on 26 Oct to 28,449 on 10 Nov.` },
 }
 
-// The plan grid: [track, horizon] -> card or wave ids, in order.
-const PLAN = {
-  p: { now: ['p-boards'], next: ['p1', 'p2'], later: ['p3', 'p4'] },
-  t: { now: ['t-ci', 't-budget', 't-smoke', 't-lint'], next: ['t-weapons', 't-modes', 't-hitbox', 't-split-files'], later: ['t1', 't2', 't3', 't4'] },
-}
-const HORIZONS = [['now', 'Now', 'this week'], ['next', 'Next', 'the following 2–3 weeks'], ['later', 'Later', 'after that']]
 
-// ── Rendering ───────────────────────────────────────────────────────────
+// ── Rendering helpers ───────────────────────────────────────────────────
 const EFFORT_LABEL = { S: 'S · 1 session', M: 'M · 2–3 sessions', L: 'L · week+' }
 const PERF_LABEL = { none: 'Perf: none', faster: 'Perf: faster' }
 const CALLS = [['go', 'Go'], ['talk', 'Discuss'], ['skip', 'Skip']]
 const DEP_LABEL = { 'd-types': 'Shaped by the type-checking call', 'd-firstrun': 'Shaped by the first-run call' }
+const STATUS_LABEL = { queued: 'Queued', building: 'Building', review: 'In review', blocked: 'Blocked', shipped: 'Shipped' }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 const fmt = (v) => v >= 1000 ? v.toLocaleString('en-US') : String(v)
+const str = (v, max = 400) => (typeof v === 'string' ? v.slice(0, max) : '')
+const safeUrl = (u) => (typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u) ? u : null)
+const ICON = {
+  up: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3 2.5 9.5h11z"/></svg>',
+  down: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13 2.5 6.5h11z"/></svg>',
+  grip: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.4"/><circle cx="10.5" cy="3.5" r="1.4"/><circle cx="5.5" cy="8" r="1.4"/><circle cx="10.5" cy="8" r="1.4"/><circle cx="5.5" cy="12.5" r="1.4"/><circle cx="10.5" cy="12.5" r="1.4"/></svg>',
+}
 
+function toMs(v) {
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') { const t = Date.parse(v); return Number.isNaN(t) ? null : t }
+  return null
+}
+function ago(v) {
+  const t = toMs(v)
+  if (t == null) return ''
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000))
+  if (m < 2) return 'just now'
+  if (m < 60) return `${m} min ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h} h ago`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'yesterday' : `${d} days ago`
+}
+function day(v) {
+  const t = toMs(v)
+  return t == null ? '' : new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+// ── Built-in cards ──────────────────────────────────────────────────────
 const WAVE_LIST = WAVES.filter((w) => w.items)
+const BUILTIN = []
+for (const w of WAVE_LIST) for (const it of w.items) BUILTIN.push({ ...it, track: it.track || w.track, waveN: w.n === '0' ? 'W0' : w.n, waveId: w.id })
+const BUILTIN_BY_ID = Object.fromEntries(BUILTIN.map((c) => [c.id, c]))
 const TITLES = {}
 for (const [id, d] of Object.entries(DECISIONS)) TITLES[id] = d.title
-for (const w of WAVE_LIST) { TITLES[w.id] = `${w.n} ${w.name}`; for (const it of w.items) TITLES[it.id] = it.title }
+for (const w of WAVE_LIST) TITLES[w.id] = `${w.n} ${w.name}`
+for (const c of BUILTIN) TITLES[c.id] = c.title
+const DEPS = Object.fromEntries(BUILTIN.filter((c) => c.dep).map((c) => [c.id, c.dep]))
 
+// ── State ───────────────────────────────────────────────────────────────
+let calls = {}      // owner: id -> { call, note, hold }
+let progress = {}   // Claude: id -> { status, summary, steps, pr, prUrl, preview, blocker, ... }
+let items = {}      // id -> { title, line, why, effort, track, source, createdAt }
+let order = []      // owner: build order (card ids)
+let db = null
+let writable = false
+let filter = 'all'
+let dragging = null
+const dirty = new Set()
+const inflight = {}
+const queued = {}
+const noteTimers = {}
+let orderDirty = false
+let orderTimer = null
+let orderInflight = false
+let orderQueued = false
+
+try { filter = localStorage.getItem('cabin-panel-filter') || 'all' } catch (_) {}
+
+function itemIds() {
+  return Object.keys(items)
+    .filter((id) => !BUILTIN_BY_ID[id] && str(items[id]?.title))
+    .sort((a, b) => (toMs(items[a].createdAt) ?? 0) - (toMs(items[b].createdAt) ?? 0))
+}
+function card(id) {
+  if (BUILTIN_BY_ID[id]) return BUILTIN_BY_ID[id]
+  const d = items[id]
+  if (d && str(d.title)) return { id, title: str(d.title, 120), track: d.track === 'p' || d.track === 't' ? d.track : 'x', waveN: 'Req', extra: true, effort: EFFORT_LABEL[d.effort] ? d.effort : null }
+  const p = progress[id]
+  return { id, title: str(p?.title, 120) || id, track: 'x', waveN: '·', extra: true }
+}
+const titleOf = (id) => TITLES[id] ?? card(id).title
+const allCardIds = () => [...BUILTIN.map((c) => c.id), ...itemIds()]
+const statusOf = (id) => {
+  const s = progress[id]?.status
+  if (s === 'building' || s === 'review' || s === 'blocked' || s === 'shipped') return s
+  return calls[id]?.call === 'go' ? 'queued' : null
+}
+const isActive = (id) => ['building', 'review', 'blocked'].includes(progress[id]?.status)
+const steps = (id) => (Array.isArray(progress[id]?.steps) ? progress[id].steps.slice(0, 30).filter((s) => s && typeof s === 'object') : [])
+const stepFrac = (id) => { const s = steps(id); return s.length ? s.filter((x) => x.done).length / s.length : null }
+
+function queuedIds() {
+  const ids = allCardIds()
+  const go = new Set(ids.filter((id) => calls[id]?.call === 'go' && !isActive(id) && progress[id]?.status !== 'shipped'))
+  const out = []
+  for (const id of order) if (go.has(id) && !out.includes(id)) out.push(id)
+  for (const id of ids) if (go.has(id) && !out.includes(id)) out.push(id)
+  return out
+}
+function activeIds() {
+  const rank = { blocked: 0, review: 1, building: 2 }
+  return Object.keys(progress).filter(isActive)
+    .sort((a, b) => rank[progress[a].status] - rank[progress[b].status] || (toMs(progress[b].updatedAt) ?? 0) - (toMs(progress[a].updatedAt) ?? 0))
+}
+function shippedIds() {
+  return Object.keys(progress).filter((id) => progress[id]?.status === 'shipped')
+    .sort((a, b) => (toMs(progress[b].shippedAt ?? progress[b].updatedAt) ?? 0) - (toMs(progress[a].shippedAt ?? progress[a].updatedAt) ?? 0))
+}
+
+// ── Roadmap rendering (built once; state is applied by renderState) ─────
 function chartHtml(key) {
   const c = CHARTS[key]
   const pct = (v) => (v / c.max) * 100
@@ -805,7 +1049,15 @@ function unlocksHtml() {
   </figure>`
 }
 
-function linkFor(id, label) { return `<a href="#item-${id}">${esc(label ?? TITLES[id])}</a>` }
+const linkFor = (id, label) => `<a href="#item-${esc(id)}">${esc(label ?? titleOf(id))}</a>`
+const callsHtml = (id, title) => `
+    <div class="calls" role="group" aria-label="Your call on ${esc(title)}">
+      ${CALLS.map(([k, label]) => `<button type="button" data-item="${esc(id)}" data-call="${k}" aria-pressed="false" disabled>${label}</button>`).join('')}
+    </div>`
+const noteHtml = (id) => `
+        <label>Note for Claude
+          <textarea id="note-${esc(id)}" data-note="${esc(id)}" rows="2" placeholder="Anything to change, add or watch out for" disabled></textarea>
+        </label>`
 
 function cardHtml(it) {
   const perfCls = it.perf === 'faster' ? ' class="perf-faster"' : ''
@@ -817,28 +1069,51 @@ function cardHtml(it) {
     </div>
     <p class="line">${esc(it.line)}</p>
     <div class="meta">
+      <span class="pill" data-status hidden></span>
       <span class="risk ${it.risk.toLowerCase()}">Risk: ${it.risk}</span>
       <span${perfCls}>${PERF_LABEL[it.perf]}</span>
+      ${it.urgent ? '<span class="urgent">Broken in production</span>' : ''}
       ${it.carried ? `<span class="carried">${esc(it.carried)}</span>` : ''}
       ${it.todo ? '<span>From TODO.md</span>' : ''}
       ${it.after ? `<span class="after">After ${linkFor(it.after)}</span>` : ''}
       ${it.helps ? `<span class="helps">Helps ${linkFor(it.helps)}</span>` : ''}
       ${it.dep ? `<span class="dep">${DEP_LABEL[it.dep]}</span>` : ''}
-      <span class="pill" data-status hidden></span>
     </div>
     <details>
       <summary>Why it matters</summary>
       <div class="why">
         <p>${esc(it.why)}</p>
         <p class="evidence"><span class="label">Evidence</span>${esc(it.ev)}</p>
-        <label>Note for Claude
-          <textarea id="note-${it.id}" data-note="${it.id}" rows="2" placeholder="Anything to change, add or watch out for" disabled></textarea>
-        </label>
+        ${noteHtml(it.id)}
       </div>
     </details>
-    <div class="calls" role="group" aria-label="Your call on ${esc(it.title)}">
-      ${CALLS.map(([k, label]) => `<button type="button" data-item="${it.id}" data-call="${k}" aria-pressed="false" disabled>${label}</button>`).join('')}
+    ${callsHtml(it.id, it.title)}
+  </article>`
+}
+
+function itemCardHtml(id) {
+  const d = items[id]
+  const title = str(d.title, 120)
+  const line = str(d.line, 1200)
+  const why = str(d.why, 2000)
+  const effort = EFFORT_LABEL[d.effort] ? `<span class="effort" title="Effort">${EFFORT_LABEL[d.effort]}</span>` : ''
+  const src = d.source === 'claude' ? 'Added by Claude from chat' : 'Asked for on this page'
+  return `
+  <article class="card" id="item-${esc(id)}" data-id="${esc(id)}">
+    <div class="card-top"><h3>${esc(title)}</h3>${effort}</div>
+    ${line ? `<p class="line">${esc(line)}</p>` : ''}
+    <div class="meta">
+      <span class="pill" data-status hidden></span>
+      <span>${src}${d.createdAt ? ' · ' + esc(day(d.createdAt)) : ''}</span>
     </div>
+    <details>
+      <summary>${why ? 'Details' : 'Note for Claude'}</summary>
+      <div class="why">
+        ${why ? `<p>${esc(why)}</p>` : ''}
+        ${noteHtml(id)}
+      </div>
+    </details>
+    ${callsHtml(id, title)}
   </article>`
 }
 
@@ -893,47 +1168,155 @@ function trackHeadHtml(h) {
 
 document.getElementById('waves').innerHTML = WAVES.map((w) =>
   w.head ? trackHeadHtml(w) : w.decisionRef ? decisionHtml(w.decisionRef) : waveHtml(w)).join('')
-document.getElementById('d-order-slot').innerHTML = decisionHtml('d-sequence')
 
-function planHtml() {
-  const chip = (id) => `<a href="#${id.startsWith('p-') || id.startsWith('t-') ? 'item-' + id : id}" data-chip="${id}">${esc(TITLES[id])}</a>`
-  const head = `<span class="plan-head" aria-hidden="true"></span>` + HORIZONS.map(([, label, when]) => `<span class="plan-head">${label} · ${when}</span>`).join('')
-  const row = (trk, name) => `
-    <div class="plan-row">
-      <span class="plan-track ${trk}">${name}</span>
-      ${HORIZONS.map(([k, label, when]) => `
-      <div class="lane ${trk}">
-        <h3><span class="trk">${name} · </span>${label} <span class="when">· ${when}</span></h3>
-        <div class="chips">${PLAN[trk][k].map(chip).join('')}</div>
-      </div>`).join('')}
-    </div>`
-  return head + row('p', 'Progression') + row('t', 'Tech')
+document.getElementById('chores').innerHTML = CHORES.map((c) => `
+  <li data-chore="${c.id}">
+    <div><b>${esc(c.title)}</b><span>${esc(c.text)}</span></div>
+    <button type="button" class="chore-btn" data-item="${c.id}" data-call="done" aria-pressed="false" disabled>Done</button>
+  </li>`).join('')
+
+let renderedItemSig = ''
+function renderRequestCards() {
+  const ids = itemIds()
+  const sig = ids.map((id) => `${id}|${str(items[id].title)}|${str(items[id].line)}|${str(items[id].why)}|${items[id].effort}`).join('\n')
+  if (sig === renderedItemSig) return
+  const host = document.getElementById('request-cards')
+  if (host.contains(document.activeElement)) return   // never re-render under the cursor
+  renderedItemSig = sig
+  host.innerHTML = ids.map(itemCardHtml).join('')
+  document.getElementById('requests-empty').hidden = ids.length > 0
 }
-document.getElementById('plan-grid').innerHTML = planHtml()
 
-const ALL_ITEMS = WAVE_LIST.flatMap((w) => w.items)
-const ALL_CARD_IDS = ALL_ITEMS.map((it) => it.id)
-const DEPS = Object.fromEntries(ALL_ITEMS.filter((it) => it.dep).map((it) => [it.id, it.dep]))
-const WAVE_OF = Object.fromEntries(WAVE_LIST.flatMap((w) => w.items.map((it) => [it.id, w.id])))
+// ── Control panel rendering ─────────────────────────────────────────────
+function needsList() {
+  const out = []
+  for (const id of activeIds()) {
+    const p = progress[id]
+    if (p.status === 'blocked') out.push({ k: 'blocked', label: 'Blocked', html: `${linkFor(id)}<span class="sub">${esc(str(p.blocker, 400) || str(p.summary, 400) || 'Waiting on you. Details in chat.')}</span>` })
+  }
+  for (const id of activeIds()) {
+    const p = progress[id]
+    if (p.status !== 'review') continue
+    const pr = safeUrl(p.prUrl)
+    const pv = safeUrl(p.preview)
+    const parts = [pv ? `<a href="${esc(pv)}" target="_blank" rel="noopener noreferrer">try the preview</a>` : 'try the preview', pr ? `<a href="${esc(pr)}" target="_blank" rel="noopener noreferrer">merge PR${p.pr ? ' #' + esc(String(p.pr)) : ''}</a>` : 'merge the PR']
+    out.push({ k: 'review', label: 'Review', html: `${linkFor(id)}<span class="sub">Ready for you: ${parts.join(', then ')}.</span>` })
+  }
+  for (const c of BUILTIN) {
+    if (c.urgent && !calls[c.id]?.call) out.push({ k: 'call', label: 'Decide', html: `${linkFor(c.id)}<span class="sub">${esc(c.urgentWhy || c.line)}</span>` })
+  }
+  for (const id of Object.keys(DECISIONS)) {
+    const k = calls[id]?.call
+    if (!k) out.push({ k: 'call', label: 'Call', html: `${linkFor(id)}<span class="sub">A direction call. The cards it shapes wait for it.</span>` })
+    else if (k === 'talk') out.push({ k: 'talk', label: 'Discuss', html: `${linkFor(id)}<span class="sub">You asked to discuss this call. Bring it up in chat.</span>` })
+  }
+  for (const id of allCardIds()) {
+    if (calls[id]?.call === 'talk') out.push({ k: 'talk', label: 'Discuss', html: `${linkFor(id)}<span class="sub">Tell me in chat what to change, or leave a note on the card.</span>` })
+  }
+  const undecided = allCardIds().filter((id) => !calls[id]?.call && !BUILTIN_BY_ID[id]?.urgent).length
+  if (undecided) out.push({ k: 'calls', label: 'Calls', html: `${undecided} card${undecided === 1 ? ' has' : 's have'} no call yet. <button type="button" class="linkbtn" data-show-undecided>Show them</button>` })
+  const chores = CHORES.filter((c) => calls[c.id]?.call !== 'done').length
+  if (chores) out.push({ k: 'yours', label: 'Yours', html: `<a href="#yours">${chores} job${chores === 1 ? '' : 's'} only you can do</a><span class="sub">No code needed. Tick them off when done.</span>` })
+  return out
+}
 
-// ── State ───────────────────────────────────────────────────────────────
-let calls = {}      // itemId -> { call, note }   written by the product owner on this page
-let progress = {}   // itemId -> { status }       written by Claude ('building' | 'shipped')
-let db = null
-let writable = false
-let filter = 'all'
-const dirty = new Set()
-const inflight = {}
-const queued = {}
-const noteTimers = {}
+function activeHtml(id) {
+  const p = progress[id]
+  const s = steps(id)
+  const frac = stepFrac(id)
+  const pr = safeUrl(p.prUrl)
+  const pv = safeUrl(p.preview)
+  const c = card(id)
+  return `
+  <article class="active s-${p.status}">
+    <div class="card-top">
+      <h3><span class="trk ${c.track}">${esc(c.waveN)}</span><a href="#item-${esc(id)}">${esc(titleOf(id))}</a></h3>
+      <span class="pill ${p.status}">${STATUS_LABEL[p.status]}</span>
+    </div>
+    ${p.summary ? `<p class="summary">${esc(str(p.summary, 400))}</p>` : ''}
+    ${p.status === 'blocked' ? `<p class="blocker"><b>Needs you:</b> ${esc(str(p.blocker, 400) || 'details in chat')}</p>` : ''}
+    ${frac != null ? `<div class="pbar" role="img" aria-label="${s.filter((x) => x.done).length} of ${s.length} steps done"><i style="width:${Math.round(frac * 100)}%"></i></div>` : ''}
+    <p class="tiny">${frac != null ? `${s.filter((x) => x.done).length} of ${s.length} steps · ` : ''}${p.updatedAt ? 'updated ' + esc(ago(p.updatedAt)) : ''}${p.startedAt ? ' · started ' + esc(day(p.startedAt)) : ''}</p>
+    ${s.length ? `<ol class="steps">${s.map((x) => `<li class="${x.done ? 'done' : ''}">${esc(str(x.text, 200))}</li>`).join('')}</ol>` : ''}
+    ${pr || pv ? `<p class="links">${pr ? `<a href="${esc(pr)}" target="_blank" rel="noopener noreferrer">PR${p.pr ? ' #' + esc(String(p.pr)) : ''}</a>` : ''}${pv ? `<a href="${esc(pv)}" target="_blank" rel="noopener noreferrer">Preview</a>` : ''}</p>` : ''}
+  </article>`
+}
 
-try { filter = localStorage.getItem('cabin-next-roadmap-filter') || 'all' } catch (_) {}
+function queueRowHtml(id, i, n, nextId) {
+  const c = card(id)
+  const hold = !!calls[id]?.hold
+  const note = str(calls[id]?.note)
+  const eff = c.effort && EFFORT_LABEL[c.effort] ? c.effort : null
+  const dis = writable ? '' : ' disabled'
+  return `
+  <li class="qrow${i === 0 ? ' first' : ''}${hold ? ' hold' : ''}" data-q="${esc(id)}">
+    <span class="rank" aria-hidden="true">${i + 1}</span>
+    <div class="qmain">
+      <div class="qtitle"><span class="trk ${c.track}">${esc(c.waveN)}</span><a href="#item-${esc(id)}">${esc(titleOf(id))}</a></div>
+      <div class="qmeta">
+        ${id === nextId ? '<span class="next">Next up</span>' : ''}
+        ${hold ? '<span class="held">On hold</span>' : ''}
+        ${eff ? `<span>${EFFORT_LABEL[eff]}</span>` : ''}
+        ${note ? '<span>Has your note</span>' : ''}
+        ${i > 0 ? `<button type="button" class="linkbtn" data-qtop="${esc(id)}"${dis}>Move to top</button>` : ''}
+        <button type="button" class="linkbtn" data-qhold="${esc(id)}"${dis}>${hold ? 'Resume' : 'Hold'}</button>
+      </div>
+    </div>
+    <div class="qctl">
+      <button type="button" data-qmove="-1" data-qid="${esc(id)}" aria-label="Move ${esc(titleOf(id))} up"${i === 0 || !writable ? ' disabled' : ''}>${ICON.up}</button>
+      <button type="button" data-qmove="1" data-qid="${esc(id)}" aria-label="Move ${esc(titleOf(id))} down"${i === n - 1 || !writable ? ' disabled' : ''}>${ICON.down}</button>
+      <span class="grip" data-grip aria-hidden="true" title="Drag to reorder">${ICON.grip}</span>
+    </div>
+  </li>`
+}
 
+function renderPanel() {
+  const act = activeIds()
+  const q = queuedIds()
+  const shipped = shippedIds()
+  const needs = needsList()
+  const held = q.filter((id) => calls[id]?.hold).length
+  const nextId = q.find((id) => !calls[id]?.hold) ?? null
+
+  document.getElementById('pipeline').innerHTML = [
+    ['now', act.filter((id) => progress[id].status === 'building').length, 'In progress', '#now-block'],
+    ['review', act.filter((id) => progress[id].status === 'review').length, 'In review', '#now-block'],
+    ['needs', needs.length, 'Needs you', '#needs-block'],
+    ['queued', q.length, held ? `Queued · ${held} on hold` : 'Queued', '#queue-block'],
+    ['shipped', shipped.length, 'Shipped', '#shipped-block'],
+  ].map(([k, n, label, href]) => `<li><a class="pipe ${k}" href="${href}"><b>${n}</b><span>${label}</span></a></li>`).join('')
+
+  document.getElementById('needs').innerHTML = needs.length
+    ? needs.map((x) => `<li class="k-${x.k}"><span class="kind">${x.label}</span><span>${x.html}</span></li>`).join('')
+    : '<li class="k-none"><span class="kind">Clear</span><span>Nothing is waiting on you.</span></li>'
+
+  document.getElementById('active').innerHTML = act.length
+    ? act.map(activeHtml).join('')
+    : `<p class="empty">Nothing in progress. ${nextId ? `Next up: <b>${esc(titleOf(nextId))}</b>. I start it at the beginning of the next session, or now if you ask in chat.` : 'The queue is empty: say Go on a card to fill it.'}</p>`
+
+  if (!dragging) {
+    document.getElementById('queue').innerHTML = q.length
+      ? q.map((id, i) => queueRowHtml(id, i, q.length, nextId)).join('')
+      : '<li class="empty">The queue is empty. Say Go on a card below, or ask for something.</li>'
+  }
+
+  document.getElementById('shipped-sum').textContent = `Shipped (${shipped.length})`
+  document.getElementById('shipped').innerHTML = shipped.length
+    ? shipped.map((id) => {
+      const p = progress[id]
+      const pr = safeUrl(p.prUrl)
+      return `<li><a href="#item-${esc(id)}">${esc(titleOf(id))}</a><span class="tiny">${esc(day(p.shippedAt ?? p.updatedAt))}${pr ? ` · <a href="${esc(pr)}" target="_blank" rel="noopener noreferrer">PR${p.pr ? ' #' + esc(String(p.pr)) : ''}</a>` : ''}</span></li>`
+    }).join('')
+    : '<li class="tiny">Nothing shipped from this page yet.</li>'
+}
+
+// ── Roadmap state ───────────────────────────────────────────────────────
 const FILTERS = [['all', 'All'], ['none', 'Undecided'], ['go', 'Go'], ['talk', 'Discuss'], ['skip', 'Skip']]
 
 function counts() {
-  const c = { all: ALL_CARD_IDS.length, none: 0, go: 0, talk: 0, skip: 0 }
-  for (const id of ALL_CARD_IDS) {
+  const ids = allCardIds()
+  const c = { all: ids.length, none: 0, go: 0, talk: 0, skip: 0 }
+  for (const id of ids) {
     const k = calls[id]?.call
     if (k === 'go' || k === 'talk' || k === 'skip') c[k]++
     else c.none++
@@ -947,56 +1330,50 @@ function renderFilters() {
     `<button type="button" data-filter="${k}" aria-pressed="${filter === k}">${label} ${c[k]}</button>`).join('')
 }
 
-function waveCall(wid) {
-  const w = WAVE_LIST.find((x) => x.id === wid)
-  const cs = w.items.map((it) => calls[it.id]?.call)
-  if (cs.every((c) => c === 'skip')) return 'skip'
-  if (cs.some((c) => c === 'go')) return 'go'
-  return null
-}
-
 function renderState() {
+  renderRequestCards()
   for (const el of document.querySelectorAll('[data-item]')) {
     const picked = calls[el.dataset.item]?.call === el.dataset.call
     el.setAttribute('aria-pressed', String(picked))
     el.disabled = !writable
     const opt = el.closest('.option')
     if (opt) opt.dataset.picked = String(picked)
+    const chore = el.closest('[data-chore]')
+    if (chore) { chore.classList.toggle('done', picked); el.textContent = picked ? 'Done' : 'Mark done' }
   }
   for (const ta of document.querySelectorAll('[data-note]')) {
     ta.disabled = !writable
-    if (document.activeElement !== ta && !dirty.has(ta.dataset.note)) ta.value = calls[ta.dataset.note]?.note || ''
+    if (document.activeElement !== ta && !dirty.has(ta.dataset.note)) ta.value = str(calls[ta.dataset.note]?.note, 4000)
   }
-  for (const id of ALL_CARD_IDS) {
-    const card = document.getElementById('item-' + id)
+  for (const id of allCardIds()) {
+    const el = document.getElementById('item-' + id)
+    if (!el) continue
     const call = calls[id]?.call
-    if (call) card.dataset.call = call
-    else delete card.dataset.call
+    if (call) el.dataset.call = call
+    else delete el.dataset.call
     const dep = DEPS[id]
-    card.classList.toggle('ruled-out', !!dep && calls[dep]?.call === 'C')
-    const pill = card.querySelector('[data-status]')
-    const st = progress[id]?.status
-    pill.hidden = !(st === 'building' || st === 'shipped')
+    el.classList.toggle('ruled-out', !!dep && calls[dep]?.call === 'C')
+    const pill = el.querySelector('[data-status]')
+    const st = statusOf(id)
+    pill.hidden = !st
     pill.className = 'pill ' + (st || '')
-    pill.textContent = st === 'shipped' ? 'Shipped' : st === 'building' ? 'Building' : ''
+    const frac = stepFrac(id)
+    pill.textContent = st ? STATUS_LABEL[st] + (frac != null && st !== 'shipped' ? ` ${Math.round(frac * 100)}%` : '') : ''
   }
-  for (const chip of document.querySelectorAll('[data-chip]')) {
-    const id = chip.dataset.chip
-    const call = WAVE_OF[id] ? calls[id]?.call : waveCall(id)
-    if (call === 'go' || call === 'skip') chip.dataset.call = call
-    else delete chip.dataset.call
-  }
+  for (const el of document.querySelectorAll('#request input, #request textarea, #request button')) el.disabled = !writable
   applyFilter()
   renderFilters()
+  renderPanel()
 }
 
 function applyFilter() {
-  for (const id of ALL_CARD_IDS) {
-    const card = document.getElementById('item-' + id)
+  for (const id of allCardIds()) {
+    const el = document.getElementById('item-' + id)
+    if (!el) continue
     const call = calls[id]?.call
-    card.hidden = !(filter === 'all' || (filter === 'none' ? !call : call === filter))
+    el.hidden = !(filter === 'all' || (filter === 'none' ? !call : call === filter))
   }
-  for (const wave of document.querySelectorAll('.wave')) {
+  for (const wave of document.querySelectorAll('#waves .wave')) {
     const anyVisible = [...wave.querySelectorAll('.card')].some((c) => !c.hidden)
     wave.querySelector('.empty-note').hidden = anyVisible
   }
@@ -1013,9 +1390,7 @@ function setSync(text, state) {
 }
 
 // ── Saving (one write at a time per document) ───────────────────────────
-async function writeCall(id) {
-  const body = { call: calls[id]?.call ?? null, note: calls[id]?.note ?? '', at: Date.now() }
-  const ref = db.collection('calls').doc(id)
+async function setWithRetry(ref, body) {
   try {
     await ref.set(body)
   } catch (e) {
@@ -1025,43 +1400,115 @@ async function writeCall(id) {
   }
 }
 
+function saveFailed(e) {
+  if (e?.code === 'invalid_argument') {
+    writable = false
+    setSync('This view is read-only, so changes are not saved.', 'error')
+    renderState()
+  } else {
+    setSync("Couldn't save that change. Try again in a moment.", 'error')
+  }
+}
+
+function callBody(id) {
+  const c = calls[id] || {}
+  return { call: c.call ?? null, note: str(c.note, 4000), hold: !!c.hold, at: Date.now() }
+}
+
 async function save(id) {
   if (!db || !writable) return
   if (inflight[id]) { queued[id] = true; return }
   inflight[id] = true
   try {
-    await writeCall(id)
-    setSync('Saved. Claude reads your picks at the start of the next session.', 'ok')
-  } catch (e) {
-    if (e?.code === 'invalid_argument' || e?.code === 'permission_denied') {
-      writable = false
-      setSync('This view is read-only, so picks are not saved.', 'error')
-      renderState()
-    } else {
-      setSync("Couldn't save that change. Try again in a moment.", 'error')
-    }
-  }
+    await setWithRetry(db.collection('calls').doc(id), callBody(id))
+    setSync('Saved. Claude reads this panel at the start of every session.', 'ok')
+  } catch (e) { saveFailed(e) }
   inflight[id] = false
   if (queued[id]) { queued[id] = false; save(id) }
   else dirty.delete(id)
 }
 
+function setCall(id, patch) {
+  calls = { ...calls, [id]: { ...(calls[id] || {}), ...patch } }
+  dirty.add(id)
+  renderState()
+  save(id)
+}
+
+async function saveOrder() {
+  if (!db || !writable) return
+  if (orderInflight) { orderQueued = true; return }
+  orderInflight = true
+  try {
+    await setWithRetry(db.collection('queue').doc('order'), { ids: order.slice(0, 400), at: Date.now() })
+    setSync('Queue saved. I work from the top at the start of every session.', 'ok')
+  } catch (e) { saveFailed(e) }
+  orderInflight = false
+  if (orderQueued) { orderQueued = false; saveOrder() }
+  else orderDirty = false
+}
+
+/** Commit a new arrangement of the queued cards; the ids not in the queue keep their place after it. */
+function commitQueue(newQueued, movedId) {
+  const rest = order.filter((id) => !newQueued.includes(id))
+  order = [...newQueued, ...rest]
+  orderDirty = true
+  renderPanel()
+  if (movedId) {
+    const row = document.querySelector(`[data-q="${CSS.escape(movedId)}"]`)
+    if (row) { row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 900) }
+    const pos = newQueued.indexOf(movedId) + 1
+    document.getElementById('queue-live').textContent = `${titleOf(movedId)} is now number ${pos} in the queue.`
+  }
+  clearTimeout(orderTimer)
+  orderTimer = setTimeout(saveOrder, 350)
+}
+
+function moveInQueue(id, to) {
+  const q = queuedIds()
+  const from = q.indexOf(id)
+  if (from < 0) return
+  const t = Math.max(0, Math.min(q.length - 1, to))
+  if (t === from) return
+  q.splice(from, 1)
+  q.splice(t, 0, id)
+  commitQueue(q, id)
+}
+
+// ── Events ──────────────────────────────────────────────────────────────
 document.addEventListener('click', (ev) => {
   const f = ev.target.closest('[data-filter]')
   if (f) {
     filter = f.dataset.filter
-    try { localStorage.setItem('cabin-next-roadmap-filter', filter) } catch (_) {}
+    try { localStorage.setItem('cabin-panel-filter', filter) } catch (_) {}
     applyFilter(); renderFilters()
     return
   }
+  if (ev.target.closest('[data-show-undecided]')) {
+    filter = 'none'
+    try { localStorage.setItem('cabin-panel-filter', filter) } catch (_) {}
+    applyFilter(); renderFilters()
+    document.getElementById('waves').scrollIntoView({ block: 'start' })
+    return
+  }
+  if (!writable) return
+  const mv = ev.target.closest('[data-qmove]')
+  if (mv) {
+    const id = mv.dataset.qid
+    moveInQueue(id, queuedIds().indexOf(id) + Number(mv.dataset.qmove))
+    const again = document.querySelector(`[data-q="${CSS.escape(id)}"] [data-qmove="${mv.dataset.qmove}"]`)
+    if (again && !again.disabled) again.focus()
+    return
+  }
+  const top = ev.target.closest('[data-qtop]')
+  if (top) { moveInQueue(top.dataset.qtop, 0); return }
+  const hold = ev.target.closest('[data-qhold]')
+  if (hold) { const id = hold.dataset.qhold; setCall(id, { hold: !calls[id]?.hold }); return }
   const b = ev.target.closest('[data-item][data-call]')
-  if (!b || !writable) return
+  if (!b) return
   const id = b.dataset.item
   const next = calls[id]?.call === b.dataset.call ? null : b.dataset.call
-  calls = { ...calls, [id]: { ...(calls[id] || {}), call: next } }
-  dirty.add(id)
-  renderState()
-  save(id)
+  setCall(id, { call: next })
 })
 
 document.addEventListener('input', (ev) => {
@@ -1082,18 +1529,89 @@ document.addEventListener('focusout', (ev) => {
   save(ta.dataset.note)
 })
 
+// Drag to reorder: pointer events, so mouse and touch both work. As the dragged row crosses a
+// neighbour's midpoint the NEIGHBOUR moves (moving the captured row itself would drop the pointer
+// capture). The order is committed on release.
+const qlist = document.getElementById('queue')
+qlist.addEventListener('pointerdown', (ev) => {
+  const grip = ev.target.closest('[data-grip]')
+  if (!grip || !writable || ev.button > 0) return
+  const row = grip.closest('[data-q]')
+  ev.preventDefault()
+  grip.setPointerCapture(ev.pointerId)
+  dragging = { row, id: row.dataset.q, grip, pointerId: ev.pointerId }
+  row.classList.add('dragging')
+})
+document.addEventListener('pointermove', (ev) => {
+  if (!dragging || ev.pointerId !== dragging.pointerId) return
+  const y = ev.clientY
+  const row = dragging.row
+  const prev = row.previousElementSibling
+  const next = row.nextElementSibling
+  if (prev && y < prev.getBoundingClientRect().top + prev.offsetHeight / 2) row.after(prev)
+  else if (next && y > next.getBoundingClientRect().top + next.offsetHeight / 2) row.before(next)
+  if (y < 70) window.scrollBy(0, -12)
+  else if (y > window.innerHeight - 70) window.scrollBy(0, 12)
+  ;[...qlist.querySelectorAll('[data-q]')].forEach((r, i) => { r.querySelector('.rank').textContent = String(i + 1) })
+})
+function endDrag(ev) {
+  if (!dragging || ev.pointerId !== dragging.pointerId) return
+  const { id, row } = dragging
+  row.classList.remove('dragging')
+  dragging = null
+  const ids = [...qlist.querySelectorAll('[data-q]')].map((r) => r.dataset.q)
+  const before = queuedIds()
+  if (ids.join('|') !== before.join('|')) commitQueue(ids, id)
+  else renderPanel()
+}
+document.addEventListener('pointerup', endDrag)
+document.addEventListener('pointercancel', endDrag)
+
+// Ask for something: a new card in items/, called Go, optionally first in the queue.
+document.getElementById('request').addEventListener('submit', async (ev) => {
+  ev.preventDefault()
+  if (!db || !writable) return
+  const titleEl = document.getElementById('req-title')
+  const detailEl = document.getElementById('req-detail')
+  const topEl = document.getElementById('req-top')
+  const msg = document.getElementById('req-msg')
+  const title = titleEl.value.trim().slice(0, 120)
+  if (!title) { msg.textContent = 'Write a short title first.'; titleEl.focus(); return }
+  const id = 'r-' + Date.now().toString(36)
+  const btn = document.getElementById('req-submit')
+  btn.disabled = true
+  msg.textContent = 'Adding…'
+  try {
+    const body = { title, line: detailEl.value.trim().slice(0, 2000), source: 'owner', createdAt: new Date().toISOString() }
+    await setWithRetry(db.collection('items').doc(id), body)
+    items = { ...items, [id]: body }
+    calls = { ...calls, [id]: { call: 'go', note: '', hold: false } }
+    dirty.add(id)
+    await save(id)
+    if (topEl.checked) { const q = queuedIds().filter((x) => x !== id); commitQueue([id, ...q], id) }
+    renderState()
+    titleEl.value = ''; detailEl.value = ''; topEl.checked = false
+    msg.textContent = `Added "${title}" to the queue. I'll read it at the start of the next session.`
+  } catch (e) {
+    saveFailed(e)
+    msg.textContent = "Couldn't add that. Try again in a moment."
+  }
+  btn.disabled = !writable
+})
+
 renderState()
 
 // ── Connect to the page's database ──────────────────────────────────────
 ;(async () => {
-  if (!window.claude?.use) { setSync('Open this page on claude.ai to save picks.', 'error'); return }
-  const timer = setTimeout(() => setSync("Picks are taking a while to load. They'll appear when the connection answers.", ''), 10000)
+  if (!window.claude?.use) { setSync('Open this page on claude.ai to use the panel.', 'error'); return }
+  const timer = setTimeout(() => setSync("The panel is taking a while to load. It fills in when the connection answers.", ''), 10000)
   const [store, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')])
-  if (!store) { clearTimeout(timer); setSync("Picks can't be saved in this view. Open it on claude.ai while signed in.", 'error'); return }
+  if (!store) { clearTimeout(timer); setSync("This view can't load the panel. Open it on claude.ai while signed in.", 'error'); return }
   db = store
   const can = user ? await user.can('data.write') : null
   writable = can !== false
-  setSync(writable ? 'Picks save automatically. Claude reads them at the start of the next session.' : 'You can read this roadmap, but only the owner can make calls.', writable ? 'ok' : '')
+  setSync(writable ? 'Changes save automatically. Claude reads this panel at the start of every session.' : 'You can read this panel, but only the owner can change it.', writable ? 'ok' : '')
+  const lost = () => { clearTimeout(timer); setSync('Lost the connection to the panel. Reload to try again.', 'error') }
   db.collection('calls').onSnapshot((snap) => {
     clearTimeout(timer)
     const next = {}
@@ -1101,13 +1619,25 @@ renderState()
     for (const id of dirty) if (calls[id]) next[id] = calls[id]
     calls = next
     renderState()
-  }, () => { clearTimeout(timer); setSync('Lost the connection to saved picks. Reload to try again.', 'error') })
+  }, lost)
   db.collection('progress').onSnapshot((snap) => {
     const next = {}
-    for (const d of snap.docs) next[d.id] = d.data()
+    for (const d of snap.docs) { const v = d.data(); if (v && typeof v === 'object') next[d.id] = v }
     progress = next
     renderState()
-  }, () => {})
+  }, lost)
+  db.collection('items').onSnapshot((snap) => {
+    const next = {}
+    for (const d of snap.docs) { const v = d.data(); if (v && typeof v === 'object') next[d.id] = v }
+    items = next
+    renderState()
+  }, lost)
+  db.collection('queue').doc('order').onSnapshot((doc) => {
+    if (orderDirty || dragging) return
+    const ids = doc.exists ? doc.data()?.ids : null
+    order = Array.isArray(ids) ? ids.filter((x) => typeof x === 'string').slice(0, 400) : []
+    renderPanel()
+  }, lost)
   renderState()
 })()
 </script>

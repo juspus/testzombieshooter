@@ -5,6 +5,16 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- CONTROL PANEL (2026-11-16, owner: "my control panel, where I control your work, see progress,
+  reorder"): the live roadmap artifact is now a panel. Top: pipeline counts, Needs you, In
+  progress (steps bar, summary, PR/preview), the Queue (drag/arrows/Move to top/Hold), "Ask for
+  something" (owner requests -> items/r-*), Shipped; the roadmap below is the backlog. Working
+  rules + data contract are in CLAUDE.md "Control panel": read it every session, report in
+  progress/<id>, never write queue/order or hold. Old d-order/d-sequence docs are unused now
+  (the queue replaced the run-order call). State on 16 Nov: 18 tech cards queued in page order
+  (t-ci first), nothing in progress, no progression picks yet. Drag gotcha: moving the captured
+  row in the DOM drops pointer capture, so the neighbour moves instead (tested mouse + touch with
+  a fake db in Playwright).
 - LIVE ROADMAP (2026-11-11, owner: "merge roadmaps, build them further"): "Night After Night",
   https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF (source `docs/next-roadmap.html`, republish from
   that file with the URL; it replaced the 10-Nov tech roadmap at the same link). It supersedes the

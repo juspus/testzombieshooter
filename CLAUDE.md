@@ -4,7 +4,28 @@
 
 Read `SOUL.md` (how I work, who I am on this project), `MEMORY.md`
 (running journal of recent context), and `TODO.md` (idea stash) before
-doing anything else.
+doing anything else. Then read the control panel (below).
+
+## Control panel (the owner directs work here)
+
+https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF ("Night After Night", source
+`docs/next-roadmap.html`; republish from that file with that URL). The data contract is the
+comment at the top of the page's script. Read and write it with the ArtifactData tool.
+
+- **Session start:** `list` on `calls`, `progress` and `items`, and `get` on `queue/order`.
+- **What to work on:** a request in chat wins. Otherwise finish anything in progress, then take
+  the first queued card: `calls/<id>.call == 'go'`, no `hold`, not active or shipped, in
+  `queue/order.ids` order (Go cards missing from the order follow in page order).
+  `calls/<id>.note` is the owner's instruction for that card. Decisions (`d-*`) are A/B/C/talk.
+- **Chat requests become cards:** write `items/<id>` `{ title, line, source: 'claude', createdAt }`
+  plus `calls/<id>` `{ call: 'go', note: '', hold: false }`, so the panel shows all work.
+- **Report progress** in `progress/<id>` (ISO timestamps, one-line summary):
+  - on start: `status: 'building'`, `summary`, `steps: [{ text, done }]`, `startedAt`, `updatedAt`;
+  - tick `steps` as they finish;
+  - PR open: `status: 'review'`, `pr`, `prUrl`, `preview`;
+  - waiting on the owner: `status: 'blocked'`, `blocker`;
+  - merged: `status: 'shipped'`, `shippedAt`.
+- **Never** write `queue/order` or a card's `hold`: those are the owner's controls.
 
 ## Git workflow
 
