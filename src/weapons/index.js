@@ -3,7 +3,8 @@
 // The numbers and fire behaviour of every gun live in its own file. This module derives the
 // lookup tables the rest of the game already used (CALIBER_LABELS, ALL_WEAPONS, BASE_CLIP, ...):
 // store.js and weaponRules.js re-export them under their old names, so no caller changes.
-// Adding a gun is one new file plus one line in ORDER below (and a model in components/Gun.jsx).
+// A gun's stats and fire behaviour are one file plus one line in ORDER below. Other files still branch on
+// gun ids (Gun.jsx model chain, Machines, RemotePlayer, Shop, playground); see CLAUDE.md.
 //
 // Do not import components or the store from a weapon file (see common.js).
 import { pistol } from './pistol'

@@ -89,8 +89,10 @@ WIN_Y1   = 2.0  // window lintel height
 
 ### One file per gun (`src/weapons/`)
 Every gun's numbers and fire behaviour live in `src/weapons/<gun>.js`; `src/weapons/index.js` is the
-registry (`WEAPONS`, `ALL_WEAPONS`, `getWeapon`, plus derived tables). Adding a gun is one file, one line in
-`ORDER` in `index.js`, and a model in `components/Gun.jsx`. A weapon file may import pure modules (`rng`, `walls`,
+registry (`WEAPONS`, `ALL_WEAPONS`, `getWeapon`, plus derived tables). Stats, ammo and fire behaviour for a new gun are one file plus one line in
+`ORDER` in `index.js`, but other files still branch on gun ids: the model chain in `Gun.jsx` (`isAK`/`isDeagle`/...),
+`Machines.jsx` (`SHOW_IDS`), `RemotePlayer.jsx`, `Shop.jsx`, the playground registry, and 'crossbow'/'deagle' checks in
+`Zombie.jsx`, `zombieSpecials.js`, `sounds.js` and `store.js`. A weapon file may import pure modules (`rng`, `walls`,
 `hitboxes`, `sounds`) but never a component or the store (the store imports the registry: that would be a cycle).
 Everything scene-bound reaches `fire` through `ctx` (field list at the top of `weapons/common.js`).
 
@@ -99,7 +101,8 @@ Fields of a weapon: `id`, `name`, `upgradedName`, `caliber`, `clip`, `startReser
 purchase starts with), `boxWeight`, `fireMode` (`semi` | `auto` | `pump` | `spray`), `cooldown` (s between shots,
 enforced in `Player.jsx`), `fireInterval` (auto only), `autoShootInterval` (mobile auto-shoot), `vibrate`, `damageMult`,
 `pierce`, `reload { base, fast }`, `ammoPack` (`null` = default pack), `sounds { shot, reload }` (lazy wrappers over
-`sounds.js`, which keeps all synthesis), `model` (name of an export of `Gun.jsx`; `WEAPON_MODELS` there resolves it),
+`sounds.js`, which keeps all synthesis), `model` (name of an export of `Gun.jsx`; `WEAPON_MODELS` maps it, but nothing uses that map yet: `Gun.jsx` still
+picks the model with its own chain),
 `fire(ctx)`.
 
 `Player.jsx` calls `WEAPONS[weapon].fire(FIRE)` from `shoot()` (one persistent `FIRE` context, per-shot fields
