@@ -35,7 +35,8 @@ function capture() {
   const exports = {}
   for (const k of Object.keys(storeModule).sort()) {
     const v = storeModule[k]
-    exports[k] = typeof v === 'function' ? 'function' : typeof v
+    // functions by kind; constants by value, so a changed number in a moved constant fails too
+    exports[k] = typeof v === 'function' ? 'function' : { kind: typeof v, value: plain(v) }
   }
   const keys = Object.keys(state).sort()
   const actions = keys.filter((k) => typeof state[k] === 'function')
@@ -51,7 +52,7 @@ describe('store shape (survives the slice split)', () => {
   if (process.env.UPDATE_STORE_SHAPE) fs.writeFileSync(FIXTURE, JSON.stringify(now, null, 1) + '\n')
   const was = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'))
 
-  it('exports the same names with the same kinds from store.js', () => {
+  it('exports the same names with the same kinds (and constant values) from store.js', () => {
     expect(now.exports).toEqual(was.exports)
   })
   it('has the same action names', () => {

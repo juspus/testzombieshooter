@@ -1,46 +1,295 @@
 {
  "exports": {
-  "AK_CLIP": "number",
-  "AK_COST": "number",
-  "ALL_WEAPONS": "object",
-  "AMMO_PACK_AMOUNT": "number",
-  "AMMO_PACK_COST": "number",
-  "BANDAGE_COST": "number",
-  "BANDAGE_HEAL": "number",
-  "BASE_HP": "number",
-  "BODY_ARMOR_DEFS": "object",
-  "CALIBER_LABELS": "object",
-  "CLIP_SIZE": "number",
-  "DEAGLE_CLIP": "number",
-  "DEAGLE_COST": "number",
-  "DEEP_POCKETS_AMMO_PACK_AMOUNT": "number",
-  "FLAMETHROWER_AMMO_PACK_AMOUNT": "number",
-  "FLAMETHROWER_AMMO_PACK_COST": "number",
-  "FLAMETHROWER_COST": "number",
-  "FLAMETHROWER_START_AMMO": "number",
-  "FLAME_BURN_DURATION": "number",
-  "FLAME_CONE_COS": "number",
-  "FLAME_DPS": "number",
-  "FLAME_FUEL_PER_SEC": "number",
-  "FLAME_RANGE": "number",
-  "FLAME_TICK_INTERVAL": "number",
-  "HELMET_DEFS": "object",
-  "HITS_PER_PLANK": "number",
-  "MAX_RESERVE": "object",
-  "PERK_COSTS": "object",
-  "PLANK_COST": "number",
-  "SHOTGUN_CLIP": "number",
-  "SHOTGUN_COST": "number",
-  "STRONG_HITS_PER_PLANK": "number",
-  "STRONG_PLANK_COST": "number",
-  "ZOMBIE_ARCHETYPES": "object",
+  "AK_CLIP": {
+   "kind": "number",
+   "value": 30
+  },
+  "AK_COST": {
+   "kind": "number",
+   "value": 270
+  },
+  "ALL_WEAPONS": {
+   "kind": "object",
+   "value": [
+    "pistol",
+    "shotgun",
+    "ak47",
+    "deagle",
+    "flamethrower",
+    "crossbow"
+   ]
+  },
+  "AMMO_PACK_AMOUNT": {
+   "kind": "number",
+   "value": 20
+  },
+  "AMMO_PACK_COST": {
+   "kind": "number",
+   "value": 10
+  },
+  "BANDAGE_COST": {
+   "kind": "number",
+   "value": 15
+  },
+  "BANDAGE_HEAL": {
+   "kind": "number",
+   "value": 5
+  },
+  "BASE_HP": {
+   "kind": "number",
+   "value": 20
+  },
+  "BODY_ARMOR_DEFS": {
+   "kind": "object",
+   "value": {
+    "biker_jacket": {
+     "cost": 60,
+     "hp": 15,
+     "label": "Biker Jacket"
+    },
+    "bulletproof_vest": {
+     "cost": 200,
+     "hp": 100,
+     "label": "Bulletproof Vest"
+    },
+    "knight_armor": {
+     "cost": 400,
+     "hp": 300,
+     "label": "Knight Armor",
+     "speedMultiplier": 0.7
+    }
+   }
+  },
+  "CALIBER_LABELS": {
+   "kind": "object",
+   "value": {
+    "ak47": "5.45mm",
+    "crossbow": "Bolt",
+    "deagle": ".50 AE",
+    "flamethrower": "Napalm",
+    "pistol": "9mm",
+    "shotgun": "12ga"
+   }
+  },
+  "CLIP_SIZE": {
+   "kind": "number",
+   "value": 10
+  },
+  "DEAGLE_CLIP": {
+   "kind": "number",
+   "value": 7
+  },
+  "DEAGLE_COST": {
+   "kind": "number",
+   "value": 700
+  },
+  "DEEP_POCKETS_AMMO_PACK_AMOUNT": {
+   "kind": "number",
+   "value": 30
+  },
+  "FLAMETHROWER_AMMO_PACK_AMOUNT": {
+   "kind": "number",
+   "value": 1000
+  },
+  "FLAMETHROWER_AMMO_PACK_COST": {
+   "kind": "number",
+   "value": 100
+  },
+  "FLAMETHROWER_COST": {
+   "kind": "number",
+   "value": 1500
+  },
+  "FLAMETHROWER_START_AMMO": {
+   "kind": "number",
+   "value": 1000
+  },
+  "FLAME_BURN_DURATION": {
+   "kind": "number",
+   "value": 2
+  },
+  "FLAME_CONE_COS": {
+   "kind": "number",
+   "value": 0.92
+  },
+  "FLAME_DPS": {
+   "kind": "number",
+   "value": 0.5
+  },
+  "FLAME_FUEL_PER_SEC": {
+   "kind": "number",
+   "value": 100
+  },
+  "FLAME_RANGE": {
+   "kind": "number",
+   "value": 9
+  },
+  "FLAME_TICK_INTERVAL": {
+   "kind": "number",
+   "value": 0.2
+  },
+  "HELMET_DEFS": {
+   "kind": "object",
+   "value": {
+    "bike_helmet": {
+     "cost": 20,
+     "hp": 5,
+     "label": "Bike Helmet"
+    },
+    "knight_helmet": {
+     "cost": 200,
+     "hp": 100,
+     "label": "Knight Helmet",
+     "visionLimit": true
+    },
+    "military_helmet": {
+     "cost": 100,
+     "hp": 20,
+     "label": "Military Helmet"
+    }
+   }
+  },
+  "HITS_PER_PLANK": {
+   "kind": "number",
+   "value": 5
+  },
+  "MAX_RESERVE": {
+   "kind": "object",
+   "value": {
+    "ak47": 150,
+    "crossbow": 40,
+    "deagle": 42,
+    "flamethrower": 2000,
+    "pistol": 60,
+    "shotgun": 48
+   }
+  },
+  "PERK_COSTS": {
+   "kind": "object",
+   "value": {
+    "carpenter": 65,
+    "deep_pockets": 80,
+    "fast_hands": 80,
+    "iron_sights": 75,
+    "knife_mastery": 70,
+    "runners_breath": 90
+   }
+  },
+  "PLANK_COST": {
+   "kind": "number",
+   "value": 2.5
+  },
+  "SHOTGUN_CLIP": {
+   "kind": "number",
+   "value": 8
+  },
+  "SHOTGUN_COST": {
+   "kind": "number",
+   "value": 150
+  },
+  "STRONG_HITS_PER_PLANK": {
+   "kind": "number",
+   "value": 20
+  },
+  "STRONG_PLANK_COST": {
+   "kind": "number",
+   "value": 20
+  },
+  "ZOMBIE_ARCHETYPES": {
+   "kind": "object",
+   "value": {
+    "armored": {
+     "armored": true,
+     "health": 5,
+     "label": "Armored",
+     "plankHits": 2,
+     "playerDamage": 8,
+     "speedMultiplier": 0.8
+    },
+    "boss": {
+     "boss": true,
+     "health": 16,
+     "heightScale": 1.45,
+     "label": "Boss",
+     "plankHits": 5,
+     "playerDamage": 25,
+     "speedMultiplier": 0.58
+    },
+    "brute": {
+     "health": 7,
+     "label": "Brute",
+     "plankHits": 3,
+     "playerDamage": 10,
+     "speedMultiplier": 0.68
+    },
+    "crawler": {
+     "health": 2,
+     "heightScale": 0.55,
+     "label": "Crawler",
+     "plankHits": 1,
+     "playerDamage": 5,
+     "speedMultiplier": 0.86
+    },
+    "exploder": {
+     "explodes": true,
+     "health": 2,
+     "label": "Exploder",
+     "plankHits": 1,
+     "playerDamage": 5,
+     "speedMultiplier": 0.95
+    },
+    "runner": {
+     "health": 1,
+     "label": "Runner",
+     "plankHits": 1,
+     "playerDamage": 5,
+     "speedMultiplier": 1.65
+    },
+    "screamer": {
+     "auraRadius": 6,
+     "auraSpeedMultiplier": 1.35,
+     "health": 2,
+     "label": "Screamer",
+     "plankHits": 1,
+     "playerDamage": 5,
+     "speedMultiplier": 0.92
+    },
+    "spider": {
+     "climbs": true,
+     "health": 3,
+     "label": "Spider",
+     "plankHits": 1,
+     "playerDamage": 4,
+     "speedMultiplier": 1.1
+    },
+    "spitter": {
+     "health": 2,
+     "label": "Spitter",
+     "plankHits": 1,
+     "playerDamage": 4,
+     "ranged": true,
+     "speedMultiplier": 0.8
+    },
+    "walker": {
+     "health": 2,
+     "label": "Walker",
+     "plankHits": 1,
+     "playerDamage": 5,
+     "speedMultiplier": 1
+    }
+   }
+  },
   "_maxAmmoState": "function",
   "buildMailZombies": "function",
   "buildTypeList": "function",
   "getZombieArchetype": "function",
   "isSelfDowned": "function",
   "killMoney": "function",
-  "mailClock": "object",
+  "mailClock": {
+   "kind": "object",
+   "value": {
+    "t": 0
+   }
+  },
   "setSelfZeroHook": "function",
   "spawnZombies": "function",
   "specialProbsForWave": "function",
