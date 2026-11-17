@@ -3,10 +3,14 @@ import * as THREE from 'three'
 
 vi.mock('../profilePersistence', () => ({ persistProfile: vi.fn() }))
 // The shotgun schedules its pump sounds with setTimeout: keep them off the (absent) AudioContext.
-vi.mock('../sounds', async (orig) => ({ ...(await orig()), playPumpAction: vi.fn(), playShellThonk: vi.fn() }))
+vi.mock('../sounds', async (orig) => ({ ...(await orig()), playPumpAction: vi.fn(), playShellThonk: vi.fn(), startFlamethrowerSound: vi.fn(), stopFlamethrowerSound: vi.fn() }))
 
 import { WEAPONS, ALL_WEAPONS as REG_ALL, getWeapon, ammoPackFor, reloadTimeFor } from '../weapons'
 import { shotgun } from '../weapons/shotgun'
+import { flamethrower, burningCount, FLAME } from '../weapons/flamethrower'
+import { deagle } from '../weapons/deagle'
+import { crossbow } from '../weapons/crossbow'
+import * as sounds from '../sounds'
 import * as Store from '../store'
 import * as WR from '../weaponRules'
 import { startSeededRun, endSeededRun, runRandom } from '../rng'
@@ -152,5 +156,119 @@ describe('shotgun fire: pellets stay on the seeded stream', () => {
       expect(end.distanceTo(expected)).toBeLessThan(1e-9)
     })
     endSeededRun()
+  })
+})
+
+// A fake world for the fire functions: zombies are points, the ray hits those within 0.3 m of it.
+function fakeCtx(zombiePoints, extra = {}) {
+  const camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.1, 100)
+  camera.updateMatrixWorld(true)
+  const raycaster = new THREE.Raycaster()
+  raycaster.setFromCamera({ x: 0, y: 0 }, camera)
+  const refs = {}
+  zombiePoints.forEach((p, i) => { refs[i + 1] = { id: i + 1, p: new THREE.Vector3(...p), getWorldPosition(v) { return v.copy(this.p) } } })
+  const log = { hits: [], trails: [], net: [], markers: [], bolts: [], fx: [], kills: [] }
+  const ctx = {
+    camera, raycaster, zombieRefs: refs, muzzle: new THREE.Vector3(0, -0.1, -0.4), perks: {}, windowPlanks: {}, bulletWalls: [],
+    dmgMult: 1, upg: false, weapon: 'deagle', aimAssist: false,
+    worldHit: new THREE.Vector3(), worldRec: { dist: 0 }, worldImpact: () => false,
+    shatter: () => {},
+    hitRay: (rc, ref) => {
+      const to = ref.p.clone().sub(rc.ray.origin)
+      const d = to.dot(rc.ray.direction)
+      if (d <= 0) return null
+      const off = to.sub(rc.ray.direction.clone().multiplyScalar(d)).length()
+      return off < 0.3 ? { distance: d, point: ref.p.clone(), isHead: false } : null
+    },
+    los: () => false,
+    hitZombie: (id, head, source, weapon, dist, mult) => { log.hits.push({ id, head, weapon, mult }); return id === 1 },
+    deathSound: (id) => log.kills.push(id),
+    ironSights: () => false, netSend: (e, d) => log.net.push([e, d]), fxNet: () => ({}), hitFx: (...a) => log.fx.push(a),
+    registerHit: (k) => log.markers.push(k), kick: vi.fn(),
+    trails: { add: (a, b) => log.trails.push([a.clone(), b.clone()]) },
+    bolts: { fire: (a, b, o) => log.bolts.push(o) },
+    gun: { setFlameActive: vi.fn(), getMuzzlePosition: () => new THREE.Vector3(0, -0.1, -0.3) },
+    flameSpray: { spray: vi.fn() },
+    zombies: () => [{ id: 1, type: 'walker' }, { id: 2, type: 'armored' }, { id: 3, type: 'walker' }, { id: 4, type: 'boss' }],
+    isUpgraded: () => false, ignite: vi.fn(), consumeFuel: vi.fn(), hitZombieFlame: vi.fn(() => false), delta: 0.05,
+    ...extra,
+  }
+  return { ctx, log }
+}
+
+describe('gun fire functions (fake world)', () => {
+  it('deagle: pierces three zombies nearest first, every hit a headshot, one marker', () => {
+    const { ctx, log } = fakeCtx([[0, 0, -9], [0, 0, -3], [0, 0, -6], [0, 0, -12], [4, 0, -4]])
+    deagle.fire(ctx)
+    expect(log.hits.map((h) => h.id)).toEqual([2, 3, 1])
+    expect(log.hits.every((h) => h.head === true && h.weapon === 'deagle' && h.mult === 1)).toBe(true)
+    expect(log.net.length).toBe(3)
+    expect(log.net[0][0]).toBe('hit_zombie')
+    expect(log.net[0][1]).toMatchObject({ id: 2, isHeadshot: true, source: 'gun', mult: 1 })
+    expect(log.kills).toEqual([1])
+    expect(log.markers).toEqual(['headkill'])
+    expect(log.trails.length).toBe(1)
+  })
+
+  it('crossbow: pierces up to six, per-type multiplier, a bolt that hits no wall just flies on', () => {
+    const pts = [1, 2, 3, 4].map((i) => [0, 0, -i * 2])
+    const { ctx, log } = fakeCtx(pts)
+    crossbow.fire(ctx)
+    expect(log.hits.map((h) => h.id)).toEqual([1, 2, 3, 4])
+    // walker 20, armored 4, walker 20, boss 2
+    expect(log.hits.map((h) => h.mult)).toEqual([20, 4, 20, 2])
+    expect(log.markers).toEqual(['kill'])
+    expect(log.bolts.length).toBe(1)
+    expect(log.bolts[0]).toMatchObject({ wraith: false, stick: false, attachId: -1 })
+  })
+
+  it('crossbow: the Wraith doubles the multiplier and a capped line attaches to the sixth', () => {
+    const pts = [1, 2, 3, 4, 5, 6, 7].map((i) => [0, 0, -i * 2])
+    const { ctx, log } = fakeCtx(pts, { upg: true, zombies: () => pts.map((_, i) => ({ id: i + 1, type: 'walker' })) })
+    crossbow.fire(ctx)
+    expect(log.hits.length).toBe(6)
+    expect(log.hits.every((h) => h.mult === 40)).toBe(true)
+    expect(log.bolts[0]).toMatchObject({ wraith: true, stick: false, attachId: -2 })
+  })
+
+  it('flamethrower: drains fuel, lights the spray once, ticks burn on zombies in the cone, ends cleanly', () => {
+    const { ctx, log } = fakeCtx([[0, -0.1, -3], [6, 0, -1]], { hitZombieFlame: vi.fn(() => false) })
+    sounds.startFlamethrowerSound.mockClear()
+    sounds.stopFlamethrowerSound.mockClear()
+    flamethrower.fire(ctx)
+    flamethrower.fire(ctx)
+    expect(ctx.consumeFuel).toHaveBeenCalledTimes(2)
+    expect(ctx.consumeFuel.mock.calls[0][0]).toBeCloseTo(FLAME.FUEL_PER_SEC * 0.05, 9)
+    expect(ctx.gun.setFlameActive).toHaveBeenCalledWith(true)
+    expect(ctx.flameSpray.spray).toHaveBeenCalledTimes(2)
+    expect(ctx.kick).toHaveBeenCalledWith('flamethrower')
+    expect(sounds.startFlamethrowerSound).toHaveBeenCalledTimes(1)
+    flamethrower.burn(ctx, true)            // first call ticks at once
+    expect(ctx.hitZombieFlame).toHaveBeenCalledTimes(1)
+    expect(ctx.hitZombieFlame.mock.calls[0][0]).toBe(1)   // only the zombie in the cone
+    expect(ctx.hitZombieFlame.mock.calls[0][1]).toBeCloseTo(FLAME.DPS * FLAME.TICK_INTERVAL, 9)
+    expect(log.markers).toEqual(['burn'])
+    expect(log.net[0]).toEqual(['hit_zombie_flame', { id: 1, damage: ctx.hitZombieFlame.mock.calls[0][1] }])
+    expect(burningCount()).toBe(1)
+    // trigger released: it keeps burning for BURN_DURATION, one tick per TICK_INTERVAL
+    flamethrower.stop(ctx)
+    expect(sounds.stopFlamethrowerSound).toHaveBeenCalledTimes(1)
+    expect(ctx.gun.setFlameActive).toHaveBeenLastCalledWith(false)
+    ctx.delta = FLAME.TICK_INTERVAL
+    for (let i = 0; i < 12; i++) flamethrower.burn(ctx, false)
+    // 2.0 s / 0.2 s = 10 ticks; floating point in the countdown can add one more
+    expect(ctx.hitZombieFlame.mock.calls.length).toBeGreaterThanOrEqual(FLAME.BURN_DURATION / FLAME.TICK_INTERVAL)
+    expect(ctx.hitZombieFlame.mock.calls.length).toBeLessThanOrEqual(FLAME.BURN_DURATION / FLAME.TICK_INTERVAL + 1)
+    expect(burningCount()).toBe(0)
+  })
+
+  it('flamethrower: the Upgrade Bench doubles the burn tick', () => {
+    const { ctx } = fakeCtx([[0, -0.1, -3]], { isUpgraded: () => true })
+    flamethrower.burn(ctx, true)
+    expect(ctx.hitZombieFlame.mock.calls[0][1]).toBeCloseTo(FLAME.DPS * FLAME.TICK_INTERVAL * 2, 9)
+    flamethrower.stop(ctx)
+    ctx.delta = FLAME.TICK_INTERVAL
+    for (let i = 0; i < 12; i++) flamethrower.burn(ctx, false)
+    expect(burningCount()).toBe(0)
   })
 })
