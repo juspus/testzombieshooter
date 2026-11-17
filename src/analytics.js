@@ -196,6 +196,7 @@ export function sanitizeMessage(raw) {
   })
   m = m.replace(/[?#]\S*/g, '')            // any stray query / hash
   m = m.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, 'email')
+  m = m.replace(/\b(peer|room|id)\s+[\w-]{4,}/gi, '$1 <id>')   // PeerJS errors name the room code
   return m.replace(/\s+/g, ' ').trim().slice(0, MAX_MSG)
 }
 

@@ -44,6 +44,10 @@ describe('sanitizeMessage', () => {
     expect(sanitizeMessage(undefined)).toBe('')
     expect(sanitizeMessage(new Error('boom'))).toBe('boom')
   })
+  it('masks PeerJS peer ids / room codes', () => {
+    expect(sanitizeMessage('Could not connect to peer zs-AB12CD')).toBe('Could not connect to peer <id>')
+    expect(sanitizeMessage('ID abc123 is taken')).toBe('ID <id> is taken')
+  })
 })
 
 describe('trimStack', () => {
