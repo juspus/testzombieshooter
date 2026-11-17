@@ -29,6 +29,7 @@ import { runRandom, waveRandom, keyedRandom, startSeededRun, endSeededRun } from
 import { dailyDate, dailyAttemptUsed, writeLocalDaily, canStartDaily } from './daily'
 import { rollModifier, modifiedZombieCount, modifiedZombieHealth, modifierBonus, debugForcedModifier } from './modifiers'
 import * as WR from './weaponRules'
+import { WEAPONS, ALL_WEAPONS, CALIBER_LABELS, MAX_RESERVE, FLAME, FLAME_START_AMMO, FLAME_AMMO_PACK, DEFAULT_AMMO_PACK, ammoPackFor } from './weapons'
 import { emitGameEvent } from './gameEvents'
 import { settleRun } from './progressTracker'
 import { effectiveLoadout, loadoutPatch, readPref, writePref, LOADOUT_PREF_KEY } from './mapSelect'
@@ -76,20 +77,21 @@ const DOOR_DEFS = ACTIVE_MAP.DOOR_DEFS ?? []
 const activeSpawnClusters = ACTIVE_MAP.activeSpawnClusters ?? (() => SPAWN_CLUSTERS)
 //
 const intermissionForWave = (wave) => 10 + (wave - 1) * 5
-const CLIP_SIZE = 10
-const AK_CLIP = 30
-const AK_COST = 270
-const DEAGLE_CLIP = 7
-const DEAGLE_COST = 700
-const SHOTGUN_CLIP = 8
-const SHOTGUN_COST = 150
-const AMMO_PACK_COST = 10
-const AMMO_PACK_AMOUNT = 20
-const DEEP_POCKETS_AMMO_PACK_AMOUNT = 30
-const FLAMETHROWER_COST = 1500
-const FLAMETHROWER_START_AMMO = 1000
-const FLAMETHROWER_AMMO_PACK_COST = 100
-const FLAMETHROWER_AMMO_PACK_AMOUNT = 1000
+// Gun numbers live in src/weapons/<gun>.js; these keep their old names (Shop, HUD and tests import them).
+const CLIP_SIZE = WEAPONS.pistol.clip
+const AK_CLIP = WEAPONS.ak47.clip
+const AK_COST = WEAPONS.ak47.cost
+const DEAGLE_CLIP = WEAPONS.deagle.clip
+const DEAGLE_COST = WEAPONS.deagle.cost
+const SHOTGUN_CLIP = WEAPONS.shotgun.clip
+const SHOTGUN_COST = WEAPONS.shotgun.cost
+const AMMO_PACK_COST = DEFAULT_AMMO_PACK.cost
+const AMMO_PACK_AMOUNT = DEFAULT_AMMO_PACK.amount
+const DEEP_POCKETS_AMMO_PACK_AMOUNT = DEFAULT_AMMO_PACK.deepAmount
+const FLAMETHROWER_COST = WEAPONS.flamethrower.cost
+const FLAMETHROWER_START_AMMO = FLAME_START_AMMO
+const FLAMETHROWER_AMMO_PACK_COST = FLAME_AMMO_PACK.cost
+const FLAMETHROWER_AMMO_PACK_AMOUNT = FLAME_AMMO_PACK.amount
 
 export const BASE_HP = 20
 export const BANDAGE_COST = 15
@@ -109,25 +111,17 @@ export const BODY_ARMOR_DEFS = {
   knight_armor:     { label: 'Knight Armor',     hp: 300, cost: 400, speedMultiplier: 0.7 },
 }
 
-// Flamethrower tuning — sustained-damage spray weapon
-export const FLAME_DPS = 0.5            // burn damage per second per zombie in the stream
-export const FLAME_TICK_INTERVAL = 0.2  // how often burn damage is applied
-export const FLAME_FUEL_PER_SEC = 100   // tank drains this many units/sec while spraying
-export const FLAME_RANGE = 9            // max spray distance
-export const FLAME_CONE_COS = 0.92      // ~23° half-angle cone
-export const FLAME_BURN_DURATION = 2.0  // zombies keep burning (taking damage) this long after leaving the stream
+// Flamethrower tuning — sustained-damage spray weapon (values live in src/weapons/flamethrower.js)
+export const FLAME_DPS = FLAME.DPS                        // burn damage per second per zombie in the stream
+export const FLAME_TICK_INTERVAL = FLAME.TICK_INTERVAL    // how often burn damage is applied
+export const FLAME_FUEL_PER_SEC = FLAME.FUEL_PER_SEC      // tank drains this many units/sec while spraying
+export const FLAME_RANGE = FLAME.RANGE                    // max spray distance
+export const FLAME_CONE_COS = FLAME.CONE_COS              // ~23° half-angle cone
+export const FLAME_BURN_DURATION = FLAME.BURN_DURATION    // zombies keep burning this long after leaving the stream
 
-export const CALIBER_LABELS = {
-  pistol: '9mm',
-  ak47: '5.45mm',
-  shotgun: '12ga',
-  deagle: '.50 AE',
-  flamethrower: 'Napalm',
-  crossbow: 'Bolt',
-}
-
-// Ordered list of all weapons; used for scroll-wheel cycling
-export const ALL_WEAPONS = ['pistol', 'shotgun', 'ak47', 'deagle', 'flamethrower', 'crossbow']
+// Caliber labels, the ordered weapon list (scroll-wheel cycling) and Max Ammo reserves are derived
+// from the weapon registry (src/weapons/index.js).
+export { CALIBER_LABELS, ALL_WEAPONS, MAX_RESERVE }
 const PERK_COSTS = {
   fast_hands: 80,
   deep_pockets: 80,
@@ -1199,20 +1193,15 @@ export const useGameStore = create((set, get) => ({
       set({ money: money - cost, ...WR.giveWeapon(get(), id, { reserve: startReserve }) })
       return true
     }
-    if (itemId === 'ak47')    return buyWeapon('ak47',    AK_COST,     AK_CLIP)
-    if (itemId === 'deagle')  return buyWeapon('deagle',  DEAGLE_COST, DEAGLE_CLIP)
-    if (itemId === 'shotgun') return buyWeapon('shotgun', SHOTGUN_COST, SHOTGUN_CLIP)
-    if (itemId === 'flamethrower') return buyWeapon('flamethrower', FLAMETHROWER_COST, 0, FLAMETHROWER_START_AMMO)
+    // Shop guns: any registry weapon with a price (ak47, deagle, shotgun, flamethrower).
+    const shopGun = WEAPONS[itemId]
+    if (shopGun && shopGun.cost != null) return buyWeapon(itemId, shopGun.cost, shopGun.clip, shopGun.buyReserve)
     if (itemId === 'grenade') return get().buyGrenade()
     if (itemId === 'ammo_pack') {
-      if (weapon === 'flamethrower') {
-        if (money < FLAMETHROWER_AMMO_PACK_COST) return false
-        set({ money: money - FLAMETHROWER_AMMO_PACK_COST, reserveBullets: reserveBullets + FLAMETHROWER_AMMO_PACK_AMOUNT })
-        return true
-      }
-      if (money < AMMO_PACK_COST) return false
-      const amount = perks.deep_pockets ? DEEP_POCKETS_AMMO_PACK_AMOUNT : AMMO_PACK_AMOUNT
-      set({ money: money - AMMO_PACK_COST, reserveBullets: reserveBullets + amount })
+      const pack = ammoPackFor(weapon)
+      if (money < pack.cost) return false
+      const amount = perks.deep_pockets ? pack.deepAmount : pack.amount
+      set({ money: money - pack.cost, reserveBullets: reserveBullets + amount })
       return true
     }
     return false
@@ -1493,8 +1482,7 @@ function applyDebugOverrides(set, get) {
     updates.weapon = weapon
     updates.ownedWeapons = [...get().ownedWeapons, weapon]
     updates.bulletsInClip = clip
-    updates.reserveBullets = weapon === 'flamethrower' ? FLAMETHROWER_START_AMMO : clip * 3
-    if (weapon === 'crossbow') updates.reserveBullets = WR.START_RESERVE.crossbow
+    updates.reserveBullets = WEAPONS[weapon].startReserve   // flamethrower 1000 fuel, crossbow 30, others 3 clips
   }
 
   set(updates)
@@ -1648,8 +1636,7 @@ export function killMoney(source, isHeadshot) {
     + (source === 'knife' ? KNIFE_KILL_BONUS : 0)
 }
 
-// Reserve rounds a "full" Max Ammo refills to, per weapon (flamethrower = fuel units).
-export const MAX_RESERVE = { pistol: 60, shotgun: 48, ak47: 150, deagle: 42, flamethrower: 2000, crossbow: 40 }
+// MAX_RESERVE (rounds a "full" Max Ammo refills to, per weapon; flamethrower = fuel units) comes from the weapon registry.
 
 // Max Ammo for every owned weapon: clips topped up, reserves raised to MAX_RESERVE
 // (x1.5 with Deep Pockets). Never lowers an existing reserve.
