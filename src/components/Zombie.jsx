@@ -649,7 +649,7 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
   useEffect(() => {
     if (hidden) return
     if (type === 'screamer') playScreamerScreech(startX, 1.4, startZ)
-  }, [hidden, type])
+  }, [hidden, type, startX, startZ])
 
   const bodyScale = hidden ? 0.001 : 1
   return (
