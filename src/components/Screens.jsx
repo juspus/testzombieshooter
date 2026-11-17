@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback, useSyncExternalStore } from 'react'
 import { useGameStore } from '../store'
 import { track } from '../analytics'
 import { CROSSHAIR_COLORS, SUPPORTER_SKU, describeUnlock, isUnlocked, itemsOfKind, unlockText } from '../cosmetics'
 import { hydrateStoreFromLocal, syncProfileWithCloud } from '../profilePersistence'
 import { createRunShareToken } from '../shareToken'
-import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
+import { createRoom, joinRoom, disconnect, send, isConnected, getVersionStatus, onVersionStatus } from '../net'
+import { VERSION_MISMATCH_TEXT } from '../netProtocol'
 import { consumeInvite, isValidRoomCode } from '../invite'   // W5 one-tap invite
 import InviteShare from './InviteShare'
 import { consumeDuel } from '../duel'
@@ -376,6 +377,16 @@ function IntermissionScreen({ wave, intermissionLeft, zombieCount, money, skipPr
 
 // ── Multiplayer lobby ──────────────────────────────────────────────────────
 
+// The partner's build speaks another protocol version (net.js handshake): say so instead of desyncing.
+function VersionMismatchNote() {
+  return (
+    <div className="ui-stack" style={{ alignItems: 'center' }}>
+      <div data-testid="version-mismatch" className="ui-note" role="alert" style={{ color: '#ff6666', textAlign: 'center' }}>{VERSION_MISMATCH_TEXT}</div>
+      <Button size="sm" onClick={() => window.location.reload()}>Reload</Button>
+    </div>
+  )
+}
+
 function RoomCodeDisplay({ code }) {
   const [copied, setCopied] = useState(false)
 
@@ -454,6 +465,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const partnerMapId = useGameStore((s) => s.partnerMapId)
   const ownMapId = useGameStore((s) => s.mapId)
   const mapMismatch = !!partnerMapId && partnerMapId !== ownMapId   // co-op: host waits for a matching guest
+  const versionMismatch = useSyncExternalStore(onVersionStatus, getVersionStatus) === 'mismatch'   // partner runs another build
   const setMpRole = useGameStore((s) => s.setMpRole)
   const setMpConnected = useGameStore((s) => s.setMpConnected)
   // Lobby mode (host sets it from the menu it hosts from, guest mirrors): 'coop' or a VERSUS_MODES id.
@@ -539,7 +551,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   }, [coop, connected, lobbyMode])
 
   const handleStartGame = useCallback(() => {
-    if (mapMismatch) return
+    if (mapMismatch || versionMismatch) return
     enterRunFullscreen()
     if (lobbyMode !== 'coop' && VERSUS_MODES[lobbyMode] && isConnected()) {
       // Versus: same seed on both sides, each in their own world (the store detaches from co-op).
@@ -550,7 +562,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
     }
     startGame()
     if (isConnected()) send('game_event', { event: 'start_game', data: {} })
-  }, [startGame, mapMismatch, lobbyMode])
+  }, [startGame, mapMismatch, versionMismatch, lobbyMode])
 
   const handleLeave = useCallback(() => {
     disconnect()
@@ -629,7 +641,8 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
               Partner is on {partnerMapId === 'diner' ? 'Diner' : 'Cabin'} — pick the same map
             </div>
           )}
-          {connected && <Button variant="primary" size="lg" block onClick={handleStartGame} disabled={mapMismatch}>Start game</Button>}
+          {connected && versionMismatch && <VersionMismatchNote />}
+          {connected && <Button variant="primary" size="lg" block onClick={handleStartGame} disabled={mapMismatch || versionMismatch}>Start game</Button>}
         </div>
       )}
 
@@ -637,6 +650,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
         <div className="ui-stack" style={{ alignItems: 'center' }}>
           <div className="ui-note">{connected ? 'Connected — waiting for host to start' : status === '…' ? 'Connecting…' : 'Disconnected'}</div>
           {connected && lobbyMode !== 'coop' && <div className="ui-note" data-testid="lobby-mode">Mode: {VERSUS_MODES[lobbyMode]?.label}</div>}
+          {connected && versionMismatch && <VersionMismatchNote />}
         </div>
       )}
 
@@ -655,6 +669,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
                   {status === 'Connected' ? 'Connected — waiting for host to start' : status}
                 </div>
               )}
+              {connected && versionMismatch && <VersionMismatchNote />}
             </>
           )}
         </div>

@@ -1,3 +1,5 @@
+import { validateMessage, makeHello, versionStatus, HELLO_TIMEOUT_MS, PROTOCOL_VERSION } from './netProtocol'
+
 // PeerJS is a dynamic import: it is only fetched when someone hosts or joins.
 // The Peer is created asynchronously, so each call carries a generation token and a stale
 // (torn-down or superseded) creation is discarded.
@@ -51,7 +53,61 @@ async function _makePeer(id) {
 let _peer = null
 let _conn = null
 let _role = null
-const _listeners = new Map()
+const _listeners = new Map()   // type -> Set<fn>: several listeners per kind are allowed
+
+// ── Handshake state (netProtocol.js) ─────────────────────────────────────────────────
+// null = partner's version not heard yet; a number = what it announced; 0 = it never said
+// (a build from before the handshake, e.g. an old service-worker cache).
+let _peerVersion = null
+let _helloTimer = null
+// Dev / preview only: ?protocol=N pretends this build speaks protocol N (to test the mismatch message).
+const MY_VERSION = (() => {
+  try {
+    if (import.meta.env.VITE_VERCEL_ENV === 'production' || typeof window === 'undefined') return PROTOCOL_VERSION
+    const n = Number(new URLSearchParams(window.location.search).get('protocol'))
+    return Number.isInteger(n) && n > 0 ? n : PROTOCOL_VERSION
+  } catch { return PROTOCOL_VERSION }
+})()
+const _statusFns = new Set()
+
+/** 'pending' | 'ok' | 'mismatch' for the current link. */
+export function getVersionStatus() { return versionStatus(_peerVersion, MY_VERSION) }
+/** Subscribe to version status changes (shaped for useSyncExternalStore). Returns an unsubscribe. */
+export function onVersionStatus(fn) {
+  _statusFns.add(fn)
+  return () => { _statusFns.delete(fn) }
+}
+function _setPeerVersion(v) {
+  const before = getVersionStatus()
+  _peerVersion = v
+  if (getVersionStatus() !== before) for (const fn of [..._statusFns]) { try { fn() } catch { /* ignore */ } }
+}
+
+// ── Dev-only message log: window.__netlog (never in production builds) ───────────────
+// The constant is replaced at build time, so the whole block is dropped from production.
+const LOG_ON = import.meta.env.VITE_VERCEL_ENV !== 'production'
+const NETLOG_MAX = 200
+const _netlog = []
+let _warned = 0
+if (LOG_ON && typeof window !== 'undefined') window.__netlog = _netlog
+function _log(dir, msg, note) {
+  if (!LOG_ON) return
+  const e = { t: Math.round(performance.now()), dir, type: msg?.type }
+  if (msg?.type === 'game_event') e.kind = msg.data?.event
+  else if (msg?.type === 'versus') e.kind = msg.data?.kind
+  const hot = msg?.type === 'pos' || msg?.type === 'zombie_update' || e.kind === 'dir_state' || e.kind === 'coop_sync'
+  if (!hot) e.data = msg?.type === 'game_event' || msg?.type === 'versus' ? msg.data?.data : msg?.data
+  if (note) e.note = note
+  _netlog.push(e)
+  if (_netlog.length > NETLOG_MAX) _netlog.shift()
+}
+function _warn(what, reason) {
+  if (!LOG_ON || _warned >= 20) return
+  _warned++
+  try { console.warn(`[net] ${what}: ${reason}${_warned === 20 ? ' (further warnings muted)' : ''}`) } catch { /* ignore */ }
+}
+/** Dev only: the recent message ring buffer ([] in production). */
+export function getNetLog() { return _netlog }
 
 // Unambiguous alphabet: no 0/O, 1/I/L
 const _CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -66,12 +122,39 @@ export function isConnected() { return _conn?.open === true }
 export function getPeer() { return _peer }
 export function getRemotePeerId() { return _conn?.peer ?? null }
 
-export function onMessage(type, fn) { _listeners.set(type, fn) }
-export function offMessage(type) { _listeners.delete(type) }
+/**
+ * Listen for one message type. Any number of listeners per type; registering the same function
+ * twice is a no-op. Returns an unsubscribe function.
+ */
+export function onMessage(type, fn) {
+  let set = _listeners.get(type)
+  if (!set) { set = new Set(); _listeners.set(type, set) }
+  set.add(fn)
+  return () => {
+    set.delete(fn)
+    if (!set.size && _listeners.get(type) === set) _listeners.delete(type)
+  }
+}
+/** Remove one listener, or (no `fn`) every listener of the type. */
+export function offMessage(type, fn) {
+  if (!fn) { _listeners.delete(type); return }
+  const set = _listeners.get(type)
+  if (!set) return
+  set.delete(fn)
+  if (!set.size) _listeners.delete(type)
+}
 
 export function send(type, data) {
   if (!_conn?.open) return
-  _conn.send({ type, data })
+  // Two builds that cannot talk must not half-talk: nothing but the handshake goes out.
+  if (_peerVersion !== null && getVersionStatus() === 'mismatch') return
+  const msg = { type, data }
+  if (LOG_ON) {
+    const bad = validateMessage(msg)
+    if (bad) _warn('sending a message the partner will drop', bad)
+    _log('out', msg)
+  }
+  _conn.send(msg)
 }
 
 export function createRoom(onCode, onConnected, onDisconnected) {
@@ -113,17 +196,48 @@ export function disconnect() {
   _teardown()
 }
 
+/** One inbound message: validate, handle the handshake, then fan out to the listeners. */
+function _receive(msg) {
+  const bad = validateMessage(msg)
+  if (bad) { _warn('dropped', bad); _log('drop', msg, bad); return }
+  if (msg.type === 'hello') {
+    _log('in', msg)
+    _setPeerVersion(msg.data.v)
+    return
+  }
+  if (getVersionStatus() === 'mismatch') return
+  _log('in', msg)
+  const set = _listeners.get(msg.type)
+  if (!set) return
+  for (const fn of set) {
+    try { fn(msg.data) } catch (e) { console.error('[net]', msg.type, e) }
+  }
+}
+/** Test hook: feed an inbound message as if the data channel had delivered it. */
+export function _receiveForTests(msg) { _receive(msg) }
+
 function _setupConn(onConnected, onDisconnected) {
-  _conn.on('open', () => onConnected?.())
-  _conn.on('data', (msg) => {
-    if (!msg?.type) return
-    _listeners.get(msg.type)?.(msg.data)
+  const conn = _conn
+  clearTimeout(_helloTimer)
+  _setPeerVersion(null)
+  conn.on('open', () => {
+    if (conn !== _conn) return
+    const hi = makeHello(MY_VERSION)
+    _log('out', hi)
+    try { conn.send(hi) } catch { /* ignore */ }
+    // No hello soon after the link opens: the partner runs a build from before the handshake.
+    clearTimeout(_helloTimer)
+    _helloTimer = setTimeout(() => { if (conn === _conn && _peerVersion === null) _setPeerVersion(0) }, HELLO_TIMEOUT_MS)
+    onConnected?.()
   })
-  _conn.on('close', () => onDisconnected?.())
+  conn.on('data', (msg) => { if (conn === _conn) _receive(msg) })
+  conn.on('close', () => onDisconnected?.())
 }
 
 function _teardown() {
   _gen++
+  clearTimeout(_helloTimer)
+  _setPeerVersion(null)
   try { _conn?.close() } catch {}
   try { _peer?.destroy() } catch {}
   _conn = null
