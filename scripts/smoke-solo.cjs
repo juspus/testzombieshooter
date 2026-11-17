@@ -4,14 +4,15 @@
 // reads window.__game and window.__r3f, which only exist outside production builds.
 // No PeerJS server and no network are needed; failed network requests are not errors here.
 //
-// Usage: node scripts/smoke-solo.cjs <baseUrl> [shotDir]
+// Usage: node scripts/smoke-solo.cjs <baseUrl> [shotDir] [--prove-world-check]
 //   e.g. node scripts/smoke-solo.cjs http://localhost:5173 /tmp/smoke
 const { chromium } = require('playwright')
 const fs = require('fs')
 const path = require('path')
 
-const base = (process.argv[2] || 'http://localhost:5173').replace(/\/$/, '')
-const shotDir = process.argv[3] || null
+const posArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'))
+const base = (posArgs[0] || 'http://localhost:5173').replace(/\/$/, '')
+const shotDir = posArgs[1] || null
 if (shotDir) fs.mkdirSync(shotDir, { recursive: true })
 
 const T0 = Date.now()
@@ -20,8 +21,16 @@ const failures = []
 const check = (cond, msg) => { log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) failures.push(msg) }
 
 // Console errors that are about the sandbox/CI having no network, not about the game.
-// The cabin has ~1,540 non-zombie meshes at wave 1; an empty Arena has none. Floor well below the real value.
-const MIN_WORLD_MESHES = 1200
+// The cabin's static geometry is baked at mount (src/staticMerge.js): ~890 parts become ~49 merged meshes,
+// each tagged userData.merged = number of parts it holds. The world check looks for that bake instead of a raw
+// mesh count (the rest of the scene, pooled FX meshes and the like, is ~490 meshes with or without a cabin):
+// enough merged meshes, enough merged parts, and merged SHADOW CASTERS (the wall slabs). Floors sit well below
+// today's values (see the numbers printed by the check) and far above an empty or missing Arena (0).
+const MIN_WORLD_MESHES = 400
+const MIN_BAKED_MESHES = 30
+const MIN_BAKED_PARTS = 600
+const MIN_BAKED_CASTER_PARTS = 30
+const PROVE_WORLD_CHECK = process.argv.includes('--prove-world-check')   // remove the cabin and expect the check to fail
 
 const IGNORED_ERRORS = [
   /Failed to load resource/i,
@@ -59,17 +68,30 @@ async function frameStats(page) {
 async function sceneStats(page) {
   return page.evaluate(() => {
     const { scene } = window.__r3f
-    let meshes = 0, zombieMeshes = 0
+    let meshes = 0, zombieMeshes = 0, bakedMeshes = 0, bakedParts = 0, bakedCasterParts = 0
     const ids = new Set()
     scene.traverse((o) => {
       if (!o.isMesh) return
       meshes++
       const z = o.userData && o.userData.zombieId
       if (z !== undefined) { zombieMeshes++; ids.add(z) }
+      const parts = o.userData && o.userData.merged
+      if (parts) { bakedMeshes++; bakedParts += parts; if (o.castShadow) bakedCasterParts += parts }
     })
-    return { meshes, worldMeshes: meshes - zombieMeshes, zombieMeshIds: [...ids] }
+    return { meshes, worldMeshes: meshes - zombieMeshes, bakedMeshes, bakedParts, bakedCasterParts, zombieMeshIds: [...ids] }
   })
 }
+
+// What must be in the scene for the cabin to count as present. Returns the list of problems (empty = fine).
+function worldProblems(sc) {
+  const p = []
+  if (sc.worldMeshes < MIN_WORLD_MESHES) p.push(`${sc.worldMeshes} non-zombie meshes, need >= ${MIN_WORLD_MESHES}`)
+  if (sc.bakedMeshes < MIN_BAKED_MESHES) p.push(`${sc.bakedMeshes} baked cabin meshes, need >= ${MIN_BAKED_MESHES}`)
+  if (sc.bakedParts < MIN_BAKED_PARTS) p.push(`${sc.bakedParts} baked cabin parts, need >= ${MIN_BAKED_PARTS}`)
+  if (sc.bakedCasterParts < MIN_BAKED_CASTER_PARTS) p.push(`${sc.bakedCasterParts} baked shadow-casting wall parts, need >= ${MIN_BAKED_CASTER_PARTS}`)
+  return p
+}
+const worldText = (sc) => `${sc.worldMeshes} non-zombie meshes, ${sc.bakedMeshes} baked meshes holding ${sc.bakedParts} cabin parts (${sc.bakedCasterParts} casting)`
 
 // Put one live zombie on the crosshair ray, `dist` m ahead horizontally (root y = body centre = the ray's
 // height there), and return its id and health. Following the ray makes the shot independent of where the
@@ -139,14 +161,31 @@ async function placeZombieInFront(page, dist, nth) {
 
 
     // 3b. Scene structure: an empty cabin or a missing ZombieManager must fail, even though the
-    //     store-driven steps below would still pass. (Arena null: ~1,500 -> ~0 world meshes.)
+    //     store-driven steps below would still pass. (Arena null: 0 baked cabin meshes; `--prove-world-check` shows it.)
     const liveIds = await G(() => window.__game.getState().zombies.filter((z) => !z.dying).map((z) => z.id))
     await page.waitForFunction((ids) => {
       const have = new Set(); window.__r3f.scene.traverse((o) => { if (o.isMesh && o.userData && o.userData.zombieId !== undefined) have.add(o.userData.zombieId) })
       return ids.every((i) => have.has(i))
     }, liveIds, { timeout: 20000 }).catch(() => {})
     const sc = await sceneStats(page)
-    check(sc.worldMeshes >= MIN_WORLD_MESHES, `cabin and world are in the scene (${sc.worldMeshes} non-zombie meshes, need >= ${MIN_WORLD_MESHES})`)
+    const prob = worldProblems(sc)
+    check(prob.length === 0, `cabin and world are in the scene (${worldText(sc)})` + (prob.length ? ': ' + prob.join('; ') : ''))
+    if (PROVE_WORLD_CHECK) {
+      // Self-check: take the cabin out of the scene and the same check has to fail.
+      await G(() => {
+        const { scene } = window.__r3f
+        const arena = []
+        scene.traverse((o) => { if (o.isMesh && o.userData && o.userData.merged) { let t = o; while (t.parent && t.parent !== scene) t = t.parent; if (!arena.includes(t)) arena.push(t) } })
+        for (const t of arena) scene.remove(t)
+      })
+      const gone = await sceneStats(page)
+      const goneProb = worldProblems(gone)
+      log(`cabin removed: ${worldText(gone)}`)
+      check(goneProb.length > 0, `world check FAILS with the cabin removed (${goneProb.join('; ')})`)
+      await browser.close()
+      console.log(goneProb.length > 0 ? '\nPROVE OK: the world check notices a missing cabin' : '\nPROVE FAILED: the world check passed without a cabin')
+      process.exit(goneProb.length > 0 && failures.length === 0 ? 0 : 1)
+    }
     const missing = liveIds.filter((id) => !sc.zombieMeshIds.includes(id))
     check(liveIds.length > 0 && missing.length === 0, `every live zombie has meshes in the scene (${liveIds.length} live, missing ids: ${missing.join(',') || 'none'})`)
 
@@ -211,7 +250,8 @@ async function placeZombieInFront(page, dist, nth) {
     check(true, 'wave 2 is playing')
     // Not a brightness check here: the camera may look at the roof after the clicks above.
     const sc2 = await sceneStats(page)
-    check(sc2.worldMeshes >= MIN_WORLD_MESHES, `wave 2 scene is intact (${sc2.worldMeshes} non-zombie meshes)`)
+    const prob2 = worldProblems(sc2)
+    check(prob2.length === 0, `wave 2 scene is intact (${worldText(sc2)})` + (prob2.length ? ': ' + prob2.join('; ') : ''))
     await shot(page, '5-wave2')
   } catch (e) {
     failures.push('script error: ' + (e && e.message ? e.message.split('\n')[0] : e))

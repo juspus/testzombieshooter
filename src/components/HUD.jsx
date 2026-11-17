@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react'
 import { MODIFIERS } from '../modifiers'
 import { useGameStore, CLIP_SIZE, AK_CLIP, DEAGLE_CLIP, SHOTGUN_CLIP, PLANK_COST, STRONG_PLANK_COST, CALIBER_LABELS, HELMET_DEFS } from '../store'
 import { CROSSHAIR_HEX } from '../cosmetics'
@@ -9,8 +9,15 @@ import { HitMarker, DangerFx, DamageIndicator, LastKillFx } from './FeelFx'
 import PowerUpHud from './PowerUpHud'
 import GrenadeHud from './GrenadeHud'
 import { hintsActive, noteWaveStarted } from '../hints'
-import { DuelHudStat } from './DuelUi'
+import { loadDuelUi } from '../versusChunks'
 import CoopFx from './CoopFx'   // W5 co-op down / revive
+
+// Seed Duel's rival stat: own chunk, mounted only in a duel run.
+const DuelHudStat = lazy(() => loadDuelUi().then((m) => ({ default: m.DuelHudStat })))
+function DuelHudSlot(props) {
+  const duel = useGameStore((s) => s.runMode === 'duel')
+  return duel ? <Suspense fallback={null}><DuelHudStat {...props} /></Suspense> : null
+}
 
 const BASE_KNIFE_COOLDOWN = 0.4
 const KNIFE_MASTERY_COOLDOWN = 0.25
@@ -251,7 +258,7 @@ export default function HUD() {
             <span style={labelStyle}>KILLS</span>
             <span style={valueStyle}>{waveKills} / {total}</span>
           </div>
-          <DuelHudStat statStyle={statStyle} labelStyle={labelStyle} valueStyle={valueStyle} />
+          <DuelHudSlot statStyle={statStyle} labelStyle={labelStyle} valueStyle={valueStyle} />
           <div style={{ ...statStyle, position: 'relative' }}>
             <span style={labelStyle}>MONEY</span>
             <span style={{ ...valueStyle, color: canAfford ? '#ffe066' : '#ff6644' }}>

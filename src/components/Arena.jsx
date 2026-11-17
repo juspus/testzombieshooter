@@ -12,6 +12,7 @@ import {
 } from '../maps/cabin'
 import { texBoxProps, texPlaneProps } from '../textures'
 import CabinFurniture from './Furniture'
+import StaticBake from './StaticBake'
 
 const HW = CABIN_HW
 const HD = CABIN_HD
@@ -1039,6 +1040,11 @@ export default function Arena() {
 
       <LivingLights />
 
+      {/* Window planks follow the store: they stay out of the bake. */}
+      <WindowPlanks />
+
+      {/* Everything below never moves: merged per material once after mount (staticMerge.js). */}
+      <StaticBake>
       {/* ── Floor ────────────────────────────────────────────────────────── */}
       {/* Plank seams are baked into the wood texture (replaces the old FloorPlanks strip meshes) */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow {...texPlaneProps(HW * 2, HD * 2, 'wood', FLOOR, 0.98)} />
@@ -1065,7 +1071,6 @@ export default function Arena() {
       <BedroomHallWall />
       <HallKitchenWall />
       <WestMainWall />
-      <WindowPlanks />
 
       {/* ── Atmosphere ───────────────────────────────────────────────────── */}
       <CabinFurniture />
@@ -1126,6 +1131,7 @@ export default function Arena() {
 
       {/* ── Loot chest ───────────────────────────────────────────────────── */}
       <Chest />
+      </StaticBake>
     </group>
   )
 }
