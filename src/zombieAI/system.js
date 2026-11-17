@@ -49,9 +49,20 @@ export class ZombieSystem {
 
   // Idempotent: the pose component calls this on mount, the store sync calls it for new zombies.
   ensure(id, type, x, z) {
+    type = type ?? 'walker'
+    x = x ?? 0
+    z = z ?? 0
     let zs = this.byId.get(id)
+    if (zs && (zs.type !== type || zs.sx !== x || zs.sz !== z)) {
+      // Same id, different zombie: a new run reuses ids from 0 and the old one was never synced away
+      const at = this.list.indexOf(zs)
+      zs = createZombie(id, type, x, z)
+      this.byId.set(id, zs)
+      if (at >= 0) this.list[at] = zs; else this.list.push(zs)
+      return zs
+    }
     if (!zs) {
-      zs = createZombie(id, type ?? 'walker', x ?? 0, z ?? 0)
+      zs = createZombie(id, type, x, z)
       this.byId.set(id, zs)
       this.list.push(zs)
     }

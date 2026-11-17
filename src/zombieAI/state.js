@@ -21,6 +21,7 @@ export function createZombie(id, type, x, z) {
     isSpider,
     noPlankAttack: type === 'runner' || type === 'screamer' || type === 'spitter',
     baseY,
+    sx: x, sz: z,            // spawn point (identifies a zombie when a run restarts and ids are reused)
     // transform (the pose layer copies these onto the group)
     x, z,
     y: isSpider ? SPIDER.BODY_Y : baseY,
