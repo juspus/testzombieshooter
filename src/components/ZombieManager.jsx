@@ -1,5 +1,7 @@
 import { useGameStore } from '../store'
 import { useFrame } from '@react-three/fiber'
+import { time } from '../timeScale'
+import { zombieSystem } from '../zombieLive'
 import ZombieComponent from './Zombie'
 import SpecialFX from './SpecialFX'
 
@@ -8,9 +10,18 @@ export default function ZombieManager() {
   const tick = useGameStore((s) => s.tick)
   const mpRole = useGameStore((s) => s.mpRole)
 
-  useFrame((_, rawDelta) => {
+  // The one zombie frame: store tick, then the AI for every zombie (ZombieSystem, src/zombieAI),
+  // then each zombie's pose (Zombie.jsx). Raw delta is clamped first, then slow-mo applies.
+  useFrame((state, rawDelta) => {
     if (useGameStore.getState().paused) return
-    tick(Math.min(rawDelta, 0.05), mpRole === 'guest')
+    const delta = Math.min(rawDelta, 0.05)
+    tick(delta, mpRole === 'guest')
+    const cam = state.camera.position
+    zombieSystem.player.x = cam.x
+    zombieSystem.player.z = cam.z
+    const dt = delta * time.scale
+    zombieSystem.tick(dt)
+    zombieSystem.poseAll(dt)
   })
 
   return (
