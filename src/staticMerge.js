@@ -49,7 +49,8 @@ function eligible(o) {
  * Merge the static meshes under `root`. Returns { undo, stats }.
  *  - meshes that are not eligible are left in place (and frozen);
  *  - groups left empty by the bake are removed too (their transforms are inside the merged geometry);
- *  - `freeze` (default true) sets matrixAutoUpdate = false on everything that stays under `root`
+ *  - `freeze` (default true) sets matrixAutoUpdate = false on everything that stays under `root`, except
+ *    invisible subtrees and subtrees marked userData.dynamic (they move later)
  *    except lights, after one matrix update, so the per-frame scene update skips them.
  */
 export function bakeStatic(root, { freeze = true } = {}) {
@@ -57,8 +58,9 @@ export function bakeStatic(root, { freeze = true } = {}) {
   _inv.copy(root.matrixWorld).invert()
 
   const buckets = new Map()   // key -> { material, castShadow, receiveShadow, meshes: [] }
+  const inDynamic = (o) => { for (let p = o; p && p !== root; p = p.parent) if (p.userData.dynamic) return true; return false }
   root.traverseVisible((o) => {
-    if (o === root || !eligible(o)) return
+    if (o === root || !eligible(o) || inDynamic(o)) return
     o.updateWorldMatrix(true, false)
     if (_rel.multiplyMatrices(_inv, o.matrixWorld).determinant() <= 0) return   // mirrored: winding would flip
     const key = `${materialSignature(o.material)}#${o.castShadow ? 1 : 0}${o.receiveShadow ? 1 : 0}`
@@ -123,11 +125,14 @@ export function bakeStatic(root, { freeze = true } = {}) {
 
   if (freeze) {
     root.updateWorldMatrix(true, true)
-    root.traverse((o) => {
-      if (o === root || o.isLight || !o.matrixAutoUpdate) return
-      o.matrixAutoUpdate = false
-      frozen.push(o)
-    })
+    // Invisible subtrees (e.g. glass shards that appear when a window breaks) and userData.dynamic ones
+    // move later, so they keep updating their matrices.
+    const walk = (o) => {
+      if (o !== root && (!o.visible || o.userData.dynamic)) return
+      if (o !== root && !o.isLight && o.matrixAutoUpdate) { o.matrixAutoUpdate = false; frozen.push(o) }
+      for (const c of o.children) walk(c)
+    }
+    walk(root)
   }
 
   let after = 0

@@ -168,4 +168,37 @@ describe('bakeStatic', () => {
     expect(out).toHaveLength(2)
     expect(out.find((x) => x.material === vcMat).geometry.attributes.color.count).toBe(48)
   })
+
+  it('does not freeze invisible or userData.dynamic subtrees: they still move after the bake (diner glass shards)', () => {
+    const root = new THREE.Group()
+    const mat = matA()
+    const win = new THREE.Group()
+    win.position.set(-5, 1, 6)
+    const shards = new THREE.Group()
+    const shard = box(mat, 0, 0, 0, 0.1, 0.1, 0.01)
+    shard.visible = false
+    shards.add(shard)
+    const dyn = new THREE.Group()
+    dyn.userData.dynamic = true
+    const mover = box(mat, 0, 0, 0)
+    dyn.add(mover)
+    win.add(shards)
+    root.add(box(mat, 0, 0, 0), box(mat, 2, 0, 0), win, dyn)
+
+    bakeStatic(root)
+    expect(shard.matrixAutoUpdate).toBe(true)
+    expect(mover.matrixAutoUpdate).toBe(true)
+    expect(dyn.matrixAutoUpdate).toBe(true)
+    expect(win.matrixAutoUpdate).toBe(false)   // the static parent still freezes
+
+    shard.visible = true
+    shard.position.set(0.5, -0.5, 0)
+    mover.position.set(0, 3, 0)
+    root.updateMatrixWorld(true)
+    const w = new THREE.Vector3().setFromMatrixPosition(shard.matrixWorld)
+    expect(w.x).toBeCloseTo(-4.5, 5)
+    expect(w.y).toBeCloseTo(0.5, 5)
+    expect(w.z).toBeCloseTo(6, 5)
+    expect(new THREE.Vector3().setFromMatrixPosition(mover.matrixWorld).y).toBeCloseTo(3, 5)
+  })
 })

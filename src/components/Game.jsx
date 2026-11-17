@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { startEerieMusic, stopEerieMusic, setMusicIntensity } from '../sounds'
@@ -41,8 +41,28 @@ import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
 
 // The map is fixed per page load (mapSelect.js reloads to change it), so only the arena that will be
 // used is downloaded, and its import starts right now, in parallel with the rest of startup.
-const Arena = lazy(() => import('./Arena'))
-const DinerArena = lazy(() => import('./DinerArena'))
+// A chunk can fail on a flaky phone network: retry twice before giving up (then SceneErrorBoundary).
+const retryImport = (load) => load()
+  .catch(() => new Promise((r) => setTimeout(r, 1000)).then(load))
+  .catch(() => new Promise((r) => setTimeout(r, 3000)).then(load))
+const Arena = lazy(() => retryImport(() => import('./Arena')))
+const DinerArena = lazy(() => retryImport(() => import('./DinerArena')))
+
+// Without this, a failed arena chunk unmounts the whole app (menu included) to a blank page.
+let sceneFailed = false   // the canvas tearing down fires webglcontextlost: not a "RECONNECTING" case
+class SceneErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { failed: false } }
+  static getDerivedStateFromError() { sceneFailed = true; return { failed: true } }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#ddd', fontFamily: 'monospace', fontSize: 14 }}>
+        <div>Couldn't load the map. Check your connection.</div>
+        <button type="button" onClick={() => window.location.reload()} style={{ minHeight: 44, minWidth: 120, fontSize: 14 }}>RELOAD</button>
+      </div>
+    )
+  }
+}
 if (typeof window !== 'undefined') (getInitialMapId() === 'diner' ? import('./DinerArena') : import('./Arena')).catch(() => {})
 
 // Versus-only UI (rival link, mail HUD, Director screens) is its own chunk. It mounts the first time a
@@ -100,6 +120,7 @@ export default function Game() {
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, width: 'var(--app-width, 100vw)', height: 'var(--app-height, 100dvh)', background: '#000', overflow: 'hidden' }}>
+      <SceneErrorBoundary>
       <Canvas
         shadows
         frameloop={dirFrozen ? 'never' : 'always'}
@@ -117,6 +138,7 @@ export default function Game() {
           // three.js rebuild its GPU resources on restore; the game pauses meanwhile (pause.js).
           gl.domElement.addEventListener('webglcontextlost', (e) => {
             e.preventDefault()
+            if (sceneFailed) return
             handleContextLost()
           })
           gl.domElement.addEventListener('webglcontextrestored', () => handleContextRestored(scene))
@@ -151,6 +173,7 @@ export default function Game() {
         <Storm />
         </Suspense>
       </Canvas>
+      </SceneErrorBoundary>
 
       {isActive && !dirFrozen && <HUD />}
       <VoiceChat />
