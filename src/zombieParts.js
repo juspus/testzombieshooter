@@ -317,3 +317,22 @@ export const sacGeo = () => cached('sac', sacParts)
 export const spiderUpperGeo = (arm) => cached(`spU|${arm ? 1 : 0}`, () => spiderUpperParts(arm))
 export const spiderLowerGeo = (arm) => cached(`spL|${arm ? 1 : 0}`, () => spiderLowerParts(arm))
 export const cachedZombieGeometryCount = () => _geo.size
+
+// Every geometry the game can ask for, as small jobs, so they can be baked in idle time instead of
+// on the frame a rare variant (torn jaw, stump arm, exposed ribs, a new archetype) first spawns.
+// Each job is a no-op once its geometry is cached. `types` = the archetype names, `bossTypes` the
+// ones with the boss badge.
+export function zombieGeometryJobs(types, bossTypes = ['boss']) {
+  const jobs = []
+  const noRibs = new Set(['screamer', 'exploder', 'armored'])
+  for (const type of types) {
+    const boss = bossTypes.includes(type)
+    for (const noJaw of [false, true]) jobs.push(() => headGeo(type, { noJaw }))
+    for (const ribs of noRibs.has(type) ? [false] : [false, true]) jobs.push(() => bodyGeo(type, { ribs }, boss))
+    if (type === 'spider') { jobs.push(() => spiderUpperGeo(true), () => spiderUpperGeo(false), () => spiderLowerGeo(true), () => spiderLowerGeo(false)); continue }
+    for (const side of [-1, 1]) for (const stump of [false, true]) jobs.push(() => armGeo(side, type, { noArm: stump ? side : 0 }))
+    if (type !== 'crawler') jobs.push(() => legGeo(type))
+    if (type === 'spitter') jobs.push(sacGeo)
+  }
+  return jobs
+}

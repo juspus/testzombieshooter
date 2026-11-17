@@ -2,7 +2,7 @@ import { runRandom, keyedRandom } from '../rng'
 import { memo, useRef, useEffect, useState, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { time } from '../timeScale'
-import { getZombieArchetype, useGameStore } from '../store'
+import { getZombieArchetype, useGameStore, ZOMBIE_ARCHETYPES } from '../store'
 import Player from './Player'
 import { findPath, isBlocked, collidesWithWalls } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
@@ -29,7 +29,7 @@ import { send, isConnected } from '../net'
 import Hitbox from './Hitbox'
 import { hitboxSpec } from '../hitboxes'
 import { zombieMaterial } from '../zombieMesh'
-import { headGeo, bodyGeo, armGeo, legGeo, sacGeo, spiderUpperGeo, spiderLowerGeo, SPIDER_L1, SPIDER_L2 } from '../zombieParts'
+import { headGeo, bodyGeo, armGeo, legGeo, sacGeo, spiderUpperGeo, spiderLowerGeo, zombieGeometryJobs, SPIDER_L1, SPIDER_L2 } from '../zombieParts'
 
 const _geoCache = new Map()
 function bg(x, y, z) {
@@ -242,6 +242,23 @@ function spitLOS(x1, z1, x2, z2) {
   return !raycastWorld(x1, 1.45, z1, dx / len, dy / len, dz / len, len - 0.2, BULLET_WALLS, MAP_WALL_H, null, null, 0, 0, 0, _spitWr)
 }
 const netEvent = (event, data) => { if (isConnected()) send('game_event', { event, data }) }
+
+// Bake every part geometry in idle time (a few ms per slice, once): a rare variant (torn jaw, stump
+// arm...) or a new archetype then never builds geometry on the frame it spawns. Started by the
+// always-mounted warmer zombie.
+let _geoWarmStarted = false
+function warmZombieGeometries() {
+  if (_geoWarmStarted) return
+  _geoWarmStarted = true
+  const jobs = zombieGeometryJobs(Object.keys(ZOMBIE_ARCHETYPES), Object.keys(ZOMBIE_ARCHETYPES).filter((t) => ZOMBIE_ARCHETYPES[t].boss))
+  const later = (f) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 3000 }) : setTimeout(f, 60))
+  const step = () => {
+    const t0 = performance.now()
+    while (jobs.length && performance.now() - t0 < 3) jobs.shift()()
+    if (jobs.length) later(step)
+  }
+  later(step)
+}
 
 // One baked part of a zombie (see src/zombieParts.js): a single mesh for everything the animation
 // rotates together. `userData.zombieId` marks it for the hit flash and corpse freeze, `isHead` for
@@ -595,6 +612,8 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       delete _igniters[id]
     }
   }, [id, startX, startZ, archetype.heightScale, hidden])
+
+  useEffect(() => { if (hidden) warmZombieGeometries() }, [hidden])
 
   useEffect(() => {
     if (hidden) return

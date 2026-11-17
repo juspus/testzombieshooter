@@ -109,7 +109,7 @@ const FRAG_DECL = `#include <common>
 varying vec2 vZm;
 varying vec3 vZe;`
 
-function patch(shader, pal) {
+export function patchZombieShader(shader, pal) {
   shader.uniforms.uZPal = { value: pal }
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', VERT_DECL)
@@ -135,7 +135,7 @@ export function zombieMaterial(key, colors) {
   mat.userData.palette = pal
   mat.userData.paletteHex = colors
   mat.customProgramCacheKey = () => 'zombie-parts-v1'
-  mat.onBeforeCompile = (shader) => patch(shader, pal)
+  mat.onBeforeCompile = (shader) => patchZombieShader(shader, pal)
   _palCache.set(key, mat)
   return mat
 }
