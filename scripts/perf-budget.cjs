@@ -15,7 +15,7 @@
 // Limits live in scripts/perf-budget.json. Any value above its limit exits 1 and names the metric.
 // Needs a Vite dev server (or a non-production build): window.__game / window.__r3f only exist there.
 //
-// Usage: node scripts/perf-budget.cjs <baseUrl> [--out result.json] [--limits scripts/perf-budget.json] [--dist dist]
+// Usage: node scripts/perf-budget.cjs <baseUrl> [--out result.json] [--limits scripts/perf-budget.json] [--dist dist] [--map diner]
 //   e.g. node scripts/perf-budget.cjs http://localhost:5173 --out /tmp/perf-budget-result.json
 const { chromium } = require('playwright')
 const fs = require('fs')
@@ -29,6 +29,7 @@ const base = (args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].
 const outPath = flag('--out', path.join(os.tmpdir(), 'perf-budget-result.json'))
 const limitsPath = flag('--limits', path.join(__dirname, 'perf-budget.json'))
 const distDir = flag('--dist', path.join(__dirname, '..', 'dist'))
+const mapId = flag('--map', null)   // optional: measure another map (e.g. diner); the limits file is for the default cabin
 
 const T0 = Date.now()
 const log = (m) => console.log(`[${((Date.now() - T0) / 1000).toFixed(1).padStart(5)}s] ${m}`)
@@ -75,7 +76,7 @@ async function measureFrame(page) {
   page.on('pageerror', (e) => log('pageerror ' + e.message))
   const G = (fn, a) => page.evaluate(fn, a)
 
-  await page.goto(`${base}/?wave=8&lofi=0&gov=0`, { waitUntil: 'domcontentloaded' })
+  await page.goto(`${base}/?wave=8&lofi=0&gov=0${mapId ? '&map=' + mapId : ''}`, { waitUntil: 'domcontentloaded' })
   await page.waitForSelector('[data-testid="menu-play"]', { timeout: 60000 })
   await page.click('[data-testid="menu-play"]')
   await page.waitForFunction(() => window.__game.getState().phase === 'intermission', null, { timeout: 30000 })

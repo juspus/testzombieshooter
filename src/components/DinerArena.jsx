@@ -12,6 +12,7 @@ import {
 } from '../maps/diner'
 import { modFx } from '../modifiers'
 import { texBoxProps, texPlaneProps } from '../textures'
+import StaticBake from './StaticBake'
 
 const WT = WALL_T
 const WH = WALL_H
@@ -557,18 +558,24 @@ export default function DinerArena() {
       <hemisphereLight skyColor="#3a4858" groundColor="#100c08" intensity={0.45} />
       <DinerBulbs />
 
-      <DinerFloor />
-      <Forecourt />
-      <SpawnClutter />
-
-      <Ceiling />
-      <Roof />
-      <Walls />
+      {/* Window planks follow the store: they stay out of the bake. */}
       <WindowPlanks />
 
-      <Counter />
-      <Booths />
-      <Chest />
+      {/* Everything below is merged per material once after mount (staticMerge.js). Window glass and
+          its shards are transparent / hidden, so they stay separate meshes and keep working. */}
+      <StaticBake>
+        <DinerFloor />
+        <Forecourt />
+        <SpawnClutter />
+
+        <Ceiling />
+        <Roof />
+        <Walls />
+
+        <Counter />
+        <Booths />
+        <Chest />
+      </StaticBake>
     </group>
   )
 }
