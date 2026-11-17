@@ -265,7 +265,7 @@ Total: 1 shadow-casting light. Point light shadow maps are cube maps (6 render p
 - Wave N spawns `5 + (N-1)*3` zombies, capped at 25 active at once
 - Remaining zombies queue in `pendingSpawns`; one slots in per kill
 - `tick()` in store only runs during `intermission` phase (countdown between waves)
-- Zombie movement is handled inside each `ZombieComponent`'s `useFrame`, not in the store
+- Zombie AI (pathing, state machine, attack timers, exploder / spitter / spider logic, hit-reaction timers, death timing, guest interpolation) lives in `src/zombieAI/*`: pure modules (no React / R3F / three, they run in Node) ticked once per frame by `ZombieSystem` (`system.js`) from `ZombieManager`'s single `useFrame`, which then calls each zombie's pose. `Zombie.jsx` is only the model and the pose (`poseZombie` copies sim state onto the groups). The live system (real store, map, sounds, FX, net via an `io` object) is `src/zombieLive.js`; `src/__tests__/zombieAI.*.test.js` play a wave headless (`@vitest-environment node`, helper `zombieAI.helper.js`). The screamer aura is computed once per tick (`auras.js`). Sim zombie state is a plain object (`zombieAI/state.js`); `zombieSystem.get(id)` in dev, `window.__zombieSystem`.
 
 ---
 
