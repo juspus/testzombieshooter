@@ -50,7 +50,7 @@ src/
 ├── store.js                   # All game state + actions (Zustand)
 ├── cabin.js                   # Cabin dimension constants + window/door defs
 ├── walls.js                   # Wall segment geometry for pathfinding grid
-├── sounds.js                  # Audio helpers
+├── sounds.js                  # Entry: re-exports src/sounds/* (core = context + buses, spatial, weapons, zombies, world, music, player)
 ├── net.js                     # WebSocket multiplayer networking
 └── components/
     ├── Game.jsx               # Canvas setup, fog, scene root
@@ -66,7 +66,7 @@ src/
     ├── BulletPickups.jsx      # Ammo crates that spawn during waves
     ├── HUD.jsx
     ├── Shop.jsx
-    ├── Screens.jsx            # Start menu / Wave Cleared / Intermission / YOU DIED
+    ├── Screens.jsx            # Entry: re-exports screens/Screens.jsx (router); screens/ holds StartScreen, Lobby (LobbyBody), SettingsPanel, Locker, Death, WaveClear, Intermission, PausedOverlay, hooks, lazyUi
     ├── ui.jsx + ui.css        # Shared menu UI kit: Button, Panel, Tabs, Option (use for any new menu UI)
     ├── Walls.jsx              # Visible wall geometry
     ├── NetManager.jsx         # Multiplayer event bus
@@ -387,7 +387,7 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 |---|---|
 | Seeded start | `store.startSeededGame(mode, seed, opts)`; `runMode` is `'normal' \| 'daily' \| 'versus' \| 'duel'`, `runSeed` the seed. Seeded runs force the default pistol loadout. `rng.newRunSeed()`. `scoreSubmittable(runMode)` (`versus.js`) keeps versus and duel runs off the leaderboard. |
 | Seed Duel (async) | `src/duel.js` (token = URL-safe base64 JSON: seed, map, name, per-wave kills, final), `components/DuelUi.jsx`. `/?duel=TOKEN` picks the map at page load even if locked. Cleared waves always tie on kills (same seed), so the HUD shows the rival's final wave/kills, not per-wave kills. |
-| Zombie Mail (live) | Main menu Versus > Zombie Mail hosts/joins a versus room (`lobbyBody(mode)` in `Screens.jsx` is shared with Co-op); a guest who joins from Co-op or an invite link is moved to the Zombie Mail lobby when the host's mode arrives. Seed Duel lives under Versus too. `versus_start` event. Each player runs a SEPARATE seeded world: `startVersusRun` sets `mpRole` null and `mpConnected` false but keeps the net.js link, so co-op sync, RemotePlayer and revive stay silent. In-run messages go through `sendVersus(kind, data)` / `onVersus(kind, fn)` (`versus.js`), never `game_event`; every payload carries the run `seed` and a mismatch is dropped (stale messages from the last match). `VersusNet.jsx`: 1 Hz status, results, forfeit (10 s link down / 30 s silent, or an instant `leave` on pagehide), rival strip. `versusRematch.js`. No pause while linked. |
+| Zombie Mail (live) | Main menu Versus > Zombie Mail hosts/joins a versus room (`LobbyBody` in `components/screens/Lobby.jsx` is shared with Co-op); a guest who joins from Co-op or an invite link is moved to the Zombie Mail lobby when the host's mode arrives. Seed Duel lives under Versus too. `versus_start` event. Each player runs a SEPARATE seeded world: `startVersusRun` sets `mpRole` null and `mpConnected` false but keeps the net.js link, so co-op sync, RemotePlayer and revive stay silent. In-run messages go through `sendVersus(kind, data)` / `onVersus(kind, fn)` (`versus.js`), never `game_event`; every payload carries the run `seed` and a mismatch is dropped (stale messages from the last match). `VersusNet.jsx`: 1 Hz status, results, forfeit (10 s link down / 30 s silent, or an instant `leave` on pagehide), rival strip. `versusRematch.js`. No pause while linked. |
 | Mail | `src/mail.js` (items, meter, delivery queue), `src/mailRuntime.js` (send/receive), `components/MailHud.jsx` (keys 1-5, warning line), MAIL button in `MobileControls.jsx`. Delivery lands via `store.mailTick` (from `tick()` while playing); spawn cluster from `keyedRandom` by mail id so seeded wave streams stay identical; mailed zombies add to `mail.waveExtra` (HUD total). Blackout sets `mail.pendingModifier` for the next `nextWave`. |
 | The Director | `src/director.js` (contract: units, costs, unlocks, `waveBudget`, best-of-3 scoring, `dir_*` message shapes), `src/directorFlow.js` + `src/directorRuntime.js` (turns, 8 Hz `dir_state`, host-driven `dir_next`, `dir_ready`), store `director` slice (`startDirector`, `directorSpawn`, `directorTick`, `directorEndTurn`, ...), `components/DirectorFlow.jsx` (between-turns and result cards, defender strip), `components/DirectorView.jsx` + `DirectorView.css` + `src/directorPaper.js` (the director's war-map screen; paper and ink painted once to offscreen canvases). Director waves spawn nothing from the seeded spawner: only `dir_spawn` (validated, deduped by id, also accepted in intermission) and the `autoFill` walkers after `SPAWN_WINDOW_S`. Death in director mode ends the turn, not the run. While a player directs (or between turns) `Game.jsx` sets `frameloop='never'` and their world is paused and empty. `cluster` indexes the map's full `SPAWN_CLUSTERS`; a sealed room's cluster falls back to the nearest active one. `/directorlab.html` is a dev harness for the view (not built). |
 | Two-browser tests | `?peer=local` (dev/preview only) signals through a local PeerJS server: `npx peerjs --port 9000 --host 127.0.0.1` (package `peer`). `scripts/twoplayer-smoke.cjs` (co-op), `scripts/versus-smoke.cjs`, `scripts/mail-smoke.cjs`, `scripts/director-smoke.cjs`; args: base URL, screenshot dir. Headless runs are slow (frame delta clamp), so waits are long. Scripts that probe a module with `import('/src/...')` need a Vite server started after your last edit: hot reload serves the app a `?t=` copy, so the probe reads a separate, unused module. |
@@ -411,7 +411,9 @@ Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombi
 - Perf budget limits are today's measurement plus about 10% (2026-11-17: 298 draws, 57,496 triangles, ~1,411 nodes, ~997 meshes, ~158 casters, 11 lights, 24 programs, 147 kB gzip). Zombie variants are random, so nodes and casters wobble by about 1% between runs. Raise a limit only on purpose, in the PR that needs it, and say why in the PR. A perf card that makes things faster should lower the limit in the same PR.
 - The co-op, versus, mail and director smoke scripts stay manual (they need the local PeerJS server).
 
-## Audio buses (sounds.js)
+## Audio buses (sounds/core.js)
+
+The AudioContext, every bus node, the muffle state and the pause hold flag live ONLY in `src/sounds/core.js` (one context; `src/sounds.js` just re-exports). Other `sounds/*` modules import `ctx`, `playTone`, `_realDest`, `_musicOut` from it; never create a second context or bus. `src/__tests__/sounds.shape.test.js` pins the export list and the bus routing.
 
 `ac.destination` is shadowed: it returns the **effects** bus, so every sound that connects to it gets the Effects slider and the low-HP muffle for free. Music must connect to `_musicOut(ac)` instead, or it lands on the Effects slider. Heartbeat/stings use `_realDest` (effects level, no muffle). Master sits after all three.
 
