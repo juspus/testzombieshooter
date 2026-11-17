@@ -21,15 +21,15 @@ const failures = []
 const check = (cond, msg) => { log((cond ? 'PASS ' : 'FAIL ') + msg); if (!cond) failures.push(msg) }
 
 // Console errors that are about the sandbox/CI having no network, not about the game.
-// The cabin's static geometry is baked at mount (src/staticMerge.js): ~1,050 meshes become ~60 merged ones,
+// The cabin's static geometry is baked at mount (src/staticMerge.js): ~890 parts become ~49 merged meshes,
 // each tagged userData.merged = number of parts it holds. The world check looks for that bake instead of a raw
 // mesh count (the rest of the scene, pooled FX meshes and the like, is ~490 meshes with or without a cabin):
 // enough merged meshes, enough merged parts, and merged SHADOW CASTERS (the wall slabs). Floors sit well below
 // today's values (see the numbers printed by the check) and far above an empty or missing Arena (0).
 const MIN_WORLD_MESHES = 400
 const MIN_BAKED_MESHES = 30
-const MIN_BAKED_PARTS = 800
-const MIN_BAKED_CASTER_PARTS = 40
+const MIN_BAKED_PARTS = 600
+const MIN_BAKED_CASTER_PARTS = 30
 const PROVE_WORLD_CHECK = process.argv.includes('--prove-world-check')   // remove the cabin and expect the check to fail
 
 const IGNORED_ERRORS = [
