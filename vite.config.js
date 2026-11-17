@@ -69,8 +69,10 @@ export default defineConfig({
         // cached across deploys. peerjs / supabase are dynamic imports, split by Rollup.
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
+          // drei (and three-stdlib) are used only by the /?models playground: left to Rollup so they ride
+          // with that lazy chunk instead of weighing down vendor-three for every player.
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react'
-          if (/node_modules\/(three|@react-three|three-stdlib|its-fine|react-reconciler|suspend-react|zustand)\//.test(id)) return 'vendor-three'
+          if (/node_modules\/(three|@react-three\/fiber|its-fine|react-reconciler|suspend-react|zustand)\//.test(id)) return 'vendor-three'
           return undefined
         },
       },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useGameStore } from '../store'
 import { track } from '../analytics'
 import { CROSSHAIR_COLORS, SUPPORTER_SKU, describeUnlock, isUnlocked, itemsOfKind, unlockText } from '../cosmetics'
@@ -8,7 +8,7 @@ import { createRoom, joinRoom, disconnect, send, isConnected } from '../net'
 import { consumeInvite, isValidRoomCode } from '../invite'   // W5 one-tap invite
 import InviteShare from './InviteShare'
 import { consumeDuel } from '../duel'
-import { DuelPanel, DuelDeath } from './DuelUi'
+import { loadDuelUi, loadVersusResult, preloadVersusUi } from '../versusChunks'
 import { submitScore, fetchLeaderboard, signInWithGoogle, signOut, onAuthStateChange, getUser, getProfile, setUsername as saveUsername, fetchEntitlements, fetchStoreConfig, startCheckout } from '../supabase'
 import { getReduceMotion, setReduceMotion } from '../cameraFeel'
 import { LevelBadge, useChallengeSummary, ChallengesPanel, AchievementsPanel, DeathXpPanel } from './ProgressPanels'
@@ -22,12 +22,16 @@ import VolumeSliders from './VolumeSliders'
 import { Button, Panel, Tabs, Option, SectionLabel, LockIcon } from './ui'
 import { VERSUS_MODES, scoreSubmittable } from '../versus'
 import { newRunSeed } from '../rng'
-import VersusResult from './VersusResult'
 import { SkipHoldButton, ControlSettings } from './PauseMenu'
 import useMenuEnv from '../menuTouch'
 import InstallHint from './InstallHint'
 import { CheckIcon, StarIcon, ChevronIcon } from './Icons'
 import { enterRunFullscreen } from '../fullscreen'
+
+// Seed Duel and versus-result UI live in their own chunks (a solo player never loads them).
+const DuelPanel = lazy(() => loadDuelUi().then((m) => ({ default: m.DuelPanel })))
+const DuelDeath = lazy(() => loadDuelUi().then((m) => ({ default: m.DuelDeath })))
+const VersusResult = lazy(() => loadVersusResult())
 
 function useAuthUser() {
   const [user, setUser] = useState(null)
@@ -431,6 +435,7 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
   const [panel, setPanel] = useState(checkoutReturn?.openLocker ? 'locker' : invite ? 'coop' : challenge ? 'versus' : null) // null | 'versus' | 'coop' | 'loadout' | 'progress' | 'locker' | 'settings' | 'username'
   // Versus panel: the mode list (null) or one mode's screen ('mail' lobby, 'duel').
   const [versusView, setVersusView] = useState(challenge ? 'duel' : null)
+  useEffect(() => { if (panel === 'versus') preloadVersusUi() }, [panel])   // chunks ready before the tap that needs them
   const [coop, setCoop] = useState(invite ? 'invite' : 'idle') // room state: 'idle' | 'host' | 'guest' | 'invite'
   // Which menu owns the open room: the Co-op panel or Versus > Zombie Mail.
   const [lobbyKind, setLobbyKind] = useState('coop')
@@ -664,7 +669,11 @@ function StartScreen({ startGame, user, username, onUsernameSet, checkoutReturn 
 
   let detail = null
   if (panel === 'versus' && versusView === 'duel') {
-    detail = <DuelPanel challenge={challenge} onBack={() => setVersusView(null)} onDecline={() => { setChallenge(null); setVersusView(null) }} />
+    detail = (
+      <Suspense fallback={<Panel title="Seed Duel" testid="duel-panel-loading" />}>
+        <DuelPanel challenge={challenge} onBack={() => setVersusView(null)} onDecline={() => { setChallenge(null); setVersusView(null) }} />
+      </Suspense>
+    )
   } else if (panel === 'versus' && VERSUS_MODES[versusView]) {
     detail = (
       <Panel title={VERSUS_MODES[versusView].label} action={lobbyAction('versus', () => setVersusView(null))} testid="mail-panel">
@@ -1140,7 +1149,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
         <DeathStat label="Perks" value={runSummary.perks.length || 'None'} />
       </div>
 
-      {versusRun && <div style={{ opacity }}><VersusResult /></div>}
+      {versusRun && <div style={{ opacity }}><Suspense fallback={null}><VersusResult /></Suspense></div>}
       <div style={{ opacity }}><DeathXpPanel /></div>
 
       {lastRunUnlocks?.length > 0 && (
@@ -1170,7 +1179,7 @@ function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, usernam
       }}>
 
         {duelMode ? (
-          <DuelDeath wave={wave} kills={kills} username={username} />
+          <Suspense fallback={null}><DuelDeath wave={wave} kills={kills} username={username} /></Suspense>
         ) : !submittable ? null : isPractice ? (
           <div style={deathNoteStyle}>PRACTICE</div>
         ) : username ? (

@@ -1,10 +1,8 @@
-import { useEffect, useLayoutEffect } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { startEerieMusic, stopEerieMusic, setMusicIntensity } from '../sounds'
-import Arena from './Arena'
 import DoorBarricades from './DoorBarricades'
-import DinerArena from './DinerArena'
 import Player from './Player'
 import Gun from './Gun'
 import Knife from './Knife'
@@ -24,16 +22,13 @@ import RemotePlayer from './RemotePlayer'
 import PowerUps from './PowerUps'
 import Machines from './Machines'
 import NetManager from './NetManager'
-import VersusNet from './VersusNet'
-import DirectorView from './DirectorView'
-import DirectorFlow from './DirectorFlow'
-import MailHud from './MailHud'
 import MobileControls from './MobileControls'
 import Storm from './Storm'
 import ModifierFx from './ModifierFx'
 import FrameGovernor from './FrameGovernor'
 import VoiceChat from './VoiceChat'
 import useMobileViewport from '../useMobileViewport'
+import { getInitialMapId } from '../maps'
 import { initAnalytics } from '../analytics'
 import { initProgression } from '../progressTracker'
 import ProgressToasts from './ProgressToasts'
@@ -43,6 +38,22 @@ import { installWakeLock } from '../wakeLock'
 import { handleContextLost, handleContextRestored } from '../pause'
 import PerfOverlay, { PERF_ON, BENCH_ON } from './PerfOverlay'
 import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
+
+// The map is fixed per page load (mapSelect.js reloads to change it), so only the arena that will be
+// used is downloaded, and its import starts right now, in parallel with the rest of startup.
+const Arena = lazy(() => import('./Arena'))
+const DinerArena = lazy(() => import('./DinerArena'))
+if (typeof window !== 'undefined') (getInitialMapId() === 'diner' ? import('./DinerArena') : import('./Arena')).catch(() => {})
+
+// Versus-only UI (rival link, mail HUD, Director screens) is its own chunk. It mounts the first time a
+// room is hosted or joined, a versus run starts or a Director match exists, then stays (like it always did).
+const VersusLayer = lazy(() => import('./VersusLayer'))
+function VersusMount() {
+  const needed = useGameStore((s) => Boolean(s.roomCode || s.mpRole || s.runMode === 'versus' || s.versus?.active || s.director?.active))
+  const [seen, setSeen] = useState(false)
+  if (needed && !seen) setSeen(true)
+  return seen ? <Suspense fallback={null}><VersusLayer /></Suspense> : null
+}
 
 function ForceRenderOnShopOpen() {
   const shopOpen = useGameStore((s) => s.shopOpen)
@@ -113,7 +124,7 @@ export default function Game() {
       >
         <fog attach="fog" args={['#0b1118', 7, 34]} />
         {mapId === 'diner' ? <GasStationSkybox /> : <ForestSkybox />}
-        {mapId === 'diner' ? <DinerArena /> : <Arena />}
+        <Suspense fallback={null}>{mapId === 'diner' ? <DinerArena /> : <Arena />}</Suspense>
         <DoorBarricades />
         <Machines />
         <Player />
@@ -144,10 +155,7 @@ export default function Game() {
       <Screens />
       <ProgressToasts />
       <PauseLayer />
-      <MailHud />
-      <VersusNet />
-      <DirectorView />
-      <DirectorFlow />
+      <VersusMount />
       <RotateGate />
     </div>
   )
