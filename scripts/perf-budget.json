@@ -1,0 +1,23 @@
+{
+  "_about": "Limits for scripts/perf-budget.cjs: highest of several local runs (2026-11-16, wave 8, 25 live zombies, 1280x720) plus about 10%. Zombie variants are random, so nodes and casters wobble by about 1% between runs. Exceptions: lightsTotal and lightsVisible are EXACT (CLAUDE.md fixes the light count). programs is the highest reading over the frame, after a real shot and after swapping through every weapon. Raise a limit only on purpose, in the same PR as the change that needs it, and say why.",
+  "_measured": {
+    "draws": 831,
+    "triangles": 17114,
+    "nodes": 5081,
+    "meshes": 4475,
+    "castShadowMeshes": 202,
+    "lightsTotal": 11,
+    "lightsVisible": 11,
+    "programs": 23,
+    "mainChunkGzipKB": 171.1
+  },
+  "draws": 915,
+  "triangles": 18900,
+  "nodes": 5600,
+  "meshes": 4930,
+  "castShadowMeshes": 222,
+  "lightsTotal": 11,
+  "lightsVisible": 11,
+  "programs": 25,
+  "mainChunkGzipKB": 188
+}
