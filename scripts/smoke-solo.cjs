@@ -71,9 +71,12 @@ async function sceneStats(page) {
   })
 }
 
-// Put one live zombie 1.5-4 m straight ahead of the camera, at its own floor height, and return its
-// id and health. Its root group is the highest ancestor that holds no other zombie's meshes.
-// Zombie.jsx moves the group again on the next frame, so the caller shoots at once.
+// Put one live zombie on the crosshair ray, `dist` m ahead horizontally (root y = body centre = the ray's
+// height there), and return its id and health. Following the ray makes the shot independent of where the
+// camera looks: taking pointer lock with a real click can turn the camera by a random amount (the click's
+// mouse move is read as look movement), up to the +-60 degree pitch clamp. The zombie's root group is the
+// highest ancestor that holds no other zombie's meshes. Zombie.jsx moves the group again on the next
+// frame, so the caller shoots at once.
 async function placeZombieInFront(page, dist, nth) {
   return page.evaluate(([d, nth]) => {
     const { scene, camera } = window.__r3f
@@ -88,11 +91,12 @@ async function placeZombieInFront(page, dist, nth) {
     while (root.parent && root.parent !== scene && only(root.parent)) root = root.parent
     const dir = camera.getWorldDirection(camera.position.clone())
     const len = Math.hypot(dir.x, dir.z) || 1
-    root.position.set(camera.position.x + (dir.x / len) * d, root.position.y, camera.position.z + (dir.z / len) * d)
+    root.position.set(camera.position.x + (dir.x / len) * d, camera.position.y + (dir.y / len) * d, camera.position.z + (dir.z / len) * d)
     root.updateMatrixWorld(true)
-    return { id: z.id, type: z.type, health: z.health, locked: document.pointerLockElement === document.querySelector('canvas'), ammo: st.bulletsInClip }
+    return { id: z.id, type: z.type, health: z.health, locked: document.pointerLockElement === document.querySelector('canvas'), ammo: st.bulletsInClip, pitch: Math.round(Math.asin(dir.y) * 100) / 100, cam: [camera.position.x, camera.position.y, camera.position.z].map((v) => Math.round(v * 10) / 10) }
   }, [dist, nth])
 }
+
 
 ;(async () => {
   const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] })
@@ -165,7 +169,7 @@ async function placeZombieInFront(page, dist, nth) {
       await page.mouse.click(640, 360)
       await page.waitForTimeout(250)
       const after = await G((id) => { const z = window.__game.getState().zombies.find((x) => x.id === id); return z ? { health: z.health, dying: !!z.dying } : null }, placed.id)
-      tried.push(`#${placed.id}(${placed.type}) d${d} lock=${placed.locked} ammo=${placed.ammo} hp ${placed.health}->${after ? after.health : '?'}`)
+      tried.push(`#${placed.id}(${placed.type}) d${d} lock=${placed.locked} ammo=${placed.ammo} pitch=${placed.pitch} cam=${placed.cam} hp ${placed.health}->${after ? after.health : '?'}`)
       if (after && (after.dying || after.health < placed.health)) { hitInfo = { id: placed.id, before: placed.health, after, dist: d }; break }
     }
     check(!!hitInfo, hitInfo ? `a shot at a zombie in the crosshair hit it: #${hitInfo.id} health ${hitInfo.before} -> ${hitInfo.after.health}${hitInfo.after.dying ? ' (killed)' : ''} (attempt ${tried.length})` : `a shot at a zombie in the crosshair hit it (attempts: ${tried.join('; ')})`)
@@ -201,12 +205,13 @@ async function placeZombieInFront(page, dist, nth) {
     check(w2.wave === 2, `reached wave 2 (money ${w2.money}, kills ${w2.kills})`)
     await shot(page, '4-wave2-intermission')
 
-    // 7. Wave 2 starts too. (No modifier: a random Blackout would make the brightness check flaky.)
+    // 7. Wave 2 starts too (no modifier, so a random Blackout cannot change what it looks like).
     await G(() => { window.__game.setState({ waveModifier: null }); window.__game.getState().skipIntermission() })
     await page.waitForFunction(() => window.__game.getState().phase === 'playing' && window.__game.getState().wave === 2, null, { timeout: 120000 })
     check(true, 'wave 2 is playing')
-    const f2 = await frameStats(page)
-    check(f2.colors >= 4 && f2.mean > 0.5 && f2.mean < 250, `wave 2 frame is not blank (${f2.colors} distinct colours, mean ${f2.mean.toFixed(0)})`)
+    // Not a brightness check here: the camera may look at the roof after the clicks above.
+    const sc2 = await sceneStats(page)
+    check(sc2.worldMeshes >= MIN_WORLD_MESHES, `wave 2 scene is intact (${sc2.worldMeshes} non-zombie meshes)`)
     await shot(page, '5-wave2')
   } catch (e) {
     failures.push('script error: ' + (e && e.message ? e.message.split('\n')[0] : e))
