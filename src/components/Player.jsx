@@ -98,6 +98,7 @@ import Bolts from './Bolts'
 import { getRemotePlayerPos } from './RemotePlayer'
 import { DOWN_SPEED_MULT, DOWN_EYE_HEIGHT, otherRole, inReviveRange, stepRevive } from '../coopDown'   // W5 down/revive
 import { reportRevive } from '../coopRuntime'
+import { hitZombieRay } from '../hitboxes'
 
 function netSend(event, data) {
   if (isConnected()) send('game_event', { event, data })
@@ -223,6 +224,7 @@ export default function Player() {
   const prevPitch = useRef(0)
   Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
   Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
+  if (import.meta.env.VITE_VERCEL_ENV !== 'production') window.__zombieRefs = zombieRefs.current   // dev/preview: browser tests
 
   useEffect(() => { wallsRef.current = walls }, [walls])
   useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
@@ -448,13 +450,13 @@ export default function Player() {
         let bestId = null, bestDist = Infinity, bestPoint = null, bestHead = false
         for (const [id, ref] of Object.entries(zombieRefs.current)) {
           if (!ref) continue
-          const hits = pelletRC.intersectObject(ref, true)
-          if (hits.length > 0 && hits[0].distance < bestDist &&
-              !lineOfSightBlocked(camera.position.x, camera.position.z, hits[0].point.x, hits[0].point.z, BULLET_WALLS)) {
-            bestDist = hits[0].distance
+          const hit = hitZombieRay(pelletRC, ref)
+          if (hit && hit.distance < bestDist &&
+              !lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, BULLET_WALLS)) {
+            bestDist = hit.distance
             bestId = Number(id)
-            bestPoint = hits[0].point.clone()
-            bestHead = hits[0].object.userData.isHead === true
+            bestPoint = hit.point
+            bestHead = hit.isHead
           }
         }
         let trailEnd = bestPoint
@@ -487,8 +489,8 @@ export default function Player() {
       const hits = []
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
         if (!ref) continue
-        const intersects = raycaster.intersectObject(ref, true)
-        if (intersects.length > 0) hits.push({ id: Number(id), dist: intersects[0].distance, point: intersects[0].point.clone(), head: intersects[0].object.userData.isHead === true })
+        const hit = hitZombieRay(raycaster, ref)
+        if (hit) hits.push({ id: Number(id), dist: hit.distance, point: hit.point, head: hit.isHead })
       }
       hits.sort((a, b) => a.dist - b.dist)
       const targets = []
@@ -530,8 +532,8 @@ export default function Player() {
       const hits = []
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
         if (!ref) continue
-        const intersects = raycaster.intersectObject(ref, true)
-        if (intersects.length > 0) hits.push({ id: Number(id), dist: intersects[0].distance, point: intersects[0].point.clone() })
+        const hit = hitZombieRay(raycaster, ref)
+        if (hit) hits.push({ id: Number(id), dist: hit.distance, point: hit.point })
       }
       hits.sort((a, b) => a.dist - b.dist)
       const targets = []
@@ -560,14 +562,14 @@ export default function Player() {
       let closest = null, closestDist = Infinity, hitPoint = null, isHeadshot = false, hitFaceNormal = null
       for (const [id, ref] of Object.entries(zombieRefs.current)) {
         if (!ref) continue
-        const intersects = raycaster.intersectObject(ref, true)
-        if (intersects.length > 0 && intersects[0].distance < closestDist &&
-            !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, BULLET_WALLS)) {
-          closestDist = intersects[0].distance
+        const hit = hitZombieRay(raycaster, ref)
+        if (hit && hit.distance < closestDist &&
+            !lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, BULLET_WALLS)) {
+          closestDist = hit.distance
           closest = id
-          hitPoint = intersects[0].point.clone()
-          isHeadshot = intersects[0].object.userData.isHead === true
-          hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
+          hitPoint = hit.point
+          isHeadshot = hit.isHead
+          hitFaceNormal = hit.face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
         }
       }
 
@@ -584,14 +586,14 @@ export default function Player() {
           assistRC.setFromCamera(offset, camera)
           for (const [id, ref] of Object.entries(zombieRefs.current)) {
             if (!ref) continue
-            const intersects = assistRC.intersectObject(ref, true)
-            if (intersects.length > 0 && intersects[0].distance < closestDist &&
-                !lineOfSightBlocked(camera.position.x, camera.position.z, intersects[0].point.x, intersects[0].point.z, BULLET_WALLS)) {
-              closestDist = intersects[0].distance
+            const hit = hitZombieRay(assistRC, ref)
+            if (hit && hit.distance < closestDist &&
+                !lineOfSightBlocked(camera.position.x, camera.position.z, hit.point.x, hit.point.z, BULLET_WALLS)) {
+              closestDist = hit.distance
               closest = id
-              hitPoint = intersects[0].point.clone()
-              isHeadshot = intersects[0].object.userData.isHead === true
-              hitFaceNormal = intersects[0].face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
+              hitPoint = hit.point
+              isHeadshot = hit.isHead
+              hitFaceNormal = hit.face?.normal.clone() ?? new THREE.Vector3(0, 0, 1)
             }
           }
         }
@@ -790,7 +792,7 @@ export default function Player() {
           outer: for (const off of OFFSETS) {
             autoDetectRC.current.setFromCamera(off, camera)
             for (let i = 0; i < nearCount; i++) {
-              const hit = autoDetectRC.current.intersectObject(_autoNearRefs[i], true)[0]
+              const hit = hitZombieRay(autoDetectRC.current, _autoNearRefs[i])
               if (!hit) continue
               // Don't auto-shoot through walls — require a clear line of sight.
               if (lineOfSightBlocked(camPos.x, camPos.z, hit.point.x, hit.point.z, BULLET_WALLS)) continue
