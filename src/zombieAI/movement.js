@@ -1,7 +1,22 @@
 // Zombie movement: collision-checked stepping, line of sight and waypoint following.
 // Pure (no React / three.js). `pos` is anything with numeric x / z (a sim zombie).
-import { collidesWithWalls } from '../walls'
 import { ZOMBIE_R, ARENA_BOUND, WAYPOINT_REACH } from './constants'
+
+// Does a zombie circle (radius ZOMBIE_R) at (x, z) overlap any wall box? Same test as walls.js
+// collidesWithWalls, with a cheap per-wall reject first (most walls are metres away).
+function collides(x, z, walls) {
+  const R = ZOMBIE_R
+  for (let i = 0; i < walls.length; i++) {
+    const w = walls[i]
+    const ddx = x - w.x, ddz = z - w.z
+    if (ddx > w.halfW + R || ddx < -w.halfW - R || ddz > w.halfD + R || ddz < -w.halfD - R) continue
+    const nearX = Math.max(w.x - w.halfW, Math.min(x, w.x + w.halfW))
+    const nearZ = Math.max(w.z - w.halfD, Math.min(z, w.z + w.halfD))
+    const dx = x - nearX, dz = z - nearZ
+    if (dx * dx + dz * dz < R * R) return true
+  }
+  return false
+}
 
 // Move a zombie: full move -> axis-split for wall-threading -> push-out.
 // The axis-split is needed so zombies can thread through narrow window
@@ -11,13 +26,13 @@ export function applyMove(pos, vx, vz, walls) {
   const nx = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.x + vx))
   const nz = Math.max(-ARENA_BOUND, Math.min(ARENA_BOUND, pos.z + vz))
 
-  if (!collidesWithWalls(nx, nz, R, walls)) {
+  if (!collides(nx, nz, walls)) {
     pos.x = nx; pos.z = nz; return
   }
-  if (!collidesWithWalls(nx, pos.z, R, walls)) {
+  if (!collides(nx, pos.z, walls)) {
     pos.x = nx; return
   }
-  if (!collidesWithWalls(pos.x, nz, R, walls)) {
+  if (!collides(pos.x, nz, walls)) {
     pos.z = nz; return
   }
 
@@ -45,9 +60,21 @@ export function hasDirectPath(x1, z1, x2, z2, walls) {
   const dist = Math.sqrt(dx * dx + dz * dz)
   if (dist < 0.01) return true
   const steps = Math.max(2, Math.ceil(dist / (ZOMBIE_R * 0.5)))
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps
-    if (collidesWithWalls(x1 + dx * t, z1 + dz * t, ZOMBIE_R, walls)) return false
+  const R = ZOMBIE_R
+  // Only walls near the segment can touch it: reject the rest by bounding box (same answer, ~10x fewer tests)
+  const minX = Math.min(x1, x2) - R, maxX = Math.max(x1, x2) + R
+  const minZ = Math.min(z1, z2) - R, maxZ = Math.max(z1, z2) + R
+  for (let k = 0; k < walls.length; k++) {
+    const w = walls[k]
+    if (w.x + w.halfW < minX || w.x - w.halfW > maxX || w.z + w.halfD < minZ || w.z - w.halfD > maxZ) continue
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps
+      const x = x1 + dx * t, z = z1 + dz * t
+      const nearX = Math.max(w.x - w.halfW, Math.min(x, w.x + w.halfW))
+      const nearZ = Math.max(w.z - w.halfD, Math.min(z, w.z + w.halfD))
+      const ex = x - nearX, ez = z - nearZ
+      if (ex * ex + ez * ez < R * R) return false
+    }
   }
   return true
 }
