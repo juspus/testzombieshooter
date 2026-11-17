@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,7 +28,13 @@ function check(name, container) {
   if (!process.env.UPDATE_SCREENS_SHAPE) expect(now[name]).toBe(was[name])
 }
 
+// The Daily Run row counts down to the next UTC midnight: pin the clock.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-06-15T12:00:00Z'))
+})
 afterEach(() => {
+  vi.useRealTimers()
   cleanup()
   if (process.env.UPDATE_SCREENS_SHAPE) fs.writeFileSync(FIXTURE, JSON.stringify(now, null, 1) + '\n')
 })
