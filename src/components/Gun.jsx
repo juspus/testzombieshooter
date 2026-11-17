@@ -4,6 +4,7 @@ import { useGameStore } from '../store'
 import { applySkin } from '../cosmetics'
 import * as THREE from 'three'
 import { feel } from '../cameraFeel'
+import { WEAPONS } from '../weapons'
 
 const _muzzleWorld = new THREE.Vector3()
 
@@ -632,3 +633,7 @@ export default function Gun() {
     weaponScene
   )
 }
+
+// Model component per weapon id, resolved from the `model` name in src/weapons/<gun>.js.
+const GUN_MODELS = { PistolModel, AKModel, DeagleModel, ShotgunModel, FlamethrowerModel, CrossbowModel }
+export const WEAPON_MODELS = Object.fromEntries(Object.values(WEAPONS).map((w) => [w.id, GUN_MODELS[w.model]]))

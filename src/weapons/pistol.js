@@ -21,7 +21,7 @@ export const pistol = {
   pierce: 1,
   reload: { base: 1.5, fast: 1.0 },   // s, without / with Fast Hands
   ammoPack: null,     // null = the default pack (common.js DEFAULT_AMMO_PACK)
-  sounds: { shot: (upg) => playGunshot('pistol', upg), reload: playReload },
+  sounds: { shot: (upg) => playGunshot('pistol', upg), reload: () => playReload() },
   model: 'PistolModel',   // export of components/Gun.jsx
   fire: fireSingle,
 }

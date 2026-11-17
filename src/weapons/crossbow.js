@@ -53,7 +53,7 @@ export const crossbow = {
   range: CROSSBOW.RANGE,
   reload: { base: CROSSBOW.RELOAD, fast: CROSSBOW.RELOAD_FAST_HANDS },
   ammoPack: null,
-  sounds: { shot: (upg) => playGunshot('crossbow', upg), reload: playCrossbowReload },
+  sounds: { shot: (upg) => playGunshot('crossbow', upg), reload: () => playCrossbowReload() },
   model: 'CrossbowModel',
   fire,
 }

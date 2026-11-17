@@ -22,7 +22,7 @@ export const ak47 = {
   pierce: 1,
   reload: { base: 1.5, fast: 1.0 },
   ammoPack: null,
-  sounds: { shot: (upg) => playGunshot('ak47', upg), reload: playReload },
+  sounds: { shot: (upg) => playGunshot('ak47', upg), reload: () => playReload() },
   model: 'AKModel',
   fire: fireSingle,
 }

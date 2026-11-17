@@ -12,9 +12,10 @@
 // ctx, stable helpers:
 //   zombieRefs, hitZombie, hitRay(rc, ref), los(x1, z1, x2, z2, walls), shatter(origin, dir, max),
 //   worldImpact(ray, max, planks, spawn, intensity) -> bool, worldHit (Vector3), worldRec ({ dist }),
-//   deathSound(id), ironSights(ref, point, perks), netSend(event, data), fxNet(...), hitFx(...),
-//   registerHit(kind), markerKind(killed, head), trails.add(a, b), bolts.fire(a, b, opts),
-//   gun.pump(), ejectShell(), addBulletHole(id, localPos, normal), zombies() (store list), setCooldown(s)
+//   deathSound(id), ironSights(ref, point, perks), netSend(event, data), fxNet(...), hitFx(...), kick(id),
+//   registerHit(kind), trails.add(a, b), bolts.fire(a, b, opts), flameSpray.spray(...), ignite(id),
+//   gun (Gun.jsx statics: pump, setFlameActive, getMuzzlePosition), ejectShell(), addBulletHole(id, localPos, normal),
+//   zombies() (store list), isUpgraded(weaponId), hitZombieFlame, consumeFuel, delta (frame loop only)
 import * as THREE from 'three'
 
 // Upgrade Bench multipliers (weaponRules re-exports these).

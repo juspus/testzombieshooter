@@ -26,7 +26,7 @@ export const deagle = {
   range: RANGE,
   reload: { base: 1.5, fast: 1.0 },
   ammoPack: null,
-  sounds: { shot: (upg) => playGunshot('deagle', upg), reload: playReload },
+  sounds: { shot: (upg) => playGunshot('deagle', upg), reload: () => playReload() },
   model: 'DeagleModel',
   fire,
 }

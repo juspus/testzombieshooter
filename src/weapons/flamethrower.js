@@ -39,7 +39,7 @@ export const flamethrower = {
   flame: FLAME,
   reload: { base: 1.5, fast: 1.0 },
   ammoPack: FLAME_AMMO_PACK,
-  sounds: { shot: null, reload: playReload, start: startFlamethrowerSound, stop: stopFlamethrowerSound },
+  sounds: { shot: null, reload: () => playReload(), start: () => startFlamethrowerSound(), stop: () => stopFlamethrowerSound() },
   model: 'FlamethrowerModel',
   fire,
   stop,
@@ -91,13 +91,13 @@ function silence() {
 
 // Burn DoT: runs whenever zombies are alight, even after the stream moves off them or the
 // trigger is released; each ignited zombie keeps burning for BURN_DURATION seconds.
-// ctx: camera, delta, gun, zombieRefs, hitZombieFlame, deathSound, registerHit, netSend, ignite, upgraded.
+// ctx: camera, delta, gun, zombieRefs, hitZombieFlame, deathSound, registerHit, netSend, ignite, isUpgraded.
 function burn(ctx, firing) {
   if (!(firing || _burning.size > 0)) { _tick = 0; return }
   _tick -= ctx.delta
   if (_tick > 0) return
   _tick = FLAME.TICK_INTERVAL
-  const damage = FLAME.DPS * FLAME.TICK_INTERVAL * (ctx.upgraded ? UPGRADE_DAMAGE_MULT : 1)
+  const damage = FLAME.DPS * FLAME.TICK_INTERVAL * (ctx.isUpgraded('flamethrower') ? UPGRADE_DAMAGE_MULT : 1)
   if (firing) {
     const muzzle = ctx.gun.getMuzzlePosition?.() ?? ctx.camera.position.clone()
     ctx.camera.getWorldDirection(_fwd)

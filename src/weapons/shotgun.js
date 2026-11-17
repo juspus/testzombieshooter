@@ -30,7 +30,7 @@ export const shotgun = {
   range: RANGE,
   reload: { base: 1.5, fast: 1.0 },
   ammoPack: null,
-  sounds: { shot: (upg) => playGunshot('shotgun', upg), reload: playReload },
+  sounds: { shot: (upg) => playGunshot('shotgun', upg), reload: () => playReload() },
   model: 'ShotgunModel',
   fire,
 }
