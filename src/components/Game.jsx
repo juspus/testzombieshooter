@@ -122,9 +122,12 @@ export default function Game() {
           gl.domElement.addEventListener('webglcontextrestored', () => handleContextRestored(scene))
         }}
       >
+        {/* One boundary around the whole scene: nothing renders until the lazy arena (and its 11 lights) exists,
+            so no shader is ever compiled for a light count the run will not have (that left 4 dead programs). */}
+        <Suspense fallback={null}>
         <fog attach="fog" args={['#0b1118', 7, 34]} />
         {mapId === 'diner' ? <GasStationSkybox /> : <ForestSkybox />}
-        <Suspense fallback={null}>{mapId === 'diner' ? <DinerArena /> : <Arena />}</Suspense>
+        {mapId === 'diner' ? <DinerArena /> : <Arena />}
         <DoorBarricades />
         <Machines />
         <Player />
@@ -146,6 +149,7 @@ export default function Game() {
         <FrameGovernor />
         {(PERF_ON || BENCH_ON) && <PerfOverlay />}
         <Storm />
+        </Suspense>
       </Canvas>
 
       {isActive && !dirFrozen && <HUD />}
