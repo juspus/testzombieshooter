@@ -1,6 +1,7 @@
-import { useRef } from 'react'
+import { useRef, useLayoutEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { time } from '../timeScale'
+import { registerFx, shells } from '../fxBus'
 import * as THREE from 'three'
 
 const POOL_SIZE = 16
@@ -16,30 +17,33 @@ let nextSlot = 0
 export default function ShellCasings() {
   const meshRefs = useRef([])
 
-  ShellCasings.eject = (origin, right) => {
-    const i = nextSlot
-    nextSlot = (nextSlot + 1) % POOL_SIZE
-    const slot = pool[i]
-    slot.active = true
-    slot.pos.copy(origin)
-    slot.vel.set(
-      right.x * 3.5 + (Math.random() - 0.5) * 0.6,
-      2.0 + Math.random() * 0.8,
-      right.z * 3.5 + (Math.random() - 0.5) * 0.6,
-    )
-    slot.rotVel.set(
-      (Math.random() - 0.5) * 30,
-      (Math.random() - 0.5) * 30,
-      (Math.random() - 0.5) * 30,
-    )
-    slot.life = 2.0
-    const mesh = meshRefs.current[i]
-    if (mesh) {
-      mesh.position.copy(origin)
-      mesh.rotation.set(0, 0, 0)
-      mesh.visible = true
-    }
-  }
+  // fxBus.shells.eject
+  useLayoutEffect(() => registerFx(shells, {
+    eject: (origin, right) => {
+      const i = nextSlot
+      nextSlot = (nextSlot + 1) % POOL_SIZE
+      const slot = pool[i]
+      slot.active = true
+      slot.pos.copy(origin)
+      slot.vel.set(
+        right.x * 3.5 + (Math.random() - 0.5) * 0.6,
+        2.0 + Math.random() * 0.8,
+        right.z * 3.5 + (Math.random() - 0.5) * 0.6,
+      )
+      slot.rotVel.set(
+        (Math.random() - 0.5) * 30,
+        (Math.random() - 0.5) * 30,
+        (Math.random() - 0.5) * 30,
+      )
+      slot.life = 2.0
+      const mesh = meshRefs.current[i]
+      if (mesh) {
+        mesh.position.copy(origin)
+        mesh.rotation.set(0, 0, 0)
+        mesh.visible = true
+      }
+    },
+  }), [])
 
   useFrame((_, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05) * time.scale  // last-kill slow-mo

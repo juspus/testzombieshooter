@@ -2,13 +2,14 @@ import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { send, onMessage } from '../net'
-import { getZombiePositions, applyRemoteZombiePositions, Zombie } from './Zombie'
+import { getZombiePositions, applyRemoteZombiePositions } from './Zombie'
 import { pushRemotePlayerSample } from './RemotePlayer'
 import { zombieHitFxFromNet } from '../hitFx'
 import { buildGrid } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
 import { addDrop, takeDrop } from '../powerups'
-import Grenades from './Grenades'
+import { grenades } from '../fxBus'
+import { zombieSystem } from '../zombieLive'
 import { BOX_COST } from '../weaponRules'
 import { withRemoteSource } from '../gameEvents'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
@@ -139,7 +140,7 @@ export default function NetManager() {
 
     // Frag grenade thrown by the partner: simulate it here too (it hurts our own player; the host
     // alone applies zombie / plank damage). See Grenades.jsx.
-    on('grenade_throw', (d) => Grenades.throw(d))
+    on('grenade_throw', (d) => grenades.throw(d))
 
     on('remote_sound', ({ sound, weapon, up, x, y, z }) => {
       if (sound === 'gunshot')  playRemoteGunshot(weapon, x, y, z, !!up)
@@ -292,7 +293,7 @@ function applyRemoteEvent(event, data) {
       break
     case 'hit_zombie_flame':
       withRemoteSource(() => store.hitZombieFlame(data.id, data.damage))
-      Zombie.ignite(data.id)
+      zombieSystem.ignite(data.id)
       break
     case 'hit_plank':
       store.hitPlank(data.windowId)

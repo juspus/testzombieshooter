@@ -2,19 +2,16 @@ import { useEffect, useRef, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { viewState } from '../viewState'
 import { useGameStore } from '../store'
-import Gun from './Gun'
-import Knife from './Knife'
-import BulletTrails from './BulletTrails'
+import { trails, bolts, gun, knife, flameSpray, shells } from '../fxBus'
+import { zombieRefs, addBulletHole, setFlameHitHandler } from '../zombieRegistry'
+import { zombieSystem } from '../zombieLive'
 import { zombieHitFx, fxNet } from '../hitFx'
-import ShellCasings from './ShellCasings'
-import FlameSpray from './FlameSpray'
-import { Zombie } from './Zombie'
 import { playEmptyClick, playZombieDie, playFootstep, playKnifeSwing, setListenerPose } from '../sounds'
 import { BODY_ARMOR_DEFS } from '../store'
 import { WEAPONS, reloadTimeFor } from '../weapons'
 import { collidesWithWalls, lineOfSightBlocked } from '../walls'
 import { getMap, getInitialMapId } from '../maps'
-import ImpactFX from './ImpactFX'
+import { spawnImpact } from '../impactParticles'
 import { feel, kick, updateFeel, resetFeel } from '../cameraFeel'
 import { raycastWorld, HIT_FLOOR, HIT_PLANK } from '../worldRay'
 
@@ -52,7 +49,7 @@ function worldImpact(ray, maxDist, windowPlanks, spawn = true, intensity = 1) {
   _worldHit.copy(ray.direction).multiplyScalar(_wr.dist).add(ray.origin)
   if (spawn) {
     _worldNormal.set(_wr.nx, _wr.ny, _wr.nz)
-    ImpactFX.spawn(_worldHit, _worldNormal, _wr.kind === HIT_PLANK ? 'plank' : _wr.kind === HIT_FLOOR ? 'floor' : 'wall', intensity)
+    spawnImpact(_worldHit, _worldNormal, _wr.kind === HIT_PLANK ? 'plank' : _wr.kind === HIT_FLOOR ? 'floor' : 'wall', intensity)
   }
   return true
 }
@@ -93,7 +90,6 @@ import { playDoorDenied } from '../sounds'
 import { doorBuyStatus } from '../doors'
 import * as WR from '../weaponRules'
 import { updateMachines } from '../machineInput'
-import Bolts from './Bolts'
 import { getRemotePlayerPos } from './RemotePlayer'
 import { DOWN_SPEED_MULT, DOWN_EYE_HEIGHT, otherRole, inReviveRange, stepRevive } from '../coopDown'   // W5 down/revive
 import { reportRevive } from '../coopRuntime'
@@ -116,7 +112,7 @@ function ejectShell() {
   _ejFwd.set(-e[8], -e[9], -e[10])
   _ejPos.copy(FIRE.camera.position).addScaledVector(_ejFwd, 0.45).addScaledVector(_ejRight, 0.28)
   _ejPos.y -= 0.10
-  ShellCasings.eject?.(_ejPos, _ejRight)
+  shells.eject(_ejPos, _ejRight)
 }
 const FIRE = {
   camera: null, raycaster: new THREE.Raycaster(), muzzle: null, upg: false, dmgMult: 1, weapon: 'pistol',
@@ -126,9 +122,9 @@ const FIRE = {
   worldImpact, worldHit: _worldHit, worldRec: _wr,
   deathSound: (id) => deathSound(FIRE.zombieRefs, id),
   ironSights: isIronSightsHeadshot, netSend, fxNet, hitFx: zombieHitFx, registerHit, kick,
-  trails: BulletTrails, bolts: Bolts, gun: Gun, flameSpray: FlameSpray, ejectShell,
-  addBulletHole: (id, pos, normal) => Zombie.addBulletHole(id, pos, normal),
-  ignite: (id) => Zombie.ignite(id),
+  trails, bolts, gun, flameSpray, ejectShell,
+  addBulletHole,
+  ignite: (id) => zombieSystem.ignite(id),
   zombies: () => useGameStore.getState().zombies,
   isUpgraded: (w) => !!useGameStore.getState().upgradedWeapons[w],
 }
@@ -241,14 +237,10 @@ export default function Player() {
   const pitch = useRef(0)
   const keys = useRef({})
   const locked = useRef(false)
-  const zombieRefs = useRef({})
   const reloadTimer = useRef(0)
   const stepTimer = useRef(0)
   const prevYaw = useRef(0)
   const prevPitch = useRef(0)
-  Player.registerZombieRef = (id, ref) => { zombieRefs.current[id] = ref }
-  Player.unregisterZombieRef = (id) => { delete zombieRefs.current[id] }
-  if (import.meta.env.VITE_VERCEL_ENV !== 'production') window.__zombieRefs = zombieRefs.current   // dev/preview: browser tests
 
   useEffect(() => { wallsRef.current = walls }, [walls])
   useEffect(() => { windowPlanksRef.current = windowPlanks }, [windowPlanks])
@@ -274,23 +266,15 @@ export default function Player() {
     window.__dbg = { camera, feel, store: useGameStore, yaw, pitch, keys }
   }, [camera])
 
-  // Give FlameSpray access to zombie refs and a damage callback for per-particle hits.
-  // zombieRefs.current is the live mutable map so it stays current without re-running.
-  useEffect(() => {
-    FlameSpray.zombieRefs = zombieRefs.current
-    FlameSpray.onZombieHit = (zid, baseDamage) => {
-      const damage = baseDamage * WR.damageMult('flamethrower', !!useGameStore.getState().upgradedWeapons.flamethrower)
-      const flameKill = useGameStore.getState().hitZombieFlame(zid, damage)
-      if (flameKill) deathSound(zombieRefs.current, zid)
-      registerHit(flameKill ? 'kill' : 'burn')
-      Zombie.ignite(zid)
-      netSend('hit_zombie_flame', { id: zid, damage })
-    }
-    return () => {
-      FlameSpray.zombieRefs = null
-      FlameSpray.onZombieHit = null
-    }
-  }, [])
+  // Damage callback for FlameSpray's per-particle hits (it reads the zombies from zombieRegistry).
+  useEffect(() => setFlameHitHandler((zid, baseDamage) => {
+    const damage = baseDamage * WR.damageMult('flamethrower', !!useGameStore.getState().upgradedWeapons.flamethrower)
+    const flameKill = useGameStore.getState().hitZombieFlame(zid, damage)
+    if (flameKill) deathSound(zombieRefs, zid)
+    registerHit(flameKill ? 'kill' : 'burn')
+    zombieSystem.ignite(zid)
+    netSend('hit_zombie_flame', { id: zid, damage })
+  }), [])
 
   // Reset position + look direction only when starting a fresh game (wave 1)
   useEffect(() => {
@@ -412,8 +396,8 @@ export default function Player() {
     const upg = !!useGameStore.getState().upgradedWeapons[wpn]
     const dmgMult = WR.damageMult(wpn, upg)   // upgraded x2, crossbow bolt one-shots
 
-    const muzzle = Gun.getMuzzlePosition?.() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
-    Gun.fire?.()
+    const muzzle = gun.getMuzzlePosition() ?? camera.position.clone().addScaledVector(raycaster.ray.direction, 0.5)
+    gun.fire()
     kick(wpn)
     def.sounds.shot(upg)
     if (def.vibrate) navigator.vibrate?.(def.vibrate)
@@ -438,7 +422,7 @@ export default function Player() {
     FIRE.windowPlanks = windowPlanksRef.current
     FIRE.bulletWalls = BULLET_WALLS
     FIRE.aimAssist = mobileState.active && getSettings().aimAssist
-    FIRE.zombieRefs = zombieRefs.current
+    FIRE.zombieRefs = zombieRefs
     FIRE.hitZombie = hitZombie
     def.fire(FIRE)
   }, [camera, hitZombie, consumeBullet])
@@ -446,7 +430,7 @@ export default function Player() {
   const knifeSwing = useCallback(() => {
     if (knifeCooldownRef.current > 0 || selfStatusRef.current !== 'alive') return
 
-    Knife.swing?.()
+    knife.swing()
     playKnifeSwing()
     if (isConnected()) send('remote_sound', {
       sound: 'knife',
@@ -464,7 +448,7 @@ export default function Player() {
     const zombiePos = new THREE.Vector3()
     let closestId = null, closestDist = Infinity
 
-    for (const [id, ref] of Object.entries(zombieRefs.current)) {
+    for (const [id, ref] of Object.entries(zombieRefs)) {
       if (!ref) continue
       ref.getWorldPosition(zombiePos)
       zombiePos.y = camPos.y  // ignore height difference for range check
@@ -478,9 +462,9 @@ export default function Player() {
     if (closestId !== null) {
       const kid = Number(closestId)
       const knifeKill = hitZombie(kid, true, 'knife')
-      if (knifeKill) deathSound(zombieRefs.current, kid)
+      if (knifeKill) deathSound(zombieRefs, kid)
       registerHit(markerKind(knifeKill, false))
-      const kref = zombieRefs.current[closestId]
+      const kref = zombieRefs[closestId]
       if (kref) {
         kref.getWorldPosition(_knifePoint)
         zombieHitFx(kid, _knifePoint, _knifeDir.copy(fwd), true, 'knife', closestDist)
@@ -594,7 +578,7 @@ export default function Player() {
         const rangeSq = isFlamethrower ? curDef.flame.RANGE * curDef.flame.RANGE : 625
         _autoFwd.set(-Math.sin(yaw.current), 0, -Math.cos(yaw.current))
         let nearCount = 0
-        for (const ref of Object.values(zombieRefs.current)) {
+        for (const ref of Object.values(zombieRefs)) {
           if (!ref) continue
           _autoPos.setFromMatrixPosition(ref.matrixWorld)
           const dx = _autoPos.x - camPos.x, dz = _autoPos.z - camPos.z
@@ -830,7 +814,7 @@ export default function Player() {
         ((mouseHeldRef.current && locked.current) || mobileInput.shootHeld || mobileInput.autoShootHeld)
       FIRE.camera = camera
       FIRE.delta = delta
-      FIRE.zombieRefs = zombieRefs.current
+      FIRE.zombieRefs = zombieRefs
       FIRE.hitZombieFlame = hitZombieFlame
       FIRE.consumeFuel = consumeFuel
       if (firing && useGameStore.getState().reserveBullets > 0) FLAMETHROWER.fire(FIRE)

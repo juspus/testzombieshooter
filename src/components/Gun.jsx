@@ -1,10 +1,11 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useLayoutEffect } from 'react'
 import { useThree, useFrame, createPortal } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { applySkin } from '../cosmetics'
 import * as THREE from 'three'
 import { feel } from '../cameraFeel'
 import { WEAPONS } from '../weapons'
+import { registerFx, gun } from '../fxBus'
 
 const _muzzleWorld = new THREE.Vector3()
 
@@ -485,17 +486,17 @@ export default function Gun() {
   const flameActive = useRef(false)
   const flameTime = useRef(0)
 
-  Gun.fire = () => {
-    recoil.current = 1
-    flashLife.current = 1
-    if (flashSpriteRef.current) flashSpriteRef.current.rotation.z = Math.random() * Math.PI * 2
-  }
-
-  Gun.pump = () => { pumpAnim.current = 1 }
-
-  Gun.setFlameActive = (active) => { flameActive.current = active }
-
-  Gun.getMuzzlePosition = () => _muzzleWorld.clone()
+  // fxBus.gun: fire / pump / flame glow / muzzle position (Player and the weapon files drive the viewmodel)
+  useLayoutEffect(() => registerFx(gun, {
+    fire: () => {
+      recoil.current = 1
+      flashLife.current = 1
+      if (flashSpriteRef.current) flashSpriteRef.current.rotation.z = Math.random() * Math.PI * 2
+    },
+    pump: () => { pumpAnim.current = 1 },
+    setFlameActive: (active) => { flameActive.current = active },
+    getMuzzlePosition: () => _muzzleWorld.clone(),
+  }), [])
 
   useFrame(({ gl, scene, size }, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05)

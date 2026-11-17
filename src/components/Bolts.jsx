@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useLayoutEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore, isSelfDowned } from '../store'
@@ -11,7 +11,9 @@ import { spawnFlash } from '../specialFxPool'
 import { playBoltPickup, playGrenadeBoom } from '../sounds'
 import { send, isConnected } from '../net'
 import { onGameEvent } from '../gameEvents'
-import { Zombie, getZombiePositions } from './Zombie'
+import { getZombiePositions } from './Zombie'
+import { zombieSystem } from '../zombieLive'
+import { registerFx, bolts } from '../fxBus'
 
 // Crossbow bolts: a fixed pool of always-mounted meshes (shared geometry + material), toggled
 // via `visible`. Damage is resolved instantly in Player.jsx; this draws the bolt streaking to
@@ -87,7 +89,7 @@ function explode(x, y, z) {
     const killed = st.hitZombieBurst(n, dmg, 'bolt')
     netEvent('hit_zombie', { id: n, isHeadshot: false, source: 'bolt', mult: dmg })
     const dh = Math.hypot(dx, dz) || 1
-    Zombie.hitReact(n, dx / dh, 0.25, dz / dh, false, 'shotgun', d)
+    zombieSystem.hitReact(n, dx / dh, 0.25, dz / dh, false, 'shotgun', d)
     hits++
     if (killed) kills++
   }
@@ -99,28 +101,30 @@ export default function Bolts() {
   const { camera } = useThree()
   _camera = camera
 
-  // opts: { stick, wraith, attachId } — see Player.jsx
-  Bolts.fire = (from, to, opts = {}) => {
-    const i = pickSlot()
-    const sl = _slots[i]
-    const m = refs.current[i]
-    if (!m) return
-    sl.from.copy(from)
-    sl.to.copy(to)
-    _dir.subVectors(to, from)
-    const len = _dir.length()
-    sl.dur = Math.max(0.02, len / SPEED)
-    sl.t = 0
-    sl.seq = ++_seq
-    sl.wraith = !!opts.wraith
-    sl.attach = opts.attachId ?? -1
-    sl.state = FLY
-    sl.keep = !!opts.stick
-    m.quaternion.setFromUnitVectors(_fwd, _dir.normalize())
-    m.position.copy(from)
-    m.visible = true
-  }
-  Bolts.clear = clearBolts
+  // fxBus.bolts.fire / clear. opts: { stick, wraith, attachId } — see weapons/crossbow.js
+  useLayoutEffect(() => registerFx(bolts, {
+    fire: (from, to, opts = {}) => {
+      const i = pickSlot()
+      const sl = _slots[i]
+      const m = refs.current[i]
+      if (!m) return
+      sl.from.copy(from)
+      sl.to.copy(to)
+      _dir.subVectors(to, from)
+      const len = _dir.length()
+      sl.dur = Math.max(0.02, len / SPEED)
+      sl.t = 0
+      sl.seq = ++_seq
+      sl.wraith = !!opts.wraith
+      sl.attach = opts.attachId ?? -1
+      sl.state = FLY
+      sl.keep = !!opts.stick
+      m.quaternion.setFromUnitVectors(_fwd, _dir.normalize())
+      m.position.copy(from)
+      m.visible = true
+    },
+    clear: clearBolts,
+  }), [])
 
   // Bolts do not carry across runs
   useEffect(() => {

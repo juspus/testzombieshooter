@@ -2,11 +2,11 @@ import { useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { time } from '../timeScale'
-import { globMesh, puddleMesh, flashMesh, updateSpecialFx, clearSpecialFx, spawnGlob, spawnScorch, spawnFlash } from '../specialFxPool'
+import { globMesh, puddleMesh, flashMesh, updateSpecialFx, clearSpecialFx } from '../specialFxPool'
 
-// Pooled exploder flash + spitter globs / acid puddles. Static emitters, like
-// ImpactFX.spawn / BloodFX.spawn:
-//   SpecialFX.flash(x, y, z)  SpecialFX.scorch(x, z)  SpecialFX.spit(x0, y0, z0, x1, z1, flight)
+// Pooled exploder flash + spitter globs / acid puddles. Spawn through specialFxPool
+// (spawnFlash(x, y, z), spawnScorch(x, z), spawnGlob(x0, y0, z0, x1, z1, flight)); this component only
+// draws and steps them.
 export default function SpecialFX() {
   useFrame((state, delta) => {
     if (useGameStore.getState().paused) return
@@ -35,6 +35,3 @@ export default function SpecialFX() {
   )
 }
 
-SpecialFX.flash = spawnFlash
-SpecialFX.scorch = spawnScorch
-SpecialFX.spit = spawnGlob
