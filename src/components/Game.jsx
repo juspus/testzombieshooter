@@ -41,10 +41,18 @@ import LofiPass, { LOFI_ON, LOFI_EXPOSURE, renderLofiNow } from './LofiPass'
 
 // The map is fixed per page load (mapSelect.js reloads to change it), so only the arena that will be
 // used is downloaded, and its import starts right now, in parallel with the rest of startup.
-// A chunk can fail on a flaky phone network: retry twice before giving up (then SceneErrorBoundary).
-const retryImport = (load) => load()
-  .catch(() => new Promise((r) => setTimeout(r, 1000)).then(load))
-  .catch(() => new Promise((r) => setTimeout(r, 3000)).then(load))
+// A chunk can fail on a flaky phone network. Re-importing the same module does not refetch it (Chromium caches
+// the failed entry), so recover with ONE page reload (at most once a minute); after that SceneErrorBoundary
+// shows "Couldn't load the map" with RELOAD.
+const RELOAD_KEY = 'arenaChunkReloadAt'
+const retryImport = (load) => load().catch((err) => {
+  let last = 0
+  try { last = Number(sessionStorage.getItem(RELOAD_KEY)) || 0 } catch { /* storage blocked */ }
+  if (Date.now() - last < 60000) throw err
+  try { sessionStorage.setItem(RELOAD_KEY, String(Date.now())) } catch { throw err }   // no storage: no loop guard, no reload
+  setTimeout(() => window.location.reload(), 1500)
+  return new Promise(() => {})   // stay suspended (menu stays usable) until the reload
+})
 const Arena = lazy(() => retryImport(() => import('./Arena')))
 const DinerArena = lazy(() => retryImport(() => import('./DinerArena')))
 
