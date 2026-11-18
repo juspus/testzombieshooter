@@ -1,5 +1,5 @@
 {
-  "_about": "Limits for scripts/perf-budget.cjs: highest of several local runs (2026-11-16, wave 8, 25 live zombies, 1280x720) plus about 10%. Zombie variants are random, so nodes and casters wobble by about 1% between runs. Exceptions: lightsTotal and lightsVisible are EXACT (CLAUDE.md fixes the light count). programs is the highest reading over the frame, after a real shot and after swapping through every weapon. Raise a limit only on purpose, in the same PR as the change that needs it, and say why. 2026-11-17: zombies are now about 6 merged part meshes (t-zombie-merge): triangles rose (merged caster parts render every box in the shadow pass) while draws, nodes and meshes fell. 2026-11-17 (t-static-merge): the cabin static geometry is baked into about 60 merged meshes at mount (src/staticMerge.js): draws 721 -> 298, meshes 1,824 -> 997, nodes 2,426 -> 1,411. Triangles rose from 49,982 to 57,496 because a merged mesh is no longer frustum-culled (trivial for a GPU), so that limit went up to 63,500; every other limit came down. Programs stay 24 (the scene now renders only once the lazy arena and its 11 lights exist). Main chunk 147.4 kB gzip after t-lazy. 2026-11-18 re-measure (final tree of the tech roadmap run): _measured above; programs read 25 (the limit already allowed it) and the main chunk is 156.5 kB after the later splits; limits unchanged.",
+  "_about": "Limits for scripts/perf-budget.cjs: highest of several local runs (2026-11-16, wave 8, 25 live zombies, 1280x720) plus about 10%. Zombie variants are random, so nodes and casters wobble by about 1% between runs. Exceptions: lightsTotal and lightsVisible are EXACT (CLAUDE.md fixes the light count). programs is the highest reading over the frame, after a real shot and after swapping through every weapon. Raise a limit only on purpose, in the same PR as the change that needs it, and say why. 2026-11-17: zombies are now about 6 merged part meshes (t-zombie-merge): triangles rose (merged caster parts render every box in the shadow pass) while draws, nodes and meshes fell. 2026-11-17 (t-static-merge): the cabin static geometry is baked into about 60 merged meshes at mount (src/staticMerge.js): draws 721 -> 298, meshes 1,824 -> 997, nodes 2,426 -> 1,411. Triangles rose from 49,982 to 57,496 because a merged mesh is no longer frustum-culled (trivial for a GPU), so that limit went up to 63,500; every other limit came down. Programs stay 24 (the scene now renders only once the lazy arena and its 11 lights exist). Main chunk 147.4 kB gzip after t-lazy. 2026-11-18 re-measure (final tree of the tech roadmap run): _measured above; programs read 24 (one run read 25, a rare zombie variant; the limit is 25) and the main chunk is 156.5 kB after the later splits; limits unchanged.",
   "_measured": {
     "draws": 292,
     "triangles": 57016,
@@ -8,7 +8,7 @@
     "castShadowMeshes": 152,
     "lightsTotal": 11,
     "lightsVisible": 11,
-    "programs": 25,
+    "programs": 24,
     "mainChunkGzipKB": 156.5
   },
   "draws": 330,
