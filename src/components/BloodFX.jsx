@@ -241,7 +241,8 @@ export default function BloodFX() {
   }, [])
 
   // fxBus.blood.spawn / clear
-  useLayoutEffect(() => registerFx(blood, { spawn: spawnBlood }), [])
+  // A fresh closure per mount: registerFx's cleanup compares function identity.
+  useLayoutEffect(() => registerFx(blood, { spawn: (point, dir, intensity, pellet) => spawnBlood(point, dir, intensity, pellet) }), [])
 
   // Decals live until the wave ends: new run / next wave both pass through
   // the 'intermission' phase (startGame, nextWave); 'start' covers the menu.

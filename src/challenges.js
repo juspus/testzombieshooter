@@ -182,7 +182,6 @@ export function weeklyChallenges(date = new Date()) {
   return [build('weekly', key, 0, tpl, tpl.gen(rng, true))]
 }
 
-export const challengeById = (list, id) => list.find((c) => c.id === id)
 
 // ── Persisted state ─────────────────────────────────────────────────────────
 // { daily: { key, progress: {id: n}, done: {id: 1} }, weekly: {...} }

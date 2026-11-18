@@ -39,398 +39,99 @@ comment at the top of the page's script. Read and write it with the ArtifactData
 
 ## Architecture
 
-### Tech stack
-- React 18 + React Three Fiber (R3F) + @react-three/drei
-- Three.js 0.167, Zustand 4, Vite 5
-- No image assets: the skybox is a canvas texture and the other textures are 64x64 procedural DataTextures (`textures.js`)
+React 18 + React Three Fiber (R3F) + Three.js 0.167, Zustand 4, Vite 5 (drei only for the `/?models` playground). No image assets: the skybox is a canvas texture and the other textures are 64x64 procedural DataTextures (`textures.js`). The cabin is 18 x 20 (`CABIN_HW` 9, `CABIN_HD` 10, `WALL_H` 3.2 in `src/maps/cabin.js`, which is the source of truth for structure, windows and spawn points); the diner is the second map (`src/maps/diner.js`).
 
-### Key files
+### Where things live
+
+Long write-ups are next to the code or in `docs/`; read the one for the system you change:
+
+- `docs/performance.md`: the six freeze root causes, light budget detail, frame governor, static bake, skybox, roof, lights table.
+- `docs/systems.md`: wave / spawn, economy, co-op, the 2026-10 systems table, spider, mobile layer, versus modes (Mail, Director, Duel), audio buses, fx bus and the Player / Arena split.
+- `src/weapons/README.md`: the gun registry, weapon table, ammo pools, shop, Mystery Box rules.
+- Header comments: `zombieAI/system.js`, `zombieMesh.js`, `zombieRegistry.js`, `netProtocol.js`, `hitboxes.js`, `staticMerge.js`, `fxBus.js`.
+- Other docs: `docs/next-roadmap.html` (control panel source), `docs/mobile-roadmap.html`, `docs/roadmap.html`, `docs/LAUNCH_CHECKLIST.md`, `docs/MONETIZATION.md`, `docs/ANALYTICS.md`, `docs/memory-archive.md` (old MEMORY.md entries).
+
 ```
 src/
-├── store.js                   # All game state + actions (Zustand)
-├── cabin.js                   # Cabin dimension constants + window/door defs
-├── walls.js                   # Wall segment geometry for pathfinding grid
-├── sounds.js                  # Entry: re-exports src/sounds/* (core = context + buses, spatial, weapons, zombies, world, music, player)
-├── net.js                     # WebSocket multiplayer networking
-├── fxBus.js                   # Scene effects components own (trails, shells, blood, bolts, grenade throw, gun / knife animation, flame spray): channels of no-ops that a component fills in an effect
-├── zombieRegistry.js          # Live zombie groups (hit tests, melee, flame, auto-shoot), bullet-hole adders, the flame hit handler
-├── arena/                     # The cabin, split by job: shell (walls, roof, doors, windows, planks, beams, thickets), props (fireplace, furniture), lighting (the lights), shared (palette, dims, Box)
-├── player/                    # The local player, split by job: usePlayerState / Input / Firing / Interaction / Movement, constants.js, fireContext.js (the FIRE context)
+├── store.js              # Entry: composes the slices in store/ (run, wave, combat, powerups, weapons, machines, economy, player, building, coop, versus, director, profile); spawns.js, drops.js, shared.js, zombieTypes.js are helpers. Old names stay exported from here
+├── store/                # The Zustand slices, one per job
+├── zombieAI/             # Pure zombie simulation (no React, no three): system.js ticks everyone once per frame; tick, movement, spitter, spider, exploder, hitReact, auras, state, io
+├── zombieLive.js         # The live ZombieSystem: real store, map, sounds, fx, net through an `io` object; resets on run_start
+├── zombieRegistry.js     # Live zombie scene groups (hit tests, melee, flame, auto-shoot), bullet-hole adders, flame hit handler
+├── zombieParts.js        # The zombie model as box lists per moving part
+├── zombieMesh.js         # Bakes those boxes into ~6 merged geometries + one shared palette material
+├── zombieSpecials.js     # Exploder / armored / spitter / spider rules and numbers
+├── hitboxes.js           # Broad-phase zombie hit tests (hitZombieRay)
+├── weapons/              # One file per gun + index.js registry + common.js (see weapons/README.md)
+├── sounds.js + sounds/   # Entry re-exports sounds/*: core (the ONE AudioContext + buses), spatial, weapons, zombies, world, music, player
+├── netProtocol.js        # Every net message kind, payload shape and validator (pure)
+├── net.js                # PeerJS (WebRTC data channel) transport
+├── fxBus.js              # Channels of no-ops that components fill (trails, shells, blood, bolts, grenades, gun / knife, flame spray)
+├── staticMerge.js        # Bakes the static scene into a few meshes per material (StaticBake.jsx)
+├── arena/                # The cabin by job: shell (walls, roof, doors, windows, planks, beams), props (fireplace, furniture), lighting, shared (palette, dims, Box)
+├── player/               # The local player: usePlayerState / Input / Firing / Interaction / Movement, constants.js, fireContext.js
+├── maps/                 # cabin.js, diner.js, index.js (map schema, spawn clusters, door costs)
+├── walls.js              # Pathfinding grid, A*, wall collision, line of sight
+├── rng.js                # Seeded randomness (runRandom / waveRandom / keyedRandom)
 └── components/
-    ├── Game.jsx               # Canvas setup, fog, scene root
-    ├── Arena.jsx              # Entry: composes src/arena/ (lighting, planks, the StaticBake wrapper); re-exports the props for the playground
-    ├── ForestSkybox.jsx       # Single cylinder with a procedural canvas texture
-    ├── Player.jsx             # Entry and the one frame loop (delta clamp, then the src/player/ steps in order)
-    ├── Gun.jsx                # 3-D gun models (Pistol, AK-47, Desert Eagle, Shotgun)
-    ├── Knife.jsx              # Melee knife model + swing animation
-    ├── Zombie.jsx             # Single zombie mesh + AI + animation
-    ├── ZombieManager.jsx      # Renders all live zombies + shader warmer
-    ├── BulletTrails.jsx
-    ├── ShellCasings.jsx
-    ├── BulletPickups.jsx      # Ammo crates that spawn during waves
-    ├── HUD.jsx
-    ├── Shop.jsx
-    ├── Screens.jsx            # Entry: re-exports screens/Screens.jsx (router); screens/ holds StartScreen, Lobby (LobbyBody), SettingsPanel, Locker, Death, WaveClear, Intermission, PausedOverlay, hooks, lazyUi
-    ├── ui.jsx + ui.css        # Shared menu UI kit: Button, Panel, Tabs, Option (use for any new menu UI)
-    ├── Walls.jsx              # Visible wall geometry
-    ├── NetManager.jsx         # Multiplayer event bus
-    └── RemotePlayer.jsx       # Ghost mesh for the co-op partner
-```
-
-### Cabin dimensions (cabin.js)
-```js
-CABIN_HW = 9    // X: ±9  (width = 18)
-CABIN_HD = 10   // Z: ±10 (depth = 20)
-WALL_H   = 3.2  // wall height
-WALL_T   = 0.3  // wall thickness
-WIN_Y0   = 0.5  // window sill height
-WIN_Y1   = 2.0  // window lintel height
+    ├── Game.jsx          # Canvas, fog, scene root, one Suspense, lazy chunks
+    ├── Arena.jsx         # Entry: composes src/arena/ inside <StaticBake>; DinerArena.jsx for the diner
+    ├── Player.jsx        # Entry and the one frame loop (clamp, then the src/player/ steps in order)
+    ├── Zombie.jsx        # The zombie model and pose only (poseZombie copies sim state onto the groups); the AI is in src/zombieAI/
+    ├── ZombieManager.jsx # The single useFrame that ticks ZombieSystem then poses every zombie; warmer zombie
+    ├── Gun.jsx, Knife.jsx, BulletTrails, ShellCasings, BloodFX, ImpactFX, FlameSpray, Bolts, Grenades   # viewmodel and fx (registered on fxBus)
+    ├── Screens.jsx       # Entry re-exporting screens/ (router, StartScreen, Lobby, SettingsPanel, Locker, Death, WaveClear, Intermission, PausedOverlay)
+    ├── HUD.jsx, Shop.jsx, MobileControls.jsx, PauseMenu.jsx
+    ├── ui.jsx + ui.css   # Shared menu UI kit: Button, Panel, Tabs, Option (use for any new menu UI)
+    └── NetManager.jsx, RemotePlayer.jsx, VersusLayer.jsx (lazy), DirectorView.jsx   # co-op, versus, director
 ```
 
 ---
 
-## Weapon & ammo system
-
-### One file per gun (`src/weapons/`)
-Every gun's numbers and fire behaviour live in `src/weapons/<gun>.js`; `src/weapons/index.js` is the
-registry (`WEAPONS`, `ALL_WEAPONS`, `getWeapon`, plus derived tables). Stats, ammo and fire behaviour for a new gun are one file plus one line in
-`ORDER` in `index.js`, but other files still branch on gun ids: the pose, muzzle and flash branches in `Gun.jsx` (`isAK`/`isDeagle`/...),
-`Machines.jsx` (`SHOW_IDS`), `RemotePlayer.jsx`, `Shop.jsx`, the playground registry, and 'crossbow'/'deagle' checks in
-`Zombie.jsx`, `zombieSpecials.js`, `sounds.js` and `store.js`. A weapon file may import pure modules (`rng`, `walls`,
-`hitboxes`, `sounds`) but never a component or the store (the store imports the registry: that would be a cycle).
-Everything scene-bound reaches `fire` through `ctx` (field list at the top of `weapons/common.js`).
-
-Fields of a weapon: `id`, `name`, `upgradedName`, `caliber`, `clip`, `startReserve` (Mystery Box copy),
-`maxReserve` (Max Ammo, x1.5 with Deep Pockets), `cost` (shop price, `null` = not sold), `buyReserve` (reserve a shop
-purchase starts with), `boxWeight`, `fireMode` (`semi` | `auto` | `pump` | `spray`), `cooldown` (s between shots,
-enforced in `Player.jsx`), `fireInterval` (auto only), `autoShootInterval` (mobile auto-shoot), `vibrate`, `damageMult`,
-`pierce`, `reload { base, fast }`, `ammoPack` (`null` = default pack), `sounds { shot, reload }` (lazy wrappers over
-`sounds.js`, which keeps all synthesis), `model` (name of an export of `Gun.jsx`; `WEAPON_MODELS` maps it and `Gun.jsx` picks its model through it),
-`fire(ctx)`.
-
-`Player.jsx` calls `WEAPONS[weapon].fire(FIRE)` from `shoot()` (one persistent `FIRE` context, per-shot fields
-refreshed, no per-shot allocation of it) and reads `fireMode`/`cooldown`/`autoShootInterval`/`reload` from the file instead of
-branching per gun. All zombie hit tests still go through `hitZombieRay` (`hitboxes.js`); the shotgun's pellet spread still draws
-`runRandom('spread')` (angle, then radius, per pellet) so seeded runs repeat. `fireSingle` (`common.js`) is the shared
-pistol / AK-47 hitscan.
-
-### Weapons
-| Weapon | Caliber | Clip | Start / max reserve | Cost | Fire mode | Notes |
-|---|---|---|---|---|---|---|
-| Pistol (Mustang) | 9mm | 10 | 30 / 60 | free | Semi-auto | Starting weapon |
-| Pump Shotgun (Widowmaker) | 12ga | 8 | 24 / 48 | €150 | Pump | 12 pellets/shot, 0.5 s cooldown, mobile auto-shoot every 0.6 s |
-| AK-47 (Red Fang) | 5.45mm | 30 | 90 / 150 | €270 | Full-auto | 10 rds/s while mouse held |
-| Desert Eagle (Hand Cannon) | .50 AE | 7 | 21 / 42 | €700 | Semi-auto | Instant kill (every hit a headshot), pierces up to 3 targets |
-| Flamethrower (Dragon's Breath) | Napalm | none | 1000 / 2000 fuel | €1500 | Spray (hold) | The reserve is fuel; shop sells 1000 fuel for €100. Burn DoT in `weapons/flamethrower.js` (`FLAME_*` tuning); `FlameSpray.jsx` draws and ignites |
-| Crossbow (Wraith) | Bolt | 5 | 30 / 40 | Mystery Box only | Semi-auto | 0.45 s cooldown, pierces 6, bolt multiplier per zombie type (`boltMult`); `Bolts.jsx` pools bolts that stick and can be picked up (+1 reserve) |
-
-Start reserve is what a Mystery Box copy begins with; a shop purchase begins with `buyReserve` (0 for the guns, 1000 for
-the flamethrower). Mystery Box roll weights are `boxWeight` (pistol 6, shotgun 18, AK 16, Deagle 10, flamethrower 6,
-crossbow 16); `BOX_WEIGHTS` keeps the registry order. The Upgrade Bench doubles damage and gives +50% clip
-(`UPGRADE_DAMAGE_MULT`, `UPGRADE_CLIP_MULT`, now in `weapons/common.js`), reserve raised to Max Ammo.
-
-### Old constants stay exported
-`store.js` and `weaponRules.js` still export every old name, derived from the registry: `CALIBER_LABELS`, `ALL_WEAPONS`,
-`MAX_RESERVE`, `CLIP_SIZE`, `AK_CLIP`/`AK_COST`, `DEAGLE_*`, `SHOTGUN_*`, `AMMO_PACK_*`, `FLAMETHROWER_*`, `FLAME_*`,
-`BASE_CLIP`, `START_RESERVE`, `WEAPON_NAMES`, `UPGRADED_NAMES`, `BOX_WEIGHTS`, `CROSSBOW`, `boltMult`, `boltBlastDamage`.
-Change a number in the gun's file; `src/__tests__/weapons.test.js` holds a table of the before-values and fails if one moves.
-
-### Caliber constants
-```js
-// derived from the registry (src/weapons/index.js), re-exported by store.js
-CALIBER_LABELS = { pistol: '9mm', ak47: '5.45mm', shotgun: '12ga', deagle: '.50 AE', flamethrower: 'Napalm', crossbow: 'Bolt' }
-ALL_WEAPONS = ['pistol', 'shotgun', 'ak47', 'deagle', 'flamethrower', 'crossbow']   // scroll-wheel order
-```
-
-### Per-weapon ammo pools
-Each weapon keeps its own clip and reserve independently. The active weapon's
-live ammo lives in `bulletsInClip` / `reserveBullets`; inactive weapons' ammo
-is parked in the `savedClips` / `savedReserves` maps.
-
-```js
-// Store state (relevant fields)
-weapon:        'pistol'   // currently equipped
-ownedWeapons:  ['pistol'] // grows as weapons are purchased or taken from the Mystery Box (no carry limit)
-savedClips:    { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0, crossbow: 0 }
-savedReserves: { pistol: 0, ak47: 0, shotgun: 0, deagle: 0, flamethrower: 0, crossbow: 0 }
-bulletsInClip: 10         // active weapon's clip (live)
-reserveBullets: 25        // active weapon's reserve (live; fuel for the flamethrower)
-```
-
-### switchWeapon(nextWeapon)
-Saves the active weapon's clip/reserve into `savedClips`/`savedReserves`,
-loads the target weapon's saved values into `bulletsInClip`/`reserveBullets`,
-and sets `isReloading: false`. `Player.jsx` also resets `reloadTimer.current = 0`
-via a `useEffect` on `weapon`.
-
-### Weapon switching — scroll wheel
-`Player.jsx` listens to `wheel` on `document` (passive). Scroll down = next
-weapon in `ownedWeapons`, scroll up = previous. Ignored when the shop is open
-or pointer lock is not held. The HUD shows the "Scroll — switch" hint only when
-2+ weapons are owned.
-
-### Buying a weapon (buyItem)
-Any registry weapon with a `cost` is a shop gun (`WEAPONS[id].cost != null`). `buyItem` gives it through `giveWeapon`
-(`weaponRules.js`, shared with the Mystery Box): saves the current weapon's clip/reserve, switches to the purchased weapon
-(full clip, `buyReserve` reserve) and appends it to `ownedWeapons`. Buying a weapon you already own is blocked.
-
-### Ammo Pack
-Adds to `reserveBullets` (the active weapon's reserve) using `ammoPackFor(weapon)`: the default pack is +20 rounds for
-€10 (+30 with the Deep Pockets perk, `DEFAULT_AMMO_PACK`); the flamethrower's is +1000 fuel for €100 and ignores Deep
-Pockets. The shop description shows the active weapon's caliber.
-
-### Ammo crate pickups (BulletPickups.jsx)
-During a wave, glowing ammo crates spawn every 10 s at one of four interior
-corners (`±5.5, 0, ±7.5`). At most one crate per corner at a time. Walking
-within 1.8 units auto-collects it and adds +10 rounds to the active weapon's
-reserve via `addBullets()` in the store.
-
----
-
-## Performance — zombie spawn/kill freeze (solved)
-
-This was a multi-layered problem. All fixes are committed to main.
-
-### Root cause 1 — shader compilation stall on first spawn
-Three.js compiles GLSL programs lazily on first render. With 7 point lights, each new `meshStandardMaterial` triggers a compile. First zombie mount caused a multi-frame freeze.
-
-**Fix:** Always-mounted hidden zombie warmer in `ZombieManager.jsx`:
-```jsx
-<ZombieComponent key="warmer" id={-1} startX={0} startZ={0} hidden />
-```
-The warmer renders at `scale={0.001}` so it's invisible but keeps all shader programs alive. The `hidden` prop skips `useEffect` registration and `useFrame` logic.
-
-### Root cause 2 — GPU buffer allocation on every mount
-Each zombie mount called `gl.bufferData()` for ~99 geometries → spike of ~99 WebGL buffer allocations.
-
-**Fix:** Module-level geometry cache in `Zombie.jsx`:
-```js
-const _geoCache = new Map()
-function bg(x, y, z) {
-  const k = `${x},${y},${z}`
-  if (!_geoCache.has(k)) _geoCache.set(k, new THREE.BoxGeometry(x, y, z))
-  return _geoCache.get(k)
-}
-```
-All ~99 `boxGeometry`/`cylinderGeometry` calls go through `bg()`/`cg()`. Buffers are allocated once at module load.
-
-### Root cause 3 — shadow map overhead
-`scene.traverseVisible()` visits every Object3D every frame for shadow rendering. With 26 `castShadow` meshes per zombie × 25 zombies = 650 shadow draw calls per frame.
-
-**Fix:** Reduced zombie shadow casters from 26 → 6 (head, chest, 2 upper arms, 2 thighs). Other 20 sub-meshes have no `castShadow`.
-
-### Root cause 4 — fireplace point light cube shadow map
-A `pointLight` with `castShadow` renders the scene **6 times per frame** (cube map faces).
-
-**Fix:** Removed `castShadow` from the fireplace point light in `Arena.jsx`. Directional moonlight still casts shadows.
-(Note: this had silently regressed — `castShadow` was back on the fireplace light until 2026-10-27. Grep for `pointLight.*castShadow` when touching lights.)
-
-### Root cause 5 — oversized directional shadow map
-Shadow map was 1024×1024 covering ±30 units. Reduced to 512×512 covering ±18 (matches actual play area). The diner uses 512×512 over ±14 (interior is ±8 x ±6).
-(Note: this regressed silently once, back to 1024/±30 in both arenas, and was restored on 2026-10-28. `src/__tests__/perfGuards.test.js` now fails if a map exceeds 512 or a point light gets `castShadow`.)
-
-```jsx
-<directionalLight castShadow
-  shadow-mapSize-width={512} shadow-mapSize-height={512}
-  shadow-camera-left={-18} shadow-camera-right={18}
-  shadow-camera-top={18}   shadow-camera-bottom={-18}
-/>
-```
-
-### Root cause 6 — 755 shadow casters in the Arena
-The Arena's local `Box` helper defaulted `castShadow = true`, so every clapboard line, forest-thicket twig, beam and prop cast shadows: 761 casters in the cabin scene (843 total with zombies in the audit), 837 shadow-pass draws per frame. `Box` now defaults to `castShadow = false`; only wall slabs, window/doorway fills, fireplace pillars, the barricaded door and window planks opt in. Cabin scene is now ~58 casters (+6 per live zombie). New meshes must not cast unless they are a big silhouette that reads in moonlight through a window. Do not flip the `Box` default back.
-
-### Fixed light budget (never change the light count at runtime)
-three.js counts only *visible* lights; any change in that count recompiles every lit shader (same stall as root cause 1). Lights that animate (muzzle flash in `Gun.jsx`, Blackout flashlight in `ModifierFx.jsx`, bulbs/fireplace via `LivingLights`/`Storm`) are always mounted and only change `intensity`. Never toggle `visible` or mount/unmount a light. In `Gun.jsx` the Upgrade Bench hides the gun via a `modelRef` group that holds the meshes only; the muzzle light stays visible. `BulletPickups.jsx` crates glow with `emissive` (no light; it is only used by the model playground). Verified 2026-10-28: `renderer.info.programs.length` stays at 23 (cabin) from wave 1 start through shooting, grenade, all power-ups, weapon swaps, bench and Blackout.
-
-### Frame governor (`src/frameGovernor.js`, `components/FrameGovernor.jsx`)
-Invisible, no setting. Pure state machine fed the raw frame delta (not `time.scale`): EMA of frame time; above 22 ms for 2 s steps down a level, below 17.5 ms (a vsync-locked 60 Hz frame is 16.7 ms, so 14 ms could never be reached) for 6 s steps up; 3 s cooldown, flap back-off up to 8x, first 2 s ignored. Levels: 0 normal (lo-fi height 400); 1 height 340; 2 height 288; 3 height 288 + shadow map refreshed every 2nd frame (`shadowMap.autoUpdate=false`, `needsUpdate` on alternate frames). It never touches lights or materials. Off with `?lofi=0` or `?gov=0` (dev/preview). `?perf` shows `gov L<n>`; `window.__gov` in dev.
-
-### Static bake (`src/staticMerge.js`, `components/StaticBake.jsx`)
-The cabin and the diner wrap everything that never moves in `<StaticBake>`. After mount (layout effect, once) every eligible mesh is merged per material signature + castShadow + receiveShadow into one mesh, the material instance is reused (no new program), emptied groups are dropped, and the remaining matrices are frozen (`matrixAutoUpdate = false`, lights excluded). Merged meshes are named `static-merged` and carry `userData.merged` = part count. Transparent, emissive, `renderOrder`, hidden, mirrored, instanced and `userData.noMerge` meshes stay separate, so glass, planks (outside the wrapper), candle flames and anything that animates keep working. Anything that mounts later or moves must live OUTSIDE the wrapper. The undo function disposes the merged buffers (StrictMode, HMR). World raycasts (bullets, grenades, spitters) are analytic (`worldRay.js`) and never touch these meshes. Cabin: 1,437 -> 599 meshes, wave-1 view 476 -> 109 draws. A merged mesh is not frustum-culled, so triangles rise (trivial for a GPU). `?nobake` (dev/preview) turns it off for A/B runs.
-The scene sits in ONE `Suspense` in `Game.jsx` (the arena chunk is lazy): without it the first frames compiled shaders for a light count the run never has and left 4 dead programs.
-
----
-
-## ForestSkybox
-
-**File:** `src/components/ForestSkybox.jsx`
-
-Single open-ended `CylinderGeometry` (radius 46, height 70, 96 segments) at `[0, 22, 0]` with a `meshBasicMaterial` (no lighting, no fog, `depthTest/depthWrite` off, `renderOrder -100`, `side={THREE.BackSide}`).
-
-- The texture is a 2048x512 `CanvasTexture` painted procedurally at mount (`makeForestTexture`, seeded LCG, pixel-art pine layers, Nearest filter, no mipmaps, `wrapS = RepeatWrapping`). There is no PNG and nothing to precache.
-- Registered with `registerSkyMaterial` (`weather.js`) so the storm can tint it.
-- 1 draw call, 1 scene node, zero per-frame cost; no `castShadow`/`receiveShadow`.
-
----
-
-## Component side doors are modules (2026-11-18)
-
-No component carries properties (`Gun.fire = ...` is gone; `src/__tests__/registries.test.js` fails if a component file assigns one). Gameplay code that triggers a scene effect imports a channel from `src/fxBus.js` (`trails.add`, `shells.eject`, `flameSpray.spray`, `blood.spawn`, `bolts.fire`, `grenades.throw`, `gun.fire/pump/setFlameActive/getMuzzlePosition`, `knife.swing`); the owning component fills it with `registerFx(channel, impl)` in a `useLayoutEffect` and the cleanup puts the no-op back (only if the member is still its own, so a remount or HMR never leaves a stale function; a call while nothing is mounted does nothing). Live zombie groups, bullet-hole adders and the per-particle flame hit handler are in `src/zombieRegistry.js` (`Zombie.jsx` registers in its effect, `Player` registers the flame handler). `ignite` / `hitReact` go straight to `zombieSystem` (`zombieLive.js`). The live zombie system is reset on the store's `run_start` event (zombieLive.js), so a same-seed restart does not revive the last run's corpses.
-
-## Player and Arena are split (2026-11-18)
-
-`Player.jsx` and `Arena.jsx` are entries. `Player` calls `usePlayerState` (store -> shared refs), `usePlayerInput`, `usePlayerFiring`, `usePlayerInteraction`, `usePlayerMovement` (all in `src/player/`) and runs the single `useFrame`: clamp the delta, then `mobileButtons`, (shop / pause early return), `look`, `mobileFire`, `tickTimers`, `interaction.step`, `holdFire`, `aim`, `flame`, `move`. Firing keeps `weapon.fire(FIRE)`. Pause stops the flamethrower roar (an effect on `paused`). `Arena` composes `src/arena/lighting.jsx` (the lights, in order, then `LivingLights`: 11 lights with the fireplace pair, never changed at runtime), `WindowPlanks` (outside the bake) and the `<StaticBake>` wrapper with `shell.jsx` / `props.jsx` parts inside it. `perfGuards.test.js` reads the cabin as the entry plus `src/arena/`.
-
-## Cabin roof (src/arena/shell.jsx)
-
-Pitched gable roof in `src/arena/shell.jsx` as the `Roof` component.
-
-```js
-const PITCH = 2.8  // height above WALL_H
-```
-
-- Two sloped panels: `boxGeometry` rotated at `Math.atan2(PITCH, HW)` ≈ 17°
-- Eave overhang: 0.55 units beyond walls
-- Ridge cap: thin box at peak
-- Gable ends: 10 stacked boxes of decreasing width approximating a triangle
-- Color: `ROOF = '#1e0e04'`
-
-No `castShadow` on roof meshes (exterior, outside shadow frustum).
-
----
-
-## Lighting summary (Arena.jsx)
-
-| Light | Type | castShadow | Notes |
-|---|---|---|---|
-| Moonlight | DirectionalLight | ✅ 512×512 | Main shadow caster |
-| Ambient | AmbientLight | — | `intensity=0.55, color=#c8d8f0` |
-| Hemisphere | HemisphereLight | — | Sky/ground fill |
-| Main room | PointLight | ❌ | |
-| Bedroom | PointLight | ❌ | |
-| Hall (×2) | PointLight | ❌ | |
-| Kitchen | PointLight | ❌ | |
-| Chest glow | PointLight | ❌ | |
-| Fireplace (×2) | PointLight | ❌ | castShadow intentionally removed |
-
-Total: 1 shadow-casting light. Point light shadow maps are cube maps (6 render passes each) — avoid `castShadow` on point lights.
-
----
-
-## Wave / spawn system
-
-- Wave N spawns `5 + (N-1)*3` zombies, capped at 25 active at once
-- Remaining zombies queue in `pendingSpawns`; one slots in per kill
-- `tick()` in store only runs during `intermission` phase (countdown between waves)
-- Zombie AI (pathing, state machine, attack timers, exploder / spitter / spider logic, hit-reaction timers, death timing, guest interpolation) lives in `src/zombieAI/*`: pure modules (no React / R3F / three, they run in Node) ticked once per frame by `ZombieSystem` (`system.js`) from `ZombieManager`'s single `useFrame`, which then calls each zombie's pose. `Zombie.jsx` is only the model and the pose (`poseZombie` copies sim state onto the groups). The live system (real store, map, sounds, FX, net via an `io` object) is `src/zombieLive.js`; `src/__tests__/zombieAI.*.test.js` play a wave headless (`@vitest-environment node`, helper `zombieAI.helper.js`). The screamer aura is computed once per tick (`auras.js`). Sim zombie state is a plain object (`zombieAI/state.js`); `zombieSystem.get(id)` in dev, `window.__zombieSystem`.
-
----
-
-## Economy
-
-| Source | Amount |
-|---|---|
-| Starting money | €10 |
-| Wave clear (base) | €15 |
-| Per kill | €1 |
-| Headshot kill bonus | €0.50 |
-| Knife kill bonus | €2 |
-| No planks lost bonus | €10 (requires pre-wave planks) |
-| Fast clear bonus | €8 (finish under par time) |
-
-Kill money (per kill + headshot/knife bonus, `killMoney()` in store.js) is paid on the
-kill, x2 under Double Money; nuke kills pay none. `nextWave` pays only the wave base +
-`lastWaveBonuses.total` (planks / fast clear / modifier). The HUD shows a `+€x` pop
-under MONEY (`MoneyGain` in HUD.jsx). Co-op: both clients pay for every kill.
-
----
-
-## Multiplayer (co-op)
-
-Two-player co-op over WebSocket (`net.js`). One player is **host**, one is **guest**.
-- Host drives wave spawning, zombie logic, and wave-clear detection
-- Guest receives `wave_start` / `hit_zombie` / `add_plank` events and stays in sync
-- `NetManager.jsx` handles the event bus; `RemotePlayer.jsx` renders the partner
-- Store fields: `mpRole`, `mpConnected`, `remotePlayer`, `roomCode`
-- Transport is PeerJS (WebRTC data channel) via `net.js`, not a WebSocket server.
-- Invite links: `/?join=CODE` (`src/invite.js`, `InviteShare.jsx`).
-- Down, not out: `src/coopDown.js` (pure state machine) + `src/coopRuntime.js`.
-  All player damage must go through `store.hitPlayer` (downed guard); weapon
-  swaps through `switchWeapon`.
-- Each client damages only its own player; the host is authoritative for
-  zombies, drops (`powerups.js`), Mystery Box rolls, doors, modifiers.
-- Money/ammo/XP are per player.
-
----
-
-## Systems added in the 2026-10 roadmap push (see MEMORY.md for detail)
-
-| Area | Files |
-|---|---|
-| Feel | `FeelFx.jsx` (hit markers, danger, last-kill), `timeScale.js` (multiply frame deltas by `time.scale`), `cameraFeel.js`, `BloodFX.jsx`, `ImpactFX.jsx`, `hitFx.js` |
-| Look | `LofiPass.jsx` (low-res dither post pass; `?lofi=0`), `textures.js`, `zombieVariant.js`, `Storm.jsx`, `LivingLights.jsx` (`?nofx`) |
-| Run | `doors.js` + `DOOR_COSTS`/`ROOM_ANCHORS` in maps, `powerups.js`, `zombieSpecials.js` (exploder/armored/spitter/spider), `modifiers.js`, `weaponRules.js` (box/bench/crossbow, no gun carry limit), `grenades.js` |
-| Progression | `progression.js`, `challenges.js`, `achievements.js`, `gameEvents.js`, `progressTracker.js`, level rewards in `cosmetics.js`, `mapSelect.js` (map picker + loadouts) |
-| Daily | `rng.js` — all gameplay randomness goes through `runRandom`/`waveRandom`/`keyedRandom` (seeded in Daily Run); cosmetic randomness stays on `Math.random` |
-| Tools | `?perf`, `?bench`, `/?models` playground (`src/playground/registry.js`), `/?testlab` soundboard |
-
-### Spider zombie (wave 11+, `SPIDER` + `spiderStep` in zombieSpecials.js)
-Floor zombie outside (claws planks like a walker). Inside it climbs to the ceiling, crawls above the nearest player, shrieks (the "look up" cue), drops (pounce, each client checks its own player), claws for `FLOOR_TIME`, then leaps back up.
-- Built in a "surface frame": body on its back, limbs bent backward, surface at y = -`BODY_Y`. A `flipRef` group between the zombie root and `bodyRef` rolls it by PI onto the ceiling (it is identity for every other type). The root's `position.y` is the spider's body centre (0.5 on the floor), NOT `ZOMBIE_HEIGHT/2`.
-- On the ceiling it moves with the walls minus `FURNITURE_COLLIDERS`, and `spiderCeilingAt` drops it to the 2.2 m door lintel inside interior doorways.
-- Its own death (falls, rolls belly-down, limbs curl) and `settleCorpse()` (shared). Bullet holes are moved into the flip group's frame.
-- Player pitch is clamped to +-60 deg, so a spider right overhead is out of view; the shriek is the cue. Model: `/?models&m=spider` (Ceiling / Wind-up anims).
-
-`hitZombie(id, isHeadshot, source, weapon, dist, mult)` — weapon/dist feed armour rules, mult feeds upgrades.
-Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombies with `!z.dying`.
-
----
-
-## Mobile layer (2026-10-28, mobile roadmap — `docs/mobile-roadmap.html`)
-
-| Area | Files / rules |
-|---|---|
-| Pause | `src/pause.js` (`pauseGame`, `resumeGame` = 3-2-1, `autoPause`, `installLifecycle`), `PauseMenu.jsx`. It reuses the store `paused` flag, which already froze the world for the co-op host pause. Solo auto-pauses on hidden/pagehide/(touch-only) blur. A co-op guest never pauses the host's world; it sends `away`, and the partner sees PARTNER AWAY. The Mystery Box runs on wall-clock time, so `pause.js` pushes `box.at` forward by the paused time. |
-| Frame deltas | Every `useFrame` clamps the raw delta first: `Math.min(rawDelta, 0.05)`, then multiplies by `time.scale`. Without the clamp, a notification pull-down teleports zombies through walls. |
-| Settings | `src/settings.js` (Zustand + localStorage): look sensitivity (scales mobile and mouse look), aimAssist, autoShoot (both default on; auto-shoot is the owner's call), buttonSize, buttonOpacity, leftHanded, volume / sfxVolume / musicVolume (master, effects and music buses in `sounds.js`, square curve). Brightness lives in `brightness.js`. The panel opens from pause; the start menu's Settings has an Audio section on every device. |
-| Touch controls | `MobileControls.jsx`: a floating stick in the left 40% + inset (`stickZoneWidth`, below y=110), with `stickVector` in `mobileInput.js` (10% dead zone, analog speed). Player movement normalizes only when the length is above 1. The button cluster is laid out around FIRE. Hit test = drawn circle + `HIT_PAD` 8 px, and the nearest edge wins. USE and grenade track their own pointer ids, so they never steal the look finger. Pointer refs reset on rotate, resize, pause, settings and shop. |
-| Touch sizes | Minimum touch target 44 px (`MIN_TAP`, `useMenuEnv` in `src/menuTouch.js`; in-wave buttons 48, FIRE 64). Minimum text 11 px on phones, 14 px for HUD numbers. Menus built on the UI kit (`ui.jsx`/`ui.css`) get this from `@media (pointer: coarse)` overrides in `ui.css`: the kit height variables become 44 px, and `--ui-fs-min` becomes 11 px (it is 0 on desktop). Wrap inline menu font sizes as `max(var(--ui-fs-min), ...)`. No emoji: use `components/Icons.jsx` (Check, Star, Chevron, Lock). |
-| Upright and install | `RotateGate.jsx` covers only a live run held upright (and pauses it); menus, death and lobby work upright. `InstallHint.jsx` shows on the start screen only, on iOS Safari only, once. `fullscreen.js` requests fullscreen + landscape lock on run-start taps (Android only). `wakeLock.js` holds the screen awake during live, unpaused runs. |
-| Interruptions | WebGL context loss pauses the run and restores in place (`handleContextLost`/`Restored`); after 5 s it offers RELOAD. `progressSounds` shares the one AudioContext from `sounds.js` (`getAudioContext`), unlocked on the first gesture. |
-| Network and bundle | PeerJS loads only on HOST/JOIN (dynamic import). `getPeerOptions()` asks `/api/turn` for ICE servers (env `TURN_URLS`/`TURN_USERNAME`/`TURN_CREDENTIAL`, see docs/LAUNCH_CHECKLIST.md) and falls back to STUN only. Supabase loads lazily: use `getSupabase()` (async) or `peekSupabase()`, never a static client import. `vendor-three`/`vendor-react` are separate chunks (drei is NOT in vendor-three: only the `/?models` playground uses it). Lazy chunks (2026-11-17, main chunk 174 -> 148 kB gzip): `VersusLayer` (VersusNet, MailHud, DirectorView + paper, DirectorFlow; `VersusMount` in Game.jsx mounts it, sticky, once a room / versus run / Director match exists), `DuelUi` and `VersusResult` (via `versusChunks.js`, preloaded when the Versus menu opens), and only the map's own arena (`Arena` or `DinerArena`, its import starts at module load; the map is fixed per page load). New versus-only UI goes behind one of these; never import it statically from main code. A failed arena chunk reloads the page once (`arenaChunkReloadAt` in sessionStorage, at most once a minute; Chromium caches a failed `import()`, so re-importing never refetches); after that `SceneErrorBoundary` in `Game.jsx` covers the screen with "Couldn't load the map" and RELOAD. |
-
----
-
-## Versus modes (2026-10-28, `docs/pvp-modes.html`)
-
-| Area | Files / rules |
-|---|---|
-| Seeded start | `store.startSeededGame(mode, seed, opts)`; `runMode` is `'normal' \| 'daily' \| 'versus' \| 'duel'`, `runSeed` the seed. Seeded runs force the default pistol loadout. `rng.newRunSeed()`. `scoreSubmittable(runMode)` (`versus.js`) keeps versus and duel runs off the leaderboard. |
-| Seed Duel (async) | `src/duel.js` (token = URL-safe base64 JSON: seed, map, name, per-wave kills, final), `components/DuelUi.jsx`. `/?duel=TOKEN` picks the map at page load even if locked. Cleared waves always tie on kills (same seed), so the HUD shows the rival's final wave/kills, not per-wave kills. |
-| Zombie Mail (live) | Main menu Versus > Zombie Mail hosts/joins a versus room (`LobbyBody` in `components/screens/Lobby.jsx` is shared with Co-op); a guest who joins from Co-op or an invite link is moved to the Zombie Mail lobby when the host's mode arrives. Seed Duel lives under Versus too. `versus_start` event. Each player runs a SEPARATE seeded world: `startVersusRun` sets `mpRole` null and `mpConnected` false but keeps the net.js link, so co-op sync, RemotePlayer and revive stay silent. In-run messages go through `sendVersus(kind, data)` / `onVersus(kind, fn)` (`versus.js`), never `game_event`; every payload carries the run `seed` and a mismatch is dropped (stale messages from the last match). `VersusNet.jsx`: 1 Hz status, results, forfeit (10 s link down / 30 s silent, or an instant `leave` on pagehide), rival strip. `versusRematch.js`. No pause while linked. |
-| Mail | `src/mail.js` (items, meter, delivery queue), `src/mailRuntime.js` (send/receive), `components/MailHud.jsx` (keys 1-5, warning line), MAIL button in `MobileControls.jsx`. Delivery lands via `store.mailTick` (from `tick()` while playing); spawn cluster from `keyedRandom` by mail id so seeded wave streams stay identical; mailed zombies add to `mail.waveExtra` (HUD total). Blackout sets `mail.pendingModifier` for the next `nextWave`. |
-| The Director | `src/director.js` (contract: units, costs, unlocks, `waveBudget`, best-of-3 scoring, `dir_*` message shapes), `src/directorFlow.js` + `src/directorRuntime.js` (turns, 8 Hz `dir_state`, host-driven `dir_next`, `dir_ready`), store `director` slice (`startDirector`, `directorSpawn`, `directorTick`, `directorEndTurn`, ...), `components/DirectorFlow.jsx` (between-turns and result cards, defender strip), `components/DirectorView.jsx` + `DirectorView.css` + `src/directorPaper.js` (the director's war-map screen; paper and ink painted once to offscreen canvases). Director waves spawn nothing from the seeded spawner: only `dir_spawn` (validated, deduped by id, also accepted in intermission) and the `autoFill` walkers after `SPAWN_WINDOW_S`. Death in director mode ends the turn, not the run. While a player directs (or between turns) `Game.jsx` sets `frameloop='never'` and their world is paused and empty. `cluster` indexes the map's full `SPAWN_CLUSTERS`; a sealed room's cluster falls back to the nearest active one. `/directorlab.html` is a dev harness for the view (not built). |
-| Two-browser tests | `?peer=local` (dev/preview only) signals through a local PeerJS server: `npx peerjs --port 9000 --host 127.0.0.1` (package `peer`). `scripts/twoplayer-smoke.cjs` (co-op), `scripts/versus-smoke.cjs`, `scripts/mail-smoke.cjs`, `scripts/director-smoke.cjs`; args: base URL, screenshot dir. Headless runs are slow (frame delta clamp), so waits are long. Scripts that probe a module with `import('/src/...')` need a Vite server started after your last edit: hot reload serves the app a `?t=` copy, so the probe reads a separate, unused module. |
+## Performance rules (binding; detail and history in `docs/performance.md`)
+
+- **Never change the light count at runtime.** three.js counts only visible lights; any change recompiles every lit shader (a multi-frame stall). Animating lights (muzzle flash, Blackout flashlight, bulbs, fireplace) are always mounted and only change `intensity`. Never toggle `visible`, never mount or unmount a light. Cabin = 11 lights; `renderer.info.programs.length` must stay flat through shooting, weapon swaps, power-ups.
+- **Shadows.** One shadow-casting light (the directional moonlight, 512x512 over +-18; the diner 512 over +-14). Never `castShadow` on a point or spot light (cube map = 6 passes). The arena `Box` helper defaults to `castShadow = false`: do not flip it; new meshes must not cast unless they are a big silhouette that reads through a window. Zombies cast from 6 parts each. `src/__tests__/perfGuards.test.js` fails on a map above 512, a point-light shadow, or a flipped `Box` default (grep `pointLight.*castShadow` when touching lights; this has regressed silently twice).
+- **No per-frame allocation**; pools over mount/unmount (a zombie mount used to stall the frame); every unique material config is a shader program, so do not add `transparent` / `metalness` / `envMap` variants to things that mount often; `meshBasicMaterial` for unlit decoration.
+- **Delta clamp.** Every `useFrame` clamps the raw delta first, `Math.min(rawDelta, 0.05)`, then multiplies by `time.scale` (`timeScale.js`). Without the clamp a notification pull-down teleports zombies through walls.
+- **Static bake.** Everything that never moves in the cabin and the diner lives inside `<StaticBake>` and is merged per material at mount. Anything that mounts later or moves must live OUTSIDE the wrapper. Transparent, emissive, `renderOrder`, hidden, instanced and `userData.noMerge` meshes stay separate. `?nobake` turns it off for A/B runs.
+- **Zombie meshes** are ~6 merged part meshes sharing one palette material (`zombieMesh.js`); keep one shader program for every variant. The scene sits in ONE `Suspense` in `Game.jsx` (the arena chunk is lazy).
+- **Frame governor** (`frameGovernor.js`) is invisible and only lowers the lo-fi height / refreshes shadows every 2nd frame. It never touches lights or materials. `?lofi=0` / `?gov=0` turn it off (dev/preview).
+- **Bundle.** Main chunk is about 157 kB gzip (budget limit 162). PeerJS loads only on HOST/JOIN, Supabase through `getSupabase()` / `peekSupabase()`, versus-only UI behind `VersusLayer` / `DuelUi` / `VersusResult`; never import those statically from main code. Only the map's own arena chunk loads.
+- Raw numbers are in `scripts/perf-budget.json`; a perf card that makes things faster lowers a limit in the same PR, and a raise needs a reason in the PR.
+
+## Rules for game code
+
+- **Co-op authority.** The host is authoritative for zombies, drops (`powerups.js`), Mystery Box rolls, doors and modifiers; each client damages only its own player; money / ammo / XP are per player. All player damage goes through `store.hitPlayer` (downed guard); weapon swaps through `switchWeapon`. A guest never pauses the host's world. Do not change net message shapes outside `netProtocol.js` (and its tests). Versus runs are separate seeded worlds; in-run messages go through `sendVersus` / `onVersus`, never `game_event`.
+- **Randomness.** All gameplay randomness goes through `rng.js` (`runRandom` / `waveRandom` / `keyedRandom`, seeded in Daily / Versus / Duel). Cosmetic randomness stays on `Math.random`. A weapon's pellet spread draws `runRandom('spread')` (angle, then radius) so seeded runs repeat.
+- **Weapons.** Numbers and fire behaviour live in `src/weapons/<gun>.js`; `src/__tests__/weapons.test.js` fails if a number moves. A weapon file may import pure modules only, never a component or the store. Other files still branch on gun ids (`Gun.jsx`, `Machines.jsx`, `RemotePlayer.jsx`, `Shop.jsx`, `Zombie.jsx`, `zombieSpecials.js`, `sounds/*`, the playground registry): see `src/weapons/README.md`.
+- **Zombies.** Corpses stay in `zombies` with `corpse: true` (always `dying`): count live zombies with `!z.dying`. All zombie hit tests go through `hitZombieRay` (`hitboxes.js`). `Zombie.jsx` is the model and the pose; AI changes go in `src/zombieAI/*` (pure, runs in Node, `src/__tests__/zombieAI.*.test.js` play a wave headless).
+- **Components own no properties.** Gameplay code reaches a scene effect through a channel in `fxBus.js` (`registerFx` in a `useLayoutEffect`; register a closure created per mount), never `Component.fn`. `registries.test.js` fails if a component assigns a property.
+- **Audio.** The AudioContext and every bus live ONLY in `sounds/core.js`. `ac.destination` is the effects bus; music connects to `_musicOut(ac)`; stings use `_realDest`. Never create a second context.
+- **Store entry.** The store imports the weapon registry, never the reverse. `store.js` and `weaponRules.js` still export every old constant name; change a number in the gun's file.
+- **Listeners and HMR.** Module-level subscriptions (`onGameEvent` etc.) need an unsubscribe (`import.meta.hot?.dispose`).
+
+## UI and mobile rules
+
+- No emoji anywhere in the UI (short text labels, or `components/Icons.jsx`: Check, Star, Chevron, Lock). In-game text is terse; hints only in the first 3 waves (`hints.js`).
+- Use the `ui.jsx` kit for any new menu. Minimum touch target 44 px (`MIN_TAP`, `menuTouch.js`; in-wave buttons 48, FIRE 64). Minimum text 11 px on phones, 14 px for HUD numbers; wrap inline menu font sizes as `max(var(--ui-fs-min), ...)`. `@media (pointer: coarse)` in `ui.css` handles the kit's sizes.
+- Pause (`pause.js`, the store `paused` flag), touch controls, settings, wake lock, install hint, rotate gate and context-loss handling are described in `docs/systems.md` ("Mobile layer"). The Mystery Box runs on wall-clock time, so `pause.js` pushes `box.at` forward by the paused time.
 
 ---
 
 ## Checks: CI, lint, solo smoke, perf budget
 
-`.github/workflows/ci.yml` runs on every pull request and push to `main` (Node 20, three parallel jobs).
+`.github/workflows/ci.yml` runs on every pull request and push to `main` (Node 20): `test` (vitest + production build), `lint` (whole repo warnings, `lint:selfcheck`, and on PRs `lint:changed` against the base), `e2e` (build, `vite preview`, solo smoke, perf budget with a summary, screenshots uploaded).
 
 | Check | Command | What it does |
 |---|---|---|
-| Tests + build | `npx vitest run`, `npx vite build` | Includes `perfGuards.test.js`. Run both before every PR. |
-| Lint | `npm run lint` | ESLint flat config (`eslint.config.js`): react-hooks (rules-of-hooks, exhaustive-deps), no-undef, no-unused-vars, JSX awareness, a few dupe/unreachable bug catchers. No style rules, no Prettier. Whole repo, every problem is a **warning**, exit 0 (34 pre-existing at 2026-11-16). |
-| Lint, strict | `npm run lint:changed [baseRef]` | Same rules as **errors**, on files that differ from `merge-base(baseRef, HEAD)` (default `origin/main`; uncommitted and new files count). A problem fails only if its (rule, message) is **new**: not reported for the base version of that file (duplicates counted). So an effect body edited to use a new variable fails even though the deps-array line is untouched, and old warnings stay quiet wherever they move. `npm run lint:selfcheck` proves both. CI fails on it. Fix by using the name, adding the hook dep, or prefixing an unused name with `_`. Never reformat or "fix" old warnings to get green. |
-| Solo smoke | `npm run smoke -- <baseUrl> [shotDir]` | `scripts/smoke-solo.cjs`: boots the game, Play, wave 1; asserts scene structure (>= 1,200 non-zombie meshes, every live zombie has meshes with `userData.zombieId`); takes pointer lock with a real click, fires a real click (`bulletsInClip` drops) and shoots a zombie placed on the crosshair ray (its health drops; the click that takes pointer lock can turn the camera, so the zombie follows the ray); kills a zombie via `hitZombie`, clears the wave, reaches wave 2. Fails on a console error, page error or blank frame (wave 1; wave 2 checks the scene instead, since the camera may look at the roof). ~35 to 90 s headless. |
-| Perf budget | `npm run perf:budget -- <baseUrl> [--out file.json]` | `scripts/perf-budget.cjs`: `?wave=8&lofi=0&gov=0`, 25 live zombies, world paused, one frame at 1280x720 (`gl.info.autoReset = false`): draws, triangles, nodes, meshes, castShadow meshes, lights (total and visible; limits are exact: the light count is fixed), shader programs (max of the frame, after a real shot and after swapping through every weapon); plus main chunk gzip size from `dist/` (run `npx vite build` first). Limits in `scripts/perf-budget.json`; any breach exits 1 and names the metric. |
+| Tests + build | `npx vitest run`, `npx vite build` | About 700 tests, includes `perfGuards.test.js`. Run both before every PR. |
+| Lint | `npm run lint` | ESLint flat config (`eslint.config.js`): react-hooks, no-undef, no-unused-vars, JSX awareness, a few bug catchers. No style rules, no Prettier. Whole repo, every problem is a **warning**, exit 0. |
+| Lint, strict | `npm run lint:changed [baseRef]` | Same rules as **errors**, on files that differ from `merge-base(baseRef, HEAD)` (default `origin/main`; uncommitted and new files count). A problem fails only if its (rule, message) is **new** for that file (duplicates counted). `npm run lint:selfcheck` proves both. CI fails on it. Fix by using the name, adding the hook dep, or prefixing an unused name with `_`. Never reformat or "fix" old warnings to get green. |
+| Solo smoke | `npm run smoke -- <baseUrl> [shotDir]` | `scripts/smoke-solo.cjs`: boots the game, Play, wave 1; asserts the scene (>= 400 non-zombie meshes, the cabin bake: >= 30 merged meshes holding >= 600 parts, >= 30 casting wall parts; every live zombie has meshes with `userData.zombieId`); takes pointer lock with a real click, fires a real click (`bulletsInClip` drops) and shoots a zombie placed on the crosshair ray; kills a zombie via `hitZombie`, clears the wave, reaches wave 2. Fails on a console error, page error or blank frame. ~35 to 90 s headless. `--prove-world-check` removes the cabin and expects the check to fail. |
+| Perf budget | `npm run perf:budget -- <baseUrl> [--out file.json] [--map diner] [--query "&nobake"]` | `scripts/perf-budget.cjs`: `?wave=8&lofi=0&gov=0`, 25 live zombies, world paused, one frame at 1280x720: draws, triangles, nodes, meshes, castShadow meshes, lights (exact: the count is fixed), shader programs (max over the frame, after a real shot and after swapping through every weapon), main chunk gzip from `dist/` (run `npx vite build` first). Limits in `scripts/perf-budget.json`; a breach exits 1 and names the metric. The diner has no limits. |
 
-- Solo smoke's world check looks for the cabin bake (`userData.merged` meshes and parts, merged casters), not a raw mesh count: `npm run smoke -- <url> --prove-world-check` removes the cabin and expects the check to fail. `npm run perf:budget -- <url> --map diner` measures the diner (no limits for it); `--query "&nobake"` measures a scene without the static bake.
-- Smoke and budget need `window.__game` / `window.__r3f`, so point them at `npx vite --port N` or a non-production `vite build` served by `vite preview`, never a `VERCEL_ENV=production` build. Playwright is deliberately **not** in `package.json` (the sandbox ships its own; scripts `require('playwright')`). CI installs it inside the `e2e` job only (`npm install --no-save playwright@<pin>`).
-- Perf budget limits are today's measurement plus about 10% (2026-11-17: 298 draws, 57,496 triangles, ~1,411 nodes, ~997 meshes, ~158 casters, 11 lights, 24 programs, 147 kB gzip). Zombie variants are random, so nodes and casters wobble by about 1% between runs. Raise a limit only on purpose, in the PR that needs it, and say why in the PR. A perf card that makes things faster should lower the limit in the same PR.
-- The co-op, versus, mail and director smoke scripts stay manual (they need the local PeerJS server).
-
-## Audio buses (sounds/core.js)
-
-The AudioContext, every bus node, the muffle state and the pause hold flag live ONLY in `src/sounds/core.js` (one context; `src/sounds.js` just re-exports). Other `sounds/*` modules import `ctx`, `playTone`, `_realDest`, `_musicOut` from it; never create a second context or bus. `src/__tests__/sounds.shape.test.js` pins the export list and the bus routing.
-
-`ac.destination` is shadowed: it returns the **effects** bus, so every sound that connects to it gets the Effects slider and the low-HP muffle for free. Music must connect to `_musicOut(ac)` instead, or it lands on the Effects slider. Heartbeat/stings use `_realDest` (effects level, no muffle). Master sits after all three.
-
-## Known performance notes
-
-- Each unique material config = one WebGL shader program. Avoid adding new `transparent`, `metalness`, or `envMap` combinations to materials that mount/unmount frequently.
-- `meshBasicMaterial` skips all lighting — use it for skybox, UI planes, purely decorative non-lit geometry.
-- `scene.traverseVisible()` is called every frame for the shadow map. Every node with `castShadow=true` adds a shadow draw call. The cabin scene has ~58 `castShadow` meshes at rest (measured 2026-10-28; was 761 after a silent `Box` default regression), the diner ~35; keep zombie shadow casters at 6 per zombie.
-- The geometry cache in `Zombie.jsx` is module-level (singleton). It is never cleared. This is intentional.
+- Latest measurement (2026-11-18, cabin): 292 draws, 57,016 triangles, 1,392 nodes, 984 meshes, 152 casters, 11 lights, 25 programs, 156.5 kB gzip main chunk (limits: 330 / 63,500 / 1,560 / 1,100 / 175 / 11 / 25 / 162). Variants are random, so nodes and casters wobble by about 1%.
+- Smoke and budget need `window.__game` / `window.__r3f`: point them at `npx vite --port N` or a non-production `vite build` served by `vite preview`, never a `VERCEL_ENV=production` build. Playwright is deliberately **not** in `package.json` (the sandbox ships its own; scripts `require('playwright')`); CI installs it in the `e2e` job only.
+- Manual two-browser smokes (not in CI): `?peer=local` (dev/preview only) signals through a local PeerJS server, `npx -y -p peer peerjs --port 9000 --host 127.0.0.1`. `scripts/twoplayer-smoke.cjs` (co-op), `versus-smoke.cjs`, `mail-smoke.cjs`, `director-smoke.cjs`, `protocol-smoke.cjs`; args: base URL, screenshot dir. Headless runs are slow (delta clamp), so waits are long; the mail and director join waits are flaky under load. Scripts that probe a module with `import('/src/...')` need a Vite server started after your last edit (hot reload serves the app a `?t=` copy). Dev only: `window.__game`, `window.__r3f`, `window.__gov`, `window.__zombieSystem`; `?perf`, `?bench`, `?wave=N&money=N&weapon=ak47`, `/?models` playground, `/?testlab` soundboard, `/directorlab.html`.
+- Dead-code check: `npx -y knip` (not in `package.json`); `api/*.js` (Vercel functions), `scripts/*.cjs` and the html entry points show as unused files but are live.

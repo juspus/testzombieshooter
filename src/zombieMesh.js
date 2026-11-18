@@ -139,7 +139,6 @@ export function zombieMaterial(key, colors) {
   _palCache.set(key, mat)
   return mat
 }
-export const zombieMaterialCount = () => _palCache.size
 
 // The colour a vertex ends up with (JS mirror of the shader, for tests and tools).
 export function resolveVertex(geo, i, palette) {

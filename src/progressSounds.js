@@ -30,4 +30,3 @@ function play(notes, step, dur, vol, type) {
 export const playLevelUp = () => play([523, 659, 784, 1046, 1319], 0.09, 0.45, 0.09)
 export const playChallengeDone = () => play([659, 880, 1175], 0.08, 0.3, 0.07)
 export const playAchievement = () => play([784, 988, 1175, 1568], 0.07, 0.35, 0.07)
-export const playXpTick = () => play([1200], 0, 0.03, 0.02, 'square')

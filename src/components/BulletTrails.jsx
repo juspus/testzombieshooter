@@ -40,7 +40,9 @@ export default function BulletTrails() {
   }, [])
 
   // fxBus.trails.add
-  useLayoutEffect(() => registerFx(trails, { add: addTrail }), [])
+  // A fresh closure per mount: registerFx's cleanup compares function identity, so a module-level
+  // function could not tell an old registration from a new one.
+  useLayoutEffect(() => registerFx(trails, { add: (start, end) => addTrail(start, end) }), [])
 
   useFrame((_, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05) * time.scale  // last-kill slow-mo

@@ -3,11 +3,6 @@
 // zombie smoothing. No React, no store, no net.
 import { DIR_UNITS, DIR_MODS, canBuy } from './director'
 
-// Colours per unit type (zombie dots and unit-bar swatches).
-export const UNIT_COLORS = {
-  walker: '#9bbf6a', crawler: '#7fae8a', runner: '#f0c040', exploder: '#ff7a1a', brute: '#c0503c',
-  spitter: '#b46ae0', armored: '#9fb4c8', screamer: '#ff6fae', boss: '#ff2a2a',
-}
 export const UNIT_RADIUS = { walker: 3, crawler: 2.5, runner: 3, exploder: 3.5, brute: 4.5, spitter: 3, armored: 4, screamer: 3, boss: 6.5 }
 
 // ── Projection ──────────────────────────────────────────────────────────────

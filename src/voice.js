@@ -62,7 +62,6 @@ export function setPTT(active) {
   }
 }
 
-export function isTalking() { return _talking }
 
 export function teardownVoice() {
   try { _call?.close() } catch {}

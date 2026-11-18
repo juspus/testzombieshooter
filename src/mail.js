@@ -14,7 +14,6 @@ export const MAIL_ITEMS = [
   { id: 'horde',     label: 'Horde',     cost: 12, key: 4, types: Array(8).fill('runner') },
   { id: 'blackout',  label: 'Blackout',  cost: 15, key: 5, types: [], modifier: 'blackout' },
 ]
-export const MAIL_IDS = MAIL_ITEMS.map((i) => i.id)
 
 export const mailItem = (id) => MAIL_ITEMS.find((i) => i.id === id) ?? null
 
