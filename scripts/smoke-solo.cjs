@@ -97,8 +97,8 @@ const worldText = (sc) => `${sc.worldMeshes} non-zombie meshes, ${sc.bakedMeshes
 // height there), and return its id and health. Following the ray makes the shot independent of where the
 // camera looks: taking pointer lock with a real click can turn the camera by a random amount (the click's
 // mouse move is read as look movement), up to the +-60 degree pitch clamp. The zombie's root group is the
-// highest ancestor that holds no other zombie's meshes. Zombie.jsx moves the group again on the next
-// frame, so the caller shoots at once.
+// highest ancestor that holds no other zombie's meshes, and moves the sim zombie with it (the pose
+// layer would otherwise move the group back on the next frame); the caller shoots at once.
 async function placeZombieInFront(page, dist, nth) {
   return page.evaluate(([d, nth]) => {
     const { scene, camera } = window.__r3f
@@ -115,6 +115,10 @@ async function placeZombieInFront(page, dist, nth) {
     const len = Math.hypot(dir.x, dir.z) || 1
     root.position.set(camera.position.x + (dir.x / len) * d, camera.position.y + (dir.y / len) * d, camera.position.z + (dir.z / len) * d)
     root.updateMatrixWorld(true)
+    // The pose layer copies the sim position onto the group every frame (src/zombieAI), so move the sim
+    // zombie too, or the next frame snaps it back off the ray before the shot is processed.
+    const zs = window.__zombieSystem && window.__zombieSystem.get(z.id)
+    if (zs) { zs.x = root.position.x; zs.y = root.position.y; zs.z = root.position.z; zs.path = []; zs.mx = 0; zs.mz = 0 }
     return { id: z.id, type: z.type, health: z.health, locked: document.pointerLockElement === document.querySelector('canvas'), ammo: st.bulletsInClip, pitch: Math.round(Math.asin(dir.y) * 100) / 100, cam: [camera.position.x, camera.position.y, camera.position.z].map((v) => Math.round(v * 10) / 10) }
   }, [dist, nth])
 }

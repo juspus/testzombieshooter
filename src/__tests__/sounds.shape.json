@@ -1,0 +1,270 @@
+{
+ "getAudioContext": {
+  "kind": "function",
+  "arity": 0
+ },
+ "installAudioUnlock": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playAcidSplash": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playArmorPing": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playBenchDone": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playBenchWork": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playBoltPickup": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playBoxCycle": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playBoxJingle": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playBoxTeddy": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playCrossbowReload": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playDoorDenied": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playDoorOpen": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playEmptyClick": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playExploderHiss": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playExplosion": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playFootstep": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playGlassShatter": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playGrenadeBoom": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playGrenadeBounce": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playGrenadePin": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playGrenadeThrow": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playGrenadeTick": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playGunshot": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playHeadshotTink": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playHitTick": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playKillConfirm": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playKnifeSwing": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playLastKillSting": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playPlankBreak": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playPlankHit": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playPowerupDrop": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playPowerupPickup": {
+  "kind": "function",
+  "arity": 1
+ },
+ "playPumpAction": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playReload": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playRemoteFootstep": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playRemoteGunshot": {
+  "kind": "function",
+  "arity": 4
+ },
+ "playRemoteKnifeSwing": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playScreamerScreech": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playShellThonk": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playSpiderLand": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playSpiderShriek": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playSpiderSkitter": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playSpitLaunch": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playSpitWindup": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playThunder": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playVolumePreview": {
+  "kind": "function",
+  "arity": 0
+ },
+ "playZombieDie": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playZombieFootstep": {
+  "kind": "function",
+  "arity": 3
+ },
+ "playZombieGroan": {
+  "kind": "function",
+  "arity": 3
+ },
+ "setAudioHold": {
+  "kind": "function",
+  "arity": 1
+ },
+ "setDangerMuffle": {
+  "kind": "function",
+  "arity": 1
+ },
+ "setHeartbeatIntensity": {
+  "kind": "function",
+  "arity": 1
+ },
+ "setListenerPose": {
+  "kind": "function",
+  "arity": 5
+ },
+ "setMusicIntensity": {
+  "kind": "function",
+  "arity": 1
+ },
+ "setRainIndoor": {
+  "kind": "function",
+  "arity": 1
+ },
+ "setSlowMoMuffle": {
+  "kind": "function",
+  "arity": 1
+ },
+ "startEerieMusic": {
+  "kind": "function",
+  "arity": 0
+ },
+ "startFlamethrowerSound": {
+  "kind": "function",
+  "arity": 0
+ },
+ "startHeartbeat": {
+  "kind": "function",
+  "arity": 0
+ },
+ "startRain": {
+  "kind": "function",
+  "arity": 0
+ },
+ "stopEerieMusic": {
+  "kind": "function",
+  "arity": 0
+ },
+ "stopFlamethrowerSound": {
+  "kind": "function",
+  "arity": 0
+ },
+ "stopHeartbeat": {
+  "kind": "function",
+  "arity": 0
+ },
+ "stopRain": {
+  "kind": "function",
+  "arity": 0
+ },
+ "volumeCurve": {
+  "kind": "function",
+  "arity": 1
+ },
+ "zombieGroanAllowed": {
+  "kind": "function",
+  "arity": 0
+ }
+}
