@@ -10,8 +10,8 @@ import {
 describe('fxBus', () => {
   it('is a no-op while nothing is mounted (the old `Component.fn?.()` behaviour)', () => {
     expect(() => {
-      trails.add({}, {}); shells.eject({}, {}); flameSpray.spray({}, {}, 2); blood.spawn({}, {}, 0, false); blood.clear()
-      bolts.fire({}, {}, {}); bolts.clear(); grenades.throw({}); grenades.release({}, 0); grenades.clear()
+      trails.add({}, {}); shells.eject({}, {}); flameSpray.spray({}, {}, 2); blood.spawn({}, {}, 0, false)
+      bolts.fire({}, {}, {}); grenades.throw({})
       gun.fire(); gun.pump(); gun.setFlameActive(true); knife.swing()
     }).not.toThrow()
     expect(gun.getMuzzlePosition()).toBeUndefined()

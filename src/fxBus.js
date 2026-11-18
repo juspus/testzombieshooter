@@ -11,9 +11,9 @@ const noop = () => {}
 export const trails = { add: noop }                                  // (start, end)
 export const shells = { eject: noop }                                // (origin, right)
 export const flameSpray = { spray: noop }                            // (origin, dir, count)
-export const blood = { spawn: noop, clear: noop }                    // (point, dir, intensity, pellet), ()
-export const bolts = { fire: noop, clear: noop }                     // (from, to, opts), ()
-export const grenades = { throw: noop, release: noop, clear: noop }  // (data), (camera, cook), ()
+export const blood = { spawn: noop }                                 // (point, dir, intensity, pellet)
+export const bolts = { fire: noop }                                  // (from, to, opts)
+export const grenades = { throw: noop }                              // (data)
 // Viewmodel: Gun.jsx and Knife.jsx animate from these. getMuzzlePosition returns undefined while
 // the gun is not mounted (callers fall back to the camera).
 export const gun = { fire: noop, pump: noop, setFlameActive: noop, getMuzzlePosition: noop }

@@ -199,8 +199,6 @@ function Grenades() {
   // fxBus.grenades: remote throws (NetManager), debug hooks, tests
   useLayoutEffect(() => registerFx(grenades, {
     throw: ({ x, y, z, vx, vy, vz, cook = 0 }) => spawn(x, y, z, vx, vy, vz, cook, false),
-    release,
-    clear: clearGrenades,
   }), [])
 
   // Nothing carries across waves / runs

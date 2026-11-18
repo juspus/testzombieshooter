@@ -241,7 +241,7 @@ export default function BloodFX() {
   }, [])
 
   // fxBus.blood.spawn / clear
-  useLayoutEffect(() => registerFx(blood, { spawn: spawnBlood, clear: clearBlood }), [])
+  useLayoutEffect(() => registerFx(blood, { spawn: spawnBlood }), [])
 
   // Decals live until the wave ends: new run / next wave both pass through
   // the 'intermission' phase (startGame, nextWave); 'start' covers the menu.

@@ -123,7 +123,6 @@ export default function Bolts() {
       m.position.copy(from)
       m.visible = true
     },
-    clear: clearBolts,
   }), [])
 
   // Bolts do not carry across runs
