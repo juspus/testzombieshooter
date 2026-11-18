@@ -1,14 +1,15 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useLayoutEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore } from '../store'
 import { getMap, getInitialMapId } from '../maps'
 import { FX_IS_MOBILE } from '../fxConfig'
+import { registerFx, blood } from '../fxBus'
 
 // Blood burst particles + persistent floor/wall splatter decals.
 // Everything is pooled in InstancedMeshes (1 draw call each, shared geometry +
-// material, no per-event allocation). Spawned via the module-level emitter
-// BloodFX.spawn(point, dir, ...) — same pattern as BulletTrails.add — so no
+// material, no per-event allocation). Spawned through the fxBus emitter
+// blood.spawn(point, dir, ...) — same pattern as trails.add — so no
 // store churn. Decals persist until the wave ends (cleared on phase change).
 
 const PARTICLE_POOL = FX_IS_MOBILE ? 48 : 96
@@ -184,6 +185,38 @@ function spawnParticles(px, py, pz, dx, dy, dz, count, speed) {
   }
 }
 
+// point/dir: world impact point and normalized shot direction.
+// intensity: 0 = regular hit, 1 = kill, 2 = headshot/gib kill.
+function spawnBlood(point, dir, intensity = 0, pellet = false) {
+  const big = intensity > 0
+  const base = pellet ? 3 : big ? (intensity > 1 ? 16 : 11) : 5
+  spawnParticles(point.x, point.y, point.z, dir.x, dir.y * 0.5, dir.z, Math.max(2, Math.round(base * COUNT_SCALE)), big ? 4.2 : 3)
+
+  // Floor splatter: along the shot direction behind the target; kills also pool under the body.
+  const hLen = Math.hypot(dir.x, dir.z) || 1
+  const nx = dir.x / hLen, nz = dir.z / hLen
+  if (big || Math.random() < (pellet ? 0.22 : 0.45)) {
+    const d = 0.3 + Math.random() * (big ? 1.5 : 1.0)
+    addFloorDecal(point.x + nx * d + (Math.random() - 0.5) * 0.3, point.z + nz * d + (Math.random() - 0.5) * 0.3,
+      big ? 0.5 + Math.random() * 0.4 : 0.22 + Math.random() * 0.25)
+  }
+  if (big) {
+    addFloorDecal(point.x + (Math.random() - 0.5) * 0.3, point.z + (Math.random() - 0.5) * 0.3, 0.8 + Math.random() * 0.5)
+  }
+  // Wall spatter where the shot would have continued
+  if (hLen > 0.2 && Math.random() < (big ? 0.8 : pellet ? 0.15 : 0.3) && rayWalls(point.x, point.z, nx, nz, 4.5)) {
+    const t = _wallHit.t
+    const y = Math.max(0.2, Math.min(WALL_H_MAX, point.y + (dir.y / hLen) * t))
+    addWallDecal(point.x + nx * t, y, point.z + nz * t, _wallHit.nx, _wallHit.nz, big ? 0.55 + Math.random() * 0.35 : 0.25 + Math.random() * 0.2)
+  }
+}
+
+function clearBlood() {
+  fNext = fHigh = wNext = wHigh = 0
+  if (floorMesh) floorMesh.count = 0
+  if (wallMesh) wallMesh.count = 0
+}
+
 export default function BloodFX() {
   const pRef = useRef()
   const fRef = useRef()
@@ -207,6 +240,9 @@ export default function BloodFX() {
     return () => { particlesMesh = floorMesh = wallMesh = null }
   }, [])
 
+  // fxBus.blood.spawn / clear
+  useLayoutEffect(() => registerFx(blood, { spawn: spawnBlood }), [])
+
   // Decals live until the wave ends: new run / next wave both pass through
   // the 'intermission' phase (startGame, nextWave); 'start' covers the menu.
   useEffect(() => {
@@ -215,41 +251,9 @@ export default function BloodFX() {
     return useGameStore.subscribe((s) => {
       if (s.phase === prev) return
       prev = s.phase
-      if (s.phase === 'intermission' || s.phase === 'start') BloodFX.clear()
+      if (s.phase === 'intermission' || s.phase === 'start') clearBlood()
     })
   }, [])
-
-  // point/dir: world impact point and normalized shot direction.
-  // intensity: 0 = regular hit, 1 = kill, 2 = headshot/gib kill.
-  BloodFX.spawn = (point, dir, intensity = 0, pellet = false) => {
-    const big = intensity > 0
-    const base = pellet ? 3 : big ? (intensity > 1 ? 16 : 11) : 5
-    spawnParticles(point.x, point.y, point.z, dir.x, dir.y * 0.5, dir.z, Math.max(2, Math.round(base * COUNT_SCALE)), big ? 4.2 : 3)
-
-    // Floor splatter: along the shot direction behind the target; kills also pool under the body.
-    const hLen = Math.hypot(dir.x, dir.z) || 1
-    const nx = dir.x / hLen, nz = dir.z / hLen
-    if (big || Math.random() < (pellet ? 0.22 : 0.45)) {
-      const d = 0.3 + Math.random() * (big ? 1.5 : 1.0)
-      addFloorDecal(point.x + nx * d + (Math.random() - 0.5) * 0.3, point.z + nz * d + (Math.random() - 0.5) * 0.3,
-        big ? 0.5 + Math.random() * 0.4 : 0.22 + Math.random() * 0.25)
-    }
-    if (big) {
-      addFloorDecal(point.x + (Math.random() - 0.5) * 0.3, point.z + (Math.random() - 0.5) * 0.3, 0.8 + Math.random() * 0.5)
-    }
-    // Wall spatter where the shot would have continued
-    if (hLen > 0.2 && Math.random() < (big ? 0.8 : pellet ? 0.15 : 0.3) && rayWalls(point.x, point.z, nx, nz, 4.5)) {
-      const t = _wallHit.t
-      const y = Math.max(0.2, Math.min(WALL_H_MAX, point.y + (dir.y / hLen) * t))
-      addWallDecal(point.x + nx * t, y, point.z + nz * t, _wallHit.nx, _wallHit.nz, big ? 0.55 + Math.random() * 0.35 : 0.25 + Math.random() * 0.2)
-    }
-  }
-
-  BloodFX.clear = () => {
-    fNext = fHigh = wNext = wHigh = 0
-    if (floorMesh) floorMesh.count = 0
-    if (wallMesh) wallMesh.count = 0
-  }
 
   useFrame((_, delta) => {
     if (pHigh === 0 || !particlesMesh) return

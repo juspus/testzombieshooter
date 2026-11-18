@@ -13,6 +13,7 @@ import { spawnImpact } from './impactParticles'
 import { spawnFlash, spawnScorch, spawnGlob } from './specialFxPool'
 import { send, isConnected } from './net'
 import { getRemotePlayerPos } from './components/RemotePlayer'
+import { onGameEvent } from './gameEvents'
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
 export const ACTIVE_MAP = getMap(getInitialMapId())
@@ -39,6 +40,13 @@ export const zombieSystem = new ZombieSystem({
     remotePlayerPos: () => getRemotePlayerPos(),
   },
 })
+
+// A new run starts from an empty system. Zombie ids restart from 0 and a seeded run (Daily, versus, duel)
+// spawns the same types at the same spots, so without this a same-id zombie of the new run would be matched
+// to the previous run's sim zombie, corpse and all (ensure() only replaces one whose type or spawn differs).
+// The store emits run_start from startGame / startSeededGame / startDaily; listening here keeps the store
+// from importing zombieAI.
+onGameEvent((e) => { if (e.name === 'run_start') zombieSystem.reset() })
 
 // Dev / preview only: browser tests
 if (typeof window !== 'undefined' && import.meta.env.VITE_VERCEL_ENV !== 'production') window.__zombieSystem = zombieSystem

@@ -4,9 +4,9 @@
 // the groups (position, yaw, limbs, lean, head snap, flash, flames, death fall).
 import { memo, useRef, useEffect, useState, useMemo } from 'react'
 import { getZombieArchetype, useGameStore, ZOMBIE_ARCHETYPES } from '../store'
-import Player from './Player'
 import { playScreamerScreech } from '../sounds'
-import BloodFX from './BloodFX'
+import { blood } from '../fxBus'
+import { registerZombieRef, unregisterZombieRef, registerHoleAdder, unregisterHoleAdder } from '../zombieRegistry'
 import { getZombieVariant, getVariantColors } from '../zombieVariant'
 import * as THREE from 'three'
 import { SPIDER, spiderAirborne } from '../zombieSpecials'
@@ -54,15 +54,8 @@ function cg(rt, rb, h, segs = 6) {
 const _deathTmpQuat = new THREE.Quaternion()
 const _deathTmpEuler = new THREE.Euler()
 
-// Module-level registry so Player can push holes into any zombie instance
-const _holeAdders = {}
-
-function Zombie() {}
-Zombie.addBulletHole = (id, localPos, localNormal) => _holeAdders[id]?.(localPos, localNormal)
-Zombie.ignite = (id) => zombieSystem.ignite(id)
-// Hit-reaction input (flash / stagger / death style). Returns blood intensity:
-// 0 = regular hit, 1 = kill, 2 = headshot/deagle kill.
-Zombie.hitReact = (id, dx, dy, dz, head, weapon, dist) => zombieSystem.hitReact(id, dx, dy, dz, head, weapon, dist)
+// Bullet holes are pushed into a zombie's model through zombieRegistry.addBulletHole; ignite and
+// hit reactions go straight to zombieSystem (src/zombieLive.js).
 
 // ── Hit flash ───────────────────────────────────────────────────────────────
 // Zombie materials are shared across zombies (one per palette, see zombieMesh.js), so we can't
@@ -397,7 +390,7 @@ function popHead(rig, kill) {
   const head = rig.headRef.current
   if (!head) return
   head.localToWorld(_hv.set(0, 0.78, 0))
-  BloodFX.spawn?.(_hv, _hd.set(kill.dx, 0.35, kill.dz).normalize(), 2)
+  blood.spawn(_hv, _hd.set(kill.dx, 0.35, kill.dz).normalize(), 2)
   head.visible = false
 }
 
@@ -574,8 +567,8 @@ function poseZombie(rig, zs, dt) {
   if (zs.corpse) {
     // Settled: out of every registry (not a raycast / melee / flame target, no AI), baked matrices, no shadows.
     for (let i = 0; i < flames.length; i++) { if (flames[i]) flames[i].visible = false }
-    Player.unregisterZombieRef(zs.id)
-    delete _holeAdders[zs.id]
+    unregisterZombieRef(zs.id, g)
+    unregisterHoleAdder(zs.id)
     freezeCorpse(g)
     rig.frozen = true
     zs.pose = null
@@ -621,9 +614,9 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
     const zs = zombieSystem.ensure(id, type, startX, startZ)
     if (g) {
       g.position.set(zs.x, zs.y, zs.z)
-      Player.registerZombieRef(id, g)
+      registerZombieRef(id, g)
     }
-    _holeAdders[id] = (localPos, localNormal) => {
+    const addHole = (localPos, localNormal) => {
       // Holes render inside the spider's flip group: move the point into that frame
       const fl = flipRef.current
       if (fl && (fl.rotation.z !== 0 || fl.position.x !== 0)) {
@@ -636,11 +629,12 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
       )
       setHoles((prev) => [...prev, { pos: localPos.clone(), quat }])
     }
+    registerHoleAdder(id, addHole)
     if (!zs.corpse) zs.pose = (z, dt) => poseZombie(rigRef.current, z, dt)
     return () => {
       if (zs.pose) zs.pose = null
-      Player.unregisterZombieRef(id)
-      delete _holeAdders[id]
+      unregisterZombieRef(id, g)
+      unregisterHoleAdder(id, addHole)
     }
   }, [id, type, startX, startZ, hidden])
 
@@ -690,5 +684,3 @@ function ZombieComponent({ id, startX, startZ, type = 'walker', hidden = false }
 }
 
 export default memo(ZombieComponent)
-
-export { Zombie }

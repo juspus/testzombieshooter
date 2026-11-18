@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useGameStore } from '../store'
@@ -17,7 +17,9 @@ import {
   grenadeZombieDamage, grenadePlayerDamage, grenadePlankHits, grenadeShake,
 } from '../grenades'
 import { playGrenadePin, playGrenadeTick, playGrenadeThrow, playGrenadeBounce, playGrenadeBoom } from '../sounds'
-import { Zombie, getZombiePositions } from './Zombie'
+import { getZombiePositions } from './Zombie'
+import { zombieSystem } from '../zombieLive'
+import { registerFx, grenades } from '../fxBus'
 
 // Wave 3 frag grenades. Hold G (or the mobile button) to cook, release to throw.
 // Every client simulates every grenade (the thrower sends `grenade_throw` with origin /
@@ -127,7 +129,7 @@ function detonate(x, y, z, mine) {
     if (!z0 || z0.dying) continue
     const killed = useGameStore.getState().hitZombieBurst(n, dmg, 'grenade')
     const dh = Math.hypot(dx, dz) || 1
-    Zombie.hitReact(n, dx / dh, 0.25, dz / dh, false, 'shotgun', d)   // after the store update, so a kill gets the blast-back fall
+    zombieSystem.hitReact(n, dx / dh, 0.25, dz / dh, false, 'shotgun', d)   // after the store update, so a kill gets the blast-back fall
     hits++
     if (killed) kills++
   }
@@ -193,6 +195,11 @@ function Grenades() {
       _keyHeld = false
     }
   }, [])
+
+  // fxBus.grenades: remote throws (NetManager), debug hooks, tests
+  useLayoutEffect(() => registerFx(grenades, {
+    throw: ({ x, y, z, vx, vy, vz, cook = 0 }) => spawn(x, y, z, vx, vy, vz, cook, false),
+  }), [])
 
   // Nothing carries across waves / runs
   useEffect(() => {
@@ -265,10 +272,6 @@ function Grenades() {
   return <primitive object={mesh} />
 }
 
-// Static API (like SpecialFX / ImpactFX): remote throws, debug hooks, tests.
-Grenades.throw = ({ x, y, z, vx, vy, vz, cook = 0 }) => spawn(x, y, z, vx, vy, vz, cook, false)
-Grenades.release = release
-Grenades.clear = clearGrenades
-// Dev/preview-only handle for browser tests (same gating as __game / ?wave=)
-if (typeof window !== 'undefined' && import.meta.env.VITE_VERCEL_ENV !== 'production') window.__grenades = Grenades
+// Dev/preview-only handle for browser tests (same gating as __game / ?wave=): the fxBus emitters
+if (typeof window !== 'undefined' && import.meta.env.VITE_VERCEL_ENV !== 'production') window.__grenades = grenades
 export default Grenades

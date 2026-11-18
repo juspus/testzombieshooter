@@ -217,8 +217,8 @@ describe('hitbox source guards', () => {
     expect(src).not.toMatch(/castShadow/)
   })
 
-  it('Player.jsx raycasts zombies through the hitboxes, never the full visual tree', () => {
-    const src = read('components/Player.jsx')
+  it('the player raycasts zombies through the hitboxes, never the full visual tree', () => {
+    const src = ['components/Player.jsx', 'player/usePlayerFiring.js', 'player/fireContext.js'].map(read).join('\n')
     expect(src).not.toMatch(/intersectObject\(\s*(ref|_autoNearRefs\[i\]|zombieRef)\b/)
     expect(src).toMatch(/hitZombieRay\(/)
   })

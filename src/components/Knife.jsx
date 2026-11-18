@@ -1,8 +1,9 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useLayoutEffect } from 'react'
 import { useThree, useFrame, createPortal } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import * as THREE from 'three'
 import { KNIFE_PALETTES } from '../cosmetics'
+import { registerFx, knife } from '../fxBus'
 
 const SWING_DUR = 0.35  // seconds for full swing arc
 
@@ -106,7 +107,8 @@ export default function Knife() {
   const groupRef = useRef()
   const swingT = useRef(0)  // counts from 1 → 0 during swing
 
-  Knife.swing = () => { swingT.current = 1 }
+  // fxBus.knife.swing
+  useLayoutEffect(() => registerFx(knife, { swing: () => { swingT.current = 1 } }), [])
 
   useFrame(({ gl, scene, size }, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05)

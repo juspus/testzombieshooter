@@ -1,6 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useLayoutEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { time } from '../timeScale'
+import { registerFx, flameSpray } from '../fxBus'
+import { zombieRefs, getFlameHitHandler } from '../zombieRegistry'
 import * as THREE from 'three'
 
 const POOL_SIZE = 40
@@ -25,27 +27,29 @@ const _zpos = new THREE.Vector3()
 export default function FlameSpray() {
   const meshRefs = useRef([])
 
-  // Spawns `count` flame particles at `origin` traveling along `dir` (normalized).
-  FlameSpray.spray = (origin, dir, count = 2) => {
-    for (let n = 0; n < count; n++) {
-      const i = nextSlot
-      nextSlot = (nextSlot + 1) % POOL_SIZE
-      const slot = pool[i]
-      _spread.set((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6)
-      slot.active = true
-      slot.pos.copy(origin)
-      slot.vel.copy(dir).multiplyScalar(6 + Math.random() * 3).add(_spread)
-      slot.maxLife = LIFETIME * (0.7 + Math.random() * 0.6)
-      slot.life = slot.maxLife
-      slot.scale = 0.07 + Math.random() * 0.06
-      slot.hitZombies.clear()
-      const mesh = meshRefs.current[i]
-      if (mesh) {
-        mesh.position.copy(origin)
-        mesh.visible = true
+  // fxBus.flameSpray.spray: spawns `count` flame particles at `origin` traveling along `dir` (normalized).
+  useLayoutEffect(() => registerFx(flameSpray, {
+    spray: (origin, dir, count = 2) => {
+      for (let n = 0; n < count; n++) {
+        const i = nextSlot
+        nextSlot = (nextSlot + 1) % POOL_SIZE
+        const slot = pool[i]
+        _spread.set((Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.6)
+        slot.active = true
+        slot.pos.copy(origin)
+        slot.vel.copy(dir).multiplyScalar(6 + Math.random() * 3).add(_spread)
+        slot.maxLife = LIFETIME * (0.7 + Math.random() * 0.6)
+        slot.life = slot.maxLife
+        slot.scale = 0.07 + Math.random() * 0.06
+        slot.hitZombies.clear()
+        const mesh = meshRefs.current[i]
+        if (mesh) {
+          mesh.position.copy(origin)
+          mesh.visible = true
+        }
       }
-    }
-  }
+    },
+  }), [])
 
   useFrame((_, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05) * time.scale  // last-kill slow-mo
@@ -67,9 +71,9 @@ export default function FlameSpray() {
       mesh.material.opacity = t * 0.85
 
       // Per-particle zombie collision — each particle can hit each zombie once
-      const refs = FlameSpray.zombieRefs
-      const onHit = FlameSpray.onZombieHit
-      if (refs && onHit) {
+      const refs = zombieRefs
+      const onHit = getFlameHitHandler()
+      if (onHit) {
         for (const id in refs) {
           const zref = refs[id]
           if (!zref) continue

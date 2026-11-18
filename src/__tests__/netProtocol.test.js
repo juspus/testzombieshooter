@@ -25,7 +25,9 @@ describe('netProtocol: the list', () => {
   const SRC = path.resolve(__dirname, '..')
   const read = (f) => fs.readFileSync(path.join(SRC, f), 'utf8')
   const FILES = [
-    'components/NetManager.jsx', 'components/Player.jsx', 'components/Zombie.jsx', 'components/Grenades.jsx',
+    'components/NetManager.jsx', 'components/Player.jsx', 'player/usePlayerInput.js', 'player/usePlayerFiring.js',
+    'player/usePlayerInteraction.js', 'player/usePlayerMovement.js', 'player/constants.js', 'player/fireContext.js',
+    'components/Zombie.jsx', 'components/Grenades.jsx',
     'components/Bolts.jsx', 'components/Machines.jsx', 'components/PowerUps.jsx', 'components/Screens.jsx',
     'components/VersusNet.jsx', 'components/DirectorView.jsx', 'machineInput.js', 'pause.js', 'coopRuntime.js',
     'mailRuntime.js', 'directorRuntime.js', 'versusRematch.js',
