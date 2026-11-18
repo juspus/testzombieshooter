@@ -27,6 +27,7 @@ export default function usePlayerFiring(P, requestLock) {
     activeItem,
     shopOpen,
     windowPlanksRef,
+    paused,
     pausedRef,
     shopOpenRef,
     selfStatusRef,
@@ -76,6 +77,13 @@ export default function usePlayerFiring(P, requestLock) {
       FLAMETHROWER.stop(FIRE)
     }
   }, [shopOpen, phase, weapon, activeItem])
+
+  // Pausing freezes the frame loop before it reaches the flamethrower's stop, so the roar and the glow would
+  // play through the pause menu. Stop them here. A trigger still held when the game resumes is picked up by
+  // the frame loop again (mouseHeldRef is not cleared), which restarts the spray and the sound.
+  useEffect(() => {
+    if (paused) FLAMETHROWER.stop(FIRE)
+  }, [paused])
 
   // Make sure the flamethrower sound never keeps playing after unmount
   useEffect(() => () => FLAMETHROWER.silence(), [])
