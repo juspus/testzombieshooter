@@ -613,17 +613,15 @@ export default function Gun() {
     )
   }
 
+  // The model comes from the weapon's own file (`model` in src/weapons/<gun>.js); each model reads only the refs it needs.
+  const GunModel = WEAPON_MODELS[weapon] ?? PistolModel
+
   const flashZ = isCrossbow ? -0.5 : isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : isFlamethrower ? -0.66 : -0.31
 
   return createPortal(
     <group ref={groupRef}>
       <group ref={modelRef}>
-      {isAK ? <AKModel gunMat={gunMat} />
-        : isDeagle ? <DeagleModel gunMat={gunMat} />
-        : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} />
-        : isFlamethrower ? <FlamethrowerModel gunMat={gunMat} />
-        : isCrossbow ? <CrossbowModel gunMat={gunMat} boltRef={boltRef} />
-        : <PistolModel gunMat={gunMat} />}
+      <GunModel gunMat={gunMat} pumpRef={pumpRef} boltRef={boltRef} />
       <group ref={flashSpriteRef} position={[0, 0.03, flashZ - 0.02]} scale={FLASH_SIZE[weapon] ?? 0.16} visible={false} renderOrder={10}>
         <mesh geometry={_flashOuterGeo} material={_flashOuterMat} />
         <mesh geometry={_flashCoreGeo} material={_flashCoreMat} rotation={[0, 0, 0.5]} scale={0.8} />
@@ -635,6 +633,6 @@ export default function Gun() {
   )
 }
 
-// Model component per weapon id, resolved from the `model` name in src/weapons/<gun>.js.
+// Model component per weapon id, resolved from the `model` name in src/weapons/<gun>.js. The Gun picks its model here.
 const GUN_MODELS = { PistolModel, AKModel, DeagleModel, ShotgunModel, FlamethrowerModel, CrossbowModel }
 export const WEAPON_MODELS = Object.fromEntries(Object.values(WEAPONS).map((w) => [w.id, GUN_MODELS[w.model]]))
