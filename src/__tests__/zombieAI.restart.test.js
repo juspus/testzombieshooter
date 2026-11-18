@@ -10,7 +10,7 @@ vi.mock('../components/RemotePlayer', () => ({ getRemotePlayerPos: () => null })
 
 import { useGameStore } from '../store'
 import { zombieSystem } from '../zombieLive'
-import { makeSim, step, DT } from './zombieAI.helper'
+import { makeSim, DT } from './zombieAI.helper'
 
 const store = useGameStore
 
