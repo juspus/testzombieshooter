@@ -52,11 +52,15 @@ src/
 ├── walls.js                   # Wall segment geometry for pathfinding grid
 ├── sounds.js                  # Entry: re-exports src/sounds/* (core = context + buses, spatial, weapons, zombies, world, music, player)
 ├── net.js                     # WebSocket multiplayer networking
+├── fxBus.js                   # Scene effects components own (trails, shells, blood, bolts, grenade throw, gun / knife animation, flame spray): channels of no-ops that a component fills in an effect
+├── zombieRegistry.js          # Live zombie groups (hit tests, melee, flame, auto-shoot), bullet-hole adders, the flame hit handler
+├── arena/                     # The cabin, split by job: shell (walls, roof, doors, windows, planks, beams, thickets), props (fireplace, furniture), lighting (the lights), shared (palette, dims, Box)
+├── player/                    # The local player, split by job: usePlayerState / Input / Firing / Interaction / Movement, constants.js, fireContext.js (the FIRE context)
 └── components/
     ├── Game.jsx               # Canvas setup, fog, scene root
-    ├── Arena.jsx              # Full cabin interior + lighting + Roof component
+    ├── Arena.jsx              # Entry: composes src/arena/ (lighting, planks, the StaticBake wrapper); re-exports the props for the playground
     ├── ForestSkybox.jsx       # Single cylinder with a procedural canvas texture
-    ├── Player.jsx             # Pointer-lock camera, WASD, raycasting shoot, scroll weapon switch
+    ├── Player.jsx             # Entry and the one frame loop (delta clamp, then the src/player/ steps in order)
     ├── Gun.jsx                # 3-D gun models (Pistol, AK-47, Desert Eagle, Shotgun)
     ├── Knife.jsx              # Melee knife model + swing animation
     ├── Zombie.jsx             # Single zombie mesh + AI + animation
@@ -90,7 +94,7 @@ WIN_Y1   = 2.0  // window lintel height
 ### One file per gun (`src/weapons/`)
 Every gun's numbers and fire behaviour live in `src/weapons/<gun>.js`; `src/weapons/index.js` is the
 registry (`WEAPONS`, `ALL_WEAPONS`, `getWeapon`, plus derived tables). Stats, ammo and fire behaviour for a new gun are one file plus one line in
-`ORDER` in `index.js`, but other files still branch on gun ids: the model chain in `Gun.jsx` (`isAK`/`isDeagle`/...),
+`ORDER` in `index.js`, but other files still branch on gun ids: the pose, muzzle and flash branches in `Gun.jsx` (`isAK`/`isDeagle`/...),
 `Machines.jsx` (`SHOW_IDS`), `RemotePlayer.jsx`, `Shop.jsx`, the playground registry, and 'crossbow'/'deagle' checks in
 `Zombie.jsx`, `zombieSpecials.js`, `sounds.js` and `store.js`. A weapon file may import pure modules (`rng`, `walls`,
 `hitboxes`, `sounds`) but never a component or the store (the store imports the registry: that would be a cycle).
@@ -101,8 +105,7 @@ Fields of a weapon: `id`, `name`, `upgradedName`, `caliber`, `clip`, `startReser
 purchase starts with), `boxWeight`, `fireMode` (`semi` | `auto` | `pump` | `spray`), `cooldown` (s between shots,
 enforced in `Player.jsx`), `fireInterval` (auto only), `autoShootInterval` (mobile auto-shoot), `vibrate`, `damageMult`,
 `pierce`, `reload { base, fast }`, `ammoPack` (`null` = default pack), `sounds { shot, reload }` (lazy wrappers over
-`sounds.js`, which keeps all synthesis), `model` (name of an export of `Gun.jsx`; `WEAPON_MODELS` maps it, but nothing uses that map yet: `Gun.jsx` still
-picks the model with its own chain),
+`sounds.js`, which keeps all synthesis), `model` (name of an export of `Gun.jsx`; `WEAPON_MODELS` maps it and `Gun.jsx` picks its model through it),
 `fire(ctx)`.
 
 `Player.jsx` calls `WEAPONS[weapon].fire(FIRE)` from `shoot()` (one persistent `FIRE` context, per-shot fields
@@ -261,9 +264,17 @@ Single open-ended `CylinderGeometry` (radius 46, height 70, 96 segments) at `[0,
 
 ---
 
-## Cabin roof (Arena.jsx)
+## Component side doors are modules (2026-11-18)
 
-Pitched gable roof added directly in `Arena.jsx` as the `Roof` component.
+No component carries properties (`Gun.fire = ...` is gone; `src/__tests__/registries.test.js` fails if a component file assigns one). Gameplay code that triggers a scene effect imports a channel from `src/fxBus.js` (`trails.add`, `shells.eject`, `flameSpray.spray`, `blood.spawn`, `bolts.fire`, `grenades.throw`, `gun.fire/pump/setFlameActive/getMuzzlePosition`, `knife.swing`); the owning component fills it with `registerFx(channel, impl)` in a `useLayoutEffect` and the cleanup puts the no-op back (only if the member is still its own, so a remount or HMR never leaves a stale function; a call while nothing is mounted does nothing). Live zombie groups, bullet-hole adders and the per-particle flame hit handler are in `src/zombieRegistry.js` (`Zombie.jsx` registers in its effect, `Player` registers the flame handler). `ignite` / `hitReact` go straight to `zombieSystem` (`zombieLive.js`). The live zombie system is reset on the store's `run_start` event (zombieLive.js), so a same-seed restart does not revive the last run's corpses.
+
+## Player and Arena are split (2026-11-18)
+
+`Player.jsx` and `Arena.jsx` are entries. `Player` calls `usePlayerState` (store -> shared refs), `usePlayerInput`, `usePlayerFiring`, `usePlayerInteraction`, `usePlayerMovement` (all in `src/player/`) and runs the single `useFrame`: clamp the delta, then `mobileButtons`, (shop / pause early return), `look`, `mobileFire`, `tickTimers`, `interaction.step`, `holdFire`, `aim`, `flame`, `move`. Firing keeps `weapon.fire(FIRE)`. Pause stops the flamethrower roar (an effect on `paused`). `Arena` composes `src/arena/lighting.jsx` (the lights, in order, then `LivingLights`: 11 lights with the fireplace pair, never changed at runtime), `WindowPlanks` (outside the bake) and the `<StaticBake>` wrapper with `shell.jsx` / `props.jsx` parts inside it. `perfGuards.test.js` reads the cabin as the entry plus `src/arena/`.
+
+## Cabin roof (src/arena/shell.jsx)
+
+Pitched gable roof in `src/arena/shell.jsx` as the `Roof` component.
 
 ```js
 const PITCH = 2.8  // height above WALL_H
