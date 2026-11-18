@@ -1,13 +1,8 @@
-// Wall generation, grid building, A* pathfinding, and collision helpers.
+// Grid building, A* pathfinding, collision and line-of-sight helpers.
 
-export const WALL_HEIGHT = 2.5
-export const WALL_THICKNESS = 0.3
-export const WIN_BOTTOM = 0.75   // window opening starts at y=0.75
-export const WIN_TOP = 1.75      // window opening ends at y=1.75
-
-export const GRID_ORIGIN = -18
+const GRID_ORIGIN = -18
 export const GRID_SIZE = 36     // 36x36, covering -18..18 at 1 unit/cell
-export const CELL = 1.0
+const CELL = 1.0
 
 // Module-level blocked grid, rebuilt when walls change.
 let _grid = new Uint8Array(GRID_SIZE * GRID_SIZE)
@@ -25,7 +20,7 @@ let   _heapLen = 0
 
 // ─── coordinate helpers ──────────────────────────────────────────────────────
 
-export function worldToCell(x, z) {
+function worldToCell(x, z) {
   return {
     col: Math.max(0, Math.min(GRID_SIZE - 1, Math.floor((x - GRID_ORIGIN) / CELL))),
     row: Math.max(0, Math.min(GRID_SIZE - 1, Math.floor((z - GRID_ORIGIN) / CELL))),
@@ -38,74 +33,11 @@ export function isBlocked(x, z) {
   return _grid[row * GRID_SIZE + col] !== 0
 }
 
-// Check if any point within radius r of (x,z) is blocked — used for zombie movement.
-export function isBlockedRadius(x, z, r) {
-  const d = r * 0.707
-  return isBlocked(x - r, z) || isBlocked(x + r, z) ||
-         isBlocked(x, z - r) || isBlocked(x, z + r) ||
-         isBlocked(x - d, z - d) || isBlocked(x + d, z - d) ||
-         isBlocked(x - d, z + d) || isBlocked(x + d, z + d)
-}
-
 export function cellToWorld(col, row) {
   return {
     x: GRID_ORIGIN + (col + 0.5) * CELL,
     z: GRID_ORIGIN + (row + 0.5) * CELL,
   }
-}
-
-// ─── wall generation ─────────────────────────────────────────────────────────
-
-const TEMPLATES = [
-  // inner ring
-  { x: -6,  z: -6,  axis: 'x', len: 5 },
-  { x:  6,  z: -6,  axis: 'z', len: 5 },
-  { x: -6,  z:  6,  axis: 'z', len: 5 },
-  { x:  6,  z:  6,  axis: 'x', len: 5 },
-  // mid ring
-  { x: -11, z:  0,  axis: 'z', len: 6 },
-  { x:  11, z:  0,  axis: 'z', len: 6 },
-  { x:   0, z: -11, axis: 'x', len: 6 },
-  { x:   0, z:  11, axis: 'x', len: 6 },
-  // outer pockets
-  { x: -13, z: -9,  axis: 'x', len: 5 },
-  { x:  13, z: -9,  axis: 'z', len: 5 },
-  { x: -13, z:  9,  axis: 'z', len: 5 },
-  { x:  13, z:  9,  axis: 'x', len: 5 },
-]
-
-export function generateWalls() {
-  const shuffled = [...TEMPLATES].sort(() => Math.random() - 0.5)
-  const count = 6 + Math.floor(Math.random() * 3)   // 6–8 walls
-
-  return shuffled.slice(0, count).map((t, i) => {
-    const halfLen = t.len / 2
-    const halfThick = WALL_THICKNESS / 2
-    const hasWindow = Math.random() < 0.45   // ~45% of walls get a window
-    const winSize = 1.5
-    // random window position (not too close to either end)
-    const margin = 0.8
-    const range = t.len - winSize - margin * 2
-    const wOff = range > 0 ? (Math.random() - 0.5) * range : 0
-    const wStart = hasWindow ? wOff - winSize / 2 : null
-    const wEnd   = hasWindow ? wOff + winSize / 2 : null
-
-    // slight random jitter on position
-    const jx = (Math.random() - 0.5) * 2
-    const jz = (Math.random() - 0.5) * 2
-
-    return {
-      id: i,
-      x: t.x + jx,
-      z: t.z + jz,
-      axis: t.axis,
-      halfLen,
-      halfW: t.axis === 'x' ? halfLen : halfThick,
-      halfD: t.axis === 'z' ? halfLen : halfThick,
-      wStart,   // relative to wall center, along main axis
-      wEnd,
-    }
-  })
 }
 
 // ─── grid ────────────────────────────────────────────────────────────────────
@@ -148,24 +80,6 @@ export function collidesWithWalls(x, z, radius, walls) {
     if (dx * dx + dz * dz < radius * radius) return true
   }
   return false
-}
-
-// ─── line-of-sight ───────────────────────────────────────────────────────────
-
-export function hasLineOfSight(x1, z1, x2, z2) {
-  const dx = x2 - x1, dz = z2 - z1
-  const dist = Math.sqrt(dx * dx + dz * dz)
-  if (dist < 0.01) return true
-  // sample at half-cell intervals along the segment
-  const steps = Math.ceil(dist / (CELL * 0.5)) + 1
-  for (let i = 1; i < steps; i++) {
-    const t = i / steps
-    const col = Math.floor((x1 + dx * t - GRID_ORIGIN) / CELL)
-    const row = Math.floor((z1 + dz * t - GRID_ORIGIN) / CELL)
-    if (col < 0 || col >= GRID_SIZE || row < 0 || row >= GRID_SIZE) continue
-    if (_grid[row * GRID_SIZE + col]) return false
-  }
-  return true
 }
 
 // ─── auto-shoot occlusion ────────────────────────────────────────────────────

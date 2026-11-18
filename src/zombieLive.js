@@ -46,7 +46,9 @@ export const zombieSystem = new ZombieSystem({
 // to the previous run's sim zombie, corpse and all (ensure() only replaces one whose type or spawn differs).
 // The store emits run_start from startGame / startSeededGame / startDaily; listening here keeps the store
 // from importing zombieAI.
-onGameEvent((e) => { if (e.name === 'run_start') zombieSystem.reset() })
+const _offRunStart = onGameEvent((e) => { if (e.name === 'run_start') zombieSystem.reset() })
+// HMR re-evaluates this module: drop the old listener so it does not stack up.
+import.meta.hot?.dispose(_offRunStart)
 
 // Dev / preview only: browser tests
 if (typeof window !== 'undefined' && import.meta.env.VITE_VERCEL_ENV !== 'production') window.__zombieSystem = zombieSystem
