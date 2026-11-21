@@ -133,4 +133,3 @@ export function handleCoopEvent(event, data) {
   return false
 }
 
-export const COOP_EVENTS = ['player_down', 'revive_progress', 'player_revived', 'player_bled_out', 'coop_sync']

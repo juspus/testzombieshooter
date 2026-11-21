@@ -1,6 +1,7 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useLayoutEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { time } from '../timeScale'
+import { registerFx, trails } from '../fxBus'
 import * as THREE from 'three'
 
 const TRAIL_LIFETIME = 0.12
@@ -17,6 +18,18 @@ const _trailPool = Array.from({ length: POOL_SIZE }, () => {
 })
 let _nextSlot = 0
 
+function addTrail(start, end) {
+  const slot = _trailPool[_nextSlot]
+  _nextSlot = (_nextSlot + 1) % POOL_SIZE
+  slot.positions[0] = start.x; slot.positions[1] = start.y; slot.positions[2] = start.z
+  slot.positions[3] = end.x;   slot.positions[4] = end.y;   slot.positions[5] = end.z
+  slot.line.geometry.attributes.position.needsUpdate = true
+  slot.line.material.opacity = 1
+  slot.line.visible = true
+  slot.life = TRAIL_LIFETIME
+  slot.active = true
+}
+
 export default function BulletTrails() {
   const groupRef = useRef()
 
@@ -26,17 +39,10 @@ export default function BulletTrails() {
     return () => _trailPool.forEach(slot => group.remove(slot.line))
   }, [])
 
-  BulletTrails.add = (start, end) => {
-    const slot = _trailPool[_nextSlot]
-    _nextSlot = (_nextSlot + 1) % POOL_SIZE
-    slot.positions[0] = start.x; slot.positions[1] = start.y; slot.positions[2] = start.z
-    slot.positions[3] = end.x;   slot.positions[4] = end.y;   slot.positions[5] = end.z
-    slot.line.geometry.attributes.position.needsUpdate = true
-    slot.line.material.opacity = 1
-    slot.line.visible = true
-    slot.life = TRAIL_LIFETIME
-    slot.active = true
-  }
+  // fxBus.trails.add
+  // A fresh closure per mount: registerFx's cleanup compares function identity, so a module-level
+  // function could not tell an old registration from a new one.
+  useLayoutEffect(() => registerFx(trails, { add: (start, end) => addTrail(start, end) }), [])
 
   useFrame((_, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05) * time.scale  // last-kill slow-mo

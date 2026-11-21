@@ -4,7 +4,10 @@ import { resolve } from 'node:path'
 
 // Source-text guards for perf regressions that have happened silently before
 // (see CLAUDE.md "Performance - zombie spawn/kill freeze"). They read the JSX as text.
-const read = (f) => readFileSync(resolve(__dirname, '../components', f), 'utf8')
+const rd = (f) => readFileSync(resolve(__dirname, '../components', f), 'utf8')
+// The cabin is Arena.jsx (entry) plus src/arena/ (lighting, shell, props, shared): guard them as one source.
+const CABIN_PARTS = ['Arena.jsx', '../arena/lighting.jsx', '../arena/shell.jsx', '../arena/props.jsx', '../arena/shared.jsx']
+const read = (f) => (f === 'Arena.jsx' ? CABIN_PARTS.map(rd).join('\n') : rd(f))
 const ARENAS = ['Arena.jsx', 'DinerArena.jsx']
 
 describe.each(ARENAS)('%s perf guards', (file) => {

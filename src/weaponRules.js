@@ -1,67 +1,37 @@
-// Wave 3 "Mystery Box + Upgrade Bench" — pure rules (no store / three / net imports).
+// Wave 3 "Mystery Box + Upgrade Bench" — pure rules (no store / net imports).
 // store.js applies the patches these return; tests exercise them directly.
+// (Per-gun numbers come from the weapon registry, which also pulls in three.js and sounds.js.)
+
+// Per-gun numbers live in src/weapons/<gun>.js; the tables below are derived from that registry
+// and keep their old names so callers and tests are unchanged.
+import {
+  WEAPONS, WEAPON_NAMES, UPGRADED_NAMES, BASE_CLIP, START_RESERVE, BOX_WEIGHTS,
+  CROSSBOW, CROSSBOW_DAMAGE_MULT, crossbowReloadTime, boltMult, boltBlastDamage,
+  UPGRADE_CLIP_MULT, UPGRADE_DAMAGE_MULT,
+} from './weapons'
+export { WEAPON_NAMES, UPGRADED_NAMES, BASE_CLIP, START_RESERVE, BOX_WEIGHTS, CROSSBOW, CROSSBOW_DAMAGE_MULT, crossbowReloadTime, boltMult, boltBlastDamage, UPGRADE_CLIP_MULT, UPGRADE_DAMAGE_MULT }
 
 // ── Names ────────────────────────────────────────────────────────────────────
-export const WEAPON_NAMES = {
-  pistol: 'Pistol', shotgun: 'Shotgun', ak47: 'AK-47', deagle: 'Desert Eagle',
-  flamethrower: 'Flamethrower', crossbow: 'Crossbow',
-}
-export const UPGRADED_NAMES = {
-  pistol: 'Mustang', shotgun: 'Widowmaker', ak47: 'Red Fang', deagle: 'Hand Cannon',
-  flamethrower: "Dragon's Breath", crossbow: 'Wraith',
-}
 export const weaponName = (w, upgraded = false) =>
   (upgraded ? UPGRADED_NAMES[w] : WEAPON_NAMES[w]) ?? String(w)
 
 // ── Ammo / damage ────────────────────────────────────────────────────────────
-export const BASE_CLIP = { pistol: 10, shotgun: 8, ak47: 30, deagle: 7, flamethrower: 0, crossbow: 5 }
-// Reserve a freshly obtained box weapon starts with (flamethrower = fuel units).
-export const START_RESERVE = { pistol: 30, shotgun: 24, ak47: 90, deagle: 21, flamethrower: 1000, crossbow: 30 }
-export const UPGRADE_CLIP_MULT = 1.5
-export const UPGRADE_DAMAGE_MULT = 2
+// BASE_CLIP / START_RESERVE (reserve a freshly obtained box gun starts with; flamethrower = fuel
+// units) and the upgrade multipliers come from the weapon registry (see the import above).
 
 export const clipSize = (w, upgraded = false) => {
   const base = BASE_CLIP[w] ?? 10
   return upgraded && base > 0 ? Math.round(base * UPGRADE_CLIP_MULT) : base
 }
 
-// Repeating crossbow: each bolt pierces every zombie on its line (up to PIERCE) and kills
-// anything that is not a brute / armored / boss outright. Tuning lives here; Player.jsx fires,
-// Bolts.jsx owns the pooled bolts (pick-ups + Wraith blast).
-export const CROSSBOW = {
-  FIRE_INTERVAL: 0.45,    // s between shots
-  RELOAD: 1.8,            // s
-  RELOAD_FAST_HANDS: 1.2, // s
-  PIERCE: 6,              // zombies one bolt passes through
-  RANGE: 50,
-  PICKUP_RADIUS: 1,       // m: walk this close to a stuck bolt to collect it (+1 reserve)
-  MAX_BOLTS: 24,          // pooled bolts in the world; oldest recycled
-  BLAST_RADIUS: 2,        // Wraith: bolts explode on impact
-  BLAST_INNER: 0.6,
-  BLAST_MAX: 4,           // < brute (7) / armored (5): walkers die inside ~1.3 m
-  BLAST_SHAKE: 0.25,
-}
-export const crossbowReloadTime = (fastHands) => (fastHands ? CROSSBOW.RELOAD_FAST_HANDS : CROSSBOW.RELOAD)
-
-// Bolt damage multiplier on the base hit (body 1 / head 3). Tough types take heavy but not
-// lethal body damage (armour is ignored for the crossbow, see zombieSpecials.armorMultiplier):
-// brute 7 hp: body 4 (a head kills), armored 5 hp: body 4 (a head kills), boss 16 hp: body 2 / head 6.
-export const CROSSBOW_DAMAGE_MULT = 20
-const BOLT_TYPE_MULT = { brute: 4, armored: 4, boss: 2 }
-export const boltMult = (type, upgraded = false) =>
-  (BOLT_TYPE_MULT[type] ?? CROSSBOW_DAMAGE_MULT) * (upgraded ? UPGRADE_DAMAGE_MULT : 1)
-// Wraith blast damage at distance d (m) from the impact: full inside BLAST_INNER, 0 at BLAST_RADIUS.
-export function boltBlastDamage(d) {
-  if (d <= CROSSBOW.BLAST_INNER) return CROSSBOW.BLAST_MAX
-  if (d >= CROSSBOW.BLAST_RADIUS) return 0
-  return CROSSBOW.BLAST_MAX * (CROSSBOW.BLAST_RADIUS - d) / (CROSSBOW.BLAST_RADIUS - CROSSBOW.BLAST_INNER)
-}
+// Crossbow tuning (CROSSBOW, boltMult, boltBlastDamage, ...) lives in src/weapons/crossbow.js and is
+// re-exported above: Player's fire code, Bolts.jsx and the tests keep using WR.CROSSBOW etc.
 // Reserve after collecting one bolt, or null when already at the cap.
 export const collectBoltReserve = (reserve, cap) => (reserve >= cap ? null : reserve + 1)
 // Multiplier on top of the base hit damage (body 1 / head 3, flame tick) for this weapon.
 // (Crossbow: the per-type boltMult is used instead; this is the generic / unknown-type value.)
 export const damageMult = (w, upgraded = false) =>
-  (w === 'crossbow' ? CROSSBOW_DAMAGE_MULT : 1) * (upgraded ? UPGRADE_DAMAGE_MULT : 1)
+  (WEAPONS[w]?.damageMult ?? 1) * (upgraded ? UPGRADE_DAMAGE_MULT : 1)
 
 // ── Mystery Box ──────────────────────────────────────────────────────────────
 export const BOX_COST = 100           // ≈ one early door; cheap enough to gamble, dear enough to matter
@@ -73,7 +43,7 @@ export const BOX_USES_MAX = 12
 export const BOX_START_ROOM = 'hall'  // never the sealed-start main room: you have to open a door
 
 // Weighted pool: every shop weapon + the box-exclusive crossbow.
-export const BOX_WEIGHTS = { pistol: 6, shotgun: 18, ak47: 16, deagle: 10, flamethrower: 6, crossbow: 16 }
+// Weights live on each gun (boxWeight); BOX_WEIGHTS is re-exported above.
 
 export function rollBoxWeapon(rng = Math.random, exclude = []) {
   const pool = Object.keys(BOX_WEIGHTS).filter((w) => !exclude.includes(w))

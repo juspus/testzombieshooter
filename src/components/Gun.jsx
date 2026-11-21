@@ -1,9 +1,11 @@
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useLayoutEffect } from 'react'
 import { useThree, useFrame, createPortal } from '@react-three/fiber'
 import { useGameStore } from '../store'
 import { applySkin } from '../cosmetics'
 import * as THREE from 'three'
 import { feel } from '../cameraFeel'
+import { WEAPONS } from '../weapons'
+import { registerFx, gun } from '../fxBus'
 
 const _muzzleWorld = new THREE.Vector3()
 
@@ -484,17 +486,17 @@ export default function Gun() {
   const flameActive = useRef(false)
   const flameTime = useRef(0)
 
-  Gun.fire = () => {
-    recoil.current = 1
-    flashLife.current = 1
-    if (flashSpriteRef.current) flashSpriteRef.current.rotation.z = Math.random() * Math.PI * 2
-  }
-
-  Gun.pump = () => { pumpAnim.current = 1 }
-
-  Gun.setFlameActive = (active) => { flameActive.current = active }
-
-  Gun.getMuzzlePosition = () => _muzzleWorld.clone()
+  // fxBus.gun: fire / pump / flame glow / muzzle position (Player and the weapon files drive the viewmodel)
+  useLayoutEffect(() => registerFx(gun, {
+    fire: () => {
+      recoil.current = 1
+      flashLife.current = 1
+      if (flashSpriteRef.current) flashSpriteRef.current.rotation.z = Math.random() * Math.PI * 2
+    },
+    pump: () => { pumpAnim.current = 1 },
+    setFlameActive: (active) => { flameActive.current = active },
+    getMuzzlePosition: () => _muzzleWorld.clone(),
+  }), [])
 
   useFrame(({ gl, scene, size }, rawDelta) => {
     const delta = Math.min(rawDelta, 0.05)
@@ -611,17 +613,15 @@ export default function Gun() {
     )
   }
 
+  // The model comes from the weapon's own file (`model` in src/weapons/<gun>.js); each model reads only the refs it needs.
+  const GunModel = WEAPON_MODELS[weapon] ?? PistolModel
+
   const flashZ = isCrossbow ? -0.5 : isAK ? -0.65 : isDeagle ? -0.40 : isShotgun ? -0.58 : isFlamethrower ? -0.66 : -0.31
 
   return createPortal(
     <group ref={groupRef}>
       <group ref={modelRef}>
-      {isAK ? <AKModel gunMat={gunMat} />
-        : isDeagle ? <DeagleModel gunMat={gunMat} />
-        : isShotgun ? <ShotgunModel gunMat={gunMat} pumpRef={pumpRef} />
-        : isFlamethrower ? <FlamethrowerModel gunMat={gunMat} />
-        : isCrossbow ? <CrossbowModel gunMat={gunMat} boltRef={boltRef} />
-        : <PistolModel gunMat={gunMat} />}
+      <GunModel gunMat={gunMat} pumpRef={pumpRef} boltRef={boltRef} />
       <group ref={flashSpriteRef} position={[0, 0.03, flashZ - 0.02]} scale={FLASH_SIZE[weapon] ?? 0.16} visible={false} renderOrder={10}>
         <mesh geometry={_flashOuterGeo} material={_flashOuterMat} />
         <mesh geometry={_flashCoreGeo} material={_flashCoreMat} rotation={[0, 0, 0.5]} scale={0.8} />
@@ -632,3 +632,7 @@ export default function Gun() {
     weaponScene
   )
 }
+
+// Model component per weapon id, resolved from the `model` name in src/weapons/<gun>.js. The Gun picks its model here.
+const GUN_MODELS = { PistolModel, AKModel, DeagleModel, ShotgunModel, FlamethrowerModel, CrossbowModel }
+export const WEAPON_MODELS = Object.fromEntries(Object.values(WEAPONS).map((w) => [w.id, GUN_MODELS[w.model]]))

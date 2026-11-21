@@ -5,426 +5,87 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- Tech roadmap run (agents) (2026-11-16..18): 12 jobs built by agents, each adversarially reviewed and
+  QA'd (J1-J10, plus this docs / dead-code job). What landed: CI, lint, solo smoke and perf
+  budget (J1), hitboxes (J2), net protocol + crash reports (J3), merged zombie meshes (J4), one
+  file per gun (J5), lazy chunks + static bake (J6), zombie AI out of React (J7), store slices
+  (J8), sounds / screens / player / arena splits (J9, J10), registry modules (fxBus,
+  zombieRegistry; J10), dead-code sweep and lighter docs (this job). Key numbers: cabin wave-8
+  draws 3,449 -> about 300 (292 final), main chunk 174 -> 157 kB gzip, zombie tick about 2.2x
+  cheaper, 695+ tests. CLAUDE.md went 40 kB -> 17 kB: perf history and systems moved to
+  `docs/performance.md` and `docs/systems.md`, weapons to `src/weapons/README.md`.
+  Open items: the live `events` insert policy for `client_error` (an owner SQL check in
+  Supabase); 2 missing migrations (p-boards); t-sim skipped for weekly budget; the mail-smoke
+  and director-smoke join waits are flaky under load; t-lazy is 157 kB against a 150 target;
+  perf budget `programs` now reads 25 (was 24 at t-lazy; limit already 25). The agent-run notes
+  (plan, briefs, per-job status and reviews) are in `.agents/` (local only, not committed).
+
+- CONTROL PANEL (2026-11-16, owner: "my control panel, where I control your work, see progress,
+  reorder"): the live roadmap artifact is now a panel. Top: pipeline counts, Needs you, In
+  progress (steps bar, summary, PR/preview), the Queue (drag/arrows/Move to top/Hold), "Ask for
+  something" (owner requests -> items/r-*), Shipped; the roadmap below is the backlog. Working
+  rules + data contract are in CLAUDE.md "Control panel": read it every session, report in
+  progress/<id>, never write queue/order or hold. Old d-order/d-sequence docs are unused now
+  (the queue replaced the run-order call). State on 16 Nov: 18 tech cards queued in page order
+  (t-ci first), nothing in progress, no progression picks yet. Drag gotcha: moving the captured
+  row in the DOM drops pointer capture, so the neighbour moves instead (tested mouse + touch with
+  a fake db in Playwright).
+
+- LIVE ROADMAP (2026-11-11, owner: "merge roadmaps, build them further"): "Night After Night",
+  https://claude.ai/artifact/D1y2Wem5q9Na5jj5VcP4gF (source `docs/next-roadmap.html`, republish from
+  that file with the URL; it replaced the 10-Nov tech roadmap at the same link). It supersedes the
+  Cabin Roadmap and Cabin on a Phone (both shipped); their open items moved in (quest, new maps,
+  mastery as cards; seasons, 3-4 players under Not now; owner-only list). Picks: ArtifactData
+  `list` on `calls` (cards `p-*`/`t-*`, decisions `d-sequence`, `d-point`, `d-firstrun`, `d-types` =
+  A/B/C/talk; the old `d-order` doc is the tech page's pick, C = "features first"); write `progress/<id>` when building/shipped. Track 1 (progression): 0 board up
+  (p-boards + CI/budget/smoke/lint) -> P1 something to find (feats unlock guns/perks/gear/box/
+  bench/diner; Journal; unlock moment; legacy; seeded modes use the full set) -> P2 every run
+  counts (levels pay every time, NEW BEST, challenges aim at next unlock) -> P3 reasons for tonight
+  (Daily up front, last week's result, nights tally, no streaks) -> P4 longer nights (harder-night
+  dials, survivors with a rule, mastery, quest, third map). Track 2 = the tech cards (T1-T4).
+  Draft unlock list + run-1 set are in the page (UNLOCKS / START_SET). Owner had SKIPPED special
+  waves and CrazyGames/Poki on 27 Oct: don't re-propose.
+  Owner picks made on the tech page before the merge (carried, same ids): Go on every tech card
+  except Skip t-modes and Skip t-checkjs (yet d-types = A, ask); old d-order = C (features first).
+  Progression cards and the three new decisions: no picks yet.
+
+- Owner feedback 2026-11-11: "progression feels flat, no reason to come back, no point".
+  Diagnosis: run 1 has everything (6 guns in the box, doors, bench, all perks/power-ups); 11 level
+  rewards, 7 cosmetic, last at L20; XP curve assumes long runs (10 waves ~870 XP, but a wave-3 run
+  ~95 XP, so L5 takes ~9 runs); achievements/challenges pay badges and XP only; no way to win.
+  Advised against permanent stat upgrades.
+
+- PRODUCTION FACTS (2026-11-11, Supabase project "cabin"): only 3 of 6 migrations applied; missing
+  20261015 (hardening) and 20261027 (daily/weekly boards), so the Daily ranked attempt throws
+  daily_unavailable and the weekly board falls back to all-time. events 25 Oct-10 Nov: 49 devices,
+  101 sessions, 5 came back another day, median recorded death wave 3, 6 daily starts / 2 ends,
+  22 challenges, 87 achievements (webdriver excluded; owner/preview visits included).
+  privacy.html/terms.html still have [OWNER_*] placeholders. 0 entitlements.
+
+- Tech baseline (2026-11-10, headless on e198bc9): src 13,908 -> 28,449 lines since 10-26; 117
+  meshes/zombie; wave 8 = 5,044 nodes, 4,442 meshes; wave 1 = 723 draws; mobile auto-shoot
+  targeting 2.05 ms/frame vs 0.03 ms with box hitboxes; shotgun shot 5.1 ms; main chunk 172 kB gzip
+  (146 on 10-28); 90 mode checks in 15 files; no CI. Measure scripts were in the session
+  scratchpad (gone); t-budget rebuilds them.
+
 - 2026-11-10: Fixed a black strip at the bottom on load that only a resize cleared (owner report).
   Cause: Game.jsx dropped every height-only resize under 15% (FilteredResizeObserver + a gl.setSize
   override, old iOS URL-bar hack), so a bookmarks bar / URL bar change after load left the canvas
   short. Now R3F resizes always, debounced (resize 100 ms). Guard: src/__tests__/canvasResize.test.js.
-- The Director (2026-11-03, branch claude/versus-next): owner picks: the director builds every
-  wave from a budget (not extras on top), best of 3 short rounds (3 waves per defence, swap,
-  alternate who defends first). Owner disliked the first director screen; picked the
-  "survivor's war map" look (paper, ink, pins, index cards, tape/stamps). Built by two Sonnet
-  agents on the src/director.js contract (game side || view). Costs/unlocks are guesses; not
-  playtested by a human. Known: money for waves skipped after a mid-turn death is not made up;
-  defender must click to re-lock the pointer at turn start. Headless setInterval runs ~2/s
-  under SwiftShader, so director-smoke compares send vs receive rate instead of asserting 8 Hz.
-  Next on the versus list: combat core -> Horde Duel -> Hunter.
-- 2026-10-29: Fixed Zombie Mail zombies wandering to a spot and standing there (owner report).
-  Cause: RemotePlayer renders null out of co-op, so its frame loop never cleared the partner's
-  last position; versus worlds (and co-op after the partner left) kept chasing that stale spot.
-  Now cleared in an effect on mpConnected, and Zombie.jsx only targets the partner while a co-op
-  link is live. Regression checks in scripts/versus-smoke.cjs.
-- 2026-11-03: Kill money now lands on the kill (was held until wave end, so the
-  counter sat still mid-wave). `+€x` pop under MONEY. Same totals, same co-op split
-  (each player still earns for partner kills). Dying mid-wave now keeps that wave's kill money.
-- 2026-10-29: Volume controls: Master / Effects / Music (settings.js `volume`,
-  `sfxVolume`, `musicVolume`; buses in sounds.js, see CLAUDE.md "Audio buses").
-  Start-menu Settings now has an Audio section on desktop too: before this,
-  desktop had no volume control at all (pause menu + Controls are touch-only).
-  Still no in-run settings on desktop (no desktop pause menu). Not checked by ear.
-- Versus build (2026-10-28, PR #134, branch claude/versus-modes): owner picked Go on
-  mail, seed, director, horde, hunter (pvp-modes page `calls`). Cutoff this session:
-  foundation + Seed Duel + Zombie Mail, built by Sonnet agents in worktrees (round 1:
-  foundation || duel, round 2: mail). Next, after the owner playtests Zombie Mail:
-  combat core (player hitboxes, host rewind, versus damage table) -> Horde Duel ->
-  Director -> Hunter. Not playtested by a human yet; balance (mail costs, meter) is a guess.
-  Gotchas: public PeerJS cloud is blocked in the sandbox (use ?peer=local); a container
-  restart kills running agents but their worktree files survive (commit them as WIP,
-  then SendMessage to resume); Playwright context.close() does not fire pagehide.
+
 - OWNER UI PREFERENCES (2026-10-27): no emoji anywhere in the UI - use short
   text labels. In-game text must be terse (one short line, hints only in the
   first 3 waves via src/hints.js). Lo-fi pass at 400px internal height;
   brightness slider (src/brightness.js). Bloodlust speed 1.4x (2x too hard).
+
 - Cancelled by owner (stopped agents): Barn map, cabin escape quest. Don't restart unasked.
-- Mobile roadmap (2026-10-27): https://claude.ai/artifact/Y6wqJxYQUme3yGerfDAZJz
-  (source `docs/mobile-roadmap.html`, screenshots inlined as base64; republish
-  from that file with the URL). Same picks model as the main roadmap: ArtifactData
-  `list` on `calls` (ids `m-*`, decision `d-portrait` = A/B/C/talk) and write
-  `progress/<id>` when building/shipped. Waves: M1 Unbreak (pause, shadow diet,
-  touch skip, 48px buttons, notch, offline cache, overlaps, wording, emoji) ->
-  M2 Teach and tune (coach marks, settings panel, text floor, menus, USE finger,
-  floating stick) -> M3 Feels native -> M4 Hold the frame (invisible perf only).
-- Mobile roadmap BUILT (2026-10-28, PR #127, branch claude/mobile-ux-roadmap):
-  every owner-Go item shipped. CLAUDE.md "Mobile layer" has the rules.
-  - Owner Skips: m-haptics, m-onboard, m-wording, m-merge. "WASD · Mouse ·
-    Click" on phones stays on purpose.
-  - Owner-only, still open:
-    - run ?bench on a real phone (m-baseline);
-    - pick a TURN provider and set TURN_URLS/TURN_USERNAME/TURN_CREDENTIAL
-      in Vercel (Cloudflare ephemeral creds not built: docs host was blocked
-      in the sandbox);
-    - check the service worker now installs on production.
-  - Nothing was playtested on a real phone or by ear yet.
-  - The mobile-split SQL ran fine on live data, but there's almost no data:
-    17 desktop runs and 1 mobile run in 60 days.
-  - Rebased onto main on 2026-10-28, after #130 (keep all guns) and #129
-    (UI-kit menu rework). #129's menus won the conflicts, and the phone rules
-    (44 px, 11 px, no emoji, install hint, run-start fullscreen) were re-applied
-    on the kit via ui.css coarse-pointer overrides. The start-menu SETTINGS
-    screen also shows the control settings on touch devices
-    (`ControlSettings` in PauseMenu.jsx).
-  - Gotchas from the build:
-    - Agent worktrees branch from main, not the integration branch, so tell
-      agents to `git merge --ff-only <branch>` first.
-    - `pkill -f "<pattern>"` inside a Bash call can kill that same shell.
-    - Sonnet agents may write their own model name in the Co-Authored-By
-      trailer, so check before merging.
-- Crossbow reworked: repeating (mag 5), pierces 6, retrievable bolts (Bolts.jsx,
-  store.collectBolt), Wraith = exploding bolts (source 'bolt'); CROSSBOW constants in weaponRules.js.
-- Cabin furnished (Evil Dead look): pieces in src/furniturePieces.js, merged per room by
-  src/furnitureParts.js, placed in Furniture.jsx; big pieces need FURNITURE_COLLIDERS
-  entries in maps/cabin.js (furniture.test.js enforces clearance of windows/anchors/doors).
-- Roadmap: https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz (source
-  `docs/roadmap.html`, republish from that file with the URL). The owner
-  marks each item Go / Discuss / Skip (+ notes) on the page; read them at
-  session start with ArtifactData `list` on collection `calls` (doc id =
-  item id, `{call, note}`; decisions `d-art`/`d-doors` use `A`/`B`/`talk`).
-  When work starts/ships, write `progress/<item id>` `{status: 'building'|'shipped'}`.
-  Agreed next step after the roadmap: the model playground (`/?playground`).
-- Owner calls (2026-10-27): art = lo-fi (A), buyable doors = yes (A).
-  Skip: quality tiers, special waves, portals, Halloween. Postponed: weapon
-  mastery, seasons, 3-4 players (needs bigger maps first). 3-4p tech note:
-  game data works over PeerJS star topology (refactor only), but voice chat
-  mesh, NAT failures (needs TURN relay) and host-leaves-ends-game get worse
-  with 4 -> that's the point to decide P2P vs a small authoritative server
-  (monthly cost). Discuss with owner before building.
-  Playground: split Test Lab into /?models (model viewer + registry) and
-  /?testlab (sounds/weapons) - owner approved. Everything
-  else Go. Owner asked for autonomous implementation by Sonnet (medium)
-  subagents in worktrees, merged onto claude/wizardly-pascal-c4k091 (PR #126),
-  continuing across usage-limit resets (send_later safety net), leaving ~10%
-  of the 5h limit. Agent brief: scratchpad AGENT_BRIEF.md (rules: pools, no
-  new shadows, mobile, host-authoritative co-op, Playwright verify).
-  Rounds: R1 = W0 perf+metrics, W1 feel, impacts (running) -> R2 W2 look
-  (lofi+post, storm+lights, textures, variety) -> R3 W3 run (powerups, box+
-  bench, doors, modifiers, archetypes, grenades) -> R4 W4 (xp+challenges+
-  achievements, daily seeded run, diner unlock+loadouts) -> R5 W5 + later
-  (invite, revive, weekly board, quest, new maps).
-- Round 1 merged (2026-10-27): perf overlay `?perf`/`?bench`, retention SQL
-  (supabase/queries, docs/ANALYTICS.md), hit markers + danger FX + last-kill
-  slow-mo (FeelFx.jsx, src/timeScale.js - multiply frame deltas by
-  time.scale), camera feel (src/cameraFeel.js), positional zombie audio +
-  groans, muzzle flash + ImpactFX, zombie flinch/deaths/BloodFX, playground
-  split (/?models + /?testlab). GOTCHA: corpses stay in `zombies` with
-  `corpse: true` (always `dying`) - any count must filter `!z.dying`/`!z.corpse`.
-  sounds.js routes everything through a master lowpass bus (`_installMasterBus`).
-  Dev-only globals: window.__game (store), __dbg, __r3f. Nothing was
-  playtested by ear/hand yet (headless ~4 fps, no audio).
-- Round 2 + doors merged: lo-fi pending; textures (src/textures.js, Box picks
-  texture from palette colour), zombie variants (src/zombieVariant.js, id-seeded),
-  storm/rain/LivingLights (`?nofx` disables), doors (DOOR_COSTS + ROOM_ANCHORS in
-  src/maps/cabin.js, `?doors=open`, windows/spawn clusters carry room/windowId;
-  money is per-player in co-op, door opener pays).
-- Rounds 3-5 merged (2026-10-27): power-ups, lo-fi pass, new archetypes,
-  modifiers, Mystery Box/crossbow/Upgrade Bench (bench €750 not 1500 - economy
-  can't reach 1500 before ~wave 30), grenades, Daily Run + weekly/daily boards
-  (MIGRATION PENDING: supabase/migrations/20261027000000_daily_weekly_leaderboards.sql,
-  owner applies in SQL editor), XP/levels/challenges/achievements, map picker
-  (reload-based; diner L5) + loadouts (shotgun L8, fast hands L12, AK L16),
-  co-op invite links + down/revive. Usage limit was hit once at 4 parallel
-  agents -> run max 2 at a time. Tuning flagged for playtest: XP pace (wave-7
-  run ~ level 4), lo-fi exposure (dark), armored tankiness, door prices.
-- New maps: cabin was the only map, now generalized into a src/maps/ schema
-  (walls/windows/spawns/chest as data) plus a second map, the diner. Diner
-  is dev/preview-only via `?map=diner` (gated same as other debug params) —
-  not exposed on the start screen yet. Next step if we want it live: a
-  start-screen map selector wired to `mapId`.
-- Diner storefront glass: fixed a transparency bug (glass sometimes read as
-  opaque — fixed by adding `depthWrite={false}` plus toning down
-  roughness/metalness) and added shattering: `brokenWindows` store state,
-  `breakWindow(id)` action (idempotent, plays a synthesized crash via
-  `playGlassShatter()`). Triggers from two places — Zombie.jsx checks
-  proximity to every window each frame (covers both boarded and
-  walk-straight-through unboarded windows), Player.jsx does an analytic
-  ray/plane test against each window on every shot fired (pistol/ak/shotgun
-  pellets/deagle). DinerArena.jsx swaps the intact glass pane for jagged
-  static stubs + a one-shot debris burst (fixed pool of always-mounted
-  shard meshes, shared geometry/material, toggled via `visible` — no
-  runtime allocation). Verified both trigger paths directly against live
-  store state in a real browser (zombies broke windows 1/2/4 approaching
-  naturally) plus an isolated Node script cross-checking the ray math
-  against all 6 windows.
 
 - Supporter Pack shipped in code but inert until STRIPE_* env vars are set
   Also pending: run `supabase/migrations/20261015000000_harden_scores_events_entitlements.sql`
   in the Supabase SQL editor (MCP SQL timed out). PR #125.
   (see docs/LAUNCH_CHECKLIST.md).
 
-## Feature inventory (as of 2026-06-14)
+## Older entries
 
-What's actually in the game today, grouped by system. This is the
-onboarding summary — see CLAUDE.md for architecture detail.
-
-**Core loop**
-- Wave-based survival: wave N spawns `5 + (N-1)*3` zombies, capped at 25
-  active, rest queue in `pendingSpawns`
-- Intermission between waves (scales with wave number, hold-T to skip)
-- Money economy: wave clear, per-kill, headshot/knife/no-planks/fast-clear
-  bonuses (see CLAUDE.md Economy table)
-- Planks: board up windows, strong planks upgrade (20 hits vs base)
-
-**Weapons & combat**
-- Pistol (free), Pump Shotgun (€150, 12 pellets/shot), AK-47 (€270,
-  full-auto 10rds/s), Desert Eagle (€700, instant kill, pierces 3),
-  Flamethrower (€1500, continuous cone spray, 0.5 dps burn DoT, 1000
-  starting fuel, +1000 fuel packs for €100)
-- Per-weapon ammo pools (clip + reserve saved independently per weapon),
-  scroll-wheel weapon switching. Flamethrower has no clip — all "ammo"
-  lives in `reserveBullets` as fuel, drained continuously while spraying
-  (`consumeFuel`/`FLAME_FUEL_PER_SEC`)
-- Hunting knife: melee swing, swap with Q, kill bonus
-- Procedural weapon sound design (pistol, shotgun pump/shot, flamethrower
-  continuous roar/hiss/rumble — multiple iterations tuning the shotgun
-  boom specifically)
-- Burning zombies show flickering flame meshes (shared geometry/materials,
-  `Zombie.ignite(id)`); burn ticks via `hitZombieFlame` every
-  `FLAME_TICK_INTERVAL` (0.2s), synced cross-client via `hit_zombie_flame`
-
-**Zombies**
-- 6 archetypes: Walker, Runner, Brute, Screamer (speed aura), Crawler
-  (low profile), Boss — unlock progressively by wave
-- Custom pixel-art skull/zombie model with walk + window-attack + death
-  animations
-- Real-geometry collision movement + A* pathing to window attack spots
-  (no wall-sliding/corner-sticking)
-
-**Shop & perks**
-- Supply chest shop: weapons, ammo packs, 6 perks (Fast Hands, Deep
-  Pockets, Iron Sights, Runner's Breath, Carpenter, Knife Mastery)
-
-**World**
-- Multi-room cabin (bedroom, hall, kitchen, main room), pitched gable roof,
-  Evil Dead-style interior (fireplace, props, moonlight)
-- Forest skybox: procedural panorama, single cylinder, zero per-frame cost
-
-**Multiplayer**
-- 2-player co-op via WebRTC (PeerJS), host/guest roles, room codes,
-  synced zombie targeting, remote player model + animations, pause sync
-
-**Mobile / PWA**
-- Mobile-optimized HUD, touch controls (drag-to-look, tap/hold buttons),
-  PWA service worker for offline play, iOS black-screen/WebGL fixes
-- Two-finger controls: primary finger looks, secondary finger fires
-  independently; tap-anywhere-on-look-zone fires
-- Mobile aim assist (6-ray forgiveness cone) + auto-shoot when a zombie
-  is in the crosshair cone (COD Mobile "Simple" style — deliberate
-  choice to lower the touch-aiming skill floor)
-- Haptic feedback on shoot (18ms pulse; shotgun double-tap) and death
-  (two-beat thump) via navigator.vibrate — Android only, no-ops on iOS
-- Test Lab page (`/?testlab`) for isolated weapon/sound testing
-
-**Dev/testing**
-- Debug URL params (`?wave=N&money=N&weapon=ak47/shotgun/deagle`) on
-  `startGame()` jump straight to a wave/loadout. Gated via
-  `VITE_VERCEL_ENV` (vite.config.js `define` reads Vercel's
-  `VERCEL_ENV`): active in dev + preview, no-op on production.
-
-**Misc**
-- Share button on death screen (hashed share links)
-- Disabled text selection across UI
-
-**Performance**
-- All 5 root causes of the zombie spawn/kill freeze fixed (shader
-  pre-warming, geometry cache, reduced shadow casters, no point-light
-  shadows, smaller directional shadow map) — see CLAUDE.md for detail
-
-## Ideas & deferred
-
-- (none yet)
-
-## Open questions
-
-- (none yet)
-
-## Dated log
-
-- 2026-11-03: Spider zombie (owner idea). Owner calls: drop-then-climb-back attack,
-  breaks planks like a walker, unlocks wave 11 (guaranteed 1/wave, then 4-10%).
-  HP 3, pounce 7, floor claw 4. Rules + tuning in zombieSpecials.js (SPIDER), model/AI in
-  Zombie.jsx (see CLAUDE.md "Spider zombie"). Verified headless: enters, climbs, crawls,
-  drops, leaps back; ceiling kill falls to a corpse; ducks under the hall door lintel;
-  6 shadow casters; programs stay 23. Not playtested by a human or by ear yet; balance
-  (pounce 7, 2.5 s on the floor) is a guess. Co-op: each client runs the spider's
-  surface state locally (only x/z are synced), like the other specials.
-
-- 2026-10-28: Owner call: keep every gun picked up in a run (removed the
-  3-gun CoD replace rule, `MAX_GUNS` gone from weaponRules.js) and grenades
-  are shop-only (start 0, no +2 per wave, Max Ammo no longer refills them;
-  carry cap 4, EUR 25 each unchanged). Box still excludes held guns, so it
-  favours guns you don't have yet.
-
-- 2026-10-28: UI rework (owner: "all over the place, too many buttons on start").
-  Start screen is now a left-side game menu: PLAY / DAILY RUN / CO-OP | LOADOUT /
-  PROGRESS / LOCKER / SETTINGS; sub-screens open as a panel on the right (replace the
-  list below 640px wide). Sign-in + level chip top right. Shared kit in
-  src/components/ui.jsx + ui.css (fixed control heights 48/40/30, 40/34/28 under 480px
-  tall) - use it for new menu UI instead of inline-styled buttons. Death screen buttons
-  unified + new MENU button (solo only, page reload). Lock emoji in the picker replaced
-  by an SVG. In-game HUD/shop/intermission untouched.
-
-- 2026-10-28: Closing the shop with E or a backdrop click re-locks the pointer
-  if it was locked when the shop opened (Player.jsx). PR #128 merged the
-  first version; the Esc fix followed on its own branch. NOT on Esc:
-  first version did, and on Windows Chrome (owner's setup) it left the mouse
-  half-locked - cursor stuck at the crosshair, only center clicks worked. Esc
-  is Chrome's own unlock key; Windows re-handles the press after we re-lock.
-  Linux/headless Chrome can't reproduce that, so pointer-lock changes need an
-  owner test on Windows.
-
-- 2026-10-27: Mobile playability/UX audit and roadmap (artifact above).
-  Four Sonnet audit agents (touch controls, screens/HUD at 844x390, 667x375
-  and 390x844, perf/platform, a mobile-shooter benchmark) and one builder
-  agent. Verdict: it runs, but a phone player isn't treated as a real player.
-  - 36 px buttons and 7 px HUD text.
-  - No solo pause.
-  - No touch skip for the intermission.
-  - No touch onboarding: the start screen says "WASD · Mouse · Click" on phones.
-  - Portrait is a rotate wall, even for invite links.
-  The perf audit recommends against quality tiers, matching the owner's skip;
-  the cost is in shadows and static draw calls.
-- 2026-10-28: Owner said Go on 21 mobile items. Built by 6 Sonnet (medium)
-  worktree agents, at most 2 at a time: lifecycle, perf, controls, menus,
-  net and QA. Merged onto PR #127. 392 tests pass.
-  - Cabin wave-1 shadow casters went from 761 to 58 and draws from 1201 to
-    498, with a perfGuards test.
-  - The main JS entry went from 492 to 146 kB gzip (PeerJS and Supabase are
-    lazy now).
-  - The QA pass found a ghost-buy: the USE tap that opens the shop could
-    buy the row under the finger. Fixed in Shop.jsx.
-
-- 2026-10-26: Built the visual roadmap (artifact above). Diagnosis of the
-  "flash game" feel: flat look (no post, rigid camera), hits don't land (no
-  hit marker/flinch/blood, 0.75 s tip-over death, zombie audio not
-  positional), every run identical (solved buy order, no meta-progression).
-  Order proposed: W0 tools (playground, quality tiers, perf overlay,
-  retention baseline) → W1 feel → W2 look → W3 run variety (power-ups, box,
-  upgrade bench, doors) → W4 progression (XP, mastery, challenges) → W5
-  together. Open owner decisions: art direction (lo-fi recommended),
-  buyable doors on the cabin, Halloween mini-event.
-
-- 2026-10-14: Monetization v1. The Supabase project had been paused
-  (free tier idle pause) -> restored. Shipped on branch
-  `claude/monetization-supporter-pack`: Supporter Pack (EUR 4.99 one-time,
-  cosmetics only) via Stripe Checkout + `entitlements` table + locker on the
-  start screen + free milestone unlocks, first-party analytics (`events`
-  table, anon id in localStorage, opt-out on privacy page), and a
-  `leaderboard` view with a supporter badge. Added /terms.html and
-  /privacy.html (owner must fill [OWNER_*] placeholders). Owner still needs
-  to put Stripe keys + service role key in Vercel (docs/LAUNCH_CHECKLIST.md).
-
-- 2026-07-07: Fixed inconsistent headshot damage (PR #121). Root cause: each
-  zombie's 4 decorative flame-burn cone meshes are `visible={false}` except
-  while on fire, but three.js `Mesh.raycast()` ignores `.visible` — one cone
-  sits right on the head hitbox with no `isHead` flag, so a visually clean
-  headshot could hit the invisible cone first and register as a body hit.
-  Fixed with `raycast={() => null}` on the flame meshes.
-
-- 2026-07-07: Fixed the claw-mark damage decal being invisible in real
-  gameplay (reported by product owner right after the HP/armor system
-  shipped). Root cause, found via Playwright + pixel sampling in a running
-  build: the decal component took `hitEventId` as a **prop** from `HUD`.
-  `HUD` re-renders constantly during combat (hp, ammo, every subscribed
-  field), and each of those re-renders reconciled the decal's JSX-declared
-  `opacity: 0` back onto the DOM node — stomping the ref-driven fade
-  animation within a frame or two of it starting, every time. It wasn't a
-  CSS/animation/z-index/canvas-stacking issue at all (ruled all of those out
-  first, expensively) — the fix was simply having the decal component
-  subscribe to `hitEventId` itself (`useGameStore((s) => s.hitEventId)`)
-  instead of receiving it from a parent that re-renders for unrelated
-  reasons. Also switched from a dynamic array of decals to a fixed
-  always-mounted pool (5 slots, round-robin, ref-mutated opacity) — avoids
-  mount/unmount churn, though the prop-drilling fix was the actual cure.
-  General lesson: any transient/animated child fed a "trigger" value as a
-  prop needs to either subscribe to that value directly or be memoized,
-  or a noisy parent will silently stomp its own animation state on re-render.
-
-- 2026-07-07: Added a player HP/armor system (branch
-  `claude/todo-list-review-cm98vz`). Replaces the old instant-kill-on-contact
-  model: player starts at 20 HP, zombies now deal per-archetype melee damage
-  (5 for walker/runner/screamer/crawler, 10 brute, 25 boss) via a new
-  `attack_player` zombie state that mirrors the existing `attack_window`
-  wind-up animation/timer. Shop sells Bandages (instant +5 HP, €15) and two
-  armor slots — Head (Bike Helmet +5hp/€20, Military Helmet +20hp/€100,
-  Knight Helmet +100hp/€200 + vision-limiting visor overlay) and Body (Biker
-  Jacket +15hp/€60, Bulletproof Vest +100hp/€200, Knight Armor +300hp/€400 +
-  0.7x speed penalty) — one item equipped per slot, buying a new one swaps
-  it and adjusts maxHp/hp by the delta. HUD gained an HP bar and a red
-  claw-mark screen decal that fades in 0.2s on hit. Armor is visible on the
-  co-op partner's remote avatar (procedural models, synced via the existing
-  position-broadcast channel) but not on the local player's own view. Built
-  via 4 parallel subagents (zombie AI, shop UI, HUD, remote visuals) after
-  discussing armor-slot design, bandage-as-instant-heal, and remote-only
-  models with the product owner; verified end-to-end in a live Playwright
-  session (zombie melee → HP/decal, shop buy/swap math, vision overlay).
-
-- 2026-06-19: Dynamic music (PR #115). Calm drone during intermission, heavy
-  dread during waves: 80 BPM half-time kick, off-beat hat, 55+58.3 Hz beating
-  drone pair (3.3 Hz pulse), boom stab every 6 s. 1.5 s crossfade in, 2.5 s
-  out. New export `setMusicIntensity(level)` in sounds.js. Volume balance
-  (kick vs drone vs calm layer) may need tuning after playtesting.
-
-- 2026-06-17: Added haptic feedback on mobile (PR #113, merged). Short pulse
-  per shot, shotgun double-tap, death thump. Android only — iOS has no web
-  vibration API. Also confirmed leaderboards already exist (removed from TODO).
-
-- 2026-06-17: Fixed window boarding bugs (PR #108). Three issues: (1) upgrading
-  to strong mode with 1 existing plank was calling addPlank (increment count)
-  instead of upgradePlanks — upgrade now takes priority; (2) plain plank could
-  be placed on a strong window — blocked in both Player.jsx and store; (3) second
-  strong plank was blocked by an overly broad store guard — guard now checks
-  strongPlanksMode before rejecting.
-
-- 2026-06-15: Fixed mobile camera-look freeze after intermission. Real
-  cause: MobileControls renders null during the brief wave_clear phase
-  (and when shop is open), unmounting the touch zones mid-drag with no
-  pointerup/pointercancel ever firing. Stale non-null lookPointerRef then
-  made the next touch register as the "secondary shoot finger" instead of
-  primary look, so look stopped responding (movement/shoot still worked).
-  Fix: reset all pointer-tracking refs whenever controls go inactive. Also
-  fixed a separate bug where intermission->playing didn't reset shopOpen
-  (left MobileControls fully invisible if shop was still open at wave
-  start). Branch `claude/mobile-controls-freeze-permission-d61fwn`.
-- 2026-06-14: Set up soul.md / memory.md / CLAUDE.md pointer. Discussed and
-  agreed on personality (blunt, discussion-first), vision (fun + retention,
-  performance-is-fun, monetization without hurting fun), and memory
-  structure. Built feature inventory from git history + open PRs. Closed
-  PRs #79 and #46 as superseded by what's already on main.
-- 2026-06-15: Reviewed architecture (mostly fine, Arena.jsx/Zombie.jsx are
-  large but not urgent) and confirmed R3F + Rapier-if-needed over a Godot
-  rewrite. Merged PR #91 (mobile controls: two-finger shoot+look,
-  tap-anywhere-fire, aim assist, auto-shoot) after discussing and keeping
-  the auto-shoot (COD Mobile precedent). Also fixed a pre-existing bug:
-  duplicate "R — reload · Q — knife" HUD hint on desktop.
-- 2026-06-15: Merged PR #94 — debug URL params (`?wave=`, `?money=`,
-  `?weapon=`) for fast manual testing, gated off on Vercel production
-  builds via `VITE_VERCEL_ENV`.
-- 2026-06-15: Added a standing workflow rule to CLAUDE.md — open a PR for
-  every session's work (even doc-only) and always report the Vercel
-  preview link (PR #100).
-- 2026-07-07: New maps groundwork. Discussed layout/theme ideas (barn,
-  gas-station diner, windowless bunker, two-story house), picked the
-  diner. Generalized cabin.js into src/maps/{cabin,diner}.js + maps/index.js
-  (wall segments, window defs, spawn clusters, chest pos, all data-driven;
-  walls.js/buildGrid already took segment arrays as input, so pathfinding
-  needed zero changes). store.js/Player.jsx/Zombie.jsx/NetManager.jsx now
-  resolve one `ACTIVE_MAP` at module load instead of importing cabin
-  directly; Arena.jsx untouched other than its import path since it's
-  cabin-specific by design. Added DinerArena.jsx (open floor plan, 4
-  storefront windows + 1 each E/W, one counter as the only interior
-  obstacle, gas-station forecourt exterior props) and
-  GasStationSkybox.jsx (procedural canvas texture, same recipe as
-  ForestSkybox). Map choice lives in `mapId` store state, defaulted via
-  `?map=` debug param gated off production (same convention as
-  wave/money/weapon). Verified in a real browser (Playwright): diner
-  renders and plays correctly on `?map=diner`, and a production build
-  ignores the param and stays on cabin. Not exposed to players yet —
-  intentionally dev/preview-only per product owner's call.
+Entries from before 2026-11-04 (feature inventory, the 10-26..11-03 roadmap pushes, mobile and versus builds,
+the Director design, the dated log) are in `docs/memory-archive.md`, verbatim.

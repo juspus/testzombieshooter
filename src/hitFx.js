@@ -1,10 +1,11 @@
-// Cosmetic per-hit feedback: zombie flinch/death-style (Zombie.hitReact) and
-// blood burst + decals (BloodFX.spawn). Called by Player.jsx for local hits and
+// Cosmetic per-hit feedback: zombie flinch/death-style (zombieSystem.hitReact) and
+// blood burst + decals (fxBus blood.spawn). Called by Player.jsx for local hits and
 // by NetManager for the co-op partner's hits (the payload from fxNet below
 // rides along on the existing 'hit_zombie' event). Must run AFTER
 // store.hitZombie so the zombie's `dying` flag is already set.
-import BloodFX from './components/BloodFX'
-import { Zombie, getZombiePositions } from './components/Zombie'
+import { blood } from './fxBus'
+import { zombieSystem } from './zombieLive'
+import { getZombiePositions } from './components/Zombie'
 import { useGameStore } from './store'
 import { isArmorDeflect } from './zombieSpecials'
 import { spawnImpact } from './impactParticles'
@@ -24,8 +25,8 @@ export function zombieHitFx(id, point, dir, head, weapon, dist) {
     playArmorPing(point.x, point.y, point.z)
     return
   }
-  const intensity = Zombie.hitReact(id, dir.x, dir.y, dir.z, head, weapon, dist)
-  BloodFX.spawn?.(point, dir, intensity, weapon === 'shotgun')
+  const intensity = zombieSystem.hitReact(id, dir.x, dir.y, dir.z, head, weapon, dist)
+  blood.spawn(point, dir, intensity, weapon === 'shotgun')
 }
 
 const r2 = (n) => Math.round(n * 100) / 100

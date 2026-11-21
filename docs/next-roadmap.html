@@ -1,0 +1,1643 @@
+<title>Night After Night</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Saira+Stencil+One&display=swap">
+<style>
+/* The control panel for the cabin: what Claude is building, in the owner's order, with the
+   roadmap below as the backlog. Dark boards with moonlight leaking through the gaps (the accent);
+   ember marks the progression track. Layout: one reading column. The panel comes first (pipeline
+   counts, needs-you, in progress, the reorderable queue, requests, shipped), then the roadmap. */
+:root {
+  --bg: #100f0d;
+  --surface: #181613;
+  --raised: #201d19;
+  --line: #322d26;
+  --fg: #e8e5df;
+  --muted: #a09a90;
+  --gap: #9fb0ff;          /* moonlight through the floorboards */
+  --gap-ink: #0d0f1c;
+  --ember: #f08a4b;        /* the progression track */
+  --go: #86c46f;
+  --talk: #e6c35c;
+  --skip: #e0675a;
+  --display: 'Saira Stencil One', Impact, 'Arial Narrow', sans-serif;
+  --body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f0f1f3; --surface: #ffffff; --raised: #f6f7f9; --line: #d4d8df;
+    --fg: #15171b; --muted: #59606c; --gap: #3446b8; --gap-ink: #ffffff; --ember: #b4500f;
+    --go: #3b7a2a; --talk: #8a6a00; --skip: #b23a2e;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f0f1f3; --surface: #ffffff; --raised: #f6f7f9; --line: #d4d8df;
+  --fg: #15171b; --muted: #59606c; --gap: #3446b8; --gap-ink: #ffffff; --ember: #b4500f;
+  --go: #3b7a2a; --talk: #8a6a00; --skip: #b23a2e;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 56px;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto;
+  height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg);
+}
+.wrap { max-width: 980px; margin: 0 auto; }
+.col { max-width: 760px; margin-inline: auto; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+p { margin: 0; }
+a { color: var(--gap); }
+:focus-visible { outline: 2px solid var(--gap); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.86em; background: var(--raised); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+
+.eyebrow, .label {
+  font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* Hero: boards with light in the gaps */
+.boards {
+  height: 34px; margin-top: 28px; border-radius: 4px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), color-mix(in srgb, var(--gap) 55%, transparent) calc(25% - 2px) 25%),
+    repeating-linear-gradient(180deg, var(--raised) 0 15px, color-mix(in srgb, var(--gap) 40%, transparent) 15px 17px, var(--surface) 17px 34px);
+  border: 1px solid var(--line);
+}
+.hero { display: grid; gap: 16px; padding-block: 22px 28px; }
+.hero > * { min-width: 0; }
+.hero h1 {
+  font-family: var(--display); font-weight: 400;
+  font-size: clamp(2.3rem, 10vw, 4.2rem); line-height: 0.95; letter-spacing: 0.01em;
+}
+.hero h1 span { color: var(--gap); }
+.verdict { font-size: 1.16rem; line-height: 1.5; max-width: 56ch; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 0; padding: 0; list-style: none; }
+.stat { display: grid; gap: 4px; align-content: start; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.stat b { font: 600 2rem/1 var(--mono); color: var(--gap); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stat b small { font-size: 0.9rem; font-weight: 600; color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+.stat span { font-size: 0.86rem; color: var(--muted); line-height: 1.4; }
+.stat.warm b { color: var(--ember); }
+.howto { color: var(--muted); max-width: 62ch; font-size: 0.94rem; }
+.legend { display: grid; gap: 6px; font-size: 0.86rem; color: var(--muted); }
+.legend b { color: var(--fg); font-weight: 700; }
+.strip { display: flex; flex-wrap: wrap; gap: 8px; }
+.strip a {
+  font-family: var(--mono); font-size: 0.8rem; text-decoration: none; color: var(--fg);
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; background: var(--surface);
+}
+.strip a b { color: var(--gap); font-weight: 600; margin-right: 6px; }
+.strip a.p b { color: var(--ember); }
+
+/* Sections */
+.section { display: grid; gap: 16px; padding-block: 28px; border-top: 1px solid var(--line); scroll-margin-top: 70px; }
+.section > * { min-width: 0; }
+.section > h2 { font-size: 1.45rem; }
+.prose { max-width: 62ch; display: grid; gap: 12px; color: var(--muted); }
+.prose b { color: var(--fg); }
+
+/* Tables (targets, unlocks) */
+.tscroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table.grid { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 540px; }
+.grid th, .grid td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.grid tr:last-child td { border-bottom: 0; }
+.grid th { font: 600 0.7rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.grid td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.grid td.now { color: var(--skip); }
+.grid td.tgt { color: var(--go); }
+.grid td a { font-family: var(--mono); font-size: 0.78rem; }
+.grid tr.band td { font: 600 0.7rem var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ember); background: var(--raised); padding-block: 6px; }
+.grid td.when { color: var(--muted); font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; }
+table.grid.fit { min-width: 0; }
+.grid.fit th, .grid.fit td { padding-inline: 10px; }
+.figure { display: grid; gap: 10px; margin: 0; }
+.figure h3 { font: 600 0.74rem var(--mono); color: var(--muted); letter-spacing: 0.04em; line-height: 1.4; }
+.startset { font-size: 0.9rem; color: var(--muted); padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; }
+.startset b { color: var(--fg); }
+
+/* Sticky filter bar */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  padding-block: 10px; display: grid; gap: 8px;
+}
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button {
+  font: 600 0.8rem var(--mono); color: var(--muted); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.filters button[aria-pressed="true"] { color: var(--gap-ink); background: var(--gap); border-color: var(--gap); }
+.sync { font-size: 0.8rem; color: var(--muted); }
+.sync[data-state="error"] { color: var(--skip); }
+
+/* Track headers */
+.track-head { display: grid; gap: 6px; padding-block: 40px 0; scroll-margin-top: 110px; }
+.track-head .label { color: var(--ember); }
+.track-head.t .label { color: var(--gap); }
+.track-head h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.9rem, 7vw, 2.6rem); line-height: 1; }
+.track-head p { color: var(--muted); max-width: 62ch; }
+
+/* Waves */
+.wave { display: grid; gap: 14px; padding-block: 28px 8px; scroll-margin-top: 110px; }
+.wave-head { display: flex; align-items: center; gap: 16px; }
+.wave-num {
+  display: grid; justify-items: center; line-height: 1; min-width: 72px;
+  font-family: var(--display); color: var(--gap);
+}
+.wave.p .wave-num { color: var(--ember); }
+.wave-num span { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+.wave-num b { font-size: 2.9rem; font-weight: 400; }
+.wave-head h2 { font-family: var(--display); font-weight: 400; font-size: 1.9rem; line-height: 1.05; letter-spacing: 0.01em; }
+.wave-head .tag { color: var(--muted); }
+.wave-head > div { min-width: 0; }
+.moves { font-size: 0.88rem; color: var(--muted); }
+.moves .label { color: var(--gap); margin-right: 8px; }
+.wave.p .moves .label { color: var(--ember); }
+.wave-intro { color: var(--muted); font-size: 0.94rem; max-width: 62ch; }
+.cards { display: grid; gap: 10px; }
+.empty-note { font-size: 0.88rem; color: var(--muted); font-style: italic; }
+
+/* Card */
+.card {
+  display: grid; gap: 10px; padding: 14px 14px 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  min-width: 0; scroll-margin-top: 110px;
+}
+.card[data-call="go"] { border-color: color-mix(in srgb, var(--go) 55%, var(--line)); }
+.card[data-call="skip"] { opacity: 0.62; }
+.card.ruled-out { opacity: 0.5; }
+.card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.card h3 { font-size: 1.06rem; line-height: 1.3; min-width: 0; }
+.effort {
+  flex: none; font: 600 0.72rem var(--mono); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; white-space: nowrap;
+}
+.line { color: var(--fg); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font: 0.74rem var(--mono); color: var(--muted); }
+.risk { font: 600 0.7rem var(--mono); border-radius: 999px; padding: 2px 9px; letter-spacing: 0.04em; border: 1px solid var(--line); color: var(--muted); }
+.risk.high { color: var(--skip); border-color: var(--skip); }
+.risk.medium { color: var(--talk); border-color: var(--talk); }
+.perf-faster { color: var(--go); }
+.pill { font: 600 0.7rem var(--mono); border-radius: 999px; padding: 2px 8px; letter-spacing: 0.04em; }
+.pill.building { color: var(--gap); border: 1px solid var(--gap); }
+.pill.shipped { color: var(--go); border: 1px solid var(--go); }
+.dep { color: var(--talk); }
+.carried { color: var(--ember); }
+.after a, .helps a { color: var(--muted); }
+details { border-top: 1px dashed var(--line); padding-top: 8px; }
+summary { cursor: pointer; font-size: 0.86rem; color: var(--gap); list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "+ "; font-family: var(--mono); }
+details[open] summary::before { content: "\2212  "; }
+.why { display: grid; gap: 10px; padding-top: 8px; color: var(--muted); }
+.evidence { font: 0.74rem/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.evidence .label { margin-right: 8px; color: var(--gap); }
+.why label { display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+textarea {
+  font: 0.92rem/1.45 var(--body); color: var(--fg); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; resize: vertical; min-height: 64px; width: 100%;
+}
+textarea:disabled { opacity: 0.6; }
+.calls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.calls button {
+  font: 700 0.86rem var(--body); min-height: 40px; cursor: pointer;
+  color: var(--muted); background: var(--raised); border: 1px solid var(--line); border-radius: 8px;
+}
+.calls button:disabled { cursor: default; opacity: 0.55; }
+.calls button[data-call="go"][aria-pressed="true"] { color: var(--go); border-color: var(--go); background: color-mix(in srgb, var(--go) 14%, var(--raised)); }
+.calls button[data-call="talk"][aria-pressed="true"] { color: var(--talk); border-color: var(--talk); background: color-mix(in srgb, var(--talk) 14%, var(--raised)); }
+.calls button[data-call="skip"][aria-pressed="true"] { color: var(--skip); border-color: var(--skip); background: color-mix(in srgb, var(--skip) 14%, var(--raised)); }
+
+/* Intermission (decision) */
+.intermission {
+  display: grid; gap: 12px; margin-block: 28px 4px; padding: 16px;
+  border: 1px dashed var(--gap); border-radius: 12px; background: color-mix(in srgb, var(--gap) 6%, var(--bg));
+  scroll-margin-top: 110px;
+}
+.intermission .label { color: var(--gap); }
+.intermission h2 { font-size: 1.25rem; }
+.intermission > p { color: var(--muted); max-width: 62ch; }
+.options { display: grid; gap: 10px; }
+.option { display: grid; gap: 8px; align-content: start; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.option-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.option h3 { font-size: 1rem; }
+.option p { color: var(--muted); font-size: 0.94rem; }
+.rec { font: 600 0.68rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--gap); white-space: nowrap; }
+.option button, .talk-btn {
+  font: 700 0.86rem var(--body); min-height: 40px; cursor: pointer; justify-self: start; padding: 0 16px;
+  color: var(--fg); background: var(--raised); border: 1px solid var(--line); border-radius: 8px;
+}
+.option button[aria-pressed="true"] { color: var(--gap-ink); background: var(--gap); border-color: var(--gap); }
+.talk-btn[aria-pressed="true"] { color: var(--talk); border-color: var(--talk); }
+.option button:disabled, .talk-btn:disabled { cursor: default; opacity: 0.55; }
+.option[data-picked="true"] { border-color: var(--gap); }
+.dnote { display: grid; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+
+/* Charts (HTML bars, one linear scale per chart) */
+.chart { display: grid; gap: 10px; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin: 0; }
+.chart h3 { font: 600 0.74rem var(--mono); color: var(--muted); letter-spacing: 0.04em; line-height: 1.4; }
+.hbars { display: grid; gap: 8px; }
+.hrow { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 4px 10px; align-items: center; }
+.hrow .name { font-size: 0.84rem; color: var(--fg); min-width: 0; overflow-wrap: anywhere; }
+.track { position: relative; height: 22px; background: color-mix(in srgb, var(--line) 45%, transparent); border-radius: 4px; }
+.fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--gap); min-width: 2px; }
+.fill.bad { background: var(--skip); }
+.fill.good { background: var(--go); }
+.fill.warm { background: var(--ember); }
+.val { position: absolute; top: 50%; transform: translateY(-50%); font: 600 0.74rem var(--mono); color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.limit { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px dashed var(--talk); }
+.axis { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 10px; }
+.ticks { position: relative; height: 16px; font: 0.68rem var(--mono); color: var(--muted); }
+.ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.ticks span:first-child { transform: none; }
+.ticks span:last-child { transform: translateX(-100%); }
+.caption { color: var(--muted); font-size: 0.88rem; max-width: 62ch; }
+@media (max-width: 520px) {
+  .hrow, .axis { grid-template-columns: minmax(0, 1fr); }
+  .axis > :first-child { display: none; }
+}
+
+/* Lists */
+.later { margin: 0; padding: 0; list-style: none; display: grid; }
+.later li { display: grid; gap: 2px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.later li:first-child { padding-top: 0; }
+.later b { font-weight: 700; }
+.later span { color: var(--muted); font-size: 0.94rem; }
+.yours { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; counter-reset: y; }
+.yours li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.yours li::before { counter-increment: y; content: counter(y); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--ember); color: var(--ember); font: 600 0.74rem var(--mono); }
+.yours b { display: block; }
+.yours span { color: var(--muted); font-size: 0.92rem; }
+
+footer { padding-block: 28px 0; border-top: 1px solid var(--line); font-size: 0.86rem; color: var(--muted); display: grid; gap: 14px; }
+footer ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+footer li { min-width: 0; overflow-wrap: anywhere; }
+
+@media (min-width: 640px) {
+  .stats { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 700px) {
+  .options.three { grid-template-columns: repeat(3, 1fr); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+
+/* ── Control panel ─────────────────────────────────────────────────── */
+.panel { display: grid; gap: 22px; padding-block: 4px 32px; }
+.panel > * { min-width: 0; }
+.pipeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+@media (max-width: 520px) {
+  .pipeline { gap: 5px; }
+  .pipe { padding: 8px 6px; }
+  .pipe b { font-size: 1.35rem; }
+  .pipe span { font-size: 0.7rem; line-height: 1.25; }
+}
+.pipe { display: grid; gap: 3px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; text-decoration: none; color: inherit; }
+.pipe b { font: 600 1.7rem/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+.pipe span { font-size: 0.8rem; color: var(--muted); }
+.pipe.now b { color: var(--gap); }
+.pipe.review b { color: var(--talk); }
+.pipe.needs b { color: var(--ember); }
+.pipe.queued b { color: var(--fg); }
+.pipe.shipped b { color: var(--go); }
+.block { display: grid; gap: 10px; scroll-margin-top: 24px; }
+.block > * { min-width: 0; }
+.block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.block-head h2 { font-size: 1.2rem; }
+.block-head .hint { font-size: 0.84rem; color: var(--muted); max-width: 46ch; }
+.empty { font-size: 0.92rem; color: var(--muted); padding: 12px; border: 1px dashed var(--line); border-radius: 10px; }
+.empty b { color: var(--fg); }
+
+/* Needs you */
+.needs { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.needs li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ember); border-radius: 8px; font-size: 0.94rem; }
+.needs .kind { font: 600 0.68rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ember); white-space: nowrap; }
+.needs li.k-blocked { border-left-color: var(--skip); }
+.needs li.k-blocked .kind { color: var(--skip); }
+.needs li.k-review { border-left-color: var(--talk); }
+.needs li.k-review .kind { color: var(--talk); }
+.needs a { color: var(--fg); }
+.needs .sub { display: block; color: var(--muted); font-size: 0.86rem; }
+.linkbtn { font: inherit; color: var(--gap); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+
+/* In progress */
+.active-list { display: grid; gap: 10px; }
+.active { display: grid; gap: 8px; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.active.s-building { border-color: color-mix(in srgb, var(--gap) 55%, var(--line)); }
+.active.s-review { border-color: color-mix(in srgb, var(--talk) 55%, var(--line)); }
+.active.s-blocked { border-color: color-mix(in srgb, var(--skip) 60%, var(--line)); }
+.active h3 { font-size: 1.04rem; line-height: 1.3; min-width: 0; }
+.active h3 a { color: var(--fg); text-decoration: none; }
+.active h3 a:hover { text-decoration: underline; }
+.summary { color: var(--fg); }
+.blocker { padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--skip) 10%, var(--surface)); color: var(--fg); font-size: 0.92rem; }
+.blocker b { color: var(--skip); }
+.pbar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--line) 60%, transparent); overflow: hidden; }
+.pbar i { display: block; height: 100%; border-radius: 999px; background: var(--gap); }
+.s-review .pbar i { background: var(--talk); }
+.s-blocked .pbar i { background: var(--skip); }
+.pbar.mini { height: 5px; width: 72px; display: inline-block; vertical-align: middle; }
+.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 0.9rem; }
+.steps li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; color: var(--muted); }
+.steps li::before { content: ""; width: 12px; height: 12px; margin-top: 5px; border-radius: 3px; border: 1.5px solid var(--line); }
+.steps li.done { color: var(--fg); }
+.steps li.done::before { background: var(--go); border-color: var(--go); }
+.links { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 0.8rem var(--mono); }
+.tiny { font: 0.74rem var(--mono); color: var(--muted); }
+
+/* The queue */
+.qlist { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; counter-reset: q; }
+.qrow {
+  display: grid; grid-template-columns: 2.1rem minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 9px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  position: relative;
+}
+.qrow.first { border-color: color-mix(in srgb, var(--gap) 55%, var(--line)); }
+.qrow.hold { opacity: 0.6; }
+.qrow.dragging { z-index: 2; border-color: var(--gap); box-shadow: 0 8px 22px color-mix(in srgb, #000 40%, transparent); background: var(--raised); }
+.qrow.flash { animation: flash 0.9s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--gap) 20%, var(--surface)); } to { background: var(--surface); } }
+.rank { font: 600 1rem var(--mono); color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.qrow.first .rank { color: var(--gap); }
+.qmain { display: grid; gap: 3px; min-width: 0; }
+.qtitle { font-size: 0.98rem; line-height: 1.3; }
+.qtitle a { color: var(--fg); text-decoration: none; }
+.qtitle a:hover { text-decoration: underline; }
+.trk { font: 600 0.66rem var(--mono); letter-spacing: 0.06em; border-radius: 4px; padding: 1px 5px; margin-right: 6px; vertical-align: 1px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.trk.p { color: var(--ember); border-color: color-mix(in srgb, var(--ember) 50%, var(--line)); }
+.trk.t { color: var(--gap); border-color: color-mix(in srgb, var(--gap) 50%, var(--line)); }
+.trk.x { color: var(--go); border-color: color-mix(in srgb, var(--go) 50%, var(--line)); }
+.qmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font: 0.74rem var(--mono); color: var(--muted); }
+.qmeta .linkbtn { font: 0.74rem var(--mono); }
+.qmeta .held { color: var(--talk); }
+.qmeta .next { color: var(--gap); }
+.qctl { display: flex; gap: 4px; align-items: center; }
+.qctl button, .grip {
+  width: 38px; height: 38px; display: grid; place-items: center; padding: 0;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--raised); color: var(--fg); cursor: pointer;
+}
+.qctl button:disabled { opacity: 0.35; cursor: default; }
+.grip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.grip:active { cursor: grabbing; }
+.qctl svg { width: 16px; height: 16px; fill: currentColor; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Request form */
+.request { display: grid; gap: 8px; padding: 14px; background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; }
+.request label { display: grid; gap: 4px; font-size: 0.84rem; color: var(--muted); }
+.request input[type="text"] {
+  font: 0.96rem var(--body); color: var(--fg); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; width: 100%;
+}
+.request .row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.request .check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--muted); }
+.request button[type="submit"] {
+  font: 700 0.9rem var(--body); min-height: 40px; padding: 0 18px; cursor: pointer;
+  color: var(--gap-ink); background: var(--gap); border: 1px solid var(--gap); border-radius: 8px;
+}
+.request button:disabled, .request input:disabled, .request textarea:disabled { opacity: 0.55; cursor: default; }
+.formmsg { font-size: 0.84rem; color: var(--muted); }
+
+/* Shipped */
+details.shipped { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface); }
+details.shipped summary { color: var(--fg); font-weight: 700; }
+.shiplist { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.shiplist li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding-block: 6px; border-top: 1px solid var(--line); font-size: 0.92rem; }
+.shiplist a { color: var(--fg); }
+
+/* Owner chores (checkable) */
+.yours li { grid-template-columns: 26px minmax(0, 1fr) auto; }
+.yours li.done { opacity: 0.6; }
+.yours li.done b { text-decoration: line-through; }
+.chore-btn {
+  font: 700 0.82rem var(--body); min-height: 36px; padding: 0 12px; cursor: pointer; align-self: center;
+  color: var(--muted); background: var(--raised); border: 1px solid var(--line); border-radius: 8px; white-space: nowrap;
+}
+.chore-btn[aria-pressed="true"] { color: var(--go); border-color: var(--go); }
+.chore-btn:disabled { opacity: 0.55; cursor: default; }
+
+.pill.review { color: var(--talk); border: 1px solid var(--talk); }
+.pill.blocked { color: var(--skip); border: 1px solid var(--skip); }
+.pill.queued { color: var(--fg); border: 1px solid var(--line); }
+.card .pbar.mini { margin-left: 2px; }
+.urgent { color: var(--skip); }
+
+@media (max-width: 480px) {
+  .qrow { grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 8px; padding: 8px; }
+  .qctl button, .grip { width: 34px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qrow.flash { animation: none; }
+}
+</style>
+
+<div class="wrap">
+  <div class="boards col" aria-hidden="true"></div>
+  <header class="hero col" style="padding-bottom: 14px;">
+    <p class="eyebrow">Control panel · the cabin · progression and tech</p>
+    <h1>Night After <span>Night</span></h1>
+    <p class="verdict">This is where you run my work. <b>Go</b> puts a card in the queue. The queue's order is the order I build in, and you can reorder it any time. Every card shows how far along it is.</p>
+    <p class="sync" data-sync data-state="loading">Loading the panel…</p>
+  </header>
+
+  <section class="panel col" id="panel" aria-label="Control panel">
+    <ul class="pipeline" id="pipeline" aria-label="Work at a glance"></ul>
+
+    <section class="block" id="needs-block" aria-labelledby="h-needs">
+      <div class="block-head"><h2 id="h-needs">Needs you</h2><p class="hint">Decisions, reviews and blockers waiting on you.</p></div>
+      <ul class="needs" id="needs"></ul>
+    </section>
+
+    <section class="block" id="now-block" aria-labelledby="h-now">
+      <div class="block-head"><h2 id="h-now">In progress</h2><p class="hint">I update these as I work: steps, a one-line summary, then the PR and a preview link.</p></div>
+      <div class="active-list" id="active"></div>
+    </section>
+
+    <section class="block" id="queue-block" aria-labelledby="h-queue">
+      <div class="block-head"><h2 id="h-queue">Queue</h2><p class="hint">I finish what's in progress, then take the top item that isn't on hold. Drag the handle or use the arrows to reorder.</p></div>
+      <ol class="qlist" id="queue"></ol>
+      <p class="sr-only" id="queue-live" aria-live="polite"></p>
+    </section>
+
+    <form class="request" id="request" aria-labelledby="h-request">
+      <h2 id="h-request" style="font-size: 1.05rem;">Ask for something</h2>
+      <label for="req-title">What should I build or fix?
+        <input type="text" id="req-title" maxlength="120" placeholder="For example: The shotgun feels weak past wave 10" required disabled>
+      </label>
+      <label for="req-detail">Details (optional)
+        <textarea id="req-detail" rows="2" maxlength="2000" placeholder="What you saw, what you want, anything I should know" disabled></textarea>
+      </label>
+      <div class="row">
+        <label class="check" for="req-top"><input type="checkbox" id="req-top" disabled> Put it first in the queue</label>
+        <button type="submit" id="req-submit" disabled>Add to the queue</button>
+      </div>
+      <p class="formmsg" id="req-msg" aria-live="polite"></p>
+    </form>
+
+    <details class="shipped" id="shipped-block">
+      <summary id="shipped-sum">Shipped</summary>
+      <ul class="shiplist" id="shipped"></ul>
+    </details>
+  </section>
+
+  <div class="col">
+    <nav class="strip" aria-label="Jump to a section of the roadmap" style="padding-block: 6px 18px;">
+      <a href="#today"><b>=</b>Today</a>
+      <a href="#w0"><b>0</b>Board up</a>
+      <a class="p" href="#p1"><b>P1</b>Find</a>
+      <a class="p" href="#p2"><b>P2</b>Counts</a>
+      <a class="p" href="#p3"><b>P3</b>Tonight</a>
+      <a class="p" href="#p4"><b>P4</b>Longer</a>
+      <a href="#t1"><b>T1</b>Lighter</a>
+      <a href="#t2"><b>T2</b>Rooms</a>
+      <a href="#t3"><b>T3</b>Signal</a>
+      <a href="#t4"><b>T4</b>Sessions</a>
+      <a href="#requests"><b>+</b>Requests</a>
+      <a href="#yours"><b>!</b>Yours</a>
+      <a href="#later"><b>…</b>Not now</a>
+    </nav>
+  </div>
+
+  <section class="section col" id="today" aria-labelledby="h-today">
+    <p class="label" style="color: var(--ember);">The roadmap · the backlog the queue is fed from</p>
+    <h2 id="h-today">Why this plan: what players do today</h2>
+    <p class="prose">From the events table, 25 Oct to 10 Nov. Automated browsers are excluded, but your own visits and preview links are counted, so read these as direction, not precision.</p>
+    <div class="tscroll" tabindex="0" role="region" aria-label="Player numbers, scrolls sideways on small screens">
+      <table class="grid">
+        <thead><tr><th scope="col">Measure</th><th scope="col">Value</th><th scope="col">What it says</th></tr></thead>
+        <tbody>
+          <tr><td>Devices that played</td><td class="num">49</td><td>101 sessions on 10 different days.</td></tr>
+          <tr><td>Came back on another day</td><td class="num now">5 (10%)</td><td>Nine in ten never return. This is the number the progression track is meant to move.</td></tr>
+          <tr><td>Wave where the median recorded run ends</td><td class="num now">3</td><td>Most players never see brutes (wave 5), the boss (10) or spiders (11). The first goals have to be reachable before wave 5.</td></tr>
+          <tr><td>XP for a run that ends at wave 3</td><td class="num">about 95</td><td>At that rate the diner (level 5) takes about nine runs, and level 8 about 29.</td></tr>
+          <tr><td>Daily Runs started / finished</td><td class="num">6 / 2</td><td>The best daily hook we have is barely used, and its board isn't switched on.</td></tr>
+          <tr><td>Level rewards that are cosmetic</td><td class="num now">7 of 11</td><td>And nothing comes after level 20. All 6 guns are in the Mystery Box on the first run.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="bar col" role="region" aria-label="Filter roadmap cards by your call">
+    <div class="filters" id="filters"></div>
+  </div>
+
+  <div class="col">
+    <main id="waves"></main>
+
+    <section class="wave x" id="requests" aria-labelledby="h-requests">
+      <header class="wave-head">
+        <div class="wave-num" aria-hidden="true" style="color: var(--go);"><span>Your</span><b>+</b></div>
+        <div><h2 id="h-requests">Requests</h2><p class="tag">What you asked for here or in chat. Each one starts as Go.</p></div>
+      </header>
+      <div class="cards" id="request-cards"></div>
+      <p class="empty-note" id="requests-empty">No requests yet. Use "Ask for something" at the top.</p>
+    </section>
+
+    <section class="section" id="yours" aria-labelledby="h-yours" style="margin-top: 32px;">
+      <h2 id="h-yours">Only you can do these</h2>
+      <p class="prose">Carried over from the earlier roadmaps and MEMORY.md. None of them needs code. Tick them off here when they're done.</p>
+      <ol class="yours" id="chores"></ol>
+    </section>
+
+    <section class="section" id="later" aria-labelledby="h-later">
+      <h2 id="h-later">Not now, and why</h2>
+      <ul class="later">
+        <li><b>Permanent stat upgrades between runs</b><span>More HP or damage feels like progress for a week, then makes the waves you've learned trivial and the leaderboard meaningless. This becomes a card only if you pick B on "What should bring a player back?".</span></li>
+        <li><b>Themed special waves</b><span>You skipped them on 27 Oct. NEW BEST and the unlock moment give the run some of that shape without changing the waves.</span></li>
+        <li><b>CrazyGames and Poki</b><span>You skipped them on 27 Oct. Either way, portals judge first-session retention, so they'd come after this plan.</span></li>
+        <li><b>Seasonal events</b><span>Marked Discuss on 27 Oct. A calendar of events needs players who are already coming back.</span></li>
+        <li><b>3–4 players</b><span>Marked Discuss on 27 Oct. It's still the P2P vs server question, and the network protocol card makes either path easier.</span></li>
+        <li><b>Rapier physics, an ECS library, another engine</b><span>No problem today that they solve. Moving to another engine was ruled out on 15 June.</span></li>
+        <li><b>Skinned or GLTF zombie models</b><span>That's a new art pipeline. The merge card keeps the lo-fi box look you picked.</span></li>
+        <li><b>Switching maps without a reload</b><span><code>ACTIVE_MAP</code> is fixed at page load in six files. Worth fixing only when a feature needs it.</span></li>
+        <li><b>Quality tiers</b><span>You skipped them, and the frame governor covers the GPU side.</span></li>
+      </ul>
+    </section>
+
+    <section class="section" id="done" aria-labelledby="h-done">
+      <h2 id="h-done">Before this page</h2>
+      <p class="prose">The <a href="https://claude.ai/artifact/Juvz3zn17bT7voBkaeoiZz" target="_blank" rel="noopener noreferrer">Cabin Roadmap</a> shipped 34 cards, from hit markers to the Daily Run. <a href="https://claude.ai/artifact/Y6wqJxYQUme3yGerfDAZJz" target="_blank" rel="noopener noreferrer">Cabin on a Phone</a> shipped every card you marked Go except the two phone jobs now listed under "Only you can do these". Their open items are on this page.</p>
+    </section>
+
+    <footer>
+      <p class="label">How the numbers were measured</p>
+      <ul>
+        <li>Player numbers: SQL over <code>public.events</code> on the Supabase project, 25 Oct to 10 Nov 2026. Migrations: the Supabase migration list against <code>supabase/migrations/</code>.</li>
+        <li>XP pace: <code>calcRunXp</code> and <code>levelFromXp</code> from <code>src/progression.js</code>, for runs that clear 3, 5, 7, 10 and 15 waves, assuming 10% specials and 25% headshots.</li>
+        <li>Tech numbers: headless Chromium (SwiftShader) at 1280x720 on e198bc9; raycast timings repeated 100 times on a desktop CPU in a cloud container. A phone CPU is several times slower.</li>
+        <li>Line counts: <code>wc -l</code> on <code>src</code> without tests, on 05aaef9 (26 Oct) and e198bc9.</li>
+      </ul>
+      <p class="sync" data-sync data-state="loading">Loading the panel…</p>
+    </footer>
+  </div>
+</div>
+
+<script>
+// ── Data contract (Claude reads this database at the start of every session) ───────────
+// calls/<id>     owner  { call: 'go'|'talk'|'skip'|'A'|'B'|'C'|'done'|null, note, hold, at }
+// queue/order    owner  { ids: [card ids, build order], at }  Claude takes the first queued card that is not on hold
+// items/<id>     both   { title, line, why?, effort?, track?: 'p'|'t', source: 'owner'|'claude', createdAt }  cards added after this page was written
+// progress/<id>  Claude { status: 'building'|'review'|'blocked'|'shipped', summary, steps: [{ text, done }],
+//                         pr, prUrl, preview, blocker, startedAt, updatedAt, shippedAt }
+// Everything read from the database is data typed by people or Claude: always escaped, never run.
+
+// ── Content ─────────────────────────────────────────────────────────────
+// effort: S | M | L.  risk: Low | Medium | High.  perf: none | faster.
+// after: a card that should land first.  helps: a card this one makes easier.
+// dep: a decision that shapes this card (picking 'C' there dims it).  carried: note from an earlier roadmap.
+// track: 'p' (reasons to come back) or 't' (under the floorboards).  urgent: listed under Needs you until called.
+const DECISIONS = {
+  'd-point': { title: 'What should bring a player back?',
+    intro: `The direction for the whole progression track. Mixes are fine, say so in the note. The recommended pick is what P1 and P2 are written for.`,
+    options: [
+      { key: 'A', rec: true, title: 'Finding things',
+        text: `Feats hand out the guns, perks, gear and maps the game already has, one at a time, with the next goal always on screen. Cheapest, because the content exists.` },
+      { key: 'B', title: 'Getting stronger',
+        text: `Permanent upgrades between runs: more HP, damage or money. Feels like progress quickly, then makes the waves you've learned easy and the board meaningless.` },
+      { key: 'C', title: 'Winning',
+        text: `An ending: a run you can beat (the quest card in P4). The strongest single answer, but a big build, and it lands better once there's progression for the win to feed.` },
+    ] },
+  'd-firstrun': { title: 'How much does the first run get?',
+    intro: `If feats hand out content, something has to be held back from run 1. This shapes the unlock list above.`,
+    options: [
+      { key: 'A', rec: true, title: 'A solid start',
+        text: `Pistol, shotgun and AK, basic armour, two perks and three power-ups. It still feels like the game, and everything else is earned.` },
+      { key: 'B', title: 'Bare start',
+        text: `Pistol and knife only. The most to unlock, but run 1 is thin, and that's the run that decides whether a new player stays.` },
+      { key: 'C', title: 'Keep everything',
+        text: `Run 1 stays as it is today. Then unlocks have to be new content, which means building that content first.` },
+    ] },
+  'd-types': { title: 'How much type checking?',
+    intro: `This shapes the last card in T3. You picked A here but skipped that card. If you meant none, pick C.`,
+    options: [
+      { key: 'A', rec: true, title: 'Contracts only',
+        text: `checkJs and JSDoc on about ten boundary files. The rest stays plain JS. Low churn, and it catches most cross-file mistakes.` },
+      { key: 'B', title: 'Full TypeScript',
+        text: `Convert all of src to .ts and .tsx over several weeks. The best tooling, but it touches every file and blocks other branches while it runs.` },
+      { key: 'C', title: 'None',
+        text: `Keep plain JS and rely on tests and the linter.` },
+    ] },
+}
+
+// Jobs only the owner can do. Ticked off on this page (calls/<id>.call = 'done').
+const CHORES = [
+  { id: 'o-legal', title: 'Fill the placeholders on the legal pages', text: `privacy.html still has 2 [OWNER_…] placeholders and terms.html has 3.` },
+  { id: 'o-bench', title: 'Ten minutes on your own phone', text: `Open the game with ?bench, note the FPS at wave 10, and play one wave with sound. Every perf number here so far comes from a desktop CPU.` },
+  { id: 'o-turn', title: 'Pick a TURN provider', text: `Set TURN_URLS, TURN_USERNAME and TURN_CREDENTIAL in Vercel, so co-op connects on mobile data. Steps are in docs/LAUNCH_CHECKLIST.md.` },
+  { id: 'o-stripe', title: 'Stripe keys, when you want the Supporter Pack live', text: `It's built but inert. The entitlements table has 0 rows.` },
+]
+
+const WAVES = [
+  { id: 'w0', n: '0', track: 't', name: 'Board up first', tag: 'Fix what is broken and put the safety net in. All small.',
+    moves: `The Daily Run gets a working board, and regressions get caught on the PR instead of in your playtest.`,
+    items: [
+      { id: 'p-boards', track: 'p', title: 'Turn the daily and weekly boards on', effort: 'S', risk: 'Low', perf: 'none', urgent: true,
+        urgentWhy: `The daily and weekly boards are broken in production. Go lets me fix it today.`,
+        line: `Apply the two migrations that never reached production. Today the Daily Run can't save a ranked attempt, and the weekly board quietly shows the all-time one.`,
+        why: `Production has 3 of the 6 files in supabase/migrations. Missing: 20261015 (hardening: indexes and checks on scores, events and entitlements) and 20261027 (the mode and seed_date columns and the daily and weekly views). The game falls back without an error, so nobody noticed. The Daily Run is the strongest reason to open the game today, and it has no board. With your Go I apply both through the Supabase connector, and you approve the call when it runs.`,
+        ev: `migration list on project "cabin": create_scores, profiles_and_scores_user_id, supporter_pack_…; supabase.js:97 (daily_unavailable); daily.test.js:163 (weekly falls back to all-time)` },
+      { id: 't-ci', title: 'Tests and build on every PR', effort: 'S', risk: 'Low', perf: 'none',
+        line: `A GitHub Actions check runs the 520 unit tests and the production build on every pull request.`,
+        why: `There is no .github folder, so the tests run only when an agent remembers to run them. Vercel builds the preview but never runs vitest. A perf rule has silently regressed twice (the fireplace shadow, then the shadow map size), and perfGuards.test.js only protects us if something runs it. The suite takes 15 s and the build 6 s.`,
+        ev: `no .github/ in the repo; vitest: 51 files, 520 tests, 14.6 s; vite build 5.6 s` },
+      { id: 't-budget', title: 'A perf budget every PR has to pass', effort: 'S', risk: 'Low', perf: 'none',
+        line: `A headless script starts wave 8 with 25 zombies and records draw calls, scene nodes, meshes, shadow casters, shader programs and the main chunk size. A PR that pushes one past its limit fails.`,
+        why: `These numbers drift and nobody notices. The 28 Oct note says 498 draws at wave 1, and I measured 723 on a similar setup. The setups may differ, and that's the problem: there's no fixed probe. It also makes every perf card in T1 provable.`,
+        ev: `wave 1: 723 draws; wave 8: 5,044 nodes, 4,442 meshes, 198 casters, 22 programs; main chunk 172 kB gzip` },
+      { id: 't-smoke', title: 'One solo run in CI', effort: 'S', risk: 'Low', perf: 'none', todo: true,
+        line: `Playwright loads the game, starts wave 1, kills a zombie and reaches wave 2. The co-op, versus, mail and director smoke scripts stay available on demand.`,
+        why: `Unit tests cover the pure modules well, but nothing checks that the game still boots and plays. The four smoke scripts in scripts/ work, but only by hand and only with a local PeerJS server. A solo smoke catches the white-screen class of bug, and the unlock work in P1 changes what a first run contains.`,
+        ev: `TODO.md "E2E smoke test"; scripts/twoplayer-, versus-, mail-, director-smoke.cjs` },
+      { id: 't-lint', title: 'A linter for real bugs, not style', effort: 'S', risk: 'Low', perf: 'none',
+        line: `ESLint with the React hooks rules plus unused and undefined variables. Existing code gets warnings, new code gets errors. No Prettier.`,
+        why: `There are 169 useEffect and useFrame blocks. A stale closure or a missing dependency is the bug an agent is most likely to write, and a linter catches it in a second. A whole-repo Prettier pass would touch every file and conflict with every open branch, for nothing a player sees.`,
+        ev: `no eslint or prettier config in the repo; 169 useEffect/useLayoutEffect/useFrame calls in src` },
+    ] },
+
+  { track: 'p', head: true, title: 'Reasons to come back', text: `The progression track. Each wave is something a player feels, in the order they'd feel it: something to find, a run that counts, a reason to open the game tonight, and a long tail for the players who stay.` },
+  { decisionRef: 'd-point' },
+
+  { id: 'p1', n: 'P1', track: 'p', name: 'Something to find', tag: 'Unlock by doing. The game you already built becomes the reward.',
+    moves: `Players who come back on a second day (5 of 49 today).`,
+    intro: `Today the first run has all six guns, both machines, every perk and every power-up. After two runs there's nothing left to find. This wave holds most of it back and hands it out for feats, with the next goal always on screen.`,
+    figure: 'unlocks',
+    decisionAfterFigure: 'd-firstrun',
+    items: [
+      { id: 'p-unlocks', title: 'Feats unlock the game', effort: 'M', risk: 'Medium', perf: 'none', dep: 'd-firstrun', after: 't-weapons',
+        line: `Each gun, perk, power-up, armour piece, machine and the diner gets a feat. Doing it adds that thing to every future run. The draft list is above. Tell me what to change in the note.`,
+        why: `This is the Vampire Survivors and Risk of Rain model. It's the cheapest big lever here because the content and most of the plumbing exist: progressTracker.js already counts kills by type and weapon, headshots, doors, box takes, modifier waves and power-ups for the 27 achievements, and the box pool, shop and loadouts already read from lists. The new parts are the gates and the saved unlock list in the profile. One file per gun (T2) makes the gun gates a data change.`,
+        ev: `progressTracker.js events; weaponRules.js BOX_WEIGHTS; store.js PERK_COSTS; powerups.js POWERUP_TYPES; mapSelect.js LOADOUTS` },
+      { id: 'p-journal', title: 'The Journal', effort: 'M', risk: 'Low', perf: 'none',
+        line: `One screen with everything: what you've unlocked, what's locked with its feat and progress (Kill 5 brutes: 3/5), and a bestiary of the 10 zombie types with your kill counts.`,
+        why: `Locked items with visible goals are what turn "I died" into "I'm two brutes from body armour". It takes over the Progress panel's achievements tab and uses the ui.jsx kit like the other menus. The bestiary also gives players who die early something to look forward to: silhouettes of zombies they haven't met yet.`,
+        ev: `ProgressPanels.jsx; achievements.js (27); store.js ZOMBIE_TYPE_UNLOCKS` },
+      { id: 'p-moment', title: 'The unlock moment', effort: 'S', risk: 'Low', perf: 'none',
+        line: `A short toast when a feat completes mid-run. On the death screen, a NEW card for each unlock and the three closest locked goals, with RETRY as the biggest button.`,
+        why: `The death screen is where a player decides whether to play again. Today it counts XP into a bar and names the next level reward, which is usually a crosshair colour. Near misses are the hook: "one wave short of your best" and "two brutes from body armour" both say one more run.`,
+        ev: `ProgressPanels.jsx:124-209 (XP rows, level-up flash); cosmetics.js nextLevelReward` },
+      { id: 'p-legacy', title: 'Existing players keep their progress', effort: 'S', risk: 'Low', perf: 'none',
+        line: `On the first load after the change, anything a player's lifetime stats and earned achievements already cover unlocks at once. Levels and cosmetics stay as they are.`,
+        why: `Nobody should open the game and find their guns gone. The profile already keeps lifetime kills, headshots, best wave and achievements, so most feats can be checked against it. Feats that need counts the profile never stored, like brute kills, start from zero, and the Journal says so.`,
+        ev: `cosmetics.js sanitizeStats; profilePersistence.js; progression.js legacyXp (the same move made for levels)` },
+      { id: 'p-fair', title: 'Daily Run and versus stay fair', effort: 'S', risk: 'Low', perf: 'none', helps: 't-modes',
+        line: `Daily Run, Seed Duel, Zombie Mail and the Director use the full set, whatever you've unlocked, so every rival has the same tools.`,
+        why: `Seeded modes compare players on the same spawns and box rolls. A different box pool per player would change the rolls and break the comparison. As a bonus, it's a free taste of the locked items, which is one more reason to go and unlock them.`,
+        ev: `rng.js keyedRandom (seeded box rolls); mapSelect.js effectiveLoadout (Daily already ignores loadouts)` },
+    ] },
+
+  { id: 'p2', n: 'P2', track: 'p', name: 'Every run counts', tag: 'Even a short run moves something you can see.',
+    moves: `Runs per session, and how many deaths end on RETRY instead of a closed tab.`,
+    items: [
+      { id: 'p-levels', title: 'Levels that pay every time', effort: 'S', risk: 'Low', perf: 'none',
+        line: `A reward at every level up to 30, and every fifth level lets you pick any one locked item, so a player stuck on a feat still moves. The first ten levels are retuned for 3- to 5-wave runs.`,
+        why: `Today there are 11 rewards in 100 levels, 7 of them cosmetic, and the last is at level 20. The curve assumes long runs: a 10-wave run pays about 870 XP, but the median recorded run ends at wave 3 and pays about 95. At that pace level 5 takes about nine runs. The fix is a flat bonus per wave cleared in early levels, not cheaper levels everywhere.`,
+        ev: `progression.js xpToNext, calcRunXp; cosmetics.js NAMED_LEVEL_REWARDS (5, 8, 12, 16) and level items (2, 3, 4, 6, 10, 14, 20)` },
+      { id: 'p-newbest', title: 'NEW BEST, mid-run', effort: 'S', risk: 'Low', perf: 'none',
+        line: `The HUD shows your best wave next to the wave counter, and passing it fires one NEW BEST banner. The death screen marks the record.`,
+        why: `Your best wave is the only number that carries over today, and the game never mentions it during a run. Passing it should feel like an event. It's one line of HUD and one banner, using the hints style you set (one short line).`,
+        ev: `stats.bestWave in the profile; HUD.jsx; hints.js style` },
+      { id: 'p-goals', title: 'Challenges that point at your next unlock', effort: 'S', risk: 'Low', perf: 'none', after: 'p-unlocks',
+        line: `Today's daily challenge targets the feat you're closest to, so playing the challenge also moves the Journal. The weekly one pays a pick of one locked item.`,
+        why: `Challenges work: 22 were completed in 17 days. But they're random and pay only XP. Pointing one at the nearest unlock gives a clear reason to play today, without adding a new system.`,
+        ev: `challenges.js TEMPLATES (generated from the date); events table: 22 challenge_complete` },
+    ] },
+
+  { id: 'p3', n: 'P3', track: 'p', name: 'Reasons for tonight', tag: 'Something new every day, with no streak to lose.',
+    moves: `Returns on a second day and in a second week.`,
+    items: [
+      { id: 'p-daily', title: 'Put the Daily Run up front', effort: 'S', risk: 'Low', perf: 'none', after: 'p-boards',
+        line: `The start menu leads with today's Daily Run: its modifier, your rank today, yesterday's result and the time left. One ranked attempt, then practice.`,
+        why: `6 Daily Runs were started and 2 finished in 17 days. It's one menu item among seven, and its board isn't switched on. A daily seed is a good reason to open the game, but only if players see it and can see how they placed.`,
+        ev: `Screens.jsx start menu; daily.js; events: 6 daily_start, 2 daily_end` },
+      { id: 'p-weekly', title: "Last week's result", effort: 'S', risk: 'Low', perf: 'none', after: 'p-boards',
+        line: `On the first visit of a new week, a card shows where you placed on last week's board, and that the new week starts from zero.`,
+        why: `A weekly board gives everyone a race they can win, but only if they find out how they did. Today the weekly board falls back to the all-time one, so this needs the migration first.`,
+        ev: `leaderboard_week view (not in production); weekly challenge reset in challenges.js` },
+      { id: 'p-nights', title: 'Nights survived this week', effort: 'S', risk: 'Low', perf: 'none',
+        line: `The start screen shows how many days you played this week and that the first run today pays a bonus. Missing a day costs nothing.`,
+        why: `The 50 XP first-run-of-the-day bonus already exists, but it's never shown before a run. Showing it makes the bonus a reason to play. There's no streak that resets, so no guilt and no dark pattern (SOUL.md).`,
+        ev: `progression.js XP.FIRST_RUN_OF_DAY = 50` },
+    ] },
+
+  { id: 'p4', n: 'P4', track: 'p', name: 'Longer nights', tag: 'For the players who have unlocked everything.',
+    moves: `Players still playing after a month.`,
+    items: [
+      { id: 'p-dials', title: 'Harder nights', effort: 'M', risk: 'Medium', perf: 'none',
+        line: `Reaching wave 20 unlocks dials you can turn on before a run: Bloodlust every wave, no Mystery Box, planks break twice as fast, half money. Each adds XP and shows on your board entry.`,
+        why: `This is the long-term loop in Brotato (danger levels) and Hades (heat). It reuses the existing modifiers and economy constants, so it's new rules, not new content. Dialled runs need their own board column, or they'd crowd out normal runs.`,
+        ev: `modifiers.js (fog, bloodlust, blackout, horde); store.js economy constants` },
+      { id: 'p-survivors', title: 'Survivors with a twist', effort: 'M', risk: 'Medium', perf: 'none', after: 'p-unlocks',
+        line: `Unlockable survivors replace the starting loadouts: each is a start kit plus one rule. For example, the Carpenter (planks cost half, no AK) or the Hunter (crossbow start, no Mystery Box).`,
+        why: `A loadout changes the first two waves. A rule changes the whole run, which is what makes the 30th run feel different from the 10th. No new models are needed: a survivor is a name, a kit and a rule.`,
+        ev: `mapSelect.js LOADOUTS and loadoutPatch` },
+      { id: 'p-mastery', title: 'Weapon mastery', effort: 'M', risk: 'Low', perf: 'none', carried: 'You marked this Discuss on 27 Oct',
+        line: `Kills with each gun raise its mastery and unlock that gun's earned finishes, shown in the Journal.`,
+        why: `It gives the guns players skip a reason to be picked. It fits better now than in October: the Journal is its natural home, and the feats already count kills per weapon. Earned finishes stay different from the Supporter ones, so the pack keeps its value.`,
+        ev: `challenges.js weapon_kills; cosmetics.js skins` },
+      { id: 'p-quest', title: 'An ending: escape the cabin', effort: 'L', risk: 'High', perf: 'none', carried: 'You said Go on 27 Oct, then stopped the build',
+        line: `An optional hidden quest per map: find the radio parts, call for rescue, hold out until extraction, and the run ends in a win.`,
+        why: `It's the most direct answer to "there's no point": a run you can actually win. It's also heavy design work. I'd build it after P1 and P2, when a win can feed a progression (an unlock, a badge on the board) instead of just ending the run.`,
+        ev: `main roadmap card "quest"; MEMORY.md "Cancelled by owner: cabin escape quest"` },
+      { id: 'p-maps', title: 'A third map', effort: 'L', risk: 'Medium', perf: 'none', carried: 'You said Go on new maps on 27 Oct, then stopped the barn',
+        line: `A new map once the unlock loop is in, so it arrives as an unlock players are chasing.`,
+        why: `A map is the most expensive content we can add, so it should land where it does the most. The maps schema (src/maps/) made the diner cheap, and the next one can follow it.`,
+        ev: `src/maps/cabin.js, diner.js, index.js` },
+    ] },
+
+  { track: 't', head: true, title: 'Under the floorboards', text: `The technical track, from the tech roadmap. src doubled in two weeks (13,908 to 28,449 lines), and the next features land in the same few big files. None of these cards change the game for players, except a smoother frame.` },
+
+  { id: 't1', n: 'T1', track: 't', name: 'Lighter zombies', tag: 'The hot paths phones pay for.',
+    moves: `Frame time in full waves on mid-range phones, and the hitch on every shotgun shot.`,
+    intro: `The frame governor lowers the resolution when frames run long, which only helps the GPU. Raycasts, draw call submission and scene-graph updates run on the CPU, and resolution doesn't change them. These cards do.`,
+    chart: 'rays',
+    items: [
+      { id: 't-hitbox', title: 'Hitboxes for zombies', effort: 'M', risk: 'Medium', perf: 'faster',
+        line: `Two or three invisible boxes per zombie (head, torso, legs) for bullets, pellets, aim assist and auto-shoot, instead of raycasting all 117 visible meshes.`,
+        why: `Every shot raycasts each zombie's whole mesh tree. On phones with auto-shoot on (the default), Player.jsx does that up to five times every frame. With 25 zombies in front it costs 2.05 ms per frame, and one shotgun shot costs 5.1 ms. Against boxes, the same targeting takes 0.03 ms. It also ends a class of bugs: the July headshot bug was an invisible flame cone catching the ray first. Hits follow boxes instead of the exact voxel outline, so you'd need to play it and say whether shooting still feels right.`,
+        ev: `Player.jsx:763-800 (auto-shoot, every frame), :575-600 (aim assist), :451 (pellets); MEMORY.md 2026-07-07` },
+      { id: 't-zombie-merge', title: 'Build each zombie from about 12 parts', effort: 'L', risk: 'High', perf: 'faster', after: 't-budget',
+        line: `Bake each zombie's 117 boxes into one mesh per moving part (head, torso, arms, legs), coloured per vertex. Same look, same animation code.`,
+        why: `Each mesh is one draw call when it's on screen, and one more node three.js updates every frame. With 25 zombies on screen that's about 2,900 draws and 3,200 nodes for zombies alone. Merged, it's about 300 draws. The limbs are already groups that the animation rotates, so the animation stays. What has to move: the hit flash and damage tint, bullet holes, the spider's flip frame and the variant colours. Biggest perf win on the page, and the riskiest.`,
+        ev: `measured 117 meshes and 127 nodes per zombie; 165 <mesh> tags in Zombie.jsx` },
+      { id: 't-static-merge', title: "Bake the cabin's static geometry", effort: 'M', risk: 'Medium', perf: 'faster',
+        line: `Merge walls, trim, beams and props that never move into a few meshes per material, the way furnitureParts.js already does for furniture, and stop updating their matrices every frame.`,
+        why: `Before any zombie spawns, the cabin is 1,541 meshes and about 1,900 nodes, and wave 1 draws 723 calls. Mesh count is the cost, not triangles: the whole frame is 16k triangles. Doors, planks, glass and anything that animates stay separate. The diner gets the same treatment.`,
+        ev: `1,541 meshes and 1,902 nodes with no zombies; 15.8k triangles at wave 1; src/furnitureParts.js` },
+      { id: 't-lazy', title: 'Load versus code only for versus', effort: 'S', risk: 'Low', perf: 'faster',
+        line: `The Director war map, mail HUD, duel and versus result screens load when a player starts that mode. Target: the main chunk back under 150 kB gzip.`,
+        why: `The main chunk grew from 146 to 172 kB gzip since the mobile roadmap, an 18% rise, and every solo player downloads it. The vendor chunk rule also pulls drei's OrbitControls into vendor-three, although only the model playground uses it.`,
+        ev: `vite build: index 172 kB gzip, vendor-three 224 kB gzip; vite.config.js:73` },
+    ] },
+
+  { id: 't2', n: 'T2', track: 't', name: 'Room by room', tag: 'Split along the seams the next features need.',
+    moves: `What the next mode, gun or unlock costs: one file and a table row, instead of edits in six files.`,
+    intro: `Six files are over 800 lines and four are over 1,500. Each card here is a move, not a rewrite: tests pass before and after, nothing changes for players, and each is its own PR so open branches can rebase.`,
+    chart: 'files',
+    items: [
+      { id: 't-weapons', title: 'One file per gun', effort: 'M', risk: 'Medium', perf: 'none', helps: 'p-unlocks',
+        line: `Each gun's numbers, fire behaviour, sound and model live in src/weapons/<gun>.js. Player.jsx calls weapon.fire(ctx) instead of branching per gun.`,
+        why: `A gun's stats live in at least four places today: constants at the top of store.js, weaponRules.js (BASE_CLIP, START_RESERVE), MAX_RESERVE and CALIBER_LABELS lower in store.js, and separate fire paths in Player.jsx. CLAUDE.md's weapon table is already out of date (no flamethrower, no crossbow). With one file per gun, an unlock gate or a new gun is one field.`,
+        ev: `store.js:79-92, 120-130, 1652; weaponRules.js:16-18; Player.jsx:385-600` },
+      { id: 't-modes', title: 'One rules table for game modes', effort: 'M', risk: 'Medium', perf: 'none', helps: 'p-fair',
+        line: `One modeRules(state) answers questions like canPause, submitsScore, ownsZombies, seededSpawns, usesUnlocks and deathEndsRun. Code asks the rule instead of checking which mode is on.`,
+        why: `There are 90 checks of runMode, mpRole, director.active and versus.active across 15 files, 28 of them in store.js. Every new mode has to find and patch all of them, and the unlock gates would add one more check everywhere. With the table, "seeded modes use the full set" is one line.`,
+        ev: `90 hits in 15 files: store.js 28, NetManager.jsx 15, Screens.jsx 7, coopRuntime.js 5, …` },
+      { id: 't-store-slices', title: 'Split store.js into slices', effort: 'M', risk: 'Low', perf: 'none',
+        line: `store.js becomes one file per area (wave, weapons and ammo, economy and shop, health and armour, planks and doors, co-op, versus and mail, director, unlocks), combined into the same useGameStore. Components don't change.`,
+        why: `store.js is 1,830 lines with 198 state keys and 103 actions in one create() call. Zustand supports slices directly, so the API stays the same, and the 8 store test files check the move. The unlock state gets its own slice from the start.`,
+        ev: `src/store.js: 1,830 lines, 198 keys, 103 actions, one create() at line 251` },
+      { id: 't-zombie-brain', title: 'Move zombie AI out of the render component', effort: 'L', risk: 'High', perf: 'faster', after: 't-smoke',
+        line: `Pathing, the state machine, attack timers and specials move into plain modules ticked by one ZombieSystem. Zombie.jsx keeps the model and the pose.`,
+        why: `Zombie.jsx is 1,714 lines and its frame loop alone is 480. Each of the 25 zombies runs its own copy and scans the whole zombie list every frame for screamer auras (25 x 25 checks). Outside React, the AI runs in Node, so a test can play a whole wave and the balance sim in T4 becomes possible. Highest risk on the page: co-op guest positions, the spider's surface frame and corpses all live in that loop.`,
+        ev: `Zombie.jsx:1192-1672 (useFrame), :1587 (screamer scan), :967 and :1052 (store lookups)` },
+      { id: 't-registry', title: 'Replace component side doors with modules', effort: 'S', risk: 'Low', perf: 'none',
+        line: `The 23 functions hung on components (Player.registerZombieRef, Gun.fire, Zombie.ignite, FlameSpray.zombieRefs, …) become small imported modules such as zombieRegistry.js and fxBus.js.`,
+        why: `Today one component calls another through a property set during render. You can't find the callers by searching imports, and a remount or a hot reload can leave a stale function in place.`,
+        ev: `23 assignments such as Player.registerZombieRef = … (Player.jsx:224), Gun.fire, Grenades.throw` },
+      { id: 't-split-files', title: 'Split the other big files', effort: 'M', risk: 'Low', perf: 'none', todo: true,
+        line: `sounds.js into sounds/ (buses, weapons, zombies, music, UI). Screens.jsx into screens/. Player.jsx into input, movement, interaction and firing. Arena.jsx into shell, lighting and props.`,
+        why: `Each has seams already. Screens.jsx holds 21 components, Arena.jsx 36, and sounds.js has 36 module-level variables. Player.jsx is one component with a 450-line frame loop. The Journal and the new death screen will add to Screens.jsx, so splitting it first keeps them out of a 1,500-line file.`,
+        ev: `sounds.js 1,853 · Screens.jsx 1,505 · Player.jsx 1,153 · Arena.jsx 1,131 lines` },
+    ] },
+
+  { id: 't3', n: 'T3', track: 't', name: 'Clear signal', tag: 'Co-op you can debug, and crashes you can see.',
+    moves: `Co-op bugs found from a log instead of guessed at. Crashes on players' phones show up in your data.`,
+    items: [
+      { id: 't-errors', title: "See crashes on players' devices", effort: 'S', risk: 'Low', perf: 'none',
+        line: `Uncaught errors, rejected promises and WebGL context losses go to the existing events table, rate-limited and with no personal data.`,
+        why: `44 of 49 devices never came back, and some of those may have hit a crash we never saw. The events table exists, and the analytics opt-out on the privacy page covers this too. About twenty lines give you a ranked list of real crashes.`,
+        ev: `src/analytics.js; Supabase events table; public/privacy.html opt-out` },
+      { id: 't-protocol', title: 'One list of network messages', effort: 'M', risk: 'Medium', perf: 'none',
+        line: `Every message kind, its payload and a validator in one netProtocol.js. A protocol version in the join handshake, more than one listener per kind, and a dev-only message log.`,
+        why: `There are about 45 message kinds across five send helpers. onMessage() keeps one handler per kind, so registering a second one silently replaces the first. There's no version check: the service worker can serve a cached old build to a player joining a host on the new one. Today that's a strange desync. After this, it's a clear "update the game" message.`,
+        ev: `net.js:72-79 (one listener per type in a Map); send, netSend, sendVersus, game_event, dir_*` },
+      { id: 't-checkjs', title: 'Type-check the contracts', effort: 'M', risk: 'Low', perf: 'none', dep: 'd-types',
+        line: `// @ts-check and JSDoc types on the files other code depends on: network messages, store slices, the map schema, weapon definitions and the unlock list. tsc --noEmit runs in CI.`,
+        why: `The most common cross-file mistake is a wrong field name, where one side writes a field and the other reads a different one. Types on the boundaries catch that without converting 28,000 lines.`,
+        ev: `no tsconfig/jsconfig; JSDoc already used in net.js and director.js` },
+    ],
+    decisionAfter: 'd-types' },
+
+  { id: 't4', n: 'T4', track: 't', name: 'Faster sessions', tag: 'How quickly and safely each build session can work.',
+    moves: `Time from session start to the first useful change, and how often a merge breaks something.`,
+    items: [
+      { id: 't-sim', title: 'Balance sim in Node', effort: 'M', risk: 'Low', perf: 'none', after: 't-zombie-brain', helps: 'p-levels',
+        line: `Play 100 seeded runs headless in seconds and print the curves: money and XP by wave, time to clear, damage taken, and which unlocks a typical player has after 1, 5 and 20 runs.`,
+        why: `Every pace in P1 and P2 is a guess until it's measured, and XP pace, door prices, armoured toughness and the director's costs are already marked as guesses. A sim doesn't replace a playtest, but it shows where a curve breaks before you play it. It needs the zombie AI out of React first.`,
+        ev: `MEMORY.md tuning notes (27 Oct, 3 Nov); seeded streams in rng.js` },
+      { id: 't-docs', title: 'Lighter session-start docs', effort: 'S', risk: 'Low', perf: 'none',
+        line: `CLAUDE.md keeps the rules and where things live. System write-ups move next to the code or into docs/. MEMORY.md entries older than two weeks move to an archive file.`,
+        why: `Every session starts by reading about 58 kB of CLAUDE.md, MEMORY.md, SOUL.md and TODO.md, roughly 15,000 tokens, before any work. Parts are stale: the weapon table is missing two guns, "Active" holds month-old entries, and SKILL.md is an empty template.`,
+        ev: `CLAUDE.md 24 kB, MEMORY.md 27 kB, TODO.md 4 kB, SOUL.md 3 kB; SKILL.md is the default stub` },
+      { id: 't-deadcode', title: 'Dead-code sweep', effort: 'S', risk: 'Low', perf: 'none',
+        line: `Run knip once to list unused files, exports and dependencies, then delete what's really dead.`,
+        why: `Two weeks of fast agent work leaves scaffolding behind. I haven't measured how much. knip gives the list in a minute, and every deleted line is one the next session doesn't have to read.`,
+        ev: `not measured yet` },
+    ] },
+]
+
+// The draft unlock list (P1). Pace = rough run count at today's run lengths; needs the sim and a playtest.
+const START_SET = `Pistol, Pump Shotgun and AK-47 in the shop, the knife, planks, Bandages, Bike Helmet and Biker Jacket, the Fast Hands and Carpenter perks, and the Max Ammo, Nuke and Carpenter power-ups. Doors work as today.`
+const UNLOCKS = [
+  ['Early: the first few runs'],
+  ['Grenades in the shop', 'Kill 15 zombies', 'run 1'],
+  ['Double Money power-up', 'Clear wave 3', 'runs 1–2'],
+  ['Strong planks', 'Board 15 windows in total', 'runs 2–3'],
+  ['Iron Sights perk', 'Get 20 headshots in total', 'runs 2–3'],
+  ['Mystery Box (Desert Eagle inside)', 'Reach wave 5', 'runs 2–4'],
+  ['Deep Pockets perk', 'Open 3 doors in total', 'runs 2–4'],
+  ['Knife Mastery perk', 'Get 10 knife kills in total', 'runs 3–5'],
+  ['Mid: a reason for the next week'],
+  ['Military Helmet and Bulletproof Vest', 'Kill 5 brutes', 'runs 4–6'],
+  ['Insta-Kill power-up', 'Survive a modifier wave', 'runs 4–6'],
+  ["Runner's Breath perk", 'Clear a wave without losing a plank', 'runs 4–8'],
+  ['Diner map (today: level 5)', 'Reach wave 10', 'runs 5–10'],
+  ['Upgrade Bench', 'Kill a boss', 'runs 5–10'],
+  ['Flamethrower in the box', 'Take 5 guns from the box in total', 'runs 6–10'],
+  ['Crossbow in the box', 'Kill 15 armored zombies', 'runs 6–12'],
+  ['Late: for players who stay'],
+  ['Knight Helmet and Knight Armor', 'Reach wave 15', 'runs 10+'],
+  ['Shotgun start (today: level 8)', 'Get 300 shotgun kills', 'runs 10+'],
+  ['AK-47 start (today: level 16)', 'Reach wave 15 on the diner', 'runs 15+'],
+  ['Harder nights dials (P4)', 'Reach wave 20', 'runs 15+'],
+]
+
+// ── Charts (each a single linear scale; values are the measurements above) ──
+const CHARTS = {
+  rays: { title: 'CPU time to find what a shot hits, 25 zombies in front (ms, measured)', max: 6, ticks: [0, 2, 4, 6], unit: 'ms',
+    rows: [
+      ['Auto-shoot, every frame, today', 2.05, 'bad'],
+      ['Same, with box hitboxes', 0.03, 'good'],
+      ['One shotgun shot, today', 5.12, 'bad'],
+    ],
+    caption: `A 60 fps frame has 16.7 ms for everything. Measured on a desktop CPU in a cloud container. A phone CPU is several times slower, and auto-shoot is on by default on phones.` },
+  files: { title: 'Lines per file, the six over 800', max: 2000, ticks: [0, 500, 1000, 1500, 2000], unit: '', limit: 800,
+    rows: [
+      ['sounds.js', 1853], ['store.js', 1830], ['Zombie.jsx', 1714],
+      ['Screens.jsx', 1505], ['Player.jsx', 1153], ['Arena.jsx', 1131],
+    ],
+    caption: `The dashed line is the 800-line target. src as a whole went from 13,908 lines on 26 Oct to 28,449 on 10 Nov.` },
+}
+
+
+// ── Rendering helpers ───────────────────────────────────────────────────
+const EFFORT_LABEL = { S: 'S · 1 session', M: 'M · 2–3 sessions', L: 'L · week+' }
+const PERF_LABEL = { none: 'Perf: none', faster: 'Perf: faster' }
+const CALLS = [['go', 'Go'], ['talk', 'Discuss'], ['skip', 'Skip']]
+const DEP_LABEL = { 'd-types': 'Shaped by the type-checking call', 'd-firstrun': 'Shaped by the first-run call' }
+const STATUS_LABEL = { queued: 'Queued', building: 'Building', review: 'In review', blocked: 'Blocked', shipped: 'Shipped' }
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const fmt = (v) => v >= 1000 ? v.toLocaleString('en-US') : String(v)
+const str = (v, max = 400) => (typeof v === 'string' ? v.slice(0, max) : '')
+const safeUrl = (u) => (typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u) ? u : null)
+const ICON = {
+  up: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3 2.5 9.5h11z"/></svg>',
+  down: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13 2.5 6.5h11z"/></svg>',
+  grip: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="3.5" r="1.4"/><circle cx="10.5" cy="3.5" r="1.4"/><circle cx="5.5" cy="8" r="1.4"/><circle cx="10.5" cy="8" r="1.4"/><circle cx="5.5" cy="12.5" r="1.4"/><circle cx="10.5" cy="12.5" r="1.4"/></svg>',
+}
+
+function toMs(v) {
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') { const t = Date.parse(v); return Number.isNaN(t) ? null : t }
+  return null
+}
+function ago(v) {
+  const t = toMs(v)
+  if (t == null) return ''
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000))
+  if (m < 2) return 'just now'
+  if (m < 60) return `${m} min ago`
+  const h = Math.round(m / 60)
+  if (h < 24) return `${h} h ago`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'yesterday' : `${d} days ago`
+}
+function day(v) {
+  const t = toMs(v)
+  return t == null ? '' : new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+// ── Built-in cards ──────────────────────────────────────────────────────
+const WAVE_LIST = WAVES.filter((w) => w.items)
+const BUILTIN = []
+for (const w of WAVE_LIST) for (const it of w.items) BUILTIN.push({ ...it, track: it.track || w.track, waveN: w.n === '0' ? 'W0' : w.n, waveId: w.id })
+const BUILTIN_BY_ID = Object.fromEntries(BUILTIN.map((c) => [c.id, c]))
+const TITLES = {}
+for (const [id, d] of Object.entries(DECISIONS)) TITLES[id] = d.title
+for (const w of WAVE_LIST) TITLES[w.id] = `${w.n} ${w.name}`
+for (const c of BUILTIN) TITLES[c.id] = c.title
+const DEPS = Object.fromEntries(BUILTIN.filter((c) => c.dep).map((c) => [c.id, c.dep]))
+
+// ── State ───────────────────────────────────────────────────────────────
+let calls = {}      // owner: id -> { call, note, hold }
+let progress = {}   // Claude: id -> { status, summary, steps, pr, prUrl, preview, blocker, ... }
+let items = {}      // id -> { title, line, why, effort, track, source, createdAt }
+let order = []      // owner: build order (card ids)
+let db = null
+let writable = false
+let filter = 'all'
+let dragging = null
+const dirty = new Set()
+const inflight = {}
+const queued = {}
+const noteTimers = {}
+let orderDirty = false
+let orderTimer = null
+let orderInflight = false
+let orderQueued = false
+
+try { filter = localStorage.getItem('cabin-panel-filter') || 'all' } catch (_) {}
+
+function itemIds() {
+  return Object.keys(items)
+    .filter((id) => !BUILTIN_BY_ID[id] && str(items[id]?.title))
+    .sort((a, b) => (toMs(items[a].createdAt) ?? 0) - (toMs(items[b].createdAt) ?? 0))
+}
+function card(id) {
+  if (BUILTIN_BY_ID[id]) return BUILTIN_BY_ID[id]
+  const d = items[id]
+  if (d && str(d.title)) return { id, title: str(d.title, 120), track: d.track === 'p' || d.track === 't' ? d.track : 'x', waveN: 'Req', extra: true, effort: EFFORT_LABEL[d.effort] ? d.effort : null }
+  const p = progress[id]
+  return { id, title: str(p?.title, 120) || id, track: 'x', waveN: '·', extra: true }
+}
+const titleOf = (id) => TITLES[id] ?? card(id).title
+const allCardIds = () => [...BUILTIN.map((c) => c.id), ...itemIds()]
+const statusOf = (id) => {
+  const s = progress[id]?.status
+  if (s === 'building' || s === 'review' || s === 'blocked' || s === 'shipped') return s
+  return calls[id]?.call === 'go' ? 'queued' : null
+}
+const isActive = (id) => ['building', 'review', 'blocked'].includes(progress[id]?.status)
+const steps = (id) => (Array.isArray(progress[id]?.steps) ? progress[id].steps.slice(0, 30).filter((s) => s && typeof s === 'object') : [])
+const stepFrac = (id) => { const s = steps(id); return s.length ? s.filter((x) => x.done).length / s.length : null }
+
+function queuedIds() {
+  const ids = allCardIds()
+  const go = new Set(ids.filter((id) => calls[id]?.call === 'go' && !isActive(id) && progress[id]?.status !== 'shipped'))
+  const out = []
+  for (const id of order) if (go.has(id) && !out.includes(id)) out.push(id)
+  for (const id of ids) if (go.has(id) && !out.includes(id)) out.push(id)
+  return out
+}
+function activeIds() {
+  const rank = { blocked: 0, review: 1, building: 2 }
+  return Object.keys(progress).filter(isActive)
+    .sort((a, b) => rank[progress[a].status] - rank[progress[b].status] || (toMs(progress[b].updatedAt) ?? 0) - (toMs(progress[a].updatedAt) ?? 0))
+}
+function shippedIds() {
+  return Object.keys(progress).filter((id) => progress[id]?.status === 'shipped')
+    .sort((a, b) => (toMs(progress[b].shippedAt ?? progress[b].updatedAt) ?? 0) - (toMs(progress[a].shippedAt ?? progress[a].updatedAt) ?? 0))
+}
+
+// ── Roadmap rendering (built once; state is applied by renderState) ─────
+function chartHtml(key) {
+  const c = CHARTS[key]
+  const pct = (v) => (v / c.max) * 100
+  const rows = c.rows.map(([name, v, tone]) => {
+    const p = pct(v)
+    const inside = p > 55
+    const valStyle = inside ? `right:calc(${100 - p}% + 8px);color:var(--gap-ink)` : `left:calc(${p}% + 8px)`
+    return `
+      <div class="hrow">
+        <span class="name">${esc(name)}</span>
+        <div class="track">
+          <div class="fill ${tone || ''}" style="width:${p}%"></div>
+          ${c.limit ? `<div class="limit" style="left:${pct(c.limit)}%" aria-hidden="true"></div>` : ''}
+          <span class="val" style="${valStyle}">${fmt(v)}${c.unit ? ' ' + c.unit : ''}</span>
+        </div>
+      </div>`
+  }).join('')
+  const label = c.rows.map(([n, v]) => `${n} ${fmt(v)}${c.unit ? ' ' + c.unit : ''}`).join('; ')
+  return `
+  <figure class="chart">
+    <h3>${esc(c.title)}</h3>
+    <div class="hbars" role="img" aria-label="${esc(c.title)}: ${esc(label)}${c.limit ? '; target ' + c.limit : ''}">${rows}</div>
+    <div class="axis" aria-hidden="true"><span></span><div class="ticks">${c.ticks.map((t) => `<span style="left:${pct(t)}%">${fmt(t)}</span>`).join('')}</div></div>
+    <figcaption class="caption">${esc(c.caption)}</figcaption>
+  </figure>`
+}
+
+function unlocksHtml() {
+  const rows = UNLOCKS.map((r) => r.length === 1
+    ? `<tr class="band"><td colspan="3">${esc(r[0])}</td></tr>`
+    : `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td class="when">${esc(r[2])}</td></tr>`).join('')
+  return `
+  <figure class="figure">
+    <h3>The unlock list, a draft for you to edit (written for call A on the first run)</h3>
+    <p class="startset"><b>Run 1 has:</b> ${esc(START_SET)}</p>
+    <div class="tscroll" tabindex="0" role="region" aria-label="Draft unlock list, scrolls sideways on small screens">
+      <table class="grid fit">
+        <thead><tr><th scope="col">Unlocks</th><th scope="col">Feat</th><th scope="col">Roughly</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <figcaption class="caption">Paces assume today's run lengths, where half end by wave 3. They're estimates until the balance sim (T4) and a playtest. Brutes appear from wave 5, armored from 6 and the boss at 10.</figcaption>
+  </figure>`
+}
+
+const linkFor = (id, label) => `<a href="#item-${esc(id)}">${esc(label ?? titleOf(id))}</a>`
+const callsHtml = (id, title) => `
+    <div class="calls" role="group" aria-label="Your call on ${esc(title)}">
+      ${CALLS.map(([k, label]) => `<button type="button" data-item="${esc(id)}" data-call="${k}" aria-pressed="false" disabled>${label}</button>`).join('')}
+    </div>`
+const noteHtml = (id) => `
+        <label>Note for Claude
+          <textarea id="note-${esc(id)}" data-note="${esc(id)}" rows="2" placeholder="Anything to change, add or watch out for" disabled></textarea>
+        </label>`
+
+function cardHtml(it) {
+  const perfCls = it.perf === 'faster' ? ' class="perf-faster"' : ''
+  return `
+  <article class="card" id="item-${it.id}" data-id="${it.id}">
+    <div class="card-top">
+      <h3>${esc(it.title)}</h3>
+      <span class="effort" title="Effort">${EFFORT_LABEL[it.effort]}</span>
+    </div>
+    <p class="line">${esc(it.line)}</p>
+    <div class="meta">
+      <span class="pill" data-status hidden></span>
+      <span class="risk ${it.risk.toLowerCase()}">Risk: ${it.risk}</span>
+      <span${perfCls}>${PERF_LABEL[it.perf]}</span>
+      ${it.urgent ? '<span class="urgent">Broken in production</span>' : ''}
+      ${it.carried ? `<span class="carried">${esc(it.carried)}</span>` : ''}
+      ${it.todo ? '<span>From TODO.md</span>' : ''}
+      ${it.after ? `<span class="after">After ${linkFor(it.after)}</span>` : ''}
+      ${it.helps ? `<span class="helps">Helps ${linkFor(it.helps)}</span>` : ''}
+      ${it.dep ? `<span class="dep">${DEP_LABEL[it.dep]}</span>` : ''}
+    </div>
+    <details>
+      <summary>Why it matters</summary>
+      <div class="why">
+        <p>${esc(it.why)}</p>
+        <p class="evidence"><span class="label">Evidence</span>${esc(it.ev)}</p>
+        ${noteHtml(it.id)}
+      </div>
+    </details>
+    ${callsHtml(it.id, it.title)}
+  </article>`
+}
+
+function itemCardHtml(id) {
+  const d = items[id]
+  const title = str(d.title, 120)
+  const line = str(d.line, 1200)
+  const why = str(d.why, 2000)
+  const effort = EFFORT_LABEL[d.effort] ? `<span class="effort" title="Effort">${EFFORT_LABEL[d.effort]}</span>` : ''
+  const src = d.source === 'claude' ? 'Added by Claude from chat' : 'Asked for on this page'
+  return `
+  <article class="card" id="item-${esc(id)}" data-id="${esc(id)}">
+    <div class="card-top"><h3>${esc(title)}</h3>${effort}</div>
+    ${line ? `<p class="line">${esc(line)}</p>` : ''}
+    <div class="meta">
+      <span class="pill" data-status hidden></span>
+      <span>${src}${d.createdAt ? ' · ' + esc(day(d.createdAt)) : ''}</span>
+    </div>
+    <details>
+      <summary>${why ? 'Details' : 'Note for Claude'}</summary>
+      <div class="why">
+        ${why ? `<p>${esc(why)}</p>` : ''}
+        ${noteHtml(id)}
+      </div>
+    </details>
+    ${callsHtml(id, title)}
+  </article>`
+}
+
+function decisionHtml(id) {
+  const d = DECISIONS[id]
+  return `
+  <section class="intermission" id="item-${id}" data-decision="${id}" aria-labelledby="h-${id}">
+    <p class="label">Intermission · your call</p>
+    <h2 id="h-${id}">${esc(d.title)}</h2>
+    <p>${esc(d.intro)}</p>
+    <div class="options three">
+      ${d.options.map((o) => `
+      <div class="option" data-key="${o.key}">
+        <div class="option-top"><h3>${o.key}. ${esc(o.title)}</h3>${o.rec ? '<span class="rec">Recommended</span>' : ''}</div>
+        <p>${esc(o.text)}</p>
+        <button type="button" data-item="${id}" data-call="${o.key}" aria-pressed="false" disabled>Pick ${o.key}</button>
+      </div>`).join('')}
+    </div>
+    <label class="dnote" for="note-${id}">Note for Claude
+      <textarea id="note-${id}" data-note="${id}" rows="2" placeholder="A mix, a doubt, anything to add" disabled></textarea>
+    </label>
+    <button type="button" class="talk-btn" data-item="${id}" data-call="talk" aria-pressed="false" disabled>Let's discuss first</button>
+  </section>`
+}
+
+function waveHtml(w) {
+  return `
+  <section class="wave ${w.track}" id="${w.id}" aria-labelledby="h-${w.id}">
+    <header class="wave-head">
+      <div class="wave-num" aria-hidden="true"><span>Wave</span><b>${esc(w.n)}</b></div>
+      <div><h2 id="h-${w.id}">${esc(w.name)}</h2><p class="tag">${esc(w.tag)}</p></div>
+    </header>
+    <p class="moves"><span class="label">Should move</span>${esc(w.moves)}</p>
+    ${w.intro ? `<p class="wave-intro">${esc(w.intro)}</p>` : ''}
+    ${w.chart ? chartHtml(w.chart) : ''}
+    ${w.figure === 'unlocks' ? unlocksHtml() : ''}
+    ${w.decisionAfterFigure ? decisionHtml(w.decisionAfterFigure) : ''}
+    <div class="cards">${w.items.map(cardHtml).join('')}</div>
+    <p class="empty-note" hidden>Nothing in this wave matches the filter.</p>
+  </section>
+  ${w.decisionAfter ? decisionHtml(w.decisionAfter) : ''}`
+}
+
+function trackHeadHtml(h) {
+  return `
+  <header class="track-head ${h.track}" id="track-${h.track}">
+    <p class="label">${h.track === 'p' ? 'Track one' : 'Track two'}</p>
+    <h2>${esc(h.title)}</h2>
+    <p>${esc(h.text)}</p>
+  </header>`
+}
+
+document.getElementById('waves').innerHTML = WAVES.map((w) =>
+  w.head ? trackHeadHtml(w) : w.decisionRef ? decisionHtml(w.decisionRef) : waveHtml(w)).join('')
+
+document.getElementById('chores').innerHTML = CHORES.map((c) => `
+  <li data-chore="${c.id}">
+    <div><b>${esc(c.title)}</b><span>${esc(c.text)}</span></div>
+    <button type="button" class="chore-btn" data-item="${c.id}" data-call="done" aria-pressed="false" disabled>Done</button>
+  </li>`).join('')
+
+let renderedItemSig = ''
+function renderRequestCards() {
+  const ids = itemIds()
+  const sig = ids.map((id) => `${id}|${str(items[id].title)}|${str(items[id].line)}|${str(items[id].why)}|${items[id].effort}`).join('\n')
+  if (sig === renderedItemSig) return
+  const host = document.getElementById('request-cards')
+  if (host.contains(document.activeElement)) return   // never re-render under the cursor
+  renderedItemSig = sig
+  host.innerHTML = ids.map(itemCardHtml).join('')
+  document.getElementById('requests-empty').hidden = ids.length > 0
+}
+
+// ── Control panel rendering ─────────────────────────────────────────────
+function needsList() {
+  const out = []
+  for (const id of activeIds()) {
+    const p = progress[id]
+    if (p.status === 'blocked') out.push({ k: 'blocked', label: 'Blocked', html: `${linkFor(id)}<span class="sub">${esc(str(p.blocker, 400) || str(p.summary, 400) || 'Waiting on you. Details in chat.')}</span>` })
+  }
+  for (const id of activeIds()) {
+    const p = progress[id]
+    if (p.status !== 'review') continue
+    const pr = safeUrl(p.prUrl)
+    const pv = safeUrl(p.preview)
+    const parts = [pv ? `<a href="${esc(pv)}" target="_blank" rel="noopener noreferrer">try the preview</a>` : 'try the preview', pr ? `<a href="${esc(pr)}" target="_blank" rel="noopener noreferrer">merge PR${p.pr ? ' #' + esc(String(p.pr)) : ''}</a>` : 'merge the PR']
+    out.push({ k: 'review', label: 'Review', html: `${linkFor(id)}<span class="sub">Ready for you: ${parts.join(', then ')}.</span>` })
+  }
+  for (const c of BUILTIN) {
+    if (c.urgent && !calls[c.id]?.call) out.push({ k: 'call', label: 'Decide', html: `${linkFor(c.id)}<span class="sub">${esc(c.urgentWhy || c.line)}</span>` })
+  }
+  for (const id of Object.keys(DECISIONS)) {
+    const k = calls[id]?.call
+    if (!k) out.push({ k: 'call', label: 'Call', html: `${linkFor(id)}<span class="sub">A direction call. The cards it shapes wait for it.</span>` })
+    else if (k === 'talk') out.push({ k: 'talk', label: 'Discuss', html: `${linkFor(id)}<span class="sub">You asked to discuss this call. Bring it up in chat.</span>` })
+  }
+  for (const id of allCardIds()) {
+    if (calls[id]?.call === 'talk') out.push({ k: 'talk', label: 'Discuss', html: `${linkFor(id)}<span class="sub">Tell me in chat what to change, or leave a note on the card.</span>` })
+  }
+  const undecided = allCardIds().filter((id) => !calls[id]?.call && !BUILTIN_BY_ID[id]?.urgent).length
+  if (undecided) out.push({ k: 'calls', label: 'Calls', html: `${undecided} card${undecided === 1 ? ' has' : 's have'} no call yet. <button type="button" class="linkbtn" data-show-undecided>Show them</button>` })
+  const chores = CHORES.filter((c) => calls[c.id]?.call !== 'done').length
+  if (chores) out.push({ k: 'yours', label: 'Yours', html: `<a href="#yours">${chores} job${chores === 1 ? '' : 's'} only you can do</a><span class="sub">No code needed. Tick them off when done.</span>` })
+  return out
+}
+
+function activeHtml(id) {
+  const p = progress[id]
+  const s = steps(id)
+  const frac = stepFrac(id)
+  const pr = safeUrl(p.prUrl)
+  const pv = safeUrl(p.preview)
+  const c = card(id)
+  return `
+  <article class="active s-${p.status}">
+    <div class="card-top">
+      <h3><span class="trk ${c.track}">${esc(c.waveN)}</span><a href="#item-${esc(id)}">${esc(titleOf(id))}</a></h3>
+      <span class="pill ${p.status}">${STATUS_LABEL[p.status]}</span>
+    </div>
+    ${p.summary ? `<p class="summary">${esc(str(p.summary, 400))}</p>` : ''}
+    ${p.status === 'blocked' ? `<p class="blocker"><b>Needs you:</b> ${esc(str(p.blocker, 400) || 'details in chat')}</p>` : ''}
+    ${frac != null ? `<div class="pbar" role="img" aria-label="${s.filter((x) => x.done).length} of ${s.length} steps done"><i style="width:${Math.round(frac * 100)}%"></i></div>` : ''}
+    <p class="tiny">${frac != null ? `${s.filter((x) => x.done).length} of ${s.length} steps · ` : ''}${p.updatedAt ? 'updated ' + esc(ago(p.updatedAt)) : ''}${p.startedAt ? ' · started ' + esc(day(p.startedAt)) : ''}</p>
+    ${s.length ? `<ol class="steps">${s.map((x) => `<li class="${x.done ? 'done' : ''}">${esc(str(x.text, 200))}</li>`).join('')}</ol>` : ''}
+    ${pr || pv ? `<p class="links">${pr ? `<a href="${esc(pr)}" target="_blank" rel="noopener noreferrer">PR${p.pr ? ' #' + esc(String(p.pr)) : ''}</a>` : ''}${pv ? `<a href="${esc(pv)}" target="_blank" rel="noopener noreferrer">Preview</a>` : ''}</p>` : ''}
+  </article>`
+}
+
+function queueRowHtml(id, i, n, nextId) {
+  const c = card(id)
+  const hold = !!calls[id]?.hold
+  const note = str(calls[id]?.note)
+  const eff = c.effort && EFFORT_LABEL[c.effort] ? c.effort : null
+  const dis = writable ? '' : ' disabled'
+  return `
+  <li class="qrow${i === 0 ? ' first' : ''}${hold ? ' hold' : ''}" data-q="${esc(id)}">
+    <span class="rank" aria-hidden="true">${i + 1}</span>
+    <div class="qmain">
+      <div class="qtitle"><span class="trk ${c.track}">${esc(c.waveN)}</span><a href="#item-${esc(id)}">${esc(titleOf(id))}</a></div>
+      <div class="qmeta">
+        ${id === nextId ? '<span class="next">Next up</span>' : ''}
+        ${hold ? '<span class="held">On hold</span>' : ''}
+        ${eff ? `<span>${EFFORT_LABEL[eff]}</span>` : ''}
+        ${note ? '<span>Has your note</span>' : ''}
+        ${i > 0 ? `<button type="button" class="linkbtn" data-qtop="${esc(id)}"${dis}>Move to top</button>` : ''}
+        <button type="button" class="linkbtn" data-qhold="${esc(id)}"${dis}>${hold ? 'Resume' : 'Hold'}</button>
+      </div>
+    </div>
+    <div class="qctl">
+      <button type="button" data-qmove="-1" data-qid="${esc(id)}" aria-label="Move ${esc(titleOf(id))} up"${i === 0 || !writable ? ' disabled' : ''}>${ICON.up}</button>
+      <button type="button" data-qmove="1" data-qid="${esc(id)}" aria-label="Move ${esc(titleOf(id))} down"${i === n - 1 || !writable ? ' disabled' : ''}>${ICON.down}</button>
+      <span class="grip" data-grip aria-hidden="true" title="Drag to reorder">${ICON.grip}</span>
+    </div>
+  </li>`
+}
+
+function renderPanel() {
+  const act = activeIds()
+  const q = queuedIds()
+  const shipped = shippedIds()
+  const needs = needsList()
+  const held = q.filter((id) => calls[id]?.hold).length
+  const nextId = q.find((id) => !calls[id]?.hold) ?? null
+
+  document.getElementById('pipeline').innerHTML = [
+    ['now', act.filter((id) => progress[id].status === 'building').length, 'In progress', '#now-block'],
+    ['review', act.filter((id) => progress[id].status === 'review').length, 'In review', '#now-block'],
+    ['needs', needs.length, 'Needs you', '#needs-block'],
+    ['queued', q.length, held ? `Queued · ${held} on hold` : 'Queued', '#queue-block'],
+    ['shipped', shipped.length, 'Shipped', '#shipped-block'],
+  ].map(([k, n, label, href]) => `<li><a class="pipe ${k}" href="${href}"><b>${n}</b><span>${label}</span></a></li>`).join('')
+
+  document.getElementById('needs').innerHTML = needs.length
+    ? needs.map((x) => `<li class="k-${x.k}"><span class="kind">${x.label}</span><span>${x.html}</span></li>`).join('')
+    : '<li class="k-none"><span class="kind">Clear</span><span>Nothing is waiting on you.</span></li>'
+
+  document.getElementById('active').innerHTML = act.length
+    ? act.map(activeHtml).join('')
+    : `<p class="empty">Nothing in progress. ${nextId ? `Next up: <b>${esc(titleOf(nextId))}</b>. I start it at the beginning of the next session, or now if you ask in chat.` : 'The queue is empty: say Go on a card to fill it.'}</p>`
+
+  if (!dragging) {
+    document.getElementById('queue').innerHTML = q.length
+      ? q.map((id, i) => queueRowHtml(id, i, q.length, nextId)).join('')
+      : '<li class="empty">The queue is empty. Say Go on a card below, or ask for something.</li>'
+  }
+
+  document.getElementById('shipped-sum').textContent = `Shipped (${shipped.length})`
+  document.getElementById('shipped').innerHTML = shipped.length
+    ? shipped.map((id) => {
+      const p = progress[id]
+      const pr = safeUrl(p.prUrl)
+      return `<li><a href="#item-${esc(id)}">${esc(titleOf(id))}</a><span class="tiny">${esc(day(p.shippedAt ?? p.updatedAt))}${pr ? ` · <a href="${esc(pr)}" target="_blank" rel="noopener noreferrer">PR${p.pr ? ' #' + esc(String(p.pr)) : ''}</a>` : ''}</span></li>`
+    }).join('')
+    : '<li class="tiny">Nothing shipped from this page yet.</li>'
+}
+
+// ── Roadmap state ───────────────────────────────────────────────────────
+const FILTERS = [['all', 'All'], ['none', 'Undecided'], ['go', 'Go'], ['talk', 'Discuss'], ['skip', 'Skip']]
+
+function counts() {
+  const ids = allCardIds()
+  const c = { all: ids.length, none: 0, go: 0, talk: 0, skip: 0 }
+  for (const id of ids) {
+    const k = calls[id]?.call
+    if (k === 'go' || k === 'talk' || k === 'skip') c[k]++
+    else c.none++
+  }
+  return c
+}
+
+function renderFilters() {
+  const c = counts()
+  document.getElementById('filters').innerHTML = FILTERS.map(([k, label]) =>
+    `<button type="button" data-filter="${k}" aria-pressed="${filter === k}">${label} ${c[k]}</button>`).join('')
+}
+
+function renderState() {
+  renderRequestCards()
+  for (const el of document.querySelectorAll('[data-item]')) {
+    const picked = calls[el.dataset.item]?.call === el.dataset.call
+    el.setAttribute('aria-pressed', String(picked))
+    el.disabled = !writable
+    const opt = el.closest('.option')
+    if (opt) opt.dataset.picked = String(picked)
+    const chore = el.closest('[data-chore]')
+    if (chore) { chore.classList.toggle('done', picked); el.textContent = picked ? 'Done' : 'Mark done' }
+  }
+  for (const ta of document.querySelectorAll('[data-note]')) {
+    ta.disabled = !writable
+    if (document.activeElement !== ta && !dirty.has(ta.dataset.note)) ta.value = str(calls[ta.dataset.note]?.note, 4000)
+  }
+  for (const id of allCardIds()) {
+    const el = document.getElementById('item-' + id)
+    if (!el) continue
+    const call = calls[id]?.call
+    if (call) el.dataset.call = call
+    else delete el.dataset.call
+    const dep = DEPS[id]
+    el.classList.toggle('ruled-out', !!dep && calls[dep]?.call === 'C')
+    const pill = el.querySelector('[data-status]')
+    const st = statusOf(id)
+    pill.hidden = !st
+    pill.className = 'pill ' + (st || '')
+    const frac = stepFrac(id)
+    pill.textContent = st ? STATUS_LABEL[st] + (frac != null && st !== 'shipped' ? ` ${Math.round(frac * 100)}%` : '') : ''
+  }
+  for (const el of document.querySelectorAll('#request input, #request textarea, #request button')) el.disabled = !writable
+  applyFilter()
+  renderFilters()
+  renderPanel()
+}
+
+function applyFilter() {
+  for (const id of allCardIds()) {
+    const el = document.getElementById('item-' + id)
+    if (!el) continue
+    const call = calls[id]?.call
+    el.hidden = !(filter === 'all' || (filter === 'none' ? !call : call === filter))
+  }
+  for (const wave of document.querySelectorAll('#waves .wave')) {
+    const anyVisible = [...wave.querySelectorAll('.card')].some((c) => !c.hidden)
+    wave.querySelector('.empty-note').hidden = anyVisible
+  }
+  for (const d of document.querySelectorAll('[data-decision]')) {
+    d.hidden = !(filter === 'all' || (filter === 'none' && !calls[d.dataset.decision]?.call))
+  }
+}
+
+function setSync(text, state) {
+  for (const el of document.querySelectorAll('[data-sync]')) {
+    el.textContent = text
+    el.dataset.state = state || ''
+  }
+}
+
+// ── Saving (one write at a time per document) ───────────────────────────
+async function setWithRetry(ref, body) {
+  try {
+    await ref.set(body)
+  } catch (e) {
+    if (e?.code !== 'unavailable') throw e
+    await new Promise((r) => setTimeout(r, 500 + Math.random() * 700))
+    await ref.set(body)
+  }
+}
+
+function saveFailed(e) {
+  if (e?.code === 'invalid_argument') {
+    writable = false
+    setSync('This view is read-only, so changes are not saved.', 'error')
+    renderState()
+  } else {
+    setSync("Couldn't save that change. Try again in a moment.", 'error')
+  }
+}
+
+function callBody(id) {
+  const c = calls[id] || {}
+  return { call: c.call ?? null, note: str(c.note, 4000), hold: !!c.hold, at: Date.now() }
+}
+
+async function save(id) {
+  if (!db || !writable) return
+  if (inflight[id]) { queued[id] = true; return }
+  inflight[id] = true
+  try {
+    await setWithRetry(db.collection('calls').doc(id), callBody(id))
+    setSync('Saved. Claude reads this panel at the start of every session.', 'ok')
+  } catch (e) { saveFailed(e) }
+  inflight[id] = false
+  if (queued[id]) { queued[id] = false; save(id) }
+  else dirty.delete(id)
+}
+
+function setCall(id, patch) {
+  calls = { ...calls, [id]: { ...(calls[id] || {}), ...patch } }
+  dirty.add(id)
+  renderState()
+  save(id)
+}
+
+async function saveOrder() {
+  if (!db || !writable) return
+  if (orderInflight) { orderQueued = true; return }
+  orderInflight = true
+  try {
+    await setWithRetry(db.collection('queue').doc('order'), { ids: order.slice(0, 400), at: Date.now() })
+    setSync('Queue saved. I work from the top at the start of every session.', 'ok')
+  } catch (e) { saveFailed(e) }
+  orderInflight = false
+  if (orderQueued) { orderQueued = false; saveOrder() }
+  else orderDirty = false
+}
+
+/** Commit a new arrangement of the queued cards; the ids not in the queue keep their place after it. */
+function commitQueue(newQueued, movedId) {
+  const rest = order.filter((id) => !newQueued.includes(id))
+  order = [...newQueued, ...rest]
+  orderDirty = true
+  renderPanel()
+  if (movedId) {
+    const row = document.querySelector(`[data-q="${CSS.escape(movedId)}"]`)
+    if (row) { row.classList.add('flash'); setTimeout(() => row.classList.remove('flash'), 900) }
+    const pos = newQueued.indexOf(movedId) + 1
+    document.getElementById('queue-live').textContent = `${titleOf(movedId)} is now number ${pos} in the queue.`
+  }
+  clearTimeout(orderTimer)
+  orderTimer = setTimeout(saveOrder, 350)
+}
+
+function moveInQueue(id, to) {
+  const q = queuedIds()
+  const from = q.indexOf(id)
+  if (from < 0) return
+  const t = Math.max(0, Math.min(q.length - 1, to))
+  if (t === from) return
+  q.splice(from, 1)
+  q.splice(t, 0, id)
+  commitQueue(q, id)
+}
+
+// ── Events ──────────────────────────────────────────────────────────────
+document.addEventListener('click', (ev) => {
+  const f = ev.target.closest('[data-filter]')
+  if (f) {
+    filter = f.dataset.filter
+    try { localStorage.setItem('cabin-panel-filter', filter) } catch (_) {}
+    applyFilter(); renderFilters()
+    return
+  }
+  if (ev.target.closest('[data-show-undecided]')) {
+    filter = 'none'
+    try { localStorage.setItem('cabin-panel-filter', filter) } catch (_) {}
+    applyFilter(); renderFilters()
+    document.getElementById('waves').scrollIntoView({ block: 'start' })
+    return
+  }
+  if (!writable) return
+  const mv = ev.target.closest('[data-qmove]')
+  if (mv) {
+    const id = mv.dataset.qid
+    moveInQueue(id, queuedIds().indexOf(id) + Number(mv.dataset.qmove))
+    const again = document.querySelector(`[data-q="${CSS.escape(id)}"] [data-qmove="${mv.dataset.qmove}"]`)
+    if (again && !again.disabled) again.focus()
+    return
+  }
+  const top = ev.target.closest('[data-qtop]')
+  if (top) { moveInQueue(top.dataset.qtop, 0); return }
+  const hold = ev.target.closest('[data-qhold]')
+  if (hold) { const id = hold.dataset.qhold; setCall(id, { hold: !calls[id]?.hold }); return }
+  const b = ev.target.closest('[data-item][data-call]')
+  if (!b) return
+  const id = b.dataset.item
+  const next = calls[id]?.call === b.dataset.call ? null : b.dataset.call
+  setCall(id, { call: next })
+})
+
+document.addEventListener('input', (ev) => {
+  const ta = ev.target.closest('[data-note]')
+  if (!ta || !writable) return
+  const id = ta.dataset.note
+  calls = { ...calls, [id]: { ...(calls[id] || {}), note: ta.value } }
+  dirty.add(id)
+  clearTimeout(noteTimers[id])
+  noteTimers[id] = setTimeout(() => save(id), 900)
+})
+
+document.addEventListener('focusout', (ev) => {
+  const ta = ev.target.closest?.('[data-note]')
+  if (!ta || !noteTimers[ta.dataset.note]) return
+  clearTimeout(noteTimers[ta.dataset.note])
+  noteTimers[ta.dataset.note] = null
+  save(ta.dataset.note)
+})
+
+// Drag to reorder: pointer events, so mouse and touch both work. As the dragged row crosses a
+// neighbour's midpoint the NEIGHBOUR moves (moving the captured row itself would drop the pointer
+// capture). The order is committed on release.
+const qlist = document.getElementById('queue')
+qlist.addEventListener('pointerdown', (ev) => {
+  const grip = ev.target.closest('[data-grip]')
+  if (!grip || !writable || ev.button > 0) return
+  const row = grip.closest('[data-q]')
+  ev.preventDefault()
+  grip.setPointerCapture(ev.pointerId)
+  dragging = { row, id: row.dataset.q, grip, pointerId: ev.pointerId }
+  row.classList.add('dragging')
+})
+document.addEventListener('pointermove', (ev) => {
+  if (!dragging || ev.pointerId !== dragging.pointerId) return
+  const y = ev.clientY
+  const row = dragging.row
+  const prev = row.previousElementSibling
+  const next = row.nextElementSibling
+  if (prev && y < prev.getBoundingClientRect().top + prev.offsetHeight / 2) row.after(prev)
+  else if (next && y > next.getBoundingClientRect().top + next.offsetHeight / 2) row.before(next)
+  if (y < 70) window.scrollBy(0, -12)
+  else if (y > window.innerHeight - 70) window.scrollBy(0, 12)
+  ;[...qlist.querySelectorAll('[data-q]')].forEach((r, i) => { r.querySelector('.rank').textContent = String(i + 1) })
+})
+function endDrag(ev) {
+  if (!dragging || ev.pointerId !== dragging.pointerId) return
+  const { id, row } = dragging
+  row.classList.remove('dragging')
+  dragging = null
+  const ids = [...qlist.querySelectorAll('[data-q]')].map((r) => r.dataset.q)
+  const before = queuedIds()
+  if (ids.join('|') !== before.join('|')) commitQueue(ids, id)
+  else renderPanel()
+}
+document.addEventListener('pointerup', endDrag)
+document.addEventListener('pointercancel', endDrag)
+
+// Ask for something: a new card in items/, called Go, optionally first in the queue.
+document.getElementById('request').addEventListener('submit', async (ev) => {
+  ev.preventDefault()
+  if (!db || !writable) return
+  const titleEl = document.getElementById('req-title')
+  const detailEl = document.getElementById('req-detail')
+  const topEl = document.getElementById('req-top')
+  const msg = document.getElementById('req-msg')
+  const title = titleEl.value.trim().slice(0, 120)
+  if (!title) { msg.textContent = 'Write a short title first.'; titleEl.focus(); return }
+  const id = 'r-' + Date.now().toString(36)
+  const btn = document.getElementById('req-submit')
+  btn.disabled = true
+  msg.textContent = 'Adding…'
+  try {
+    const body = { title, line: detailEl.value.trim().slice(0, 2000), source: 'owner', createdAt: new Date().toISOString() }
+    await setWithRetry(db.collection('items').doc(id), body)
+    items = { ...items, [id]: body }
+    calls = { ...calls, [id]: { call: 'go', note: '', hold: false } }
+    dirty.add(id)
+    await save(id)
+    if (topEl.checked) { const q = queuedIds().filter((x) => x !== id); commitQueue([id, ...q], id) }
+    renderState()
+    titleEl.value = ''; detailEl.value = ''; topEl.checked = false
+    msg.textContent = `Added "${title}" to the queue. I'll read it at the start of the next session.`
+  } catch (e) {
+    saveFailed(e)
+    msg.textContent = "Couldn't add that. Try again in a moment."
+  }
+  btn.disabled = !writable
+})
+
+renderState()
+
+// ── Connect to the page's database ──────────────────────────────────────
+;(async () => {
+  if (!window.claude?.use) { setSync('Open this page on claude.ai to use the panel.', 'error'); return }
+  const timer = setTimeout(() => setSync("The panel is taking a while to load. It fills in when the connection answers.", ''), 10000)
+  const [store, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')])
+  if (!store) { clearTimeout(timer); setSync("This view can't load the panel. Open it on claude.ai while signed in.", 'error'); return }
+  db = store
+  const can = user ? await user.can('data.write') : null
+  writable = can !== false
+  setSync(writable ? 'Changes save automatically. Claude reads this panel at the start of every session.' : 'You can read this panel, but only the owner can change it.', writable ? 'ok' : '')
+  const lost = () => { clearTimeout(timer); setSync('Lost the connection to the panel. Reload to try again.', 'error') }
+  db.collection('calls').onSnapshot((snap) => {
+    clearTimeout(timer)
+    const next = {}
+    for (const d of snap.docs) next[d.id] = d.data()
+    for (const id of dirty) if (calls[id]) next[id] = calls[id]
+    calls = next
+    renderState()
+  }, lost)
+  db.collection('progress').onSnapshot((snap) => {
+    const next = {}
+    for (const d of snap.docs) { const v = d.data(); if (v && typeof v === 'object') next[d.id] = v }
+    progress = next
+    renderState()
+  }, lost)
+  db.collection('items').onSnapshot((snap) => {
+    const next = {}
+    for (const d of snap.docs) { const v = d.data(); if (v && typeof v === 'object') next[d.id] = v }
+    items = next
+    renderState()
+  }, lost)
+  db.collection('queue').doc('order').onSnapshot((doc) => {
+    if (orderDirty || dragging) return
+    const ids = doc.exists ? doc.data()?.ids : null
+    order = Array.isArray(ids) ? ids.filter((x) => typeof x === 'string').slice(0, 400) : []
+    renderPanel()
+  }, lost)
+  renderState()
+})()
+</script>

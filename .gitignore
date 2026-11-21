@@ -1,4 +1,7 @@
-node_modules/
+node_modules
 dist/
 .env
 .env.local
+
+# Agent worktrees (parallel builds); never commit them
+.claude/worktrees/

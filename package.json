@@ -8,7 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:changed": "node scripts/lint-changed.cjs",
+    "smoke": "node scripts/smoke-solo.cjs",
+    "perf:budget": "node scripts/perf-budget.cjs",
+    "lint:selfcheck": "node scripts/lint-changed.cjs --self-check"
   },
   "dependencies": {
     "@react-three/drei": "^9.109.2",
@@ -26,6 +31,10 @@
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^4.3.1",
     "@vitest/ui": "^4.1.6",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.14.0",
     "jsdom": "^29.1.1",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.21.2",
