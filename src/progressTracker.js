@@ -159,6 +159,10 @@ function handle(evt) {
       nukeCount = 0
       burstCount = 0
       return
+    case 'run_resume':   // runSave.js: a run rebuilt from its wave-start checkpoint (after run_start)
+      Object.assign(run, evt.counters ?? {})
+      run.wave = Math.max(1, evt.wave | 0)
+      return
     case 'kill': {
       const head = evt.source === 'gun' && evt.head
       run.kills += 1

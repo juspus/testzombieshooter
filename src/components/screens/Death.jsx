@@ -10,6 +10,8 @@ import { writeLocalDaily } from '../../daily'
 import { Button } from '../ui'
 import { scoreSubmittable } from '../../versus'
 import { DuelDeath, VersusResult } from './lazyUi'
+import { retryAvailable, retryFromCheckpoint } from '../../runSave'
+import { enterRunFullscreen } from '../../fullscreen'
 
 export function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, username }) {
   const lastRunUnlocks = useGameStore((s) => s.lastRunUnlocks)
@@ -25,10 +27,15 @@ export function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, 
   const dailyRanked = useGameStore((s) => s.dailyRanked)
   const dailyDateStr = useGameStore((s) => s.dailyDate)
   const isPractice = (dailyMode && !dailyRanked) || scoreStatus === 'practice'
-  const submittable = useGameStore((s) => scoreSubmittable(s.runMode))   // versus / duel runs never reach the leaderboard
+  // versus / duel runs never reach the leaderboard; nor does a run that was retried or resumed mid-wave (runSave.js)
+  const continued = useGameStore((s) => s.runContinued)
+  const submittable = useGameStore((s) => scoreSubmittable(s.runMode) && !s.runContinued)
+  const [canRetryWave] = useState(() => !mpRole && retryAvailable(useGameStore.getState()))
+  const retryWave = () => { enterRunFullscreen(); retryFromCheckpoint(useGameStore) }
   const versusRun = useGameStore((s) => s.runMode === 'versus')
   const sendScore = async (name) => {
-    if (!scoreSubmittable(useGameStore.getState().runMode)) return
+    const st = useGameStore.getState()
+    if (!scoreSubmittable(st.runMode) || st.runContinued) return
     if (dailyMode && !dailyRanked) { setScoreStatus('practice'); return }
     try {
       await submitScore({ name, wave, kills, mode: dailyMode ? 'daily' : 'normal', seedDate: dailyDateStr })
@@ -188,6 +195,8 @@ export function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, 
 
         {duelMode ? (
           <Suspense fallback={null}><DuelDeath wave={wave} kills={kills} username={username} /></Suspense>
+        ) : continued ? (
+          <div style={deathNoteStyle}>CONTINUED · NOT RANKED</div>
         ) : !submittable ? null : isPractice ? (
           <div style={deathNoteStyle}>PRACTICE</div>
         ) : username ? (
@@ -222,6 +231,11 @@ export function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 'clamp(4px, 1vmin, 8px)' }}>
           {duelMode ? null : mpRole === 'guest' ? (
             <Button size="lg" disabled style={deathBtnStyle}>Waiting…</Button>
+          ) : canRetryWave ? (
+            <>
+              <Button variant="primary" size="lg" onClick={retryWave} style={deathBtnStyle} data-testid="death-retry-wave">Retry wave {wave}</Button>
+              <Button size="lg" onClick={onRestart} style={deathBtnStyle}>New run</Button>
+            </>
           ) : (
             <Button variant="primary" size="lg" onClick={onRestart} style={deathBtnStyle}>Retry</Button>
           )}

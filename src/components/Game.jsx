@@ -31,6 +31,7 @@ import useMobileViewport from '../useMobileViewport'
 import { getInitialMapId } from '../maps'
 import { initAnalytics } from '../analytics'
 import { initProgression } from '../progressTracker'
+import { initRunSave } from '../runSave'
 import ProgressToasts from './ProgressToasts'
 import PauseLayer from './PauseMenu'
 import RotateGate from './RotateGate'
@@ -98,7 +99,7 @@ function ForceRenderOnShopOpen() {
 
 export default function Game() {
   useMobileViewport()
-  useEffect(() => { initAnalytics(); initProgression() }, [])
+  useEffect(() => { initAnalytics(); initProgression(); initRunSave(useGameStore) }, [])
   const phase = useGameStore((s) => s.phase)
   const mapId = useGameStore((s) => s.mapId)
   // The Director: while directing / between turns / over, this world is frozen and covered; the 3D loop stops.

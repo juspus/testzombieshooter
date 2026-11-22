@@ -5,6 +5,12 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- CONTINUE A RUN (2026-11-22, owner: "continue my run from the last wave whenever I disconnect or
+  die"; card r-continue). Owner picked: solo only (tab closed / crash), one unranked retry on death.
+  Wave-start checkpoint in localStorage (`src/runSave.js`, docs/systems.md). A mid-wave exit then
+  Continue also marks the run unranked (else closing the tab is a free retry). Co-op rejoin was
+  offered as a bigger separate job, not picked.
+
 - Tech roadmap run (agents) (2026-11-16..18): 12 jobs built by agents, each adversarially reviewed and
   QA'd (J1-J10, plus this docs / dead-code job). What landed: CI, lint, solo smoke and perf
   budget (J1), hitboxes (J2), net protocol + crash reports (J3), merged zombie meshes (J4), one
