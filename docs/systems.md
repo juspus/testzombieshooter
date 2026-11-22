@@ -47,6 +47,15 @@ Two-player co-op over WebSocket (`net.js`). One player is **host**, one is **gue
 - Store fields: `mpRole`, `mpConnected`, `remotePlayer`, `roomCode`
 - Transport is PeerJS (WebRTC data channel) via `net.js`, not a WebSocket server.
 - Invite links: `/?join=CODE` (`src/invite.js`, `InviteShare.jsx`).
+- Join a run in progress (2026-11-22): a solo host opens the run from the pause menu (desktop: P)
+  with OPEN TO PUBLIC (`publicRoom.js`, lazy chunk). The room is listed in Supabase `open_runs`
+  (`openRuns.js`, migration `20261122000000_open_runs.sql`, RPCs only, 20 s heartbeat, 60 s stale)
+  and shown under Co-op > Open runs (`OpenRunsList.jsx`, lazy). A guest joining by list, code or
+  invite link sends its usual `map_hello`; the host answers `join_wait` (mid-wave, and unlists)
+  or `join_welcome` at the next countdown (`lateJoin.js`: wave, doors, planks, glass, box,
+  modifier, countdown; guest money = `joinMoney(wave)`), `join_refuse` on another map / run over.
+  Both sides set `mpConnected` only at the welcome, so the host stays solo until then. The host
+  turns away a second caller while a partner is linked (`net.js`).
 - Down, not out: `src/coopDown.js` (pure state machine) + `src/coopRuntime.js`.
   All player damage must go through `store.hitPlayer` (downed guard); weapon
   swaps through `switchWeapon`.

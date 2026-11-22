@@ -5,6 +5,13 @@ start of every session. Keep entries short — a few lines each.
 
 ## Active
 
+- JOIN MID-RUN + PHONE LAYOUT (2026-11-22, cards r-midjoin, r-mobiletext; PR #144 with
+  r-continue). Owner picked a PUBLIC list of open runs (not friends-only) and pistol + money scaled
+  to wave for joiners. Join lands at the next wave countdown, never mid-fight. Needs migration
+  `20261122000000_open_runs.sql` applied in Supabase; without it the list says "not available yet"
+  and the room still works by code. Phone: intermission is a one-line strip with a small SKIP,
+  landscape start menu in two columns, death screen fits. Desktop pause key P (new).
+
 - CONTINUE A RUN (2026-11-22, owner: "continue my run from the last wave whenever I disconnect or
   die"; card r-continue). Owner picked: solo only (tab closed / crash), one unranked retry on death.
   Wave-start checkpoint in localStorage (`src/runSave.js`, docs/systems.md). A mid-wave exit then

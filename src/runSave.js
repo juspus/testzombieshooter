@@ -9,7 +9,8 @@
 //     run continued, so closing the tab is not a free way out of a lost wave.
 //   - Retry (death screen "Retry wave N"): once per run. Marks the run continued.
 // A continued run still pays XP and lifetime stats, but its score never reaches the boards.
-// Daily, versus, duel, director and co-op runs are never saved (seeded or shared worlds).
+// Daily, versus, duel, director and co-op runs are never saved (seeded or shared worlds); a
+// solo run opened to the public (lateJoin.js) saves until someone joins.
 //
 // Lifetime stats: a death already folded the run into them (recordRunEnd), so a retry sets
 // `statsBase` to the checkpoint's counters and the next recordRunEnd adds only what came after.
@@ -33,9 +34,10 @@ export const SNAPSHOT_KEYS = [
 // Progress-tracker counters carried across a reload (numbers / booleans only).
 const COUNTER_KEYS = ['kills', 'killXp', 'headshots', 'knifeKills', 'bossKills', 'flameKills', 'powerups', 'wavesCleared', 'modifierWaves', 'noBoardStreak', 'pistolOnly']
 
-/** True for a run this module may save: solo, normal, unseeded, not the Director. */
+/** True for a run this module may save: solo (or a host whose room nobody has joined), normal, unseeded, not the Director. */
 export function isSavableRun(s) {
-  return s.runMode === 'normal' && !s.mpRole && s.runSeed == null && !s.director?.active
+  const solo = !s.mpRole || (s.mpRole === 'host' && !s.mpConnected)
+  return s.runMode === 'normal' && solo && s.runSeed == null && !s.director?.active
 }
 
 /** Plain-JSON checkpoint of the store `s` (call at the start of an intermission). */

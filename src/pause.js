@@ -121,9 +121,18 @@ export function installLifecycle() {
   const onVis = () => { if (document.visibilityState === 'hidden' || document.hidden) autoPause(); else onReturn() }
   const onHide = () => autoPause()
   const onBlur = () => { if (isTouchDevice()) autoPause() }   // desktop blur is not a pause
+  // Desktop: P opens / closes the pause menu (touch has the pause button).
+  const onKey = (e) => {
+    if (e.code !== 'KeyP' || e.repeat || document.activeElement?.tagName === 'INPUT') return
+    const st = useGameStore.getState()
+    const menu = usePauseUi.getState().menu
+    if (menu === 'pause') resumeGame()
+    else if (!menu && !st.shopOpen) pauseGame()
+  }
   document.addEventListener('visibilitychange', onVis)
   window.addEventListener('pagehide', onHide)
   window.addEventListener('blur', onBlur)
+  window.addEventListener('keydown', onKey)
 
   // Keep audio, box timers and the menu consistent with the store's `paused` flag, whoever set it
   // (this module, the co-op host's tab, or a 'pause' event from the host).
@@ -154,6 +163,7 @@ export function installLifecycle() {
     document.removeEventListener('visibilitychange', onVis)
     window.removeEventListener('pagehide', onHide)
     window.removeEventListener('blur', onBlur)
+    window.removeEventListener('keydown', onKey)
     unsub()
     _installed = false
   }

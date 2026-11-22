@@ -56,7 +56,9 @@ describe('runSave', () => {
 
   it('never saves daily, versus or co-op runs', () => {
     expect(isSavableRun({ ...S(), runMode: 'daily' })).toBe(false)
-    expect(isSavableRun({ ...S(), mpRole: 'host' })).toBe(false)
+    expect(isSavableRun({ ...S(), mpRole: 'host', mpConnected: true })).toBe(false)
+    expect(isSavableRun({ ...S(), mpRole: 'guest', mpConnected: false })).toBe(false)
+    expect(isSavableRun({ ...S(), mpRole: 'host', mpConnected: false })).toBe(true)   // room open, nobody joined yet
     expect(isSavableRun({ ...S(), runSeed: 'x' })).toBe(false)
     expect(isSavableRun(S())).toBe(true)
   })

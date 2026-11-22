@@ -56,6 +56,15 @@ export const GAME_EVENTS = {
     (d) => optNum(d.waveStartPlanks), (d) => optObj(d.openDoors), (d) => optStr(d.modifier), (d) => optObj(d.box),
   ),
   wave_clear:       all((d) => optObj(d.bonuses)),
+  // Joining a run already in progress (lateJoin.js): the guest's map_hello asks, the host makes it
+  // wait for the next wave countdown, then sends the house as it stands (or refuses).
+  join_wait:        all((d) => isNum(d.wave)),
+  join_welcome:     all(
+    (d) => isInt(d.wave) && d.wave >= 1, (d) => isNum(d.intermissionLeft), (d) => optStr(d.modifier),
+    (d) => isObj(d.openDoors), (d) => isObj(d.windowPlanks), (d) => optObj(d.windowPlankStrong), (d) => optObj(d.brokenWindows),
+    (d) => optObj(d.box), (d) => optNum(d.nextId),
+  ),
+  join_refuse:      all((d) => isStr(d.reason)),
   last_kill:        empty,
   die:              empty,
   skip_intermission: empty,

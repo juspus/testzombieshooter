@@ -93,7 +93,7 @@ export function IntermissionScreen({ wave, intermissionLeft, zombieCount, skipPr
       )}
       <div style={S.skipWrap}>
         <div style={{ fontSize: 11, letterSpacing: 3, color: skipProgress > 0 ? '#aaa' : '#444' }}>
-          T — skip
+          T — skip · P — menu
         </div>
         <div style={{ width: 140, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${skipProgress * 100}%`, background: '#aaa', borderRadius: 2, transition: 'width 0.05s linear' }} />

@@ -17,6 +17,7 @@ import InstallHint from '../InstallHint'
 import { ChevronIcon } from '../Icons'
 import { enterRunFullscreen } from '../../fullscreen'
 import { readSave, continuableSave, continueSavedRun } from '../../runSave'
+import { usePublicRoom } from '../../lateJoin'
 import { LobbyBody } from './Lobby'
 import { LockerPanel } from './Locker'
 import { SettingsPanel, UsernamePickerView } from './SettingsPanel'
@@ -101,11 +102,13 @@ export function StartScreen({ startGame, user, username, onUsernameSet, checkout
     )
   }, [setMpRole, setMpConnected, onDisconnected, setLobbyMode])
 
-  const handleJoin = useCallback((override) => {
+  // override: a code from an invite link, or (src 'list') from the Open runs list.
+  const handleJoin = useCallback((override, src) => {
     const code = (typeof override === 'string' ? override : joinCode).trim()
     if (!code) return
     enterRunFullscreen()   // the guest's run starts without another tap, so this is its gesture
-    const from = typeof override === 'string' ? 'invite' : 'idle'
+    const from = typeof override === 'string' && src !== 'list' ? 'invite' : 'idle'
+    usePublicRoom.setState({ join: null, joinWave: 0, joinError: '' })
     if (from === 'idle') setCoop('guest')
     setLobbyKind(panel === 'versus' ? 'versus' : 'coop')
     setStatus('…')

@@ -4,6 +4,7 @@ import { usePauseUi, pauseGame, resumeGame, openSettings, closeSettings, install
 import { useSettings, SENS_MIN, SENS_MAX, OPACITY_MIN, OPACITY_MAX } from '../settings'
 import { getBrightness, setBrightness, BRIGHTNESS_MIN, BRIGHTNESS_MAX } from '../brightness'
 import { installAudioUnlock, playVolumePreview } from '../sounds'
+import { usePublicRoom, canOpenRoom } from '../lateJoin'
 
 const FONT = 'Courier New, monospace'
 const MIN_TAP = 44
@@ -73,6 +74,7 @@ export default function PauseLayer() {
               {versusLive && <div style={S.away2}>Versus: no pause</div>}
               <button style={S.btn} onClick={resumeGame}>RESUME</button>
               <button style={S.btn} onClick={() => openSettings('pause')}>SETTINGS</button>
+              <PublicRoomControls />
             </div>
           )}
           {menu === 'countdown' && (
@@ -91,6 +93,33 @@ export default function PauseLayer() {
           </div>
         </div>
       )}
+    </>
+  )
+}
+
+// Solo run: open it to the public list so someone can join at the next wave (lateJoin.js).
+const ROOM_LINE = {
+  opening: 'OPENING…',
+  open: 'WAITING FOR A PLAYER',
+  waiting: 'A PLAYER JOINS NEXT WAVE',
+  joined: 'PARTNER IN',
+}
+// The host side is its own chunk (publicRoom.js): fetched on the first tap.
+const openRoom = () => import('../publicRoom').then((m) => m.openPublicRoom())
+const closeRoom = () => import('../publicRoom').then((m) => m.closePublicRoom())
+function PublicRoomControls() {
+  const room = usePublicRoom()
+  const canOpen = useGameStore(canOpenRoom)
+  if (room.state === 'closed') {
+    if (!canOpen) return null
+    return <button style={S.btn} onClick={openRoom} data-testid="open-public">OPEN TO PUBLIC</button>
+  }
+  return (
+    <>
+      <div style={S.roomLine} data-testid="public-room-status">
+        {room.code ? `ROOM ${room.code} · ` : ''}{ROOM_LINE[room.state]}{room.state === 'open' && !room.listed && room.code ? ' · CODE ONLY' : ''}
+      </div>
+      {room.state !== 'joined' && <button style={S.btn} onClick={closeRoom}>CLOSE ROOM</button>}
     </>
   )
 }
@@ -231,6 +260,7 @@ const S = {
     background: 'rgba(0,0,0,0.55)', padding: '3px 10px', borderRadius: 3,
   },
   away2: { fontFamily: FONT, fontSize: 14, letterSpacing: 2, color: '#ffb347' },
+  roomLine: { fontFamily: FONT, fontSize: 12, letterSpacing: 2, color: '#88cc44', textAlign: 'center', maxWidth: '80vw' },
   root: {
     position: 'absolute', inset: 0, zIndex: 60,
     background: 'rgba(0,0,0,0.82)',
