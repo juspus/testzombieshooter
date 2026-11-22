@@ -11,7 +11,7 @@ export default function InstallHint() {
   return (
     <div data-testid="install-hint" onClick={() => setShow(false)} style={S.box}>
       <div>
-        <div style={S.title}>FULLSCREEN MODE</div>
+        <div className="install-hint__title" style={S.title}>FULLSCREEN MODE</div>
         <div style={S.text}>Share → Add to Home Screen for fullscreen</div>
       </div>
       <button type="button" aria-label="Dismiss" style={S.x} onClick={(e) => { e.stopPropagation(); setShow(false) }}>×</button>

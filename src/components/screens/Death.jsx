@@ -126,7 +126,7 @@ export function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, 
       transition: 'background 0.1s',
     }}>
       <div style={{ margin: 'auto 0', padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-      <h1 style={{
+      <h1 className="death-title" style={{
         color: `rgba(180,0,0,${opacity})`,
         fontSize: 'clamp(38px, 11vmin, 120px)',
         fontWeight: 'bold',
@@ -228,7 +228,7 @@ export function YouDied({ onRestart, mpRole, wave, kills, money, weapon, perks, 
           <div style={{ ...deathNoteStyle, color: '#ff6644' }}>SAVE FAILED</div>
         )}
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 'clamp(4px, 1vmin, 8px)' }}>
+        <div className="death-actions" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 'clamp(4px, 1vmin, 8px)' }}>
           {duelMode ? null : mpRole === 'guest' ? (
             <Button size="lg" disabled style={deathBtnStyle}>Waiting…</Button>
           ) : canRetryWave ? (

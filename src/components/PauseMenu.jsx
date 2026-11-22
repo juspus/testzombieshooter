@@ -96,7 +96,7 @@ export default function PauseLayer() {
 }
 
 // Hold-to-skip for touch (same progress/logic as hold-T: Player.jsx reads lifecycleInput.skipHeld).
-export function SkipHoldButton({ progress }) {
+export function SkipHoldButton({ progress, compact = false }) {
   useEffect(() => () => { lifecycleInput.skipHeld = false }, [])
   const down = (e) => {
     e.preventDefault()
@@ -106,7 +106,7 @@ export function SkipHoldButton({ progress }) {
   const up = () => { lifecycleInput.skipHeld = false }
   return (
     <button
-      style={S.skip}
+      style={compact ? { ...S.skip, ...S.skipCompact } : S.skip}
       onPointerDown={down}
       onPointerUp={up}
       onPointerCancel={up}
@@ -114,7 +114,7 @@ export function SkipHoldButton({ progress }) {
       onContextMenu={(e) => e.preventDefault()}
     >
       <span style={{ ...S.skipFill, width: `${Math.round(progress * 100)}%` }} />
-      <span style={{ position: 'relative' }}>HOLD TO SKIP</span>
+      <span style={{ position: 'relative' }}>{compact ? 'SKIP' : 'HOLD TO SKIP'}</span>
     </button>
   )
 }
@@ -270,5 +270,7 @@ const S = {
     touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none',
     WebkitTapHighlightColor: 'transparent',
   },
+  // Phone intermission strip: a small hold target beside the countdown (still MIN_TAP tall).
+  skipCompact: { width: 'auto', minWidth: MIN_TAP + 16, marginTop: 0, padding: '0 10px', fontSize: 11, letterSpacing: 2, borderRadius: 4 },
   skipFill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: 'rgba(170,170,170,0.35)', transition: 'width 0.05s linear' },
 }
