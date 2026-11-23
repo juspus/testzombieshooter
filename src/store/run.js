@@ -191,6 +191,9 @@ export const createRunSlice = (set, get) => ({
       runSeed: pending ? pending.seed : null,
       dailyDate: daily ? daily.date : null,
       dailyRanked: daily ? daily.ranked : false,
+      runRetryUsed: false,
+      runContinued: false,
+      statsBase: null,
     })
     cancelLastKillFx()
     get().resetPowerups()
@@ -206,6 +209,86 @@ export const createRunSlice = (set, get) => ({
     }
 
     applyDebugOverrides(set, get)
+    set({ runId: get().runId + 1 })   // last: runSave.js checkpoints the finished setup (loadout, debug params)
+  },
+
+  // ── Continue a run (src/runSave.js) ──
+  runId: 0,              // bumped when a run is set up (startGame / resumeRun), after everything else
+  runRetryUsed: false,   // this run spent its one death retry
+  runContinued: false,   // retried or resumed mid-wave: the score stays off the boards
+  statsBase: null,       // { kills, runHeadshots, runKnifeKills } already folded into lifetime stats (after a retry)
+
+  // Rebuild a solo normal run from a wave-start checkpoint, back in that wave's intermission.
+  // kind: 'resume' (between waves, after a reload), 'continued' (left mid-wave), 'retry' (after a death).
+  resumeRun: (save, kind = 'resume') => {
+    const st = save.state
+    _pendingRun = null
+    set({ versus: createVersus() })
+    mailClock.t = 0
+    endSeededRun()
+    const retry = kind === 'retry'
+    const openDoors = st.openDoors ?? {}
+    const windowPlanks = st.windowPlanks ?? {}
+    buildGrid(allWallSegments(windowPlanks, openDoors))
+    const base = freshMachineState()
+    set({
+      ...st,
+      phase: 'intermission',
+      openDoors,
+      windowPlanks,
+      windowPlankStrong: st.windowPlankStrong ?? {},
+      brokenWindows: st.brokenWindows ?? {},
+      walls: playerCollisionWalls(openDoors),
+      nearDoorId: null,
+      doorProgress: 0,
+      ...base,
+      upgradedWeapons: st.upgradedWeapons ?? {},
+      benchBusy: st.benchBusy ?? null,
+      benchLeft: st.benchLeft ?? 0,
+      box: st.box ? { ...base.box, ...st.box } : base.box,
+      savedClips: { ...EMPTY_SAVED, ...st.savedClips },
+      savedReserves: { ...EMPTY_SAVED, ...st.savedReserves },
+      activeItem: 'gun',
+      knifeCooldown: 0,
+      shopOpen: false,
+      plankHits: {},
+      waveKills: 0,
+      intermissionLeft: intermissionForWave(st.wave),
+      zombies: [],
+      pendingSpawns: [],
+      mail: createMail(),
+      director: createDirector(),
+      isReloading: false,
+      waveElapsed: 0,
+      waveHeadshots: 0,
+      waveKnifeKills: 0,
+      runRecorded: false,
+      lastRunUnlocks: [],
+      lastRunProgress: null,
+      wavePlanksLost: 0,
+      waveStartPlanks: 0,
+      lastWaveBonuses: null,
+      paused: false,
+      hitEventId: 0,
+      lastKillPending: false,
+      coop: createCoop(),
+      runMode: 'normal',
+      duel: { rival: null, waveLog: [], final: null },
+      runSeed: null,
+      dailyDate: null,
+      dailyRanked: false,
+      runRetryUsed: retry || !!save.retryUsed,
+      runContinued: retry || kind === 'continued' || !!save.continued,
+      // A death already counted everything up to it: count only what comes after the checkpoint.
+      statsBase: retry ? { kills: st.kills, runHeadshots: st.runHeadshots, runKnifeKills: st.runKnifeKills } : (save.statsBase ?? null),
+    })
+    cancelLastKillFx()
+    get().resetPowerups()
+    set({ killsSinceDrop: st.killsSinceDrop ?? 0, lastDropType: st.lastDropType ?? null })
+    emitGameEvent('run_start')
+    // XP counters: a retry starts at zero (the death settled them), a resume picks them back up.
+    emitGameEvent('run_resume', { wave: st.wave, counters: retry ? {} : (save.counters ?? {}) })
+    set({ runId: get().runId + 1 })
   },
 
   // ── Daily seeded run ──

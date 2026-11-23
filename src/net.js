@@ -169,6 +169,9 @@ export function createRoom(onCode, onConnected, onDisconnected) {
     peer.on('open', () => {
       onCode(code)
       peer.on('connection', (conn) => {
+        // Two players only: while a partner is linked, a second caller (a public room is listed
+        // for anyone) is turned away instead of replacing the partner's link.
+        if (_conn?.open) { try { conn.on('open', () => conn.close()) } catch { /* ignore */ } return }
         _conn = conn
         _setupConn(onConnected, onDisconnected)
       })

@@ -392,6 +392,26 @@
   .menu-nav { gap: 0; }
   .menu-nav .ui-btn--lg { margin-bottom: 2px; }
   .menu-sep { margin: 2px 0; }
+
+  /* Landscape phones: nine 44px rows do not fit in 320-390px. One column for the menu (an open
+     panel replaces it, as on portrait), and the rows under PLAY in two columns, so the whole
+     menu fits without scrolling. */
+  .menu-screen {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'top' 'side';
+    padding-left: max(16px, env(safe-area-inset-left));
+  }
+  .menu-screen.has-panel { grid-template-areas: 'top' 'detail'; }
+  .menu-screen.has-panel .menu-side { display: none; }
+  .menu-detail { justify-self: stretch; width: 100%; }
+  .menu-side { margin-top: -50px; }   /* the title sits beside the profile chips, not under them */
+  .menu-title { font-size: 22px; letter-spacing: 0.25em; }
+  .menu-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 8px; max-width: 640px; }
+  .menu-nav > .ui-btn, .menu-nav > .menu-sep { grid-column: 1 / -1; }
+  .menu-sep { display: none; }
+  .menu-item { font-size: 12px; letter-spacing: 2px; padding: 0 10px 0 12px; }
+  .menu-item__meta { font-size: 11px; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+
 }
 
 /* ── iOS "Add to Home Screen" tip (InstallHint) ──────────────────────────── */
@@ -414,4 +434,18 @@
 
 @media (pointer: coarse) {
   .ui-range { height: 44px; margin: 0; touch-action: pan-y; }
+}
+
+/* Landscape phones: the iOS fullscreen tip sits in the bottom-right corner, under the empty
+   right cell of the last menu row (after the narrow-screen rule above, which it overrides). */
+@media (pointer: coarse) and (max-height: 480px) {
+  .menu-install { left: auto; right: max(8px, env(safe-area-inset-right)); bottom: max(4px, env(safe-area-inset-bottom)); width: auto; max-width: 46%; }
+  .install-hint__title { display: none; }
+}
+
+/* Landscape phones: the death screen's title and action row fit in one screen (4 buttons, one row). */
+@media (max-height: 480px) {
+  .death-title { font-size: 30px !important; }
+  .death-actions { gap: 6px !important; }
+  .death-actions .ui-btn--lg { min-width: 0 !important; padding: 0 14px; font-size: 13px; letter-spacing: 2px; }
 }

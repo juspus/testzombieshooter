@@ -10,6 +10,10 @@ No component carries properties (`Gun.fire = ...` is gone; `src/__tests__/regist
 
 `Player.jsx` and `Arena.jsx` are entries. `Player` calls `usePlayerState` (store -> shared refs), `usePlayerInput`, `usePlayerFiring`, `usePlayerInteraction`, `usePlayerMovement` (all in `src/player/`) and runs the single `useFrame`: clamp the delta, then `mobileButtons`, (shop / pause early return), `look`, `mobileFire`, `tickTimers`, `interaction.step`, `holdFire`, `aim`, `flame`, `move`. Firing keeps `weapon.fire(FIRE)`. Pause stops the flamethrower roar (an effect on `paused`). `Arena` composes `src/arena/lighting.jsx` (the lights, in order, then `LivingLights`: 11 lights with the fireplace pair, never changed at runtime), `WindowPlanks` (outside the bake) and the `<StaticBake>` wrapper with `shell.jsx` / `props.jsx` parts inside it. `perfGuards.test.js` reads the cabin as the entry plus `src/arena/`.
 
+## Continue a run (2026-11-22, `src/runSave.js`)
+
+Solo normal runs only (no Daily, versus, duel, Director, co-op). A checkpoint goes to localStorage (`cabin.runSave.v1`) at every intermission start, retaken when `startGame` / `resumeRun` bump `runId` at the end of their setup. The Start screen offers "Continue wave N" (free if the save was between waves; a save left mid-wave marks the run continued). Death offers "Retry wave N" once per run (`runRetryUsed`). A continued run (`runContinued`) pays XP and lifetime stats but never submits a score. After a retry `statsBase` holds what the death already counted, so `recordRunEnd` adds only the rest; the tracker's XP counters ride in the save (`run_resume` event). Restores into the intermission with no zombies, the box idle in its room.
+
 ## Wave / spawn system
 
 - Wave N spawns `5 + (N-1)*3` zombies, capped at 25 active at once
@@ -43,6 +47,15 @@ Two-player co-op over WebSocket (`net.js`). One player is **host**, one is **gue
 - Store fields: `mpRole`, `mpConnected`, `remotePlayer`, `roomCode`
 - Transport is PeerJS (WebRTC data channel) via `net.js`, not a WebSocket server.
 - Invite links: `/?join=CODE` (`src/invite.js`, `InviteShare.jsx`).
+- Join a run in progress (2026-11-22): a solo host opens the run from the pause menu (desktop: P)
+  with OPEN TO PUBLIC (`publicRoom.js`, lazy chunk). The room is listed in Supabase `open_runs`
+  (`openRuns.js`, migration `20261122000000_open_runs.sql`, RPCs only, 20 s heartbeat, 60 s stale)
+  and shown under Co-op > Open runs (`OpenRunsList.jsx`, lazy). A guest joining by list, code or
+  invite link sends its usual `map_hello`; the host answers `join_wait` (mid-wave, and unlists)
+  or `join_welcome` at the next countdown (`lateJoin.js`: wave, doors, planks, glass, box,
+  modifier, countdown; guest money = `joinMoney(wave)`), `join_refuse` on another map / run over.
+  Both sides set `mpConnected` only at the welcome, so the host stays solo until then. The host
+  turns away a second caller while a partner is linked (`net.js`).
 - Down, not out: `src/coopDown.js` (pure state machine) + `src/coopRuntime.js`.
   All player damage must go through `store.hitPlayer` (downed guard); weapon
   swaps through `switchWeapon`.

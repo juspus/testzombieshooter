@@ -10,7 +10,7 @@ export function onGameEvent(fn) {
   return () => subs.delete(fn)
 }
 
-/** evt.name: kill | plank | door_open | powerup | box_take | upgrade | run_start (+ derived ones in the tracker). */
+/** evt.name: kill | plank | door_open | powerup | box_take | upgrade | run_start | run_resume (+ derived ones in the tracker). */
 export function emitGameEvent(name, data) {
   const evt = data ? { ...data, name, remote } : { name, remote }
   for (const fn of subs) {

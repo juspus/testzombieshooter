@@ -52,13 +52,15 @@ export const createProfileSlice = (set, get) => ({
     const s = get()
     if (s.runRecorded) return
     const prev = s.stats
+    // After a death retry (runSave.js) the run was already counted up to its checkpoint.
+    const b = s.statsBase
     const base = {
       ...prev,
       bestWave: Math.max(prev.bestWave, s.wave),
-      totalKills: prev.totalKills + s.kills,
-      runs: prev.runs + 1,
-      totalHeadshots: prev.totalHeadshots + s.runHeadshots,
-      totalKnifeKills: prev.totalKnifeKills + s.runKnifeKills,
+      totalKills: prev.totalKills + Math.max(0, s.kills - (b?.kills ?? 0)),
+      runs: prev.runs + (b ? 0 : 1),
+      totalHeadshots: prev.totalHeadshots + Math.max(0, s.runHeadshots - (b?.runHeadshots ?? 0)),
+      totalKnifeKills: prev.totalKnifeKills + Math.max(0, s.runKnifeKills - (b?.runKnifeKills ?? 0)),
     }
     // Wave 4: XP / level / achievements / challenge state for this run (progressTracker.js)
     const { stats: next, summary } = settleRun(base, prev, s)

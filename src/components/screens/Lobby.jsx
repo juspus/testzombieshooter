@@ -1,10 +1,11 @@
 // Multiplayer lobby pieces: room code, version note and the host / join body (Co-op and Zombie Mail).
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { VERSION_MISMATCH_TEXT } from '../../netProtocol'
 import { isValidRoomCode } from '../../invite'
 import InviteShare from '../InviteShare'
 import { Button, SectionLabel } from '../ui'
 import { VERSUS_MODES } from '../../versus'
+import { usePublicRoom } from '../../lateJoin'
 
 // ── Multiplayer lobby ──────────────────────────────────────────────────────
 
@@ -62,9 +63,21 @@ function RoomCodeDisplay({ code }) {
 const ROOM_CODE_CHARS = /[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]/g
 const statusIsError = (s) => s.startsWith('Room not') || s.startsWith('Failed')
 
+// Open runs list: its own chunk (it is the only menu code that talks to the open_runs table).
+const OpenRunsList = lazy(() => import('./OpenRunsList'))
+
+// What a guest sees while linked to a host whose run is already going (lateJoin.js).
+function guestNote(connected, status, join) {
+  if (join.join === 'refused') return join.joinError
+  if (!connected) return status === '…' ? 'Connecting…' : 'Disconnected'
+  if (join.join === 'waiting') return `Run in progress. You join at wave ${join.joinWave}.`
+  return 'Connected — waiting for host to start'
+}
+
 // Host / join body shared by the Co-op panel and Versus > Zombie Mail (mode = what hosting starts).
 // The StartScreen owns the room state and passes it in (it was a closure there, `lobbyBody(mode)`).
 export function LobbyBody({ mode, coop, joinCode, setJoinCode, handleHost, handleJoin, status, roomCode, connected, mapMismatch, partnerMapId, versionMismatch, handleStartGame, lobbyMode, invite }) {
+  const join = usePublicRoom()
   return (
     <>
       {coop === 'idle' && (
@@ -87,6 +100,7 @@ export function LobbyBody({ mode, coop, joinCode, setJoinCode, handleHost, handl
             <Button onClick={handleJoin} disabled={!joinCode.trim()}>Join</Button>
           </div>
           {status && <div className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined }}>{status}</div>}
+          {mode === 'coop' && <Suspense fallback={null}><OpenRunsList handleJoin={handleJoin} /></Suspense>}
         </div>
       )}
 
@@ -107,7 +121,7 @@ export function LobbyBody({ mode, coop, joinCode, setJoinCode, handleHost, handl
 
       {coop === 'guest' && (
         <div className="ui-stack" style={{ alignItems: 'center' }}>
-          <div className="ui-note">{connected ? 'Connected — waiting for host to start' : status === '…' ? 'Connecting…' : 'Disconnected'}</div>
+          <div className="ui-note" data-testid="guest-status">{guestNote(connected, status, join)}</div>
           {connected && lobbyMode !== 'coop' && <div className="ui-note" data-testid="lobby-mode">Mode: {VERSUS_MODES[lobbyMode]?.label}</div>}
           {connected && versionMismatch && <VersionMismatchNote />}
         </div>
@@ -125,7 +139,7 @@ export function LobbyBody({ mode, coop, joinCode, setJoinCode, handleHost, handl
               )}
               {status && (
                 <div data-testid="invite-status" className="ui-note" style={{ color: statusIsError(status) ? '#ff6666' : undefined, textAlign: 'center' }}>
-                  {status === 'Connected' ? 'Connected — waiting for host to start' : status}
+                  {status === 'Connected' ? guestNote(true, status, join) : status}
                 </div>
               )}
               {connected && versionMismatch && <VersionMismatchNote />}

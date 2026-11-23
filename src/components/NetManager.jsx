@@ -15,6 +15,7 @@ import { withRemoteSource } from '../gameEvents'
 import { playRemoteGunshot, playRemoteFootstep, playRemoteKnifeSwing } from '../sounds'
 import { usePauseUi } from '../pause'
 import { isVersusMode } from '../versus'
+import { onJoinAnswer } from '../lateJoin'
 import { tickCoop, coopWaveEnd, coopDisconnected, handleCoopEvent } from '../coopRuntime'   // W5 down/revive
 
 // Map is chosen once (debug ?map= param) and fixed for the whole session.
@@ -248,6 +249,11 @@ function applyRemoteEvent(event, data) {
       break
     case 'start_game':
       store.startGame()
+      break
+    case 'join_wait':      // the host's run is mid-wave: we join at its next countdown (lateJoin.js)
+    case 'join_refuse':
+    case 'join_welcome':
+      onJoinAnswer(event, data)
       break
     case 'versus_mode':   // lobby: the host's mode pick (guest panel only displays it)
       store.setVersusLobbyMode(isVersusMode(data?.mode) ? data.mode : 'coop')
