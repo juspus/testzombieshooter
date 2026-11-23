@@ -42,5 +42,5 @@ export async function closeOpenRun(code, secret) {
   try {
     const supabase = await getSupabase()
     await supabase.rpc('open_run_close', { p_code: code, p_secret: secret })
-  } catch { /* the row goes stale in 60 s anyway */ }
+  } catch { /* the row goes stale in 60 s anyway */ }   // the server marks it stale, it never deletes
 }

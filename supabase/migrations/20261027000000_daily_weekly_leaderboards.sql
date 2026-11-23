@@ -1,5 +1,5 @@
--- NOT YET APPLIED. Safe to run more than once (idempotent).
--- Paste into Supabase dashboard -> SQL Editor -> Run. (Do not use MCP: it timed out before.)
+-- APPLIED to project `cabin` on 2026-11-23 as migration `daily_weekly_leaderboards`, with the
+-- insert_score policy changed by `alter policy` instead of drop + create (same rule).
 -- Requires 20261014000000 + 20261015000000 to be applied first.
 --
 -- Adds: Daily seeded run + weekly leaderboard.

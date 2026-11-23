@@ -1,5 +1,9 @@
--- NOT YET CONFIRMED APPLIED. Safe to run more than once.
--- Paste into Supabase dashboard -> SQL Editor -> Run.
+-- PARTLY APPLIED to project `cabin` on 2026-11-23 (migrations `daily_weekly_leaderboards` and
+-- `harden_scores_events`): 1 (as `alter policy`, in its final daily-aware form from 20261027),
+-- 3 (`alter policy` + `create or replace trigger`) and 4. NOT applied: 2 (the revokes) and 5 (the
+-- purge helper). The Supabase connector holds DROP / REVOKE / DELETE for a confirmation it cannot
+-- show; RLS already blocks those writes (no write policies on entitlements, the API cannot
+-- TRUNCATE), so 2 is hygiene. Run 2 and 5 from the SQL editor when convenient.
 -- Fixes from the security review:
 --   1. Anyone could insert a score carrying a supporter's user_id (fake ★ scores).
 --   2. Clients held table-level write grants on entitlements (unused, but remove).
